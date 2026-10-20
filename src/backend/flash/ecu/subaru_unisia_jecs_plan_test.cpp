@@ -41,6 +41,7 @@ TEST(SubaruUnisiaJecsPlan, MapsBothConfiguredProtocolMcuPairs)
              {"sub_ecu_unisia_jecs_m3775x", "M3775x"},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         const auto plan = BuildSubaruUnisiaJecsPlan(FlashOperation::kRead, protocol, mcu, std::nullopt);
         ASSERT_THAT(plan, IsOk());
         EXPECT_EQ(plan->Family(), FlashFamily::kSubaruUnisiaJecs);
@@ -65,6 +66,7 @@ TEST(SubaruUnisiaJecsPlan, RejectsWriteOperations)
 {
     for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         EXPECT_THAT(
             BuildSubaruUnisiaJecsPlan(operation, "sub_ecu_unisia_jecs_m3779x", "M3779x", bytes::Bytes(0x10000, 0)),
             IsErr(ErrorKind::kUnsupported));

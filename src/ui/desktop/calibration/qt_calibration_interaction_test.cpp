@@ -1,3 +1,4 @@
+#include <array>
 #include "src/ui/desktop/calibration/qt_calibration_interaction.h"
 
 #include <functional>
@@ -175,7 +176,13 @@ TEST_P(WriteWarningChoices, MapsOnlyCancelToDeclined)
 }
 
 INSTANTIATE_TEST_SUITE_P(Answers, WriteWarningChoices,
-                         ::testing::Values(QMessageBox::Ok, QMessageBox::Cancel, QMessageBox::Rejected));
+                         ::testing::Values(QMessageBox::Ok, QMessageBox::Cancel, QMessageBox::Rejected),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"Ok", "Cancel", "Rejected"};
+                                 return kNames[info.index];
+                             }));
 
 struct NoticeCase
 {
@@ -223,7 +230,16 @@ INSTANTIATE_TEST_SUITE_P(Notices, NoticeRendering,
                                            NoticeCase{CalibrationNotice::kNoCalibrationToSave, QMessageBox::Information,
                                                       "Calibration file", "No calibration to save!"},
                                            NoticeCase{CalibrationNotice::kNoSaveFilename, QMessageBox::Information,
-                                                      "Calibration file", "No file name selected"}));
+                                                      "Calibration file", "No file name selected"}),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{
+                                     "NoCalibrationToWriteWarningWriteROMNoFileSelected",
+                                     "NoCalibrationToSaveInformationCalibrationFileNoCalibrationToSave",
+                                     "NoSaveFilenameInformationCalibrationFileNoFileNameSelected"};
+                                 return kNames[info.index];
+                             }));
 
 TEST(QtCalibrationInteraction, SavePathRoundTrip)
 {

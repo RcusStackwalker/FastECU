@@ -115,9 +115,11 @@ TEST(SubaruDensoSh7058CanDieselPlan, BuildsBothExactGenerationsForEveryOperation
 {
     for (const DieselCase& diesel : kDiesel)
     {
+        SCOPED_TRACE(::testing::PrintToString(diesel));
         for (const FlashOperation operation :
              {FlashOperation::kRead, FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
+            SCOPED_TRACE(::testing::PrintToString(operation));
             const auto plan = BuildSubaruDensoSh7058CanDieselPlan(operation, diesel.protocol, diesel.mcu,
                                                                   ImageFor(diesel, operation), KernelFor(diesel));
             ASSERT_THAT(plan, fastecu::testing::IsOk()) << diesel.protocol;
@@ -150,6 +152,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, BuildsBothExactGenerationsForEveryOperation
                 ASSERT_EQ(plan->EraseRegions().size(), BlocksFor(diesel).size());
                 for (std::size_t index = 0; index < BlocksFor(diesel).size(); ++index)
                 {
+                    SCOPED_TRACE(::testing::PrintToString(index));
                     EXPECT_EQ(plan->EraseRegions()[index].start, BlocksFor(diesel)[index].start);
                     EXPECT_EQ(plan->EraseRegions()[index].length, BlocksFor(diesel)[index].length);
                 }
@@ -165,12 +168,14 @@ TEST(SubaruDensoSh7058CanDieselPlan, RejectsNearMissesAndWrongMcus)
          {"unknown_diesel_can", "sub_ecu_denso_sh7058_can_diesel_future", "sub_ecu_denso_sh7059_can_diesel_extra",
           "sub_ecu_denso_sh7058_can", "sub_ecu_denso_sh7058_densocan", "sub_tcu_denso_sh7058_can"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         const auto plan = BuildSubaruDensoSh7058CanDieselPlan(FlashOperation::kRead, protocol, "SH7058d", std::nullopt,
                                                               KernelFor(kDiesel.front()));
         ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << protocol;
     }
     for (const DieselCase& diesel : kDiesel)
     {
+        SCOPED_TRACE(::testing::PrintToString(diesel));
         const auto plan = BuildSubaruDensoSh7058CanDieselPlan(FlashOperation::kRead, diesel.protocol,
                                                               diesel.mcu == "SH7058d" ? "SH7059d" : "SH7058d",
                                                               std::nullopt, KernelFor(diesel));
@@ -182,16 +187,19 @@ TEST(SubaruDensoSh7058CanDieselPlan, EnforcesImageAndKernelBoundsPerGeneration)
 {
     for (const DieselCase& diesel : kDiesel)
     {
+        SCOPED_TRACE(::testing::PrintToString(diesel));
         const auto read_with_image = BuildSubaruDensoSh7058CanDieselPlan(
             FlashOperation::kRead, diesel.protocol, diesel.mcu, bytes::Bytes(diesel.rom_size, 0), KernelFor(diesel));
         EXPECT_THAT(read_with_image, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 
         for (const FlashOperation operation : {FlashOperation::kTestWrite, FlashOperation::kWrite})
         {
+            SCOPED_TRACE(::testing::PrintToString(operation));
             for (const std::optional<bytes::Bytes>& image :
                  {std::optional<bytes::Bytes>{}, std::optional<bytes::Bytes>{bytes::Bytes(diesel.rom_size - 1, 0)},
                   std::optional<bytes::Bytes>{bytes::Bytes(diesel.rom_size + 1, 0)}})
             {
+                SCOPED_TRACE(::testing::PrintToString(image));
                 const auto plan = BuildSubaruDensoSh7058CanDieselPlan(operation, diesel.protocol, diesel.mcu, image,
                                                                       KernelFor(diesel));
                 ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << diesel.protocol;
@@ -215,6 +223,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, EnforcesImageAndKernelBoundsPerGeneration)
                  KernelImage{.id = "empty", .load_address = diesel.kernel_address, .bytes = {}},
              })
         {
+            SCOPED_TRACE(::testing::PrintToString(invalid));
             const auto plan = BuildSubaruDensoSh7058CanDieselPlan(FlashOperation::kRead, diesel.protocol, diesel.mcu,
                                                                   std::nullopt, std::move(invalid));
             EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << diesel.protocol;
@@ -226,8 +235,10 @@ TEST(SubaruDensoSh7058CanDieselPlan, ValidatorRejectsWireGeometryTransportAndCon
 {
     for (const DieselCase& diesel : kDiesel)
     {
+        SCOPED_TRACE(::testing::PrintToString(diesel));
         for (int mutation = 0; mutation < 7; ++mutation)
         {
+            SCOPED_TRACE(::testing::PrintToString(mutation));
             auto fields = ValidFields(diesel);
             auto& wire = std::get<SubaruDensoSh7058CanDieselPlan>(fields.family_plan);
             switch (mutation)
@@ -269,8 +280,10 @@ TEST(SubaruDensoSh7058CanDieselPlan, RejectsAlteredAddressesAndLengthsInEveryEra
 {
     for (unsigned index = 0; index < 16; ++index)
     {
+        SCOPED_TRACE(::testing::PrintToString(index));
         for (bool alter_start : {false, true})
         {
+            SCOPED_TRACE(::testing::PrintToString(alter_start));
             auto fields = ValidFields(kDiesel.front());
             if (alter_start)
             {

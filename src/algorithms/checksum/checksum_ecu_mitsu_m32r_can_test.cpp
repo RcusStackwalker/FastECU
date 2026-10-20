@@ -248,6 +248,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, CorrectionRewritesOnlyTheFourBytesOfTheBalance
     ASSERT_EQ(result.rom_data.size(), rom.size());
     for (std::size_t offset = 0; offset < rom.size(); ++offset)
     {
+        SCOPED_TRACE(::testing::PrintToString(offset));
         const bool in_slot = offset >= kBalanceSlot && offset < kBalanceSlot + 4;
         if (!in_slot)
         {

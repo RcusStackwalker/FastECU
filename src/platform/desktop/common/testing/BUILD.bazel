@@ -22,7 +22,10 @@ cc_library(
     name = "event_helpers",
     testonly = True,
     hdrs = ["event_helpers.h"],
-    deps = ["//bazel/qt:core"],
+    deps = [
+        "//bazel/qt:core",
+        "@googletest//:gtest",
+    ],
 )
 
 cc_library(

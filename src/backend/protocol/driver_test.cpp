@@ -194,7 +194,7 @@ TEST(TestDriver, write_memory_rejects_overflow)
     const bytes::Bytes data(32, 0x5A);
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.WriteMemory(0xFFF0, data, cancellation);
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk())); // 0xFFF0 + 32 > 0x10000
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig)); // 0xFFF0 + 32 > 0x10000
     EXPECT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 

@@ -50,7 +50,13 @@ Checks: >
   fastecu-count-if-loop,
   fastecu-accumulate-loop,
   fastecu-transform-collect-loop,
-  fastecu-template-typename
+  fastecu-template-typename,
+  fastecu-result-access,
+  fastecu-plan-helper,
+  fastecu-single-use-result,
+  fastecu-uniform-bytes,
+  fastecu-assertion-loop-trace,
+  fastecu-parameterized-case-name
 
 WarningsAsErrors: '*'
 HeaderFilterRegex: '(^|[/\\])(src|apps|tests|scripts)[/\\].*\.(h|hpp)$'

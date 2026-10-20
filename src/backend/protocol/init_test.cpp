@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include <gtest/gtest.h>
 
 #include "src/backend/protocol/imut_dma_init.h"
@@ -9,6 +10,6 @@ TEST(TestInit, already_in_mode_just_sets_baud)
 {
     ScriptedKlineTransport t;
     AlreadyInMode init(125000);
-    ASSERT_TRUE(init.Wake(t));
+    ASSERT_THAT(init.Wake(t), fastecu::testing::IsOk());
     ASSERT_TRUE(t.ScriptConsumed()); // no writes expected
 }

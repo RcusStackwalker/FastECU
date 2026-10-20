@@ -106,6 +106,7 @@ TEST(DensoIso15765CanCommonTest, DecryptTableIsEncryptTableReversed)
     ASSERT_EQ(kDensoIso15765EncryptTable.size(), kDensoIso15765DecryptTable.size());
     for (std::size_t i = 0; i < kDensoIso15765EncryptTable.size(); ++i)
     {
+        SCOPED_TRACE(::testing::PrintToString(i));
         EXPECT_EQ(kDensoIso15765EncryptTable[i], kDensoIso15765DecryptTable[kDensoIso15765EncryptTable.size() - 1 - i]);
     }
 }
@@ -226,6 +227,7 @@ TEST(DensoIso15765CanCommonTest, JumpWaitChecksCurrentReplyBeforeEachSleep)
     for (const auto& reply : std::array<std::optional<bytes::Bytes>, 5>{
              std::nullopt, bytes::Bytes{}, bytes::Bytes{0x50}, bytes::Bytes{0x51, 0x62}, bytes::Bytes{0x50, 0x42}})
     {
+        SCOPED_TRACE(::testing::PrintToString(reply));
         CommonFixture late;
         late.transport.QueueRead(Response({0x50, 0x62, 0xAA}));
         EXPECT_THAT(DensoIso15765WaitForJumpAck(late.ctx, 0x62, reply, 10, 200ms), fastecu::testing::IsOk());
@@ -285,13 +287,13 @@ TEST(DensoIso15765CanCommonTest, JumpWaitPropagatesSleepAndReceiveErrors)
         CanExecutorContext ctx{f.cancellation, f.events, clock, f.client, f.channel};
         const auto slept = DensoIso15765WaitForJumpAck(ctx, 0x42, std::nullopt, 50, 200ms);
         ASSERT_THAT(slept, fastecu::testing::IsErr(kind));
-        EXPECT_EQ(slept.error().detail, "sleep failed");
+        EXPECT_THAT(slept, fastecu::testing::IsErrWith(kind, ::testing::Eq("sleep failed")));
         EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::IsEmpty());
 
         f.transport.QueueError(kind, "receive failed");
         const auto received = DensoIso15765WaitForJumpAck(f.ctx, 0x62, std::nullopt, 10, 200ms);
         ASSERT_THAT(received, fastecu::testing::IsErr(kind));
-        EXPECT_EQ(received.error().detail, "receive failed");
+        EXPECT_THAT(received, fastecu::testing::IsErrWith(kind, ::testing::Eq("receive failed")));
         EXPECT_TRUE(f.transport.ScriptConsumed());
         EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(100ms));
         EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(200ms));
@@ -547,7 +549,7 @@ TEST(DensoIso15765CanCommonTest, WriteChunkPropagatesNegativeTransportAndCancell
         ASSERT_THAT(result, fastecu::testing::IsErr(kind));
         if (response_case != 0)
         {
-            EXPECT_EQ(result.error().detail, "write exchange failed");
+            EXPECT_THAT(result, fastecu::testing::IsErrWith(kind, ::testing::Eq("write exchange failed")));
         }
         if (response_case == 2)
         {
@@ -613,7 +615,7 @@ TEST(DensoIso15765CanCommonTest, ReadPagePropagatesAbsentEmptyTransportAndCancel
         ASSERT_THAT(result, fastecu::testing::IsErr(kind));
         if (response_case >= 2)
         {
-            EXPECT_EQ(result.error().detail, "page exchange failed");
+            EXPECT_THAT(result, fastecu::testing::IsErrWith(kind, ::testing::Eq("page exchange failed")));
         }
         if (response_case == 3)
         {

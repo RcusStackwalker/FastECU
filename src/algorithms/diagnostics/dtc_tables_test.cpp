@@ -48,8 +48,10 @@ TEST(DiagnosticTables, DtcKeysCarryNoCategoryBits)
 {
     for (const auto *table : {&DtcPCodes(), &DtcBCodes(), &DtcCCodes(), &DtcUCodes()})
     {
+        SCOPED_TRACE(::testing::PrintToString(table));
         for (const auto& entry : *table)
         {
+            SCOPED_TRACE(::testing::PrintToString(entry));
             EXPECT_LT(entry.first, 0x4000) << "key 0x" << std::hex << entry.first << " has category bits set";
         }
     }

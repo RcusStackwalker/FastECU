@@ -24,8 +24,8 @@ void ExpectInvalidWithContext(const Result<UnresolvedDefinition>& result, std::s
                               std::string_view xml_context)
 {
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(source_context));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(xml_context));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr(source_context)));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr(xml_context)));
 }
 
 TEST(RomRaiderParserTest, IndexesMultipleDefinitionsAndRecordsParentReferences)
@@ -433,8 +433,10 @@ TEST(RomRaiderParserTest, UnselectedInvalidAddressDoesNotBlockRequestedDefinitio
 
     const auto index = ParseRomraiderIndex(xml, "selection.xml");
     ASSERT_THAT(index, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(index.error().detail, ::testing::HasSubstr("definition 'OTHER'"));
-    EXPECT_THAT(index.error().detail, ::testing::HasSubstr("internalidaddress"));
+    EXPECT_THAT(index,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("definition 'OTHER'")));
+    EXPECT_THAT(index,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("internalidaddress")));
 }
 
 TEST(RomRaiderParserTest, DuplicateRequestedIdentityIsReportedBeforeParsingItsAddress)
@@ -444,8 +446,10 @@ TEST(RomRaiderParserTest, DuplicateRequestedIdentityIsReportedBeforeParsingItsAd
                            "<rom><romid><xmlid>SELECTED</xmlid></romid></rom></roms>");
     const auto definition = ParseRomraiderDefinition(xml, "duplicate-id.xml", "SELECTED");
     ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition 'SELECTED'"));
-    EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("duplicate definition identity"));
+    EXPECT_THAT(definition,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("definition 'SELECTED'")));
+    EXPECT_THAT(definition, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                        ::testing::HasSubstr("duplicate definition identity")));
 }
 
 TEST(RomRaiderParserTest, UnknownIdentityIsReportedWithoutParsingOtherRecordAddresses)
@@ -454,8 +458,10 @@ TEST(RomRaiderParserTest, UnknownIdentityIsReportedWithoutParsingOtherRecordAddr
                            "<internalidaddress>invalid</internalidaddress></romid></rom></roms>");
     const auto definition = ParseRomraiderDefinition(xml, "unknown-id.xml", "MISSING");
     ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition 'MISSING'"));
-    EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition ID not found"));
+    EXPECT_THAT(definition,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("definition 'MISSING'")));
+    EXPECT_THAT(definition, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                        ::testing::HasSubstr("definition ID not found")));
 }
 
 TEST(RomRaiderParserTest, HeaderWhitespacePreservationDoesNotHideTableDescriptionOrStaticData)
@@ -485,7 +491,8 @@ TEST(RomRaiderParserTest, AnAxisAddressWiderThan32BitsIsAParseError)
     const auto parsed = ParseRomraiderDefinition(xml, "wide.xml", "WIDE");
 
     ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(parsed.error().detail, ::testing::HasSubstr("does not fit 32 bits"));
+    EXPECT_THAT(parsed,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("does not fit 32 bits")));
 }
 
 TEST(RomRaiderParserTest, EachIndexEntryRecordsItsOwnFlashMethod)

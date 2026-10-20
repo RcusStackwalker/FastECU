@@ -310,6 +310,7 @@ fastecu_portable_gtest(
         ":mappack_converter",
         ":romraider_parser",
         "//src/backend/ports",
+        "//src/backend/ports/testing:result_matchers",
         "@fuzztest//fuzztest",
         "@googletest//:gtest",
     ],

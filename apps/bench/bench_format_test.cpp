@@ -145,6 +145,7 @@ TEST(BenchFormat, EveryErrorKindGetsADistinctNonZeroExitCode)
     std::vector<int> codes;
     for (const ErrorKind kind : kKinds)
     {
+        SCOPED_TRACE(::testing::PrintToString(kind));
         const int code = ExitCodeFor(kind);
         EXPECT_NE(code, 0) << ToString(kind);
         codes.push_back(code);
@@ -157,6 +158,7 @@ TEST(BenchTypes, CommandTableMarksExactlyTheCommandsRequiringDestructiveAcknowle
 {
     for (const CommandSpec& spec : CommandTable())
     {
+        SCOPED_TRACE(::testing::PrintToString(spec.name));
         const bool expected = spec.id == CommandId::kSend || spec.id == CommandId::kSendRaw ||
                               spec.id == CommandId::kUnlock || spec.id == CommandId::kErase ||
                               spec.id == CommandId::kDownload || spec.id == CommandId::kUploadRoutine;

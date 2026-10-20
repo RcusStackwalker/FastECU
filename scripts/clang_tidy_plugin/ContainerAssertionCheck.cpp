@@ -1,6 +1,7 @@
 // Boolean container predicates as the direct operand of a GoogleTest assertion,
 // with the same operand rules as fastecu-result-assertion.
 #include "ContainerAssertionCheck.h"
+#include "TestAssertionSupport.h"
 
 #include "clang/ASTMatchers/ASTMatchers.h"
 
@@ -10,12 +11,13 @@ using namespace clang;
 using namespace clang::ast_matchers;
 
 ContainerAssertionCheck::ContainerAssertionCheck(llvm::StringRef name, clang::tidy::ClangTidyContext *context)
-    : ClangTidyCheck(name, context)
+    : ClangTidyCheck(name, context), uniform_bytes_enabled_(context->isCheckEnabled("fastecu-uniform-bytes"))
 {
 }
 
 void ContainerAssertionCheck::registerMatchers(MatchFinder *finder)
 {
+    finder->addMatcher(cxxForRangeStmt().bind("element_loop"), this);
     finder->addMatcher(
         cxxConstructExpr(
             hasType(recordType(hasDeclaration(cxxRecordDecl(hasName("::testing::AssertionResult"))))),
@@ -48,8 +50,15 @@ void ContainerAssertionCheck::registerMatchers(MatchFinder *finder)
 
 void ContainerAssertionCheck::check(const MatchFinder::MatchResult& result)
 {
+    if (const auto *loop = result.Nodes.getNodeAs<Stmt>("element_loop");
+        loop && IsElementAssertionLoop(*loop, *result.Context))
+        diag(loop->getBeginLoc(), "assert every element with a container matcher instead of an assertion loop");
     if (const auto *node = result.Nodes.getNodeAs<Stmt>("assertion"))
     {
+        if (uniform_bytes_enabled_)
+            if (const auto *expression = llvm::dyn_cast<Expr>(node);
+                expression && IsUniformBytePredicate(expression, *result.Context))
+                return;
         diag(node->getBeginLoc(),
              "assert container properties with Google Mock matchers instead of reducing the predicate to a boolean");
     }

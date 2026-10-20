@@ -355,10 +355,10 @@ TEST(ScriptedCanFlashTransport, ADivergentWriteNamesTheStepAndPrintsBothSides)
     ASSERT_THAT(status, IsErr(ErrorKind::kInternal));
     // The index is 1-based over the whole script, so it matches what a reader
     // counts down the file.
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("exchange #2"));
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("bench connect"));
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("27 61"));
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("27 62"));
+    EXPECT_THAT(status, fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::HasSubstr("exchange #2")));
+    EXPECT_THAT(status, fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::HasSubstr("bench connect")));
+    EXPECT_THAT(status, fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::HasSubstr("27 61")));
+    EXPECT_THAT(status, fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::HasSubstr("27 62")));
 }
 
 TEST(ScriptedCanFlashTransport, AWriteRunningPastTheScriptSaysSo)
@@ -419,10 +419,11 @@ TEST(ScriptedKlineFlashTransport, ADivergentWriteNamesTheStepAndPrintsBothSides)
     ASSERT_THAT(status, IsErr(ErrorKind::kInternal));
     // The index is 1-based over the whole script, so it matches what a reader
     // counts down the file.
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("scripted K-Line exchange #2"));
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("bench connect"));
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("27 61"));
-    EXPECT_THAT(status.error().detail, ::testing::HasSubstr("27 62"));
+    EXPECT_THAT(status,
+                fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::HasSubstr("scripted K-Line exchange #2")));
+    EXPECT_THAT(status, fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::HasSubstr("bench connect")));
+    EXPECT_THAT(status, fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::HasSubstr("27 61")));
+    EXPECT_THAT(status, fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::HasSubstr("27 62")));
 }
 
 TEST(ScriptedKlineFlashTransport, AWriteRunningPastTheScriptSaysSo)

@@ -1,3 +1,4 @@
+#include <array>
 #include "src/backend/ports/testing/result_matchers.h"
 #include <gtest/gtest.h>
 
@@ -531,7 +532,24 @@ INSTANTIATE_TEST_SUITE_P(
                       NumericCase{"storagetype=\"int16\"", "endian=\"little\"", {0xfe, 0xff}, -2},
                       NumericCase{"storagetype=\"float\"", "", {0x3f, 0xc0, 0, 0}, 1.5},
                       NumericCase{"storagetype=\"float\"", "", {0x3f, 0x80, 0, 1}, 1.00000011920928955078125},
-                      NumericCase{"storagetype=\"float\"", "endian=\"little\"", {0, 0, 0xc0, 0x3f}, 1.5}));
+                      NumericCase{"storagetype=\"float\"", "endian=\"little\"", {0, 0, 0xc0, 0x3f}, 1.5}),
+    (
+        [](const auto& info)
+        {
+            static constexpr std::array kNames{"DefaultTwoBytes",
+                                               "DefaultOneByte",
+                                               "Uint8LabelStillUsesFullPayload",
+                                               "Int8Negative",
+                                               "UppercaseStorageAndEndian",
+                                               "Int16Negative",
+                                               "Int32Negative",
+                                               "Uint16LittleEndian",
+                                               "Int16LittleEndian",
+                                               "FloatBigEndian",
+                                               "FloatMantissaLowBit",
+                                               "FloatLittleEndian"};
+            return kNames[info.index];
+        }));
 
 TEST(SsmLoggingProtocolTest, StopSucceeds)
 {
@@ -567,6 +585,7 @@ TEST(SsmLoggingProtocolTest, StartRejectsInvalidChecksumWrongTargetAndExtraData)
                                             {0x80, 0xf0, 0x10, 3, 0xe8, 0, 0, 0x6b}};
     for (const auto& reply : replies)
     {
+        SCOPED_TRACE(::testing::PrintToString(reply));
         auto transport = std::make_unique<ScriptedSsmTransport>();
         transport->ExpectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 5, 0xa8, 0, 0, 0, 7, 0x34});
         transport->QueueRead(reply);
@@ -957,12 +976,14 @@ TEST(SsmLoggingProtocolTest, DirectPollCapsEachReadToRemainingDeadline)
     EXPECT_EQ(result->samples[0].raw_value, "42");
 }
 
-INSTANTIATE_TEST_SUITE_P(DirectAndOpenPort, SsmFrameIntegrityTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(DirectAndOpenPort, SsmFrameIntegrityTest, ::testing::Bool(),
+                         ([](const auto& info) { return info.param ? "OpenPort" : "Direct"; }));
 
 TEST(SsmLoggingProtocolTest, RejectsNonfiniteFloatWithoutFabricatedZero)
 {
     for (const auto& payload : {bytes::Bytes{0x7f, 0x80, 0, 0}, bytes::Bytes{0x7f, 0xc0, 0, 0}})
     {
+        SCOPED_TRACE(::testing::PrintToString(payload));
         auto channel = Channel("float", 0x1000, 4);
         channel.storage = fastecu::logging::NumericStorage::kFloat;
         auto transport = std::make_unique<ScriptedSsmTransport>();

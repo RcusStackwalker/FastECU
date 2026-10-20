@@ -771,6 +771,547 @@ void Pairs(std::vector<int>& calls, const std::vector<int>& values) {
 }
 """)
 
+    def test_review_single_use_rejects_conditional_and_repeated_execution(self) -> None:
+        self.assert_diagnostics(
+            """#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Status Act();
+bool Enabled();
+TEST(SingleUse, Conditional) {
+    auto status = Act();
+    if (Enabled()) EXPECT_THAT(status, fastecu::testing::IsOk());
+}
+TEST(SingleUse, Repeated) {
+    auto status = Act();
+    for (int index = 0; index < 2; ++index)
+        EXPECT_THAT(status, fastecu::testing::IsOk());
+}
+""",
+            checks="fastecu-single-use-result",
+        )
+
+    def test_review_result_conditions_preserve_mutation_order(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+fastecu::Result<int> ReadValue();
+bool Mutate(fastecu::Result<int>&);
+TEST(ResultAccess, Conditions) {
+    auto first = ReadValue();
+    if (first.has_value() && Mutate(first))
+        EXPECT_EQ(*first, 1); // error: result-access
+    auto second = ReadValue();
+    if (second.has_value() || Mutate(second)) {}
+    else EXPECT_EQ(second.error().kind, fastecu::ErrorKind::kTimeout); // error: result-access
+    auto guarded = ReadValue();
+    if (Mutate(guarded) || !guarded.has_value()) return;
+    EXPECT_EQ(*guarded, 1);
+}
+""")
+
+    def test_review_result_continues_join_increment_and_do_condition(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+void Consume(int);
+bool Again(int);
+TEST(ResultAccess, ContinueIncrement) {
+    auto result = ReadValue();
+    for (int index = 0; index < 2; Consume(*result), ++index) { // error: result-access
+        if (index == 0) continue;
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+    }
+}
+TEST(ResultAccess, ContinueCondition) {
+    auto result = ReadValue();
+    int index = 0;
+    do {
+        if (index++ == 0) continue;
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+    } while (Again(*result)); // error: result-access
+}
+TEST(ResultAccess, ReadonlyContinue) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    for (int index = 0; index < 2; Consume(*result), ++index) {
+        if (index == 0) continue;
+    }
+}
+""")
+
+    def test_review_lambdas_get_independent_result_and_loop_analysis(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+TEST(ResultAccess, Lambdas) {
+    [] {
+        auto result = ReadValue();
+        EXPECT_EQ(*result, 1); // error: result-access
+    }();
+    [] {
+        auto result = ReadValue();
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+        EXPECT_EQ(*result, 1);
+    }();
+    [] {
+        for (int index = 0; index < 2; ++index) // error: assertion-loop-trace
+            EXPECT_EQ(index, index);
+    }();
+    auto captured = ReadValue();
+    ASSERT_THAT(captured, fastecu::testing::IsOk());
+    [&] { EXPECT_EQ(*captured, 1); }(); // error: result-access
+    [&] {
+        if (!captured.has_value()) return;
+        EXPECT_EQ(*captured, 1);
+    }();
+}
+""")
+
+    def test_review_nested_trace_alone_is_not_an_assertion(self) -> None:
+        self.assert_diagnostics("""#include <gtest/gtest.h>
+TEST(LoopTrace, TraceOnly) {
+    for (int outer = 0; outer < 2; ++outer)
+        for (int inner = 0; inner < 2; ++inner) {
+            SCOPED_TRACE(inner);
+        }
+}
+TEST(LoopTrace, NestedAssertion) {
+    for (int outer = 0; outer < 2; ++outer) // error: assertion-loop-trace
+        for (int inner = 0; inner < 2; ++inner) {
+            SCOPED_TRACE(inner);
+            EXPECT_EQ(inner, inner);
+        }
+}
+""")
+
+    def test_result_access_requires_state_specific_fatal_guards(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+using fastecu::testing::IsOk;
+using fastecu::testing::IsErr;
+fastecu::Result<int> ReadValue();
+TEST(ResultAccess, Guards) {
+    auto unsafe = ReadValue();
+    EXPECT_THAT(unsafe, IsOk());
+    EXPECT_EQ(*unsafe, 7); // error: result-access
+    auto good = ReadValue();
+    ASSERT_THAT(good, IsOk());
+    EXPECT_EQ(*good, 7);
+    auto error = ReadValue();
+    ASSERT_THAT(error, IsErr(fastecu::ErrorKind::kTimeout));
+    EXPECT_EQ(error.error().kind, fastecu::ErrorKind::kTimeout);
+    EXPECT_EQ(*error, 7); // error: result-access
+    auto guarded = ReadValue();
+    if (!guarded.has_value()) return;
+    EXPECT_EQ(*guarded, 7);
+    if (guarded.has_value()) EXPECT_EQ(*guarded, 7);
+    else EXPECT_EQ(guarded.error().kind, fastecu::ErrorKind::kTimeout);
+}
+""")
+
+    def test_result_access_does_not_invent_proofs_across_jumps(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+bool Coin();
+TEST(ResultAccess, Jump) {
+    auto result = ReadValue();
+    if (Coin()) goto access;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+access:
+    EXPECT_EQ(*result, 7); // error: result-access
+}
+TEST(ResultAccess, Exception) {
+    auto result = ReadValue();
+    try {
+        if (Coin()) throw 1;
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+    } catch (...) {}
+    EXPECT_EQ(*result, 7); // error: result-access
+}
+""")
+
+    def test_result_access_reestablishes_proof_after_switch(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+int Choice();
+TEST(ResultAccess, Switch) {
+    auto result = ReadValue();
+    switch (Choice()) {
+    case 0:
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+        break;
+    default: break;
+    }
+    EXPECT_EQ(*result, 7); // error: result-access
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(*result, 7);
+}
+""")
+
+    def test_result_access_invalidates_indirect_and_rvalue_escape(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include <utility>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+void Mutate(fastecu::Result<int>&);
+void MutateMoved(fastecu::Result<int>&&);
+TEST(ResultAccess, Escape) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    void (*mutate)(fastecu::Result<int>&) = &Mutate;
+    mutate(result);
+    EXPECT_EQ(*result, 7); // error: result-access
+    auto moved = ReadValue();
+    ASSERT_THAT(moved, fastecu::testing::IsOk());
+    MutateMoved(std::move(moved));
+    EXPECT_EQ(*moved, 7); // error: result-access
+}
+""")
+
+    def test_result_access_invalidates_mutation_and_merges_branches(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+using fastecu::testing::IsOk;
+fastecu::Result<int> ReadValue();
+void Mutate(fastecu::Result<int>&);
+void Observe(const fastecu::Result<int>&);
+bool Coin();
+TEST(ResultAccess, Mutation) {
+    auto changed = ReadValue();
+    ASSERT_THAT(changed, IsOk());
+    changed = fastecu::Fail(fastecu::ErrorKind::kTimeout, "timeout");
+    EXPECT_EQ(*changed, 7); // error: result-access
+    auto passed = ReadValue();
+    ASSERT_THAT(passed, IsOk());
+    Observe(passed);
+    EXPECT_EQ(*passed, 7);
+    Mutate(passed);
+    EXPECT_EQ(*passed, 7); // error: result-access
+    auto joined = ReadValue();
+    ASSERT_THAT(joined, IsOk());
+    if (Coin()) joined = ReadValue();
+    EXPECT_EQ(*joined, 7); // error: result-access
+    auto stable = ReadValue();
+    ASSERT_THAT(stable, IsOk());
+    for (int index = 0; index < 2; ++index) EXPECT_EQ(*stable, index);
+    for (int index = 0; index < 2; ++index) {
+        auto fresh = ReadValue();
+        ASSERT_THAT(fresh, IsOk());
+        EXPECT_EQ(*fresh, index);
+    }
+}
+""")
+
+    def test_result_assertion_inside_a_callback(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+TEST(ResultAssertions, Callback) {
+    auto verify = [] {
+        auto result = ReadValue();
+        ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kTimeout));
+        EXPECT_EQ(result.error().kind, fastecu::ErrorKind::kTimeout); // error: result-assertion
+    };
+    verify();
+}
+""")
+
+    def test_result_access_invalidates_reference_and_pointer_escape(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+void Mutate(fastecu::Result<int>&);
+void MutatePointer(fastecu::Result<int>*);
+TEST(ResultFlow, Aliases) {
+    auto result = ReadValue();
+    auto& alias = result;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(*alias, 1);
+    Mutate(alias);
+    EXPECT_EQ(*result, 1); // error: result-access
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    MutatePointer(&result);
+    EXPECT_EQ(*result, 1); // error: result-access
+}
+""")
+
+    def test_result_boolean_conversion_requires_matcher(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include <optional>
+fastecu::Result<int> ReadValue();
+TEST(ResultAssertions, Conversion) {
+    auto result = ReadValue();
+    ASSERT_TRUE(result); // error: result-assertion
+    EXPECT_FALSE(!result); // error: result-assertion
+    std::optional<int> optional{1};
+    ASSERT_TRUE(optional);
+}
+""")
+
+    def test_fixture_setup_proof_has_an_exact_audited_exception(self) -> None:
+        self.assert_diagnostics(
+            """#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+class SharedSetup : public ::testing::Test {
+protected:
+    void SetUp() override { ASSERT_THAT(result, fastecu::testing::IsOk()); }
+    const fastecu::Result<int> result = ReadValue();
+};
+TEST_F(SharedSetup, Allowed) { EXPECT_EQ(*result, 1); }
+TEST_F(SharedSetup, Other) { EXPECT_EQ(*result, 1); } // error: result-access
+""",
+            exceptions=[
+                {
+                    "check": "fastecu-result-access",
+                    "file": "fixture_test.cpp",
+                    "symbol": "SharedSetup.Allowed",
+                    "rationale": "Fatal SetUp proves the immutable Result before this body.",
+                }
+            ],
+        )
+
+    def test_result_access_accounts_for_unspecified_argument_order(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+int MutateAndCount(fastecu::Result<int>&);
+void Consume(int, int);
+TEST(ResultFlow, SiblingMutation) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    Consume(*result, MutateAndCount(result)); // error: result-access
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    const auto sum = *result + MutateAndCount(result); // error: result-access
+    EXPECT_EQ(sum, 1);
+}
+""")
+
+    def test_uniform_bytes_respect_range_projections(self) -> None:
+        self.assert_diagnostics(
+            """#include <gmock/gmock.h>
+#include <algorithm>
+#include "src/algorithms/protocol/bytes.h"
+TEST(Bytes, Projection) {
+    bytes::Bytes data{1, 3};
+    EXPECT_TRUE(
+        std::ranges::all_of(data, // error: uniform-bytes
+            [](bytes::Byte byte) { return byte == 1; }));
+    EXPECT_TRUE(std::ranges::all_of(data,
+        [](bytes::Byte byte) { return byte == 1; },
+        [](bytes::Byte byte) { return byte & 1; }));
+}
+""",
+            checks="fastecu-uniform-bytes",
+        )
+
+    def test_uniform_bytes_use_specialized_matcher(self) -> None:
+        self.assert_diagnostics(
+            """#include <gmock/gmock.h>
+#include <algorithm>
+#include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/testing/byte_matchers.h"
+TEST(Bytes, Uniform) {
+    bytes::Bytes data{0xff, 0xff};
+    EXPECT_THAT(data, ::testing::Each(::testing::Eq(0xff))); // error: uniform-bytes
+    EXPECT_EQ(data, bytes::Bytes(2, 0xff)); // error: uniform-bytes
+    EXPECT_TRUE(
+        std::all_of(data.begin(), data.end(), // error: uniform-bytes
+                    [](bytes::Byte byte) { return byte == 0xff; }));
+    EXPECT_THAT(data, test_bytes::BytesFilledWith(0xff));
+    EXPECT_EQ(data, (bytes::Bytes{0xff, 0x00}));
+    std::vector<int> numbers{1, 1};
+    EXPECT_THAT(numbers, ::testing::Each(::testing::Eq(1)));
+}
+""",
+            checks="fastecu-uniform-bytes,fastecu-container-assertion",
+        )
+
+    def test_element_assertion_loop_uses_one_container_diagnostic(self) -> None:
+        self.assert_diagnostics(
+            """#include <gtest/gtest.h>
+#include <vector>
+TEST(Containers, Elements) {
+    std::vector<int> values{1, 1};
+    for (int value : values) { // error: container-assertion
+        EXPECT_EQ(value, 1);
+    }
+    for (int& value : values) value = 2;
+}
+""",
+            checks="fastecu-container-assertion,fastecu-assertion-loop-trace",
+        )
+
+    def test_assertion_loops_require_iteration_local_trace(self) -> None:
+        self.assert_diagnostics("""#include <gtest/gtest.h>
+TEST(Loops, Trace) {
+    SCOPED_TRACE("outside");
+    for (int index = 0; index < 2; ++index) { // error: assertion-loop-trace
+        EXPECT_GE(index, 0);
+    }
+    for (int index = 0; index < 2; ++index) {
+        SCOPED_TRACE(index);
+        EXPECT_GE(index, 0);
+    }
+    for (int index = 0; index < 2; ++index) { // error: assertion-loop-trace
+        auto verify = [&] { EXPECT_GE(index, 0); };
+        verify();
+    }
+    for (int outer = 0; outer < 2; ++outer) {
+        SCOPED_TRACE(outer);
+        for (int inner = 0; inner < 2; ++inner) { // error: assertion-loop-trace
+            EXPECT_GE(inner, 0);
+        }
+    }
+    for (int index = 0; index < 2; ++index) {
+        auto uncalled = [&] { EXPECT_GE(index, 0); };
+        (void)uncalled;
+    }
+}
+""")
+
+    def test_result_access_respects_known_branches_and_do_while_order(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+TEST(ResultFlow, KnownBranch) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    if (result.has_value()) EXPECT_EQ(*result, 1);
+    EXPECT_EQ(*result, 1);
+    auto other = ReadValue();
+    do { EXPECT_EQ(*other, 1); } while (other.has_value()); // error: result-access
+}
+TEST(ResultFlow, NegativeConjunction) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOkAnd(::testing::Eq(1))));
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::kTimeout); // error: result-access
+}
+""")
+
+    def test_parameterized_cases_require_a_name_generator(self) -> None:
+        self.assert_diagnostics("""#include <gtest/gtest.h>
+class Cases : public ::testing::TestWithParam<int> {};
+TEST_P(Cases, Value) { EXPECT_GE(GetParam(), 0); }
+INSTANTIATE_TEST_SUITE_P(Unnamed, Cases, ::testing::Values(0, 1)); // error: parameterized-case-name
+INSTANTIATE_TEST_SUITE_P(Named, Cases, ::testing::Values(0, 1),
+                         ::testing::PrintToStringParamName());
+""")
+
+    def test_container_equality_algorithms_require_matchers(self) -> None:
+        self.assert_diagnostics("""#include <gtest/gtest.h>
+#include <algorithm>
+#include <vector>
+TEST(Containers, Equality) {
+    std::vector<int> actual{1, 2};
+    std::vector<int> expected{1, 2};
+    EXPECT_TRUE(
+        std::equal(actual.begin(), actual.end(), // error: container-assertion
+                   expected.begin(), expected.end()));
+    EXPECT_TRUE(std::ranges::equal(actual, expected)); // error: container-assertion
+    EXPECT_EQ(actual, expected);
+}
+""")
+
+    def test_plan_helpers_propagate_fallibility(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include <stdexcept>
+#include "src/backend/flash/flash_plan.h"
+#include "src/backend/ports/testing/result_matchers.h"
+using fastecu::Result;
+using fastecu::flash::FlashPlan;
+Result<FlashPlan> Build();
+FlashPlan HiddenFailure() { // error: plan-helper
+    auto result = Build();
+    EXPECT_THAT(result, fastecu::testing::IsOk());
+    return std::move(*result);
+}
+FlashPlan ThrowingFailure() { // error: plan-helper
+    auto result = Build();
+    if (!result.has_value()) throw std::runtime_error("failed");
+    return std::move(*result);
+}
+Result<FlashPlan> Propagate() { return Build(); }
+FlashPlan Forward(FlashPlan plan) { return plan; }
+""")
+
+    def test_single_use_result_only_when_safe(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include <memory>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Status Act();
+fastecu::Result<std::unique_ptr<int>> Own();
+void Observe();
+TEST(SingleUse, Safe) {
+    auto ordered = Act();
+    Observe();
+    ASSERT_THAT(ordered, fastecu::testing::IsOk());
+    auto owned = Own();
+    ASSERT_THAT(owned, fastecu::testing::IsOk());
+    auto reused = Act();
+    ASSERT_THAT(reused, fastecu::testing::IsOk());
+    EXPECT_THAT(reused, fastecu::testing::IsOk());
+    auto status = Act(); // error: single-use-result
+    ASSERT_THAT(status, fastecu::testing::IsOk());
+}
+""")
+
+    def test_result_assertion_exception_is_exact_and_reports_usage(self) -> None:
+        self.assert_diagnostics(
+            """#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+TEST(Exceptions, Allowed) {
+    EXPECT_THAT(ReadValue(), ::testing::Not(fastecu::testing::IsOk()));
+}
+TEST(Exceptions, Other) {
+    EXPECT_THAT(ReadValue(), ::testing::Not(fastecu::testing::IsOk())); // error: result-assertion
+}
+""",
+            exceptions=[
+                {
+                    "check": "fastecu-result-assertion",
+                    "file": "fixture_test.cpp",
+                    "symbol": "Exceptions.Allowed",
+                    "rationale": "Only the absence of a successful value matters here.",
+                }
+            ],
+        )
+
+    def test_result_assertions_cover_fields_messages_and_any_error(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+using fastecu::testing::IsOk;
+using fastecu::testing::IsErr;
+fastecu::Result<int> ReadValue();
+TEST(ResultAssertions, Diagnostics) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, IsErr(fastecu::ErrorKind::kTimeout));
+    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::kTimeout); // error: result-assertion
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("timeout")); // error: result-assertion
+    EXPECT_THAT(result, ::testing::Not(IsOk())); // error: result-assertion
+    ASSERT_THAT(result, IsOk()) << result.error().detail; // error: result-assertion
+}
+""")
+
 
 if __name__ == "__main__":
     unittest.main()

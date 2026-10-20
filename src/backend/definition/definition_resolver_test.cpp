@@ -112,7 +112,8 @@ void ExpectInvalidConfigLeavingInputUntouched(const UnresolvedDefinition& root,
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     for (const std::string_view part : detail_parts)
     {
-        EXPECT_THAT(result.error().detail, HasSubstr(std::string(part)));
+        SCOPED_TRACE(::testing::PrintToString(part));
+        EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr(std::string(part))));
     }
     EXPECT_EQ(root, original);
 }
@@ -274,10 +275,10 @@ TEST(DefinitionResolverTest, MissingParentIsContextualInvalidConfig)
     auto result = ResolveDefinition(root, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("MISSING"));
-    EXPECT_THAT(result.error().detail, HasSubstr("CHILD -> MISSING"));
-    EXPECT_THAT(result.error().detail, HasSubstr("RomRaider"));
-    EXPECT_THAT(result.error().detail, HasSubstr("CHILD.xml"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("MISSING")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("CHILD -> MISSING")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("RomRaider")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("CHILD.xml")));
     EXPECT_EQ(root, original);
 }
 
@@ -292,9 +293,9 @@ TEST(DefinitionResolverTest, RecursiveDefinitionFailureIncludesInheritanceChain)
     auto result = ResolveDefinition(root, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("ROOT -> BASE"));
-    EXPECT_THAT(result.error().detail, HasSubstr("BASE"));
-    EXPECT_THAT(result.error().detail, HasSubstr("source"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("ROOT -> BASE")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("BASE")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("source")));
     EXPECT_EQ(root, original);
 }
 
@@ -307,9 +308,9 @@ TEST(DefinitionResolverTest, ReportsSelfCycle)
     auto result = ResolveDefinition(root, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("A -> A"));
-    EXPECT_THAT(result.error().detail, HasSubstr("RomRaider"));
-    EXPECT_THAT(result.error().detail, HasSubstr("A.xml"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("A -> A")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("RomRaider")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("A.xml")));
     EXPECT_EQ(root, original);
 }
 
@@ -325,7 +326,7 @@ TEST(DefinitionResolverTest, ReportsCompleteCycle)
     auto result = ResolveDefinition(root, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("A -> B -> C -> A"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("A -> B -> C -> A")));
     EXPECT_EQ(root, original);
 }
 
@@ -345,7 +346,7 @@ TEST(DefinitionResolverTest, RejectsChainDeeperThanMaximumInsteadOfOverflowingTh
     auto result = ResolveDefinition(root, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("maximum depth"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("maximum depth")));
 }
 
 TEST(DefinitionResolverTest, RejectsCrossFormatParent)
@@ -359,8 +360,8 @@ TEST(DefinitionResolverTest, RejectsCrossFormatParent)
     auto result = ResolveDefinition(root, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("cross-format"));
-    EXPECT_THAT(result.error().detail, HasSubstr("CHILD -> BASE"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("cross-format")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("CHILD -> BASE")));
     EXPECT_EQ(root, original);
 }
 
@@ -632,12 +633,14 @@ TEST(DefinitionResolverTest, OmittedAxisSizeDoesNotFollowExplicitChildMapDimensi
           </table>
         </rom>
       </roms>)xml");
-    ExpectRomraiderChildResolution(xml,
-                                   [](const auto& result)
-                                   {
-                                       ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-                                       EXPECT_THAT(result.error().detail, HasSubstr("inconsistent dimension"));
-                                   });
+    ExpectRomraiderChildResolution(
+        xml,
+        [](const auto& result)
+        {
+            ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+            EXPECT_THAT(result,
+                        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("inconsistent dimension")));
+        });
 }
 
 TEST(DefinitionResolverTest, ImplicitInheritedAxisSizeFollowsExplicitChildMapDimension)
@@ -743,8 +746,8 @@ TEST(DefinitionResolverTest, RejectsConflictingDuplicateScalingDefinitions)
     auto result = ResolveDefinition(child, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("shared"));
-    EXPECT_THAT(result.error().detail, HasSubstr("conflicting"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("shared")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("conflicting")));
     EXPECT_EQ(child, original);
 }
 
@@ -867,14 +870,15 @@ TEST(DefinitionResolverTest, RejectsSelectionValuesThatAreNotWholeHexBytes)
 {
     for (const std::string value : {"070", "0Z07", " 7", "0x07", "-1"})
     {
+        SCOPED_TRACE(::testing::PrintToString(value));
         DefinitionSet definitions{};
         const auto root = SelectableRoot({{"off", "0000"}, {"bad", value}});
 
         auto result = ResolveDefinition(root, definitions.Loader());
 
         ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << value;
-        EXPECT_THAT(result.error().detail, HasSubstr("modes")) << value;
-        EXPECT_THAT(result.error().detail, HasSubstr("bad")) << value;
+        EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("modes"))) << value;
+        EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("bad"))) << value;
     }
 }
 
@@ -885,7 +889,7 @@ TEST(DefinitionResolverTest, RejectsAnEmptySelectionValue)
     auto result = ResolveDefinition(SelectableRoot({{"off", "0000"}, {"blank", ""}}), definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("incomplete selection"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("incomplete selection")));
 }
 
 TEST(DefinitionResolverTest, RejectsSelectionsOfDifferentWidths)
@@ -895,9 +899,9 @@ TEST(DefinitionResolverTest, RejectsSelectionsOfDifferentWidths)
     auto result = ResolveDefinition(SelectableRoot({{"off", "0000"}, {"wide", "AABBCC"}}), definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("modes"));
-    EXPECT_THAT(result.error().detail, HasSubstr("wide"));
-    EXPECT_THAT(result.error().detail, HasSubstr("width"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("modes")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("wide")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("width")));
 }
 
 TEST(DefinitionResolverTest, RejectsRepeatedSelectionNames)
@@ -907,7 +911,7 @@ TEST(DefinitionResolverTest, RejectsRepeatedSelectionNames)
     auto result = ResolveDefinition(SelectableRoot({{"mode", "01"}, {"mode", "02"}}), definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("duplicate selection"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("duplicate selection")));
 }
 
 TEST(DefinitionResolverTest, RejectsLoaderDefinitionWhoseIdentityDoesNotMatchReference)
@@ -919,8 +923,8 @@ TEST(DefinitionResolverTest, RejectsLoaderDefinitionWhoseIdentityDoesNotMatchRef
     auto result = ResolveDefinition(root, definitions.Loader());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("EXPECTED"));
-    EXPECT_THAT(result.error().detail, HasSubstr("OTHER"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("EXPECTED")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("OTHER")));
     EXPECT_EQ(root, original);
 }
 

@@ -71,6 +71,7 @@ TEST(FakeBackendTest, expectationFailuresProduceNonzeroExit)
     for (const QString& probe :
          {QStringLiteral("unmet"), QStringLiteral("forbidden"), QStringLiteral("wrong-argument")})
     {
+        SCOPED_TRACE(::testing::PrintToString(probe));
         QProcess child;
         auto environment = QProcessEnvironment::systemEnvironment();
         environment.insert("FASTECU_GMOCK_FAILURE_PROBE", probe);

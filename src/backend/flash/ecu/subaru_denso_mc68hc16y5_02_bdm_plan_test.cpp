@@ -100,6 +100,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, RejectsEveryOtherIdentity)
              {"sub_ecu_denso_mc68hc16y5_02_bdm_x", "MC68HC16Y5"},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         EXPECT_THAT(
             BuildSubaruDensoMc68hc16y502BdmPlan(FlashOperation::kRead, protocol, mcu, std::nullopt, std::nullopt),
             IsErr(ErrorKind::kInvalidConfig))
@@ -214,6 +215,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, ValidatorRejectsHandBuiltShapes)
 
     for (auto& test_case : cases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         auto plan = ValidateAndBuild(std::move(test_case.fields));
         ASSERT_THAT(plan, IsOk()) << test_case.name;
         EXPECT_THAT(ValidateSubaruDensoMc68hc16y502BdmPlan(*plan), IsErr(test_case.expected)) << test_case.name;
@@ -239,6 +241,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, ValidatorAcceptsTheBuilderShapes)
 {
     for (auto fields : {ReadFields(), WriteFields(0x20)})
     {
+        SCOPED_TRACE(::testing::PrintToString(fields));
         auto plan = ValidateAndBuild(std::move(fields));
         ASSERT_THAT(plan, IsOk());
         EXPECT_THAT(ValidateSubaruDensoMc68hc16y502BdmPlan(*plan), IsOk());

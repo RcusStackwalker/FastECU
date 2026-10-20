@@ -36,7 +36,7 @@ TEST(ScriptedUdsChannelTest, ReplaysSendErrorsAndCountsEveryAttempt)
 
     const auto failed = channel.Send(pdu, cancellation);
     ASSERT_THAT(failed, fastecu::testing::IsErr(ErrorKind::kDisconnected));
-    EXPECT_EQ(failed.error().detail, "send failed");
+    EXPECT_THAT(failed, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("send failed")));
     EXPECT_EQ(channel.SendsConsumed(), 1U);
     EXPECT_FALSE(channel.ScriptConsumed());
     EXPECT_THAT(channel.Send(pdu, cancellation), fastecu::testing::IsOk());

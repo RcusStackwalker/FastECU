@@ -1,3 +1,4 @@
+#include <array>
 #include "src/backend/calibration/session/map_operations.h"
 
 #include <cstddef>
@@ -280,7 +281,14 @@ TEST_P(CopyIgnoresEditOnlyMetadataTest, CopyIgnoresEditOnlyMetadata)
     EXPECT_FALSE(Session().Dirty());
 }
 
-INSTANTIATE_TEST_SUITE_P(EditMetadata, CopyIgnoresEditOnlyMetadataTest, ::testing::Values(0, 1, 2, 3));
+INSTANTIATE_TEST_SUITE_P(EditMetadata, CopyIgnoresEditOnlyMetadataTest, ::testing::Values(0, 1, 2, 3),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"InvalidToByte", "InvalidMinimum", "ReversedBounds",
+                                                                    "InvalidIncrement"};
+                                 return kNames[info.index];
+                             }));
 
 TEST_F(CopyNumericTest, ClosingAnotherSessionKeepsTheTargetIdStable)
 {

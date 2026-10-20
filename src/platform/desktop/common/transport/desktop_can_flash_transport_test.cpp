@@ -154,10 +154,9 @@ TEST(TestDesktopCanFlashTransport, configureSucceedsWhenEverySetterSucceeds)
     EXPECT_CALL(serial.Fake(), SetAddIso14230Header(false)).WillOnce(::testing::Return(true));
 
     DesktopCanFlashTransport transport(serial.Release());
-    const auto result = transport.Configure(
-        Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
-
-    EXPECT_THAT(result, IsOk());
+    EXPECT_THAT(transport.Configure(
+                    Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false}),
+                IsOk());
 }
 
 // A K-Line session on the same facade leaves ISO-14230 auto-headers on.
@@ -184,9 +183,7 @@ TEST(TestDesktopCanFlashTransport, openSucceedsWhenBackendReturnsANonEmptyPortNa
     EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(::testing::Return(QStringLiteral("COM3")));
 
     DesktopCanFlashTransport transport(serial.Release());
-    const auto result = transport.Open();
-
-    EXPECT_THAT(result, IsOk());
+    EXPECT_THAT(transport.Open(), IsOk());
 }
 
 // reset_connection() is the diesel startup seam. This calls the real
@@ -198,9 +195,7 @@ TEST(TestDesktopCanFlashTransport, resetConnectionSucceedsAndReachesTheAdapter)
     EXPECT_CALL(serial.Fake(), ResetConnection()).WillOnce(::testing::Return());
 
     DesktopCanFlashTransport transport(serial.Release());
-    const auto result = transport.ResetConnection();
-
-    EXPECT_THAT(result, IsOk());
+    EXPECT_THAT(transport.ResetConnection(), IsOk());
 }
 
 TEST(TestDesktopCanFlashTransport, restartIso15765ResetsConfiguresAndReopensInOrder)
@@ -222,10 +217,9 @@ TEST(TestDesktopCanFlashTransport, restartIso15765ResetsConfiguresAndReopensInOr
 
     DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
-    const auto result = transport.RestartIso15765(
-        {.bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false}, cancellation);
-
-    EXPECT_THAT(result, IsOk());
+    EXPECT_THAT(transport.RestartIso15765(
+                    {.bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false}, cancellation),
+                IsOk());
 }
 
 TEST(TestDesktopCanFlashTransport, restartIso15765CancellationBeforeResetTouchesNoBackendOperation)
@@ -360,9 +354,7 @@ TEST(TestDesktopCanFlashTransport, writeSucceedsWhenPortStaysOpenThroughout)
     DesktopCanFlashTransport transport(serial.Release());
     FakeCancellationToken cancellation;
     const bytes::Bytes data{0x01, 0x02, 0x03};
-    const auto result = transport.Write(bytes::ByteView(data), cancellation);
-
-    EXPECT_THAT(result, IsOk());
+    EXPECT_THAT(transport.Write(bytes::ByteView(data), cancellation), IsOk());
 }
 
 // write() must observe cancellation.cancelled() before ever issuing the

@@ -1,9 +1,12 @@
 #pragma once
 
+#include <gtest/gtest.h>
+
 #include <QCoreApplication>
 #include <QEvent>
 #include <QEventLoop>
 #include <chrono>
+#include <cstddef>
 #include <thread>
 #include <tuple>
 
@@ -18,8 +21,9 @@ inline void ProcessPendingEvents()
 template <typename Predicate> bool WaitUntil(Predicate predicate, std::chrono::milliseconds timeout)
 {
     const auto deadline = std::chrono::steady_clock::now() + timeout;
-    for (;;)
+    for (std::size_t attempt = 0;; ++attempt)
     {
+        SCOPED_TRACE(attempt);
         if (predicate())
         {
             return true;

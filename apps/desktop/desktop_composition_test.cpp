@@ -466,6 +466,7 @@ TEST_F(DesktopCompositionTest, constructingTwiceInOneProcessSucceeds)
     ASSERT_TRUE(root.isValid());
     for (int iteration = 0; iteration < 2; ++iteration)
     {
+        SCOPED_TRACE(::testing::PrintToString(iteration));
         DesktopComposition composition{root.path()};
         ASSERT_TRUE(composition.Started());
         ASSERT_EQ(QString::fromStdString(composition.Services().config.ProvisionedPaths().base_config_directory),

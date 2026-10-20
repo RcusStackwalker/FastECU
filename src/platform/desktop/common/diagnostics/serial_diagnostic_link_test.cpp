@@ -207,8 +207,8 @@ TEST(TestSerialDiagnosticLink, cancelledReadNeverReachesTheFacade)
 TEST(TestSerialDiagnosticLink, nullFacadeIsDisconnected)
 {
     SerialDiagnosticLink link(nullptr);
-    ASSERT_EQ(link.Open(KlineLinkConfig{}).error().kind, ErrorKind::kDisconnected);
-    ASSERT_EQ(link.Write(bytes::Bytes{0x01}).error().kind, ErrorKind::kDisconnected);
+    ASSERT_THAT(link.Open(KlineLinkConfig{}), fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    ASSERT_THAT(link.Write(bytes::Bytes{0x01}), fastecu::testing::IsErr(ErrorKind::kDisconnected));
     ASSERT_TRUE(!link.UsesJ2534());
 }
 

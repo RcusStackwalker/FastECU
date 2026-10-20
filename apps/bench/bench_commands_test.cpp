@@ -102,6 +102,7 @@ TEST(BenchCommands, ReadRejectsAddressesAndRangesOutsideTheTwentyFourBitWireFiel
          {std::vector<std::string>{"0x1000000", "1"}, std::vector<std::string>{"0xffffff", "2"},
           std::vector<std::string>{"0xfffffff0", "0x40"}})
     {
+        SCOPED_TRACE(::testing::PrintToString(args));
         Harness harness;
         const auto outcome = harness.Run(Step(CommandId::kRead, args));
 

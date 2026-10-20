@@ -235,10 +235,8 @@ TEST(TestDesktopKlineFlashTransport, configureSucceedsWhenEverySetterSucceeds)
     EXPECT_CALL(serial.Fake(), SetSerialPortBaudrate(QStringLiteral("10400"))).WillOnce(::testing::Return(true));
 
     DesktopKlineFlashTransport transport(serial.Release());
-    const auto result =
-        transport.Configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
-
-    EXPECT_THAT(result, IsOk());
+    EXPECT_THAT(transport.Configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0}),
+                IsOk());
 }
 
 // Success mirror of openFailureReturnsDisconnectedWithoutAnyWrite().
@@ -248,9 +246,7 @@ TEST(TestDesktopKlineFlashTransport, openSucceedsWhenBackendReturnsANonEmptyPort
     EXPECT_CALL(serial.Fake(), OpenSerialPort()).WillOnce(::testing::Return(QStringLiteral("COM3")));
 
     DesktopKlineFlashTransport transport(serial.Release());
-    const auto result = transport.Open();
-
-    EXPECT_THAT(result, IsOk());
+    EXPECT_THAT(transport.Open(), IsOk());
 }
 
 // setBaud() success path: port open, change_port_speed() returns the
@@ -263,9 +259,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudSucceedsWhenPortOpenAndDriverReturns
     EXPECT_CALL(serial.Fake(), ChangePortSpeed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialSuccess));
 
     DesktopKlineFlashTransport transport(serial.Release());
-    const auto result = transport.SetBaud(4800);
-
-    EXPECT_THAT(result, IsOk());
+    EXPECT_THAT(transport.SetBaud(4800), IsOk());
 }
 
 // setBaud() failure path: port stays open, but change_port_speed()

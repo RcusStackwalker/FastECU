@@ -159,6 +159,7 @@ fastecu_gtest(
         "//bazel/qt:core",
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol",
         "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/platform/desktop/common/serial:direct_serial_backend",

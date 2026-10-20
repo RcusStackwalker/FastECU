@@ -24,8 +24,8 @@ void ExpectInvalidWithContext(const Result<UnresolvedDefinition>& result, std::s
                               std::string_view xml_context)
 {
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(source_context));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(xml_context));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr(source_context)));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr(xml_context)));
 }
 
 TEST(EcuFlashParserTest, IndexesIdentityAndIncludeWithoutResolvingIt)
@@ -417,7 +417,8 @@ TEST(EcuFlashParserTest, AnInternalIdAddressWiderThan32BitsIsAParseError)
                                            "wide.xml");
 
     ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(parsed.error().detail, ::testing::HasSubstr("does not fit 32 bits"));
+    EXPECT_THAT(parsed,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("does not fit 32 bits")));
 }
 
 TEST(EcuFlashParserTest, TheLargest32BitAddressParses)

@@ -24,7 +24,8 @@ prefixes = [
   "src/ui/desktop/widgets",
   "src/platform/desktop/unix/j2534",
   "src/platform/desktop/common/serial/direct/unix",
-  # Not analyzed anywhere: a manual target that needs a system LLVM, built only
-  # for local runs. Its macOS link flag is the only platform-specific part.
+  # Manual extension sources have no application compilation-database entries.
+  # Their reachable first-party headers use the common header filter; native
+  # extension compilation and real-dependency fixtures provide their gate.
   "scripts/clang_tidy_plugin",
 ]

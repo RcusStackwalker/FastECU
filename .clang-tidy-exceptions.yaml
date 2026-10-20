@@ -1,2 +1,89 @@
 version: 1
-exceptions: []
+exceptions:
+- check: fastecu-result-assertion
+  file: src/backend/ports/testing/result_matchers_test.cpp
+  symbol: ResultMatchers.IsOkAcceptsAValueAndRejectsAnError
+  rationale: This tests the negation of IsOk itself, so replacing it with IsErr would stop exercising
+    the matcher contract.
+- check: fastecu-result-assertion
+  file: src/backend/ports/testing/result_matchers_test.cpp
+  symbol: ResultMatchers.IsOkAcceptsAStatus
+  rationale: This tests IsOk negation for void Results, independently of error classification.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.BootstrapAbortsWhenTheChecksumRequestDownloadIsRejected
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.BootstrapAbortsWhenTheChecksumTransferDataIsRejected
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.BootstrapReportsItsOwnReflashUnlockRejection
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.WriteAbortsWhenTheEraseRoutineRequestDownloadIsRejected
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.WriteAbortsWhenTheWriteRoutineTransferDataIsRejected
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.WriteFailsWhenTheTopRegionVerifyMismatches
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.WriteFailsWhenTheUserspaceCrcCheckIsRejected
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.WriteFailsWhenTheUserspaceVerifyMismatches
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.WritePropagatesACarrierReadFailureBeforeRedirectHelpers
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.WriteRefusesRedirectBootstrapWhenTheCarrierDoesNotMatchTheDesiredTopPayload
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.WriteRunsTheBootstrapWhenTheTopRegionDiffers
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.WriteStopsWhenTheEraseTriggerIsRejected
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.
+- check: fastecu-result-access
+  file: src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp
+  symbol: MitsuColtM32rCanWriteExecutor.WriteStopsWhenTheReflashUnlockIsRejected
+  rationale: GoogleTest skips this test body after a fatal SetUp failure. SetUp proves the const plan
+    succeeds; its state cannot be mutated afterward. This framework lifetime proof crosses the intraprocedural
+    analysis boundary.

@@ -80,7 +80,7 @@ TEST(SingleWindowPlan, UnknownProtocolIsRejectedWithTheDisplayName)
 {
     auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kRead, "not_a_protocol", "SH72531", std::nullopt, Wire());
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan.error().detail, HasSubstr("Test Single Window Family"));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("Test Single Window Family")));
 }
 
 TEST(SingleWindowPlan, UnknownMcuIsRejected)
@@ -88,7 +88,7 @@ TEST(SingleWindowPlan, UnknownMcuIsRejected)
     auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "NOT_AN_MCU",
                                       std::nullopt, Wire());
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan.error().detail, HasSubstr("Unknown MCU type"));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("Unknown MCU type")));
 }
 
 TEST(SingleWindowPlan, KnownButWrongMcuIsRejected)
@@ -96,7 +96,7 @@ TEST(SingleWindowPlan, KnownButWrongMcuIsRejected)
     auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "N83M_1_5MB",
                                       std::nullopt, Wire());
     ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan.error().detail, HasSubstr("expects MCU"));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("expects MCU")));
 }
 
 TEST(SingleWindowPlan, FailingGeometryPredicateIsReportedAgainstTheMcuName)
@@ -115,8 +115,9 @@ TEST(SingleWindowPlan, FailingGeometryPredicateIsReportedAgainstTheMcuName)
     };
     auto plan = BuildSingleWindowPlan(kBadGeometry, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
                                       std::nullopt, Wire());
-    ASSERT_THAT(plan, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(plan.error().detail, HasSubstr("SH72531 flash geometry is invalid"));
+    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig,
+                                                  HasSubstr("SH72531 flash geometry is invalid")));
 }
 
 TEST(SingleWindowPlan, TestWriteIsRejectedAsUnsupported)
@@ -137,9 +138,9 @@ TEST(SingleWindowPlan, WriteWithWrongImageSizeReportsUppercaseHexAndTheActualSiz
 {
     auto plan = BuildSingleWindowPlan(kSpec, FlashOperation::kWrite, "sub_ecu_denso_sh72531_can", "SH72531",
                                       bytes::Bytes(0x10, 0x00), Wire());
-    ASSERT_THAT(plan, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(plan.error().detail, HasSubstr("0x140000"));
-    EXPECT_THAT(plan.error().detail, HasSubstr("got 0x10 bytes"));
+    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, HasSubstr("0x140000")));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, HasSubstr("got 0x10 bytes")));
 }
 
 TEST(SingleWindowPlan, WrongWireParametersAreRejected)
@@ -147,8 +148,9 @@ TEST(SingleWindowPlan, WrongWireParametersAreRejected)
     auto plan =
         BuildSingleWindowPlan(kSpec, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531", std::nullopt,
                               SubaruDensoSh72531CanPlan{0x123, 0x7e8, 500000, false, 0x8000, 0x100});
-    ASSERT_THAT(plan, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(plan.error().detail, HasSubstr("wire parameters are invalid"));
+    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig,
+                                                  HasSubstr("wire parameters are invalid")));
 }
 
 TEST(SingleWindowPlan, ValidateAcceptsAPlanTheBuilderProduced)

@@ -708,6 +708,7 @@ void ExpectExactPhaseProgress(const RecordingEventSink& events, const std::vecto
     ASSERT_EQ(events.phase_progress_calls.size(), expected.size());
     for (std::size_t index = 0; index < expected.size(); ++index)
     {
+        SCOPED_TRACE(::testing::PrintToString(index));
         const RecordedPhaseProgress& actual = events.phase_progress_calls[index];
         const ExpectedPhaseProgress& want = expected[index];
         EXPECT_EQ(actual.phase_name, want.name) << index;
@@ -736,6 +737,7 @@ void ExpectExactReadPhaseProgress(const RecordingEventSink& events, int total_by
     expect(2, "Read", 2, 0, total_bytes);
     for (int page = 1; page < pages; ++page)
     {
+        SCOPED_TRACE(::testing::PrintToString(page));
         expect(static_cast<std::size_t>(page) + 2, "Read", 2, page * static_cast<int>(kReadPageSize), total_bytes);
     }
     expect(static_cast<std::size_t>(pages) + 2, "Read", 2, total_bytes - 1, total_bytes);
@@ -839,6 +841,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, TransportSetupUsesExactTcuIsoConfiguration
     SubaruTcuDensoSh705xCanExecutor executor;
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         auto plan = ReadPlan(test_case);
         ASSERT_THAT(plan, IsOk());
         auto setup = executor.TransportSetup(*plan);
@@ -856,6 +859,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, AlreadyRunningKernelReadsBothMcuGeometries
     FakeCancellationToken cancellation;
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         auto plan = ReadPlan(test_case);
         ASSERT_THAT(plan, IsOk());
         RecordingCanTransport transport;
@@ -970,6 +974,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdTrailingDrainPropagatesCancellatio
 {
     for (const ErrorKind error_kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
+        SCOPED_TRACE(::testing::PrintToString(error_kind));
         auto plan = WritePlan(kCases[1]);
         ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;
@@ -1337,7 +1342,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAnd
 
     ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
-    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "ECU ID: 4543553031"));
     EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "CAL ID: CAL"));
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
@@ -1436,7 +1441,8 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
         {LogLevel::kInfo, "Start reading ROM, please wait..."},
     };
     ASSERT_GE(events.logs.size(), expected_upload_prefix.size());
-    EXPECT_TRUE(std::equal(expected_upload_prefix.begin(), expected_upload_prefix.end(), events.logs.begin()));
+    EXPECT_THAT(std::span(events.logs).first(expected_upload_prefix.size()),
+                ::testing::ElementsAreArray(expected_upload_prefix));
     EXPECT_THAT(LogMessagesStartingWith(events, "Kernel ID "),
                 ElementsAre("Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ",
                             "Kernel ID response: ", "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ",
@@ -1755,11 +1761,13 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NonzeroLargeBlockUsesEveryWriteWindowAndEx
     expect_phase(1, "Kernel", 1, 1, 1);
     for (int done = 0; done <= 16; ++done)
     {
+        SCOPED_TRACE(::testing::PrintToString(done));
         expect_phase(static_cast<std::size_t>(done) + 2, "Compare", 2, done, 16);
     }
     expect_phase(19, "Write", 3, 0, 0x18000);
     for (int window = 1; window <= 191; ++window)
     {
+        SCOPED_TRACE(::testing::PrintToString(window));
         expect_phase(19 + static_cast<std::size_t>(window), "Write", 3, window * 0x200, 0x18000);
     }
     expect_phase(211, "Write", 3, 0x17FFF, 0x18000);
@@ -1776,6 +1784,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NonzeroLargeBlockUsesEveryWriteWindowAndEx
                                                    0xF0, 0x00, 0x10, 0x00, 0x95, 0x8B, 0xA1, 0x40}));
     for (std::size_t page = 0; page < 24; ++page)
     {
+        SCOPED_TRACE(::testing::PrintToString(page));
         EXPECT_EQ(transport.writes[30 + page * 9][8], 0x24) << page;
     }
 }
@@ -1814,8 +1823,10 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainIgnoresMalformedAndWrongIdFramesFo
         {bytes::Bytes{0x12, 0x34}, bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xDE, 0xAD}}};
     for (const bytes::Bytes& stale : stale_frames)
     {
+        SCOPED_TRACE(::testing::PrintToString(stale));
         for (const bool mismatch : {false, true})
         {
+            SCOPED_TRACE(::testing::PrintToString(mismatch));
             auto plan = WritePlan(kCases[1]);
             ASSERT_THAT(plan, IsOk());
             SubaruTcuDensoSh705xCanExecutor executor;
@@ -1894,6 +1905,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainPropagatesCancellationAndDisconnec
 {
     for (const ErrorKind error_kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
+        SCOPED_TRACE(::testing::PrintToString(error_kind));
         auto plan = WritePlan(kCases[1]);
         ASSERT_THAT(plan, IsOk());
         SubaruTcuDensoSh705xCanExecutor executor;

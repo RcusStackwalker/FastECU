@@ -65,7 +65,7 @@ TEST_F(CalibrationWorkspaceTest, AFailedOpenLeavesTheWorkspaceUnchanged)
     const auto a = workspace_.OpenFile("/cal/a.bin");
     ASSERT_THAT(a, IsOk());
 
-    EXPECT_THAT(workspace_.OpenFile("/cal/missing.bin"), ::testing::Not(IsOk()));
+    EXPECT_THAT(workspace_.OpenFile("/cal/missing.bin"), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(workspace_.AdoptReadImage(ReadImage{.filename = "x.bin"}), IsErr(ErrorKind::kInvalidConfig));
 
     EXPECT_THAT(workspace_.Ids(), ElementsAre(a->id));

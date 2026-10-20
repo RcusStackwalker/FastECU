@@ -42,7 +42,7 @@ TEST(BenchArgs, RejectsADestructiveStepWithoutItsFlag)
     const auto parsed = Parse({"erase"});
 
     ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_NE(parsed.error().detail.find("--destructive"), std::string::npos);
+    EXPECT_THAT(parsed, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("--destructive")));
 }
 
 TEST(BenchArgs, AcceptsADestructiveStepCarryingItsFlag)
@@ -69,7 +69,7 @@ TEST(BenchArgs, RejectsPortsChainedWithAnotherStep)
     const auto parsed = Parse({"ports", ":", "erase", "--destructive"});
 
     ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_NE(parsed.error().detail.find("ports"), std::string::npos);
+    EXPECT_THAT(parsed, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("ports")));
 }
 
 TEST(BenchArgs, RejectsDestructiveFlagOnANonDestructiveStep)
@@ -86,9 +86,11 @@ TEST(BenchArgs, RejectsArbitraryDiagnosticPdusWithoutDestructiveAcknowledgement)
 
     for (const auto& command_line : command_lines)
     {
+        SCOPED_TRACE(::testing::PrintToString(command_line));
         const auto parsed = Parse(command_line);
         ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-        EXPECT_NE(parsed.error().detail.find("--destructive"), std::string::npos);
+        EXPECT_THAT(parsed,
+                    fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("--destructive")));
     }
 }
 
@@ -101,6 +103,7 @@ TEST(BenchArgs, AcceptsArbitraryDiagnosticPdusWithDestructiveAcknowledgement)
 
     for (const auto& command_line : command_lines)
     {
+        SCOPED_TRACE(::testing::PrintToString(command_line));
         const auto parsed = Parse(command_line);
         ASSERT_THAT(parsed, fastecu::testing::IsOk());
         ASSERT_EQ(parsed->steps.size(), 1U);
@@ -119,9 +122,11 @@ TEST(BenchArgs, RejectsKnownDestructivePdusThroughDiagnosticCommands)
 
     for (const auto& command_line : command_lines)
     {
+        SCOPED_TRACE(::testing::PrintToString(command_line));
         const auto parsed = Parse(command_line);
         ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-        EXPECT_NE(parsed.error().detail.find("named destructive command"), std::string::npos);
+        EXPECT_THAT(parsed, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                        ::testing::HasSubstr("named destructive command")));
     }
 }
 
@@ -143,8 +148,8 @@ TEST(BenchArgs, RejectsUnknownCommands)
 
 TEST(BenchArgs, RejectsWrongArgumentCounts)
 {
-    EXPECT_THAT(Parse({"read", "0x200"}), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(Parse({"read", "0x200", "1", "extra"}), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(Parse({"read", "0x200"}), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(Parse({"read", "0x200", "1", "extra"}), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(Parse({"send", "31", "e1", "--destructive"}), fastecu::testing::IsOk());
 }
 
@@ -161,12 +166,13 @@ TEST(BenchArgs, ParsesGlobalOptionsAnywhereInTheCommandLine)
 
 TEST(BenchArgs, RejectsAnEmptyCommandLine)
 {
-    EXPECT_THAT(Parse({}), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(Parse({}), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, RejectsAnEmptyStepBetweenSeparators)
 {
-    EXPECT_THAT(Parse({"erase", "--destructive", ":", ":", "connect"}), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(Parse({"erase", "--destructive", ":", ":", "connect"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, RejectsGlobalOptionsMissingTheirValue)
@@ -206,10 +212,10 @@ TEST(BenchArgs, ParsesU32InHexAndDecimal)
     EXPECT_EQ(ParseU32("0x8056a8").value(), 0x8056a8U);
     EXPECT_EQ(ParseU32("0X10").value(), 0x10U);
     EXPECT_EQ(ParseU32("192").value(), 192U);
-    EXPECT_THAT(ParseU32(""), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(ParseU32("0xzz"), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(ParseU32("12nonsense"), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(ParseU32("0x1ffffffff"), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ParseU32(""), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ParseU32("0xzz"), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ParseU32("12nonsense"), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ParseU32("0x1ffffffff"), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, ParsesHexByteTokens)
@@ -223,8 +229,8 @@ TEST(BenchArgs, RejectsMalformedHexByteTokens)
     const std::vector<std::string> too_wide{"1ff"};
     const std::vector<std::string> not_hex{"zz"};
 
-    EXPECT_THAT(ParseHexBytes(too_wide), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(ParseHexBytes(not_hex), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ParseHexBytes(too_wide), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ParseHexBytes(not_hex), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchArgs, VendorExtDefaultsToOff)

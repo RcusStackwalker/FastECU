@@ -119,6 +119,7 @@ TEST(SubaruTcuHitachiM32rCanPlan, ValidatorRejectsWireRegionAndImageDrift)
 {
     for (int mutation = 0; mutation < 5; ++mutation)
     {
+        SCOPED_TRACE(::testing::PrintToString(mutation));
         auto fields = ValidFields();
         auto& wire = std::get<SubaruTcuHitachiM32rCanPlan>(fields.family_plan);
         switch (mutation)

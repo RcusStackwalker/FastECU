@@ -20,7 +20,7 @@ TEST(FakeClock, OptionalAutoAdvancePreservesSsmTimingModel)
     EXPECT_EQ(second - first, 10ms);
     EXPECT_EQ(clock.Elapsed(), 20ms);
     // set_sleep_advance overrides the requested duration, so 999ms advances by 10ms.
-    ASSERT_TRUE(clock.Sleep(999ms, active));
+    ASSERT_THAT(clock.Sleep(999ms, active), fastecu::testing::IsOk());
     EXPECT_EQ(clock.Elapsed(), 30ms);
 }
 
@@ -32,7 +32,7 @@ TEST(FakeClock, MakeAutoAdvancingClockConfiguresBothTimingModels)
     const auto first = clock.Now();
     const auto second = clock.Now();
     EXPECT_EQ(second - first, 10ms);
-    ASSERT_TRUE(clock.Sleep(999ms, active));
+    ASSERT_THAT(clock.Sleep(999ms, active), fastecu::testing::IsOk());
     EXPECT_EQ(clock.Elapsed(), 30ms);
 }
 
@@ -57,6 +57,6 @@ TEST(Clock, NegativeSleepDoesNotRewindTheClock)
 {
     FakeClock c;
     fastecu::FakeCancellationToken t;
-    ASSERT_TRUE(c.Sleep(-5ms, t));
+    ASSERT_THAT(c.Sleep(-5ms, t), fastecu::testing::IsOk());
     EXPECT_EQ(c.Elapsed(), 0ms);
 }

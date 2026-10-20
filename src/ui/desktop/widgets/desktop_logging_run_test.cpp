@@ -1,3 +1,4 @@
+#include <array>
 #include "src/ui/desktop/widgets/desktop_logging_run.h"
 
 #include <QDir>
@@ -26,8 +27,8 @@ using fastecu::testing::IsOk;
 using fastecu::testing::SignalRecorder;
 using fastecu::testing::WaitUntil;
 
-DesktopLoggingRunStart makeRequest(const QString& directory, LoggingTarget target = LoggingTarget::kTcu,
-                                   const std::string& protocol = "SSM", const std::string& name = "rpm")
+Result<DesktopLoggingRunStart> makeRequest(const QString& directory, LoggingTarget target = LoggingTarget::kTcu,
+                                           const std::string& protocol = "SSM", const std::string& name = "rpm")
 {
     LoggerModel model;
     LoggerDefinition definition{.parameters = {{.protocol = protocol,
@@ -64,8 +65,11 @@ DesktopLoggingRunStart makeRequest(const QString& directory, LoggingTarget targe
                                     .reconnect_attempt_threshold = 100001,
                                     .reconnect_retry_period = 0},
                                    target);
-    EXPECT_THAT(snapshot, IsOk());
-    return {{QString::fromStdString(protocol)}, *snapshot, directory, "run"};
+    if (!snapshot.has_value())
+    {
+        return std::unexpected(snapshot.error());
+    }
+    return DesktopLoggingRunStart{{QString::fromStdString(protocol)}, std::move(*snapshot), directory, "run"};
 }
 QByteArray readFile(const QString& path)
 {
@@ -98,9 +102,13 @@ class DesktopLoggingRunTest : public ::testing::Test
 
 TEST_F(DesktopLoggingRunTest, capturedSnapshotAndFreshCacheBelongToTheRun)
 {
-    auto request = makeRequest(directory_.path());
+    auto builtRequest1 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest1, fastecu::testing::IsOk());
+    auto request = std::move(*builtRequest1);
     ASSERT_THAT(run_.start(request), IsOk());
-    request = makeRequest(directory_.path(), LoggingTarget::kEcu);
+    auto builtRequest2 = makeRequest(directory_.path(), LoggingTarget::kEcu);
+    ASSERT_THAT(builtRequest2, fastecu::testing::IsOk());
+    request = std::move(*builtRequest2);
     const auto view = run_.view();
     ASSERT_TRUE(view.active_snapshot.has_value());
     EXPECT_EQ(view.active_snapshot->Target(), LoggingTarget::kTcu);
@@ -111,7 +119,9 @@ TEST_F(DesktopLoggingRunTest, capturedSnapshotAndFreshCacheBelongToTheRun)
 TEST_F(DesktopLoggingRunTest, unavailableSampleClearsOnlyItsCachedValueAndHealthyPeerContinues)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest3 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest3, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest3)), IsOk());
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = std::nullopt},
                                 {.channel_id = "parameter:coolant", .numeric_value = 90}});
@@ -122,7 +132,9 @@ TEST_F(DesktopLoggingRunTest, unavailableSampleClearsOnlyItsCachedValueAndHealth
 }
 TEST_F(DesktopLoggingRunTest, presentationObserversSeeTheCompleteBatch)
 {
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest4 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest4, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest4)), IsOk());
     bool notified = false;
     QObject::connect(&run_, &DesktopLoggingRun::presentationChanged, &run_,
                      [&]
@@ -150,16 +162,22 @@ TEST_F(DesktopLoggingRunTest, failedAcquisitionReportsBufferedCsvFailureAfterRol
                          EXPECT_FALSE(run_.view().csv_open);
                          EXPECT_FALSE(run_.view().acquisition_running);
                      });
-    EXPECT_THAT(run_.start(makeRequest(missing)), IsErr(ErrorKind::kInvalidConfig));
+    auto builtRequest5 = makeRequest(missing);
+    ASSERT_THAT(builtRequest5, fastecu::testing::IsOk());
+    EXPECT_THAT(run_.start(std::move(*builtRequest5)), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(errors.Count(), 1U);
 }
 
 TEST_F(DesktopLoggingRunTest, secondStartPreservesTheActiveRun)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest6 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest6, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest6)), IsOk());
     const auto before = run_.view();
-    EXPECT_THAT(run_.start(makeRequest(directory_.path(), LoggingTarget::kEcu)), IsErr(ErrorKind::kInvalidConfig));
+    auto builtRequest7 = makeRequest(directory_.path(), LoggingTarget::kEcu);
+    ASSERT_THAT(builtRequest7, fastecu::testing::IsOk());
+    EXPECT_THAT(run_.start(std::move(*builtRequest7)), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(run_.view().active_snapshot->Target(), before.active_snapshot->Target());
     EXPECT_EQ(run_.view().csv_path, before.csv_path);
     EXPECT_TRUE(run_.view().acquisition_running);
@@ -167,7 +185,9 @@ TEST_F(DesktopLoggingRunTest, secondStartPreservesTheActiveRun)
 TEST_F(DesktopLoggingRunTest, sampleErrorSubscriberStopsBeforeHealthyPeer)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest8 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest8, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest8)), IsOk());
     const auto path = run_.view().csv_path;
     SignalRecorder errors{&run_, &DesktopLoggingRun::sampleError};
     QObject::connect(&run_, &DesktopLoggingRun::sampleError, &run_, [&](const QString&) { run_.stop(); });
@@ -181,7 +201,9 @@ TEST_F(DesktopLoggingRunTest, sampleErrorSubscriberStopsBeforeHealthyPeer)
 TEST_F(DesktopLoggingRunTest, replacementDuringSampleErrorDiscardsOldBatch)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest9 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest9, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest9)), IsOk());
     const auto oldPath = run_.view().csv_path;
     bool replaced = false;
     QObject::connect(&run_, &DesktopLoggingRun::sampleError, &run_,
@@ -194,7 +216,9 @@ TEST_F(DesktopLoggingRunTest, replacementDuringSampleErrorDiscardsOldBatch)
                          replaced = true;
                          run_.stop();
                          EXPECT_FALSE(run_.view().csv_open);
-                         ASSERT_THAT(run_.start(makeRequest(directory_.path(), LoggingTarget::kEcu)), IsOk());
+                         auto builtRequest10 = makeRequest(directory_.path(), LoggingTarget::kEcu);
+                         ASSERT_THAT(builtRequest10, fastecu::testing::IsOk());
+                         ASSERT_THAT(run_.start(std::move(*builtRequest10)), IsOk());
                      });
     emit engine_.valuesUpdated(
         {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 99}});
@@ -217,7 +241,9 @@ TEST_F(DesktopLoggingRunTest, replacementDuringSampleErrorDiscardsOldBatch)
 TEST_F(DesktopLoggingRunTest, replacementDuringPresentationDiscardsOldCsvRow)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest11 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest11, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest11)), IsOk());
     const auto oldPath = run_.view().csv_path;
     bool replaced = false;
     QObject::connect(&run_, &DesktopLoggingRun::presentationChanged, &run_,
@@ -232,7 +258,9 @@ TEST_F(DesktopLoggingRunTest, replacementDuringPresentationDiscardsOldCsvRow)
                          run_.stop();
                          EXPECT_FALSE(run_.view().csv_open);
                          // Identical selections must still identify a distinct run.
-                         ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+                         auto builtRequest12 = makeRequest(directory_.path());
+                         ASSERT_THAT(builtRequest12, fastecu::testing::IsOk());
+                         ASSERT_THAT(run_.start(std::move(*builtRequest12)), IsOk());
                      });
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 99}});
     EXPECT_TRUE(replaced);
@@ -253,7 +281,9 @@ TEST_F(DesktopLoggingRunTest, replacementDuringPresentationDiscardsOldCsvRow)
 TEST_F(DesktopLoggingRunTest, shutdownDuringSampleErrorDiscardsOldBatch)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest13 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest13, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest13)), IsOk());
     const auto path = run_.view().csv_path;
     SignalRecorder presentations{&run_, &DesktopLoggingRun::presentationChanged};
     SignalRecorder errors{&run_, &DesktopLoggingRun::sampleError};
@@ -272,7 +302,9 @@ TEST_F(DesktopLoggingRunTest, shutdownDuringSampleErrorDiscardsOldBatch)
 TEST_F(DesktopLoggingRunTest, failedReplacementDoesNotResumeOldBatch)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest14 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest14, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest14)), IsOk());
     const auto oldPath = run_.view().csv_path;
     SignalRecorder presentations{&run_, &DesktopLoggingRun::presentationChanged};
     bool attempted = false;
@@ -287,7 +319,9 @@ TEST_F(DesktopLoggingRunTest, failedReplacementDoesNotResumeOldBatch)
                          run_.stop();
                          engine_.RegisterProtocol("SSM", [](const auto&) -> Result<std::unique_ptr<LoggingProtocol>>
                                                   { return Fail(ErrorKind::kInvalidConfig, "factory failure"); });
-                         EXPECT_THAT(run_.start(makeRequest(directory_.path())), IsErr(ErrorKind::kInvalidConfig));
+                         auto builtRequest15 = makeRequest(directory_.path());
+                         ASSERT_THAT(builtRequest15, fastecu::testing::IsOk());
+                         EXPECT_THAT(run_.start(std::move(*builtRequest15)), IsErr(ErrorKind::kInvalidConfig));
                      });
     emit engine_.valuesUpdated(
         {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 99}});
@@ -304,7 +338,9 @@ TEST_F(DesktopLoggingRunTest, failedReplacementDoesNotResumeOldBatch)
 TEST_F(DesktopLoggingRunTest, sampleErrorKeepsHealthyPeerWhenRunIsUnchanged)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest16 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest16, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest16)), IsOk());
     SignalRecorder errors{&run_, &DesktopLoggingRun::sampleError};
     emit engine_.valuesUpdated(
         {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 43}});
@@ -317,7 +353,9 @@ TEST_F(DesktopLoggingRunTest, sampleErrorKeepsHealthyPeerWhenRunIsUnchanged)
 TEST_F(DesktopLoggingRunTest, stopDuringPresentationDiscardsPendingCsvRow)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest17 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest17, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest17)), IsOk());
     const auto path = run_.view().csv_path;
     bool stopped = false;
     QObject::connect(&run_, &DesktopLoggingRun::presentationChanged, &run_,
@@ -335,11 +373,15 @@ TEST_F(DesktopLoggingRunTest, stopDuringPresentationDiscardsPendingCsvRow)
 }
 TEST_F(DesktopLoggingRunTest, copiedViewSurvivesStopAndRestart)
 {
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest18 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest18, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest18)), IsOk());
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
     const auto saved = run_.view();
     run_.stop();
-    ASSERT_THAT(run_.start(makeRequest(directory_.path(), LoggingTarget::kEcu)), IsOk());
+    auto builtRequest19 = makeRequest(directory_.path(), LoggingTarget::kEcu);
+    ASSERT_THAT(builtRequest19, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest19)), IsOk());
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 43}});
     EXPECT_EQ(saved.active_snapshot->Target(), LoggingTarget::kTcu);
     EXPECT_EQ(saved.values.ParameterValue("SSM", "rpm"), "42");
@@ -348,7 +390,9 @@ TEST_F(DesktopLoggingRunTest, copiedViewSurvivesStopAndRestart)
 TEST_F(DesktopLoggingRunTest, completionReleasesOutputBeforeAnImmediateRestart)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest20 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest20, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest20)), IsOk());
     bool restarted = false;
     const auto subscription =
         QObject::connect(&run_, &DesktopLoggingRun::sessionEnded, &run_,
@@ -362,7 +406,9 @@ TEST_F(DesktopLoggingRunTest, completionReleasesOutputBeforeAnImmediateRestart)
                              EXPECT_FALSE(run_.view().active_snapshot.has_value());
                              EXPECT_FALSE(run_.view().csv_open);
                              EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
-                             ASSERT_THAT(run_.start(makeRequest(directory_.path(), LoggingTarget::kEcu)), IsOk());
+                             auto builtRequest21 = makeRequest(directory_.path(), LoggingTarget::kEcu);
+                             ASSERT_THAT(builtRequest21, fastecu::testing::IsOk());
+                             ASSERT_THAT(run_.start(std::move(*builtRequest21)), IsOk());
                          });
     run_.stop();
     QObject::disconnect(subscription);
@@ -374,7 +420,9 @@ TEST_F(DesktopLoggingRunTest, completionReleasesOutputBeforeAnImmediateRestart)
 TEST_F(DesktopLoggingRunTest, shutdownClosesOutputAndUsesTheNonModalOutcomePath)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest22 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest22, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest22)), IsOk());
     SignalRecorder errors{&run_, &DesktopLoggingRun::csvError};
     SignalRecorder completions{&run_, &DesktopLoggingRun::sessionEnded};
     run_.shutdown();
@@ -385,12 +433,16 @@ TEST_F(DesktopLoggingRunTest, shutdownClosesOutputAndUsesTheNonModalOutcomePath)
     EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
     EXPECT_EQ(errors.Count(), 0U);
     EXPECT_EQ(completions.Count(), 0U);
-    EXPECT_THAT(run_.start(makeRequest(directory_.path())), IsErr(ErrorKind::kInvalidConfig));
+    auto builtRequest23 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest23, fastecu::testing::IsOk());
+    EXPECT_THAT(run_.start(std::move(*builtRequest23)), IsErr(ErrorKind::kInvalidConfig));
 }
 TEST_F(DesktopLoggingRunTest, disablingCsvClosesOnlyOutputAndReenableUsesCapturedSchema)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest24 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest24, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest24)), IsOk());
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
     const auto first = run_.view().csv_path;
     const auto firstRow = readFile(first).split('\n').at(1).split(',').at(0).toDouble();
@@ -413,13 +465,17 @@ TEST_F(DesktopLoggingRunTest, eachNewRunCreatesAnExclusiveFileAndResetsElapsedTi
     ASSERT_EQ(sentinel.write("preserve"), 8);
     sentinel.close();
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest25 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest25, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest25)), IsOk());
     QThread::msleep(500);
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
     const auto first = run_.view().csv_path;
     const auto bytes = readFile(first);
     run_.stop();
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest26 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest26, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest26)), IsOk());
     emit engine_.valuesUpdated({});
     const auto second = run_.view().csv_path;
     EXPECT_TRUE(run_.view().csv_enabled);
@@ -460,7 +516,9 @@ TEST_P(DesktopLoggingRunFailure, csvOpenAndWriteFailuresLeaveAcquisitionActiveAn
                          EXPECT_TRUE(run.view().acquisition_running);
                          EXPECT_FALSE(run.view().csv_open);
                      });
-    ASSERT_THAT(run.start(makeRequest(destination)), IsOk());
+    auto builtRequest27 = makeRequest(destination);
+    ASSERT_THAT(builtRequest27, fastecu::testing::IsOk());
+    ASSERT_THAT(run.start(std::move(*builtRequest27)), IsOk());
     injected->fail_writes = GetParam() != FailurePoint::kOpen;
     emit engine.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
     emit engine.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 43}});
@@ -490,13 +548,17 @@ TEST_P(DesktopLoggingRunFailure, newRunRetriesCsvAfterALatchedFailure)
     const auto destination = GetParam() == FailurePoint::kOpen ? directory.path() + "/absent" : directory.path();
     run.setCsvEnabled(true, destination, "run");
     SignalRecorder errors{&run, &DesktopLoggingRun::csvError};
-    ASSERT_THAT(run.start(makeRequest(destination)), IsOk());
+    auto builtRequest28 = makeRequest(destination);
+    ASSERT_THAT(builtRequest28, fastecu::testing::IsOk());
+    ASSERT_THAT(run.start(std::move(*builtRequest28)), IsOk());
     injected->fail_writes = GetParam() != FailurePoint::kOpen;
     emit engine.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
     const auto first = run.view().csv_path;
     run.stop();
     injected->fail_writes = false;
-    ASSERT_THAT(run.start(makeRequest(directory.path())), IsOk());
+    auto builtRequest29 = makeRequest(directory.path());
+    ASSERT_THAT(builtRequest29, fastecu::testing::IsOk());
+    ASSERT_THAT(run.start(std::move(*builtRequest29)), IsOk());
     EXPECT_TRUE(run.view().csv_enabled);
     EXPECT_TRUE(run.view().csv_open);
     EXPECT_NE(first, run.view().csv_path);
@@ -504,7 +566,13 @@ TEST_P(DesktopLoggingRunFailure, newRunRetriesCsvAfterALatchedFailure)
     EXPECT_EQ(errors.Count(), 1U);
 }
 INSTANTIATE_TEST_SUITE_P(Failures, DesktopLoggingRunFailure,
-                         ::testing::Values(FailurePoint::kOpen, FailurePoint::kHeaderWrite, FailurePoint::kRowWrite));
+                         ::testing::Values(FailurePoint::kOpen, FailurePoint::kHeaderWrite, FailurePoint::kRowWrite),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"Open", "HeaderWrite", "RowWrite"};
+                                 return kNames[info.index];
+                             }));
 
 TEST_F(DesktopLoggingRunTest, csvErrorSubscriberStopsAfterFailureStateCommits)
 {
@@ -512,7 +580,9 @@ TEST_F(DesktopLoggingRunTest, csvErrorSubscriberStopsAfterFailureStateCommits)
     auto *injected = storage.get();
     DesktopLoggingRun run{engine_, LoggingCsvFile{std::move(storage)}};
     run.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest30 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest30, fastecu::testing::IsOk());
+    ASSERT_THAT(run.start(std::move(*builtRequest30)), IsOk());
     SignalRecorder errors{&run, &DesktopLoggingRun::csvError};
     QObject::connect(&run, &DesktopLoggingRun::csvError, &run,
                      [&](const QString&)
@@ -567,7 +637,9 @@ TEST_P(DesktopLoggingRunStartFailure, failedStartRollsBackInitializedStateAndCsv
                      { initialized = run.view().active_snapshot.has_value() && run.view().csv_open; });
     const auto expected = failure == StartFailure::kThrow || failure == StartFailure::kNull ? ErrorKind::kInternal
                                                                                             : ErrorKind::kInvalidConfig;
-    EXPECT_THAT(run.start(makeRequest(directory.path())), IsErr(expected));
+    auto builtRequest31 = makeRequest(directory.path());
+    ASSERT_THAT(builtRequest31, fastecu::testing::IsOk());
+    EXPECT_THAT(run.start(std::move(*builtRequest31)), IsErr(expected));
     EXPECT_TRUE(initialized);
     EXPECT_FALSE(run.view().active_snapshot.has_value());
     EXPECT_FALSE(run.view().csv_open);
@@ -577,7 +649,13 @@ TEST_P(DesktopLoggingRunStartFailure, failedStartRollsBackInitializedStateAndCsv
 }
 INSTANTIATE_TEST_SUITE_P(Failures, DesktopLoggingRunStartFailure,
                          ::testing::Values(StartFailure::kMissingRegistration, StartFailure::kFactory,
-                                           StartFailure::kThrow, StartFailure::kNull));
+                                           StartFailure::kThrow, StartFailure::kNull),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"MissingRegistration", "Factory", "Throw", "Null"};
+                                 return kNames[info.index];
+                             }));
 
 enum class EndCase
 {
@@ -624,7 +702,9 @@ TEST_P(DesktopLoggingRunCompletion, engineCompletionReasonsReleaseRunAndCsv)
                          EXPECT_FALSE(run.view().csv_open);
                          EXPECT_FALSE(run.view().acquisition_running);
                      });
-    ASSERT_THAT(run.start(makeRequest(directory.path())), IsOk());
+    auto builtRequest32 = makeRequest(directory.path());
+    ASSERT_THAT(builtRequest32, fastecu::testing::IsOk());
+    ASSERT_THAT(run.start(std::move(*builtRequest32)), IsOk());
     const auto path = run.view().csv_path;
     if (end == EndCase::kCancel)
     {
@@ -640,8 +720,13 @@ TEST_P(DesktopLoggingRunCompletion, engineCompletionReasonsReleaseRunAndCsv)
     EXPECT_TRUE(QFile::exists(path));
 }
 INSTANTIATE_TEST_SUITE_P(Reasons, DesktopLoggingRunCompletion,
-                         ::testing::Values(EndCase::kHandshake, EndCase::kCancel, EndCase::kAdapter,
-                                           EndCase::kRuntime));
+                         ::testing::Values(EndCase::kHandshake, EndCase::kCancel, EndCase::kAdapter, EndCase::kRuntime),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"Handshake", "Cancel", "Adapter", "Runtime"};
+                                 return kNames[info.index];
+                             }));
 
 TEST_F(DesktopLoggingRunTest, workerFirstSampleIsRetained)
 {
@@ -655,17 +740,23 @@ TEST_F(DesktopLoggingRunTest, workerFirstSampleIsRetained)
             return source;
         });
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path())), IsOk());
+    auto builtRequest33 = makeRequest(directory_.path());
+    ASSERT_THAT(builtRequest33, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest33)), IsOk());
     ASSERT_TRUE(WaitUntil([&] { return run_.view().values.ParameterValue("SSM", "rpm") == "42"; }, 2000ms));
     EXPECT_TRUE(readFile(run_.view().csv_path).contains(",42,\n"));
 }
 TEST_F(DesktopLoggingRunTest, csvUsesCapturedProtocolIdentityAcrossRepeatedPositions)
 {
     registerBlocked(engine_, "CDBG");
-    auto request = makeRequest(directory_.path(), LoggingTarget::kEcu, "CDBG", "Correct CDBG");
+    auto builtRequest34 = makeRequest(directory_.path(), LoggingTarget::kEcu, "CDBG", "Correct CDBG");
+    ASSERT_THAT(builtRequest34, fastecu::testing::IsOk());
+    auto request = std::move(*builtRequest34);
     run_.setCsvEnabled(true, directory_.path(), "run");
     ASSERT_THAT(run_.start(request), IsOk());
-    request = makeRequest(directory_.path(), LoggingTarget::kTcu, "SSM", "Wrong SSM");
+    auto builtRequest35 = makeRequest(directory_.path(), LoggingTarget::kTcu, "SSM", "Wrong SSM");
+    ASSERT_THAT(builtRequest35, fastecu::testing::IsOk());
+    request = std::move(*builtRequest35);
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 22}});
     const auto text = readFile(run_.view().csv_path);
     EXPECT_TRUE(text.startsWith("Time,Correct CDBG,coolant\n"));
@@ -676,8 +767,9 @@ TEST_F(DesktopLoggingRunTest, csvUsesCapturedProtocolIdentityAcrossRepeatedPosit
 TEST_F(DesktopLoggingRunTest, csvEscapesNamesAndValues)
 {
     run_.setCsvEnabled(true, directory_.path(), "run");
-    ASSERT_THAT(run_.start(makeRequest(directory_.path(), LoggingTarget::kEcu, "SSM", "RPM, \"speed\"\nvalue")),
-                IsOk());
+    auto builtRequest36 = makeRequest(directory_.path(), LoggingTarget::kEcu, "SSM", "RPM, \"speed\"\nvalue");
+    ASSERT_THAT(builtRequest36, fastecu::testing::IsOk());
+    ASSERT_THAT(run_.start(std::move(*builtRequest36)), IsOk());
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
     const auto text = readFile(run_.view().csv_path);
     EXPECT_TRUE(text.startsWith("Time,\"RPM, \"\"speed\"\"\nvalue\",coolant\n"));

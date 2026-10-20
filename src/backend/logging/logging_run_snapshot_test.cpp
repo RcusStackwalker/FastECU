@@ -1,3 +1,4 @@
+#include <array>
 #include "src/backend/logging/logging_run_snapshot.h"
 
 #include <chrono>
@@ -174,6 +175,7 @@ TEST(LoggingRunSnapshot, RejectsUnresolvedSelectionWithActionableIdentity)
     const auto values = Model({}, {"missing"});
     for (const auto protocol : {LoggingProtocolId::kSsm, LoggingProtocolId::kMutDma, LoggingProtocolId::kCdbg})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         EXPECT_THAT(PrepareLoggingRun(values, protocol, "SSM", Policy(), LoggingTarget::kEcu),
                     IsErrWith(ErrorKind::kInvalidConfig, AllOf(HasSubstr("missing"), HasSubstr("unresolved"))));
     }
@@ -193,7 +195,13 @@ TEST_P(LoggingRunSnapshotInvalidEnum, RejectsUnknownProtocolAndTarget)
                 IsErr(ErrorKind::kInvalidConfig));
 }
 
-INSTANTIATE_TEST_SUITE_P(UnknownInputs, LoggingRunSnapshotInvalidEnum, ::testing::Values(999));
+INSTANTIATE_TEST_SUITE_P(UnknownInputs, LoggingRunSnapshotInvalidEnum, ::testing::Values(999),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"UnknownEnumValue"};
+                                 return kNames[info.index];
+                             }));
 
 TEST(LoggingRunSnapshot, RejectsInvalidRunInputs)
 {

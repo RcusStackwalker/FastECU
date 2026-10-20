@@ -240,6 +240,7 @@ TEST(FatalQueryTest, ChecksumAcceptsImmediatePositiveAndPendingFinalWithSeparate
 {
     for (const bool pending : {false, true})
     {
+        SCOPED_TRACE(::testing::PrintToString(pending));
         Fixture f;
         f.channel.ExpectSend(bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x01});
         if (pending)

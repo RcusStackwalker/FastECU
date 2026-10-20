@@ -1,3 +1,4 @@
+#include <array>
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/calibration/calibration_service.h"
 #include "src/backend/calibration/definition_bytes.h"
@@ -36,7 +37,7 @@ TEST(ReadRom, ReadFailureIsPropagated)
 {
     InMemoryFileRepository repo;
 
-    ASSERT_THAT(ReadRom("missing.bin", repo), ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(ReadRom("missing.bin", repo), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(ReadRom, EmptyRomIsAValidResultNotAMissingOne)
@@ -331,7 +332,15 @@ INSTANTIATE_TEST_SUITE_P(
                       TypedStorageCase{StorageType::kInt24, "big", {0x80, 0, 0}, -8388608},
                       TypedStorageCase{StorageType::kUint32, "big", {0xff, 0xff, 0xff, 0xff}, 4294967295.0},
                       TypedStorageCase{StorageType::kInt32, "little", {0, 0, 0, 0x80}, -2147483648.0},
-                      TypedStorageCase{StorageType::kFloat, "little", {0x3f, 0xc0, 0, 0}, 1.5}));
+                      TypedStorageCase{StorageType::kFloat, "little", {0x3f, 0xc0, 0, 0}, 1.5}),
+    (
+        [](const auto& info)
+        {
+            static constexpr std::array kNames{"Uint8BigEndian",    "Int8BigEndian",      "Uint16BigEndian",
+                                               "Int16LittleEndian", "Uint24LittleEndian", "Int24BigEndian",
+                                               "Uint32BigEndian",   "Int32LittleEndian",  "FloatLittleEndian"};
+            return kNames[info.index];
+        }));
 
 TEST(DecodeNumericRun, RejectsOverflowingLayoutsBeforeReading)
 {
