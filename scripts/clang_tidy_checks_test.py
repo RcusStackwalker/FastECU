@@ -840,6 +840,27 @@ TEST(ResultAccess, Switch) {
 }
 """)
 
+    def test_result_access_invalidates_indirect_and_rvalue_escape(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include <utility>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+void Mutate(fastecu::Result<int>&);
+void MutateMoved(fastecu::Result<int>&&);
+TEST(ResultAccess, Escape) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    void (*mutate)(fastecu::Result<int>&) = &Mutate;
+    mutate(result);
+    EXPECT_EQ(*result, 7); // error: result-access
+    auto moved = ReadValue();
+    ASSERT_THAT(moved, fastecu::testing::IsOk());
+    MutateMoved(std::move(moved));
+    EXPECT_EQ(*moved, 7); // error: result-access
+}
+""")
+
     def test_result_access_invalidates_mutation_and_merges_branches(self) -> None:
         self.assert_diagnostics("""#include <gmock/gmock.h>
 #include "src/backend/ports/result.h"

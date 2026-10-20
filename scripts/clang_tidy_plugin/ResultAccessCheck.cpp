@@ -167,12 +167,25 @@ std::string ArgumentMutationKey(clang::QualType type, const clang::Expr *argumen
     }
     return ResultKey(argument);
 }
+std::set<std::string> IndirectMutations(const clang::CallExpr& call)
+{
+    std::set<std::string> keys;
+    auto type = call.getCallee()->getType();
+    if (type->isPointerType())
+        type = type->getPointeeType();
+    if (const auto *prototype = type->getAs<clang::FunctionProtoType>())
+        for (unsigned index = 0; index < prototype->getNumParams() && index < call.getNumArgs(); ++index)
+            keys.insert(ArgumentMutationKey(prototype->getParamType(index), call.getArg(index)));
+    keys.erase("");
+    return keys;
+}
+
 std::set<std::string> OwnMutations(const clang::CallExpr& call)
 {
     std::set<std::string> keys;
     const auto *function = call.getDirectCallee();
     if (!function)
-        return keys;
+        return IndirectMutations(call);
     if (const auto *method = llvm::dyn_cast<clang::CXXMethodDecl>(function); method && !method->isConst())
     {
         const auto *object = MutationObject(call);
