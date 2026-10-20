@@ -1,0 +1,152 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+package(default_visibility = ["//visibility:private"])
+
+# The //:clang_tidy_* runner targets are declared in the root package by
+# //bazel:clang_tidy.bzl and take their sources from here.
+exports_files(
+    [
+        "clang_tidy_benchmark.py",
+        "clang_tidy_exceptions.py",
+        "clang_tidy_output.py",
+        "clang_tidy_profile.py",
+        "clang_tidy_runner.py",
+        "clang_tidy_scope.py",
+        "clang_tidy_toolchain.py",
+    ],
+    visibility = [
+        "//:__pkg__",
+        "//bazel:__pkg__",
+    ],
+)
+
+py_test(
+    name = "clang_tidy_exceptions_test",
+    size = "small",
+    srcs = [
+        "clang_tidy_exceptions.py",
+        "clang_tidy_exceptions_test.py",
+    ],
+    imports = ["."],
+    main = "clang_tidy_exceptions_test.py",
+    deps = ["@python_deps//pyyaml"],
+)
+
+py_test(
+    name = "clang_tidy_toolchain_test",
+    srcs = [
+        "clang_tidy_toolchain.py",
+        "clang_tidy_toolchain_test.py",
+    ],
+    data = ["//:.github/workflows/pr.yml"],
+    imports = ["."],
+    main = "clang_tidy_toolchain_test.py",
+)
+
+py_test(
+    name = "clang_tidy_check_fixtures",
+    size = "medium",
+    srcs = [
+        "clang_tidy_lit.py",
+        "clang_tidy_toolchain.py",
+    ],
+    args = [
+        "--helper",
+        "$(location @llvm_check_clang_tidy//file)",
+        "--filecheck",
+        "$(location //tools/clang-tidy/plugin:FileCheck)",
+        "--gtest-header",
+        "$(location @googletest//:googletest/include/gtest/gtest.h)",
+        "--gmock-header",
+        "$(location @googletest//:googlemock/include/gmock/gmock.h)",
+    ],
+    data = [
+        "//:.clang-tidy",
+        "//tests:clang_tidy_fixture_headers",
+        "//tools/clang-tidy/plugin:FileCheck",
+        "//tools/clang-tidy/plugin:llvm_identity",
+        "//tools/clang-tidy/plugin:test_files",
+        "@googletest//:googlemock/include/gmock/gmock.h",
+        "@googletest//:googletest/include/gtest/gtest.h",
+        "@llvm_check_clang_tidy//file",
+    ] + select({
+        "@platforms//os:windows": ["//tools/clang-tidy/plugin:fastecu_clang_tidy"],
+        "//conditions:default": ["//tools/clang-tidy/plugin:fastecu_tidy"],
+    }),
+    imports = ["."],
+    main = "clang_tidy_lit.py",
+    tags = [
+        "local",
+        "manual",
+    ],
+    visibility = ["//:__pkg__"],
+    deps = ["@python_deps//lit"],
+)
+
+py_test(
+    name = "clang_tidy_benchmark_test",
+    size = "small",
+    srcs = [
+        "clang_tidy_benchmark.py",
+        "clang_tidy_benchmark_test.py",
+        "clang_tidy_exceptions.py",
+        "clang_tidy_output.py",
+        "clang_tidy_profile.py",
+        "clang_tidy_runner.py",
+        "clang_tidy_scope.py",
+        "clang_tidy_toolchain.py",
+    ],
+    imports = ["."],
+    main = "clang_tidy_benchmark_test.py",
+    deps = ["@python_deps//pyyaml"],
+)
+
+py_test(
+    name = "clang_tidy_runner_test",
+    size = "small",
+    srcs = [
+        "clang_tidy_exceptions.py",
+        "clang_tidy_output.py",
+        "clang_tidy_profile.py",
+        "clang_tidy_runner.py",
+        "clang_tidy_runner_test.py",
+        "clang_tidy_scope.py",
+        "clang_tidy_toolchain.py",
+    ],
+    imports = ["."],
+    main = "clang_tidy_runner_test.py",
+    deps = ["@python_deps//pyyaml"],
+)
+
+py_test(
+    name = "clang_tidy_output_test",
+    size = "small",
+    srcs = [
+        "clang_tidy_output.py",
+        "clang_tidy_output_test.py",
+    ],
+    imports = ["."],
+    main = "clang_tidy_output_test.py",
+)
+
+py_test(
+    name = "clang_tidy_profile_test",
+    size = "small",
+    srcs = [
+        "clang_tidy_profile.py",
+        "clang_tidy_profile_test.py",
+    ],
+    imports = ["."],
+    main = "clang_tidy_profile_test.py",
+)
+
+py_test(
+    name = "clang_tidy_scope_test",
+    size = "small",
+    srcs = [
+        "clang_tidy_scope.py",
+        "clang_tidy_scope_test.py",
+    ],
+    imports = ["."],
+    main = "clang_tidy_scope_test.py",
+)

@@ -114,7 +114,7 @@ local_path_override(
     path = "third_party/qt",
 )
 
-# Headers of the system LLVM, for the clang-tidy plugin (scripts/clang_tidy_plugin).
+# Headers of the system LLVM, for the clang-tidy plugin (tools/clang-tidy/plugin).
 local_llvm = use_repo_rule("//bazel:llvm.bzl", "local_llvm")
 
 local_llvm(name = "local_llvm")

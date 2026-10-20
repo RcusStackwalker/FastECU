@@ -111,7 +111,15 @@ gazelle(
 exports_files([
     ".clang-tidy",
     ".clang-tidy-exceptions.yaml",
+    ".github/workflows/pr.yml",
 ])
+
+# Kept so CI and the tooling guide can still run `bazel run //:clang_tidy_check_fixtures`.
+alias(
+    name = "clang_tidy_check_fixtures",
+    actual = "//tools/clang-tidy/scripts:clang_tidy_check_fixtures",
+    tags = ["manual"],
+)
 
 alias(
     name = "fastecu",
@@ -121,143 +129,6 @@ alias(
 alias(
     name = "fastecu-bench",
     actual = "//apps/bench:fastecu-bench",
-)
-
-py_test(
-    name = "clang_tidy_exceptions_test",
-    size = "small",
-    srcs = [
-        "scripts/clang_tidy_exceptions.py",
-        "scripts/clang_tidy_exceptions_test.py",
-    ],
-    imports = ["scripts"],
-    main = "scripts/clang_tidy_exceptions_test.py",
-    deps = ["@python_deps//pyyaml"],
-)
-
-py_test(
-    name = "clang_tidy_toolchain_test",
-    srcs = [
-        "scripts/clang_tidy_toolchain.py",
-        "scripts/clang_tidy_toolchain_test.py",
-    ],
-    data = [".github/workflows/pr.yml"],
-    imports = ["scripts"],
-    main = "scripts/clang_tidy_toolchain_test.py",
-)
-
-py_test(
-    name = "clang_tidy_check_fixtures",
-    size = "medium",
-    srcs = [
-        "scripts/clang_tidy_lit.py",
-        "scripts/clang_tidy_toolchain.py",
-    ],
-    args = [
-        "--helper",
-        "$(location @llvm_check_clang_tidy//file)",
-        "--filecheck",
-        "$(location //scripts/clang_tidy_plugin:FileCheck)",
-        "--gtest-header",
-        "$(location @googletest//:googletest/include/gtest/gtest.h)",
-        "--gmock-header",
-        "$(location @googletest//:googlemock/include/gmock/gmock.h)",
-    ],
-    data = [
-        ".clang-tidy",
-        "//scripts/clang_tidy_plugin:FileCheck",
-        "//scripts/clang_tidy_plugin:llvm_identity",
-        "//scripts/clang_tidy_plugin:test_files",
-        "//tests:clang_tidy_fixture_headers",
-        "@googletest//:googlemock/include/gmock/gmock.h",
-        "@googletest//:googletest/include/gtest/gtest.h",
-        "@llvm_check_clang_tidy//file",
-    ] + select({
-        "@platforms//os:windows": ["//scripts/clang_tidy_plugin:fastecu_clang_tidy"],
-        "//conditions:default": ["//scripts/clang_tidy_plugin:fastecu_tidy"],
-    }),
-    imports = ["scripts"],
-    main = "scripts/clang_tidy_lit.py",
-    tags = [
-        "local",
-        "manual",
-    ],
-    deps = ["@python_deps//lit"],
-)
-
-# Compatibility label; all fixtures now require the registered checks.
-alias(
-    name = "clang_tidy_plugin_fixtures",
-    actual = ":clang_tidy_check_fixtures",
-    tags = ["manual"],
-)
-
-py_test(
-    name = "clang_tidy_benchmark_test",
-    size = "small",
-    srcs = [
-        "scripts/clang_tidy_benchmark.py",
-        "scripts/clang_tidy_benchmark_test.py",
-        "scripts/clang_tidy_exceptions.py",
-        "scripts/clang_tidy_output.py",
-        "scripts/clang_tidy_profile.py",
-        "scripts/clang_tidy_runner.py",
-        "scripts/clang_tidy_scope.py",
-        "scripts/clang_tidy_toolchain.py",
-    ],
-    imports = ["scripts"],
-    main = "scripts/clang_tidy_benchmark_test.py",
-    deps = ["@python_deps//pyyaml"],
-)
-
-py_test(
-    name = "clang_tidy_runner_test",
-    size = "small",
-    srcs = [
-        "scripts/clang_tidy_exceptions.py",
-        "scripts/clang_tidy_output.py",
-        "scripts/clang_tidy_profile.py",
-        "scripts/clang_tidy_runner.py",
-        "scripts/clang_tidy_runner_test.py",
-        "scripts/clang_tidy_scope.py",
-        "scripts/clang_tidy_toolchain.py",
-    ],
-    imports = ["scripts"],
-    main = "scripts/clang_tidy_runner_test.py",
-    deps = ["@python_deps//pyyaml"],
-)
-
-py_test(
-    name = "clang_tidy_output_test",
-    size = "small",
-    srcs = [
-        "scripts/clang_tidy_output.py",
-        "scripts/clang_tidy_output_test.py",
-    ],
-    imports = ["scripts"],
-    main = "scripts/clang_tidy_output_test.py",
-)
-
-py_test(
-    name = "clang_tidy_profile_test",
-    size = "small",
-    srcs = [
-        "scripts/clang_tidy_profile.py",
-        "scripts/clang_tidy_profile_test.py",
-    ],
-    imports = ["scripts"],
-    main = "scripts/clang_tidy_profile_test.py",
-)
-
-py_test(
-    name = "clang_tidy_scope_test",
-    size = "small",
-    srcs = [
-        "scripts/clang_tidy_scope.py",
-        "scripts/clang_tidy_scope_test.py",
-    ],
-    imports = ["scripts"],
-    main = "scripts/clang_tidy_scope_test.py",
 )
 
 py_test(

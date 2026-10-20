@@ -192,7 +192,7 @@ Remove stale commented-out code as nearby behavior changes.
 
 Legacy suites still use a `Test` suffix. Rename them for the type under test as
 their files are touched, following the [test conventions](coding-style.md#structure).
-The [native clang-tidy rollout](reference/clang-tidy-plugin-qualification.md)
+The native clang-tidy rollout
 completed the Result assertion migration and now enforces it; ordinary optional
 checks and low-level Result API tests remain permitted.
 
@@ -202,19 +202,6 @@ checks and low-level Result API tests remain permitted.
 `--config=fuzztest`, so the default compilation database the clang-tidy gate
 refreshes has no entry for them (a changed one is reported as a note, not
 analyzed). Give the refresh a fuzz-enabled pass (or a database merged from one).
-
-### P2: Give the clang-tidy tooling its own directory
-
-The clang-tidy gate's seven `clang_tidy_*.py` modules, their tests and
-`clang_tidy_plugin/` sit flat in `scripts/` among unrelated scripts. Move them
-into `scripts/clang_tidy/`, with that package's `BUILD.bazel` owning the Python
-targets. Keep the `//:clang_tidy_*` labels that CI and the
-[tooling guide](tooling.md#clang-tidy) run (root aliases, or keep the runner
-macros at the root). Paths that name these files: root `BUILD.bazel`,
-`bazel/clang_tidy.bzl` (`srcs`, `main`, `imports`), `.clang-tidy` comments,
-the `.clang-tidy-scope.toml` plugin prefix, a `MODULE.bazel` comment, `pr.yml`
-comments and the tooling guide. The runner finds the adapter beside itself
-(`Path(__file__).with_name`), so the two must move together.
 
 ### P3: Flash protocol behaviors awaiting external evidence
 

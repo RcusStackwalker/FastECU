@@ -24,7 +24,7 @@ def fingerprint(workspace: Path, artifacts: tuple[Path, ...] = ()) -> dict[str, 
         path: file
         for path, file in tree.files.items()
         if path.name in {".clang-tidy", ".clang-tidy-exceptions.yaml", ".clang-tidy-scope.toml"}
-        or path.parts[:2] == ("scripts", "clang_tidy_plugin")
+        or path.parts[:3] == ("tools", "clang-tidy", "plugin")
         or (path.parts[0] == "bazel" and path.name.startswith(("llvm", "clang_tidy")))
         or (
             path.parts[0] in {"src", "apps", "tests"}
@@ -32,12 +32,12 @@ def fingerprint(workspace: Path, artifacts: tuple[Path, ...] = ()) -> dict[str, 
         )
         or path.as_posix()
         in {
-            "scripts/clang_tidy_benchmark.py",
-            "scripts/clang_tidy_runner.py",
-            "scripts/clang_tidy_profile.py",
-            "scripts/clang_tidy_scope.py",
-            "scripts/clang_tidy_toolchain.py",
-            "scripts/clang_tidy_exceptions.py",
+            "tools/clang-tidy/scripts/clang_tidy_benchmark.py",
+            "tools/clang-tidy/scripts/clang_tidy_runner.py",
+            "tools/clang-tidy/scripts/clang_tidy_profile.py",
+            "tools/clang-tidy/scripts/clang_tidy_scope.py",
+            "tools/clang-tidy/scripts/clang_tidy_toolchain.py",
+            "tools/clang-tidy/scripts/clang_tidy_exceptions.py",
         }
     }
     result = {
@@ -108,7 +108,7 @@ def main() -> int:
     host = runner.analysis_toolchain.runfiles_analysis_host(os.environ)
     artifacts = (
         host.executable,
-        Path(__file__).with_name("clang_tidy_plugin") / "llvm-identity.json",
+        Path(__file__).parent.parent / "plugin" / "llvm-identity.json",
         *(Path(arg.split("=", 1)[1]) for arg in host.arguments),
     )
     os.environ["PYTHONHASHSEED"] = "0"

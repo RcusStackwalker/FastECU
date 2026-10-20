@@ -14,7 +14,7 @@ class ClangTidyBenchmark(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / ".clang-tidy").write_text("Checks: '-*,fastecu-*'\n")
-            identity = root / "scripts/clang_tidy_plugin/llvm-identity.json"
+            identity = root / "tools/clang-tidy/plugin/llvm-identity.json"
             identity.parent.mkdir(parents=True)
             identity.write_text('{"version":"23.1.2"}')
             executable = root / "host"
@@ -34,7 +34,9 @@ class ClangTidyBenchmark(unittest.TestCase):
             output = root / "reports/run"
             with (
                 mock.patch.object(
-                    benchmark, "__file__", str(root / "scripts/clang_tidy_benchmark.py")
+                    benchmark,
+                    "__file__",
+                    str(root / "tools/clang-tidy/scripts/clang_tidy_benchmark.py"),
                 ),
                 mock.patch.object(
                     benchmark.sys,
@@ -65,7 +67,7 @@ class ClangTidyBenchmark(unittest.TestCase):
             tree = benchmark.runner._WorkspaceTree(
                 root,
                 {
-                    PureWindowsPath("scripts/clang_tidy_runner.py"): source,
+                    PureWindowsPath("tools/clang-tidy/scripts/clang_tidy_runner.py"): source,
                 },
                 frozenset(),
             )
@@ -81,8 +83,8 @@ class ClangTidyBenchmark(unittest.TestCase):
             (root / "src").mkdir()
             nested = root / "src/.clang-tidy"
             nested.write_text("InheritParentConfig: true\n")
-            (root / "scripts").mkdir()
-            source = root / "scripts/clang_tidy_runner.py"
+            source = root / "tools/clang-tidy/scripts/clang_tidy_runner.py"
+            source.parent.mkdir(parents=True)
             source.write_text("# original\n")
             original = benchmark.fingerprint(root)
             nested.write_text("InheritParentConfig: false\n")
@@ -130,7 +132,7 @@ class ClangTidyBenchmark(unittest.TestCase):
     def test_plugin_change_invalidates_fingerprint(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            source = root / "scripts/clang_tidy_plugin/ResultAssertionCheck.cpp"
+            source = root / "tools/clang-tidy/plugin/ResultAssertionCheck.cpp"
             source.parent.mkdir(parents=True)
             source.write_text("original")
             artifact = root / "checks.dylib"
