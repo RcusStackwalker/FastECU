@@ -221,7 +221,7 @@ void ScriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, 
     {
         bytes::Bytes reply = Response({0xF7});
         reply.insert(reply.end(), wire_page.begin(), wire_page.end());
-        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(addr))), reply);
+        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24{addr})), reply);
     }
 }
 
@@ -285,8 +285,8 @@ void ScriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView bloc
     // reflash_block's comment): kWriteLength/256 * 128 == kWriteLength/2.
     constexpr std::uint32_t kSetupDataLen = (kWriteLength / kChunkSize) * 128;
 
-    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33), bytes::U24(0),
-                                                bytes::U24(kSetupDataLen))),
+    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33), bytes::U24{0},
+                                                bytes::U24{kSetupDataLen})),
                        Response({0x74}));
 
     ASSERT_THAT(block_plain.first(16),
@@ -300,7 +300,7 @@ void ScriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView bloc
     for (std::uint32_t offset = 0; offset < kWriteLength; offset += kChunkSize)
     {
         const std::uint32_t addr = kWriteStart + offset;
-        bytes::Bytes req = bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24(addr),
+        bytes::Bytes req = bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24{addr},
                                             bytes::ByteView(encrypted).subspan(offset, kChunkSize));
         transport.Exchange(Request(req));
         if (chunk_reply == ChunkReply::kSilent)
@@ -568,7 +568,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadDisconnectMidDumpLoopPropagates)
 
     ScriptFullConnect(transport);
     ScriptDumpSetup(transport);
-    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(kReadStart))));
+    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24{kReadStart})));
     transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
 
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);

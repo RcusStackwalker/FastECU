@@ -209,7 +209,7 @@ void ScriptReadPage(ScriptedKlineFlashTransport& transport, std::uint32_t addres
                     std::uint8_t response_opcode = 0x43)
 {
     const auto section = transport.Section("read page");
-    transport.Exchange(Framed(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{0x400})),
+    transport.Exchange(Framed(0x03, ComposeBe(0x00_b, U24{address}, std::uint16_t{0x400})),
                        Framed(response_opcode, bytes::Bytes(0x400, fill)));
 }
 
@@ -228,7 +228,7 @@ void ScriptCrcCompare(ScriptedKlineFlashTransport& transport, const FlashDevice&
     for (unsigned block_no = 0; block_no < device.numblocks; ++block_no)
     {
         const auto& block = device.fblocks[block_no];
-        const bytes::Bytes request_payload = ComposeBe(block.start, 0x00_b, U24(block.len));
+        const bytes::Bytes request_payload = ComposeBe(block.start, 0x00_b, U24{block.len});
         transport.Exchange(Framed(0x02, request_payload));
 
         std::uint32_t ecu_crc = fastecu::checksum::Crc32(image.data() + image_offset, block.len);

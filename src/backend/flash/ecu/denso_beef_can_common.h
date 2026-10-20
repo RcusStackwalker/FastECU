@@ -45,10 +45,9 @@
 // reflash_block all differ across all three in timeouts, retry counts,
 // geometry, address indexing, startup ordering or log wording.
 //
-// Inside upload_kernel, two steps are identical in all three and are shared
-// below: building the checksummed, encrypted payload, and walking it in 0xB6
-// blocks. Each family keeps its own size checks, wording, B6 reply handling
-// and kernel start.
+// Inside upload_kernel, the encrypted payload, initial download request and
+// 0xB6 block walk are shared. Each family keeps its own size checks, wording,
+// reply handling and kernel start.
 //
 // The executor suites do NOT read these helpers back: each carries wire
 // expectations transcribed independently from its legacy oracle, so a wrong
@@ -74,6 +73,14 @@ inline bytes::Bytes BeefRequest(bytes::Byte opcode, bytes::ByteView payload = {}
 inline bytes::Bytes EncryptPayload(bytes::ByteView payload)
 {
     return DensoEncryptRom(payload);
+}
+
+// The initial upload request describes the encrypted payload without embedding
+// it. Callers retain their existing kernel-size validation.
+inline bytes::Bytes BeefKernelDownloadRequest(std::uint32_t load_address, bytes::ByteView encrypted_payload)
+{
+    return bytes::ComposeBe(bytes::Byte{0x34}, bytes::Byte{0x04}, bytes::Byte{0x33}, bytes::U24{load_address},
+                            bytes::U24{static_cast<std::uint32_t>(encrypted_payload.size())});
 }
 
 // The kernel zero-padded to whole `block_size` transfer blocks, its last word
@@ -308,7 +315,7 @@ template <typename C> Status DiscardStaleFrame(C& ctx)
 template <typename C, typename Exchange>
 Result<std::uint32_t> QueryBeefCrc(C& ctx, const MemoryRegion& block, Exchange exchange)
 {
-    Result<bytes::Bytes> reply = exchange(ComposeBe(block.start, bytes::Byte{0x00}, bytes::U24(block.length)));
+    Result<bytes::Bytes> reply = exchange(ComposeBe(block.start, bytes::Byte{0x00}, bytes::U24{block.length}));
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
@@ -453,7 +460,7 @@ Result<bytes::Bytes> ReadBeefMemory(C& ctx, const MemoryRegion& region, PhaseRep
         }
         const std::uint32_t address = region.start + offset;
         const bytes::Bytes request =
-            bytes::ComposeBe(bytes::Byte{0x00}, bytes::U24(address), std::uint16_t{kBeefReadPageSize});
+            bytes::ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kBeefReadPageSize});
         Result<bytes::Bytes> reply = exchange(bytes::Byte{0x03}, request, kBeefReadPageSize, kBeefReadTimeout);
         if (!reply.has_value())
         {
@@ -683,7 +690,7 @@ Status UploadBeefKernelBlocks(const C& ctx, bytes::ByteView payload, std::uint32
         }
         const bytes::ByteView chunk = payload.subspan(offset, std::min(block_size, payload.size() - offset));
         if (const Status sent = upload(bytes::ComposeBe(
-                bytes::Byte{0xB6}, bytes::U24(load_address + static_cast<std::uint32_t>(offset)), chunk));
+                bytes::Byte{0xB6}, bytes::U24{load_address + static_cast<std::uint32_t>(offset)}, chunk));
             !sent.has_value())
         {
             return sent;

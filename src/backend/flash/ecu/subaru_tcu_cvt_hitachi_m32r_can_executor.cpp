@@ -327,7 +327,7 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
     // (both branches of the length check return STATUS_ERROR).
     LogInfo(ctx, "Settting dump start & length...");
     if (Result<bytes::Bytes> setup = FatalQuery(
-            ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24(kWindow.start), U24(kWindow.length)),
+            ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{kWindow.start}, U24{kWindow.length}),
             bytes::Bytes{0x20, 0x01, 0x04}, "dump start & length setup");
         !setup.has_value())
     {
@@ -346,7 +346,7 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
         }
 
         // Lines 567-576/601-623: SID 0xB7 + 3-byte big-endian address.
-        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24(addr)),
+        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24{addr}),
                                                   std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
@@ -434,7 +434,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
     // SID+0x40 matching already enforces exactly that.
     LogInfo(ctx, "Settting flash start & length...");
     if (Result<bytes::Bytes> setup =
-            FatalRequest(ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24(start), U24(length)),
+            FatalRequest(ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{start}, U24{length}),
                          "the flash start & length setup");
         !setup.has_value())
     {

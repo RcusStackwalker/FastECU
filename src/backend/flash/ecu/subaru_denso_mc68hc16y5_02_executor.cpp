@@ -180,7 +180,7 @@ bytes::Bytes KernelUploadRequest(const KernelImage& kernel, const SubaruDensoMc6
     // this header.
     return ComposeBeWithChecksum(&fastecu::checksum::NegatedSum8, kDensoKlineOpUploadKernel,
                                  std::uint16_t(kernel.load_address >> 8U),
-                                 U24(static_cast<std::uint32_t>(payload.size())), payload);
+                                 U24{static_cast<std::uint32_t>(payload.size())}, payload);
 }
 
 // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:660-667:
@@ -413,7 +413,7 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::ReadMem(IKlineFlashTransp
             {
                 return std::unexpected(cancelled.error());
             }
-            const bytes::Bytes payload = ComposeBe(0x00_b, U24(address), std::uint16_t(kReadPageSize));
+            const bytes::Bytes payload = ComposeBe(0x00_b, U24{address}, std::uint16_t(kReadPageSize));
             Result<bytes::Bytes> response = Exchange(transport, clock, cancellation,
                                                      DensoBeefKlineFrame(kDensoKlineOpReadArea, payload), 10ms, 3000ms);
             if (!response.has_value())
@@ -449,7 +449,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::ReadBlockCrc(IKlineFlash
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:626-715:
     // request the ECU's CRC over [start, start + length).
     const bytes::Bytes request =
-        DensoBeefKlineFrame(kDensoKlineOpCrc, ComposeBe(block.start, 0x00_b, U24(block.length)));
+        DensoBeefKlineFrame(kDensoKlineOpCrc, ComposeBe(block.start, 0x00_b, U24{block.length}));
     if (Status written = DensoBeefKlineGuarded(cancellation, "CRC write",
                                                [&] { return DensoBeefKlineWriteAll(transport, request); });
         !written.has_value())

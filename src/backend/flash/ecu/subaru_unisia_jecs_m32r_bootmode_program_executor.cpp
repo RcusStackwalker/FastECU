@@ -165,7 +165,7 @@ Status WriteBlock(Session& s, bytes::ByteView image, int block, int blocks)
     const std::uint32_t address = static_cast<std::uint32_t>(block) * kBlock;
     const bool last = block == blocks - 1;
     const bytes::ByteView data = image.subspan(address, kBlock);
-    if (Status sent = Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24(address), data)); !sent.has_value())
+    if (Status sent = Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24{address}, data)); !sent.has_value())
     {
         return sent;
     }

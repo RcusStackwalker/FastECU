@@ -95,7 +95,7 @@ bytes::Bytes Sid10Request()
 }
 bytes::Bytes Sid34Request(std::uint32_t addr, std::uint32_t len)
 {
-    return ComposeBe(0x34_b, U24(addr), 0x04_b, U24(len));
+    return ComposeBe(0x34_b, U24{addr}, 0x04_b, U24{len});
 }
 bytes::Bytes Sid31Request()
 {
@@ -224,7 +224,7 @@ Status TransferDataBlocks(IKlineFlashTransport& transport, IClock& clock, const 
         }
 
         const std::uint32_t block_addr = addr + blockno * kUploadChunkBytes;
-        bytes::Bytes payload = ComposeBe(0x36_b, U24(block_addr));
+        bytes::Bytes payload = ComposeBe(0x36_b, U24{block_addr});
         const std::size_t chunk_offset = static_cast<std::size_t>(blockno) * kUploadChunkBytes;
         if (blockno == maxblocks)
         {

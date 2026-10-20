@@ -208,7 +208,7 @@ Result<bytes::Bytes> ReadPages(Session& s, const MemoryRegion& region)
     for (int page = 0; page < pages; ++page)
     {
         const std::uint32_t address = region.start + static_cast<std::uint32_t>(page) * kPage;
-        auto block = ExchangeExpect(s, ComposeBe(0xa0_b, 0x00_b, U24(address), bytes::Byte(kPage - 1)),
+        auto block = ExchangeExpect(s, ComposeBe(0xa0_b, 0x00_b, U24{address}, bytes::Byte(kPage - 1)),
                                     kExtraLongTimeout, 0xe0, std::format("block read at 0x{:06X}", address));
         if (!block.has_value())
         {
@@ -329,7 +329,7 @@ Status EnterFlashMode(Session& s, std::uint32_t rom_size)
     // rejection here and went on to raise VPP and erase.
     s.events.Log(LogLevel::kInfo, "Sending request to change to flash mode");
     auto entered = ExchangeExpect(
-        s, ComposeBe(0xaf_b, 0x11_b, bytes::ByteView(*init).subspan(kEcuIdOffset, kEcuIdLength), U24(rom_size)),
+        s, ComposeBe(0xaf_b, 0x11_b, bytes::ByteView(*init).subspan(kEcuIdOffset, kEcuIdLength), U24{rom_size}),
         kTimeout, 0xef, "enter flash mode");
     if (!entered.has_value())
     {
@@ -383,7 +383,7 @@ Status WriteBlock(Session& s, const bytes::Bytes& image, int block, int blocks)
     {
         value ^= kBlockXor;
     }
-    if (Status sent = Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24(address), bytes::ByteView(data)));
+    if (Status sent = Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24{address}, bytes::ByteView(data)));
         !sent.has_value())
     {
         return sent;

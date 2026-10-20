@@ -145,8 +145,8 @@ void ScriptHandshake(ScriptedKlineFlashTransport& t, bytes::ByteView key)
 void ScriptUploadFrames(ScriptedKlineFlashTransport& t, std::uint32_t address)
 {
     const bytes::Bytes encrypted = EncryptedKernel(kBalancedKernel);
-    t.Exchange(Ssm(ComposeBe(0x34_b, U24(address), 0x04_b, U24(8))), SsmReply(bytes::Bytes{0x74}));
-    t.Exchange(Ssm(ComposeBe(0x36_b, U24(address), encrypted)), SsmReply(bytes::Bytes{0x76}));
+    t.Exchange(Ssm(ComposeBe(0x34_b, U24{address}, 0x04_b, U24{8})), SsmReply(bytes::Bytes{0x74}));
+    t.Exchange(Ssm(ComposeBe(0x36_b, U24{address}, encrypted)), SsmReply(bytes::Bytes{0x76}));
     t.Exchange(Ssm(bytes::Bytes{0x31, 0x01, 0x01}), SsmReply(bytes::Bytes{0x71}));
 }
 
@@ -168,7 +168,7 @@ void ScriptSession(ScriptedKlineFlashTransport& t, bytes::ByteView key = {}, std
 // check_romcrc():812-831 -- CRC [addr32, 00, len24] -> BE EF len 42 crc32 sum8.
 bytes::Bytes CrcRequest(const FlashBlock& block)
 {
-    return Beef(0x02, ComposeBe(block.start, 0x00_b, U24(block.len)));
+    return Beef(0x02, ComposeBe(block.start, 0x00_b, U24{block.len}));
 }
 
 // The session tests below pin only the session; the Write/TestWrite tail's
@@ -440,12 +440,12 @@ TEST(SubaruDensoSh705xKlineExecutor, KernelTransferSplitsInto0x80ByteBlocks)
     ScriptHandshake(h.transport, StockKey(kSeed));
     {
         auto s = h.transport.Section("upload");
-        h.transport.Exchange(Ssm(ComposeBe(0x34_b, U24(0xFFFF6004), 0x04_b, U24(0x104))), SsmReply(bytes::Bytes{0x74}));
-        h.transport.Exchange(Ssm(ComposeBe(0x36_b, U24(0xFFFF6004), view.subspan(0, 0x80))),
+        h.transport.Exchange(Ssm(ComposeBe(0x34_b, U24{0xFFFF6004}, 0x04_b, U24{0x104})), SsmReply(bytes::Bytes{0x74}));
+        h.transport.Exchange(Ssm(ComposeBe(0x36_b, U24{0xFFFF6004}, view.subspan(0, 0x80))),
                              SsmReply(bytes::Bytes{0x76}));
-        h.transport.Exchange(Ssm(ComposeBe(0x36_b, U24(0xFFFF6084), view.subspan(0x80, 0x80))),
+        h.transport.Exchange(Ssm(ComposeBe(0x36_b, U24{0xFFFF6084}, view.subspan(0x80, 0x80))),
                              SsmReply(bytes::Bytes{0x76}));
-        h.transport.Exchange(Ssm(ComposeBe(0x36_b, U24(0xFFFF6104), view.subspan(0x100, 4))),
+        h.transport.Exchange(Ssm(ComposeBe(0x36_b, U24{0xFFFF6104}, view.subspan(0x100, 4))),
                              SsmReply(bytes::Bytes{0x76}));
         h.transport.Exchange(Ssm(bytes::Bytes{0x31, 0x01, 0x01}), SsmReply(bytes::Bytes{0x71}));
         h.transport.Exchange(kKernelIdRequest, KernelIdReply());
@@ -469,8 +469,8 @@ TEST(SubaruDensoSh705xKlineExecutor, RejectedKernelTransferBlockStops)
     Harness h;
     ScriptProbeDead(h.transport);
     ScriptHandshake(h.transport, StockKey(kSeed));
-    h.transport.Exchange(Ssm(ComposeBe(0x34_b, U24(0xFFFF6004), 0x04_b, U24(8))), SsmReply(bytes::Bytes{0x74}));
-    h.transport.Exchange(Ssm(ComposeBe(0x36_b, U24(0xFFFF6004), EncryptedKernel(kBalancedKernel))),
+    h.transport.Exchange(Ssm(ComposeBe(0x34_b, U24{0xFFFF6004}, 0x04_b, U24{8})), SsmReply(bytes::Bytes{0x74}));
+    h.transport.Exchange(Ssm(ComposeBe(0x36_b, U24{0xFFFF6004}, EncryptedKernel(kBalancedKernel))),
                          SsmReply(bytes::Bytes{0x7F, 0x36, 0x22}));
     auto built_plan_8 = MakePlan(FlashOperation::kRead);
     ASSERT_THAT(built_plan_8, fastecu::testing::IsOk());
@@ -724,7 +724,7 @@ TEST(SubaruDensoSh705xKlineExecutor, CancellationBeforeAnySessionWriteSendsNothi
 // read_mem(): READ_AREA [00, addr24, 0x0400], reply BE EF len 43 <0x400 bytes> sum8.
 bytes::Bytes ReadRequest(std::uint32_t address)
 {
-    return Beef(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{0x0400}));
+    return Beef(0x03, ComposeBe(0x00_b, U24{address}, std::uint16_t{0x0400}));
 }
 bytes::Bytes PageReply(std::uint32_t address)
 {

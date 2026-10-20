@@ -64,7 +64,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
         {
             const std::uint32_t address = 0x100000 + offset;
             const bytes::Bytes request =
-                bytes::ComposeBe(bytes::Byte{0xa0}, bytes::Byte{0}, bytes::U24(address), bytes::Byte{0x7f});
+                bytes::ComposeBe(bytes::Byte{0xa0}, bytes::Byte{0}, bytes::U24{address}, bytes::Byte{0x7f});
             bytes::Bytes response(129, static_cast<bytes::Byte>(offset / 0x80));
             response[0] = 0xe0;
             transport.Exchange(frame(request, false), frame(response, true));

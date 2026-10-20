@@ -307,7 +307,7 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
         }
 
         // Lines 823-832/855-858: SID 0xB7 + 3-byte big-endian address.
-        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24(addr)),
+        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24{addr}),
                                                   std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())
         {
@@ -417,7 +417,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
         }
 
         const bytes::ByteView chunk_data = bytes::ByteView(encrypted).subspan(addr, kChunkSize);
-        if (Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidWriteMemoryChunk, U24(addr), chunk_data),
+        if (Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidWriteMemoryChunk, U24{addr}, chunk_data),
                                                       std::format("the flash write at 0x{:x}", addr));
             !chunk.has_value())
         {

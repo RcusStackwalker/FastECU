@@ -14,6 +14,7 @@
 #include "AccumulateLoopCheck.h"
 #include "TransformCollectLoopCheck.h"
 #include "TemplateTypenameCheck.h"
+#include "AggregateParensCheck.h"
 
 #include "clang-tidy/ClangTidyModule.h"
 
@@ -41,6 +42,7 @@ class FastecuModule : public clang::tidy::ClangTidyModule
         factories.registerCheck<AccumulateLoopCheck>("fastecu-accumulate-loop");
         factories.registerCheck<TransformCollectLoopCheck>("fastecu-transform-collect-loop");
         factories.registerCheck<TemplateTypenameCheck>("fastecu-template-typename");
+        factories.registerCheck<AggregateParensCheck>("fastecu-aggregate-parens");
     }
 };
 

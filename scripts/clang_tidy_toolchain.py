@@ -14,6 +14,7 @@ REQUIRED_LLVM_VERSION = "23.1.2"
 REQUIRED_CHECKS = frozenset(
     {
         "fastecu-accumulate-loop",
+        "fastecu-aggregate-parens",
         "fastecu-any-all-index-loop",
         "fastecu-assertion-loop-trace",
         "fastecu-container-assertion",

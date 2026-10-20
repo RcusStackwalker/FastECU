@@ -122,7 +122,7 @@ TEST(SubaruHitachiSh7058CanExecutor, ActiveKernelWritesAll4096Frames)
     transport.Exchange(frame(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}), bytes::Bytes{0, 0, 7, 0xe8, 0x74});
     for (std::uint32_t address = 0; address < 0x100000; address += 0x100)
     {
-        bytes::Bytes request = bytes::ComposeBe(bytes::Byte{0xb6}, bytes::U24(address),
+        bytes::Bytes request = bytes::ComposeBe(bytes::Byte{0xb6}, bytes::U24{address},
                                                 bytes::ByteView(encrypted).subspan(address, 0x100));
         transport.Exchange(frame(request), bytes::Bytes{0, 0, 7, 0xe8, 0xf6});
     }

@@ -271,7 +271,7 @@ void ScriptReadPages(ScriptedMixedCanFlashTransport& transport, std::uint32_t si
 {
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
-        transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize})));
+        transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24{address}, std::uint16_t{kReadPageSize})));
         transport.QueueIsoRead(IsoResponse(0x43, bytes::Bytes(kReadPageSize, wire_fill)));
     }
 }
@@ -280,7 +280,7 @@ void ScriptRawReadPagesWithBoundarySentinels(ScriptedMixedCanFlashTransport& tra
 {
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
-        transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24(address), std::uint16_t{kReadPageSize})));
+        transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24{address}, std::uint16_t{kReadPageSize})));
         bytes::Bytes page(kReadPageSize, bytes::Byte{0});
         if (address == 0)
         {
@@ -341,7 +341,7 @@ bytes::Bytes FixedRawZeroBytes(std::size_t size)
 
 void ScriptCrc(ScriptedMixedCanFlashTransport& transport, const MemoryRegion& block, std::uint32_t crc)
 {
-    transport.ExpectIsoWrite(IsoRequest(0x02, ComposeBe(block.start, 0x00_b, U24(block.length))));
+    transport.ExpectIsoWrite(IsoRequest(0x02, ComposeBe(block.start, 0x00_b, U24{block.length})));
     transport.QueueIsoRead(IsoResponse(0x42, ComposeBe(crc)));
     // Legacy check_romcrc() discards a short response after either comparison result.
     transport.QueueNoIsoFrame();
@@ -1032,7 +1032,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, UploadPaddingAndChecksumUseHandDerivedSe
     transport.QueueNoRawFrame();
     transport.ExpectIsoWrite(KernelIdRequest());
     transport.QueueIsoRead(KernelIdResponse());
-    transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
+    transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24{0}, std::uint16_t{kReadPageSize})));
     transport.QueueIsoRead(IsoResponse(0x43, bytes::Bytes{0x00}));
     FakeCancellationToken cancellation;
     FakeClock clock;
@@ -1311,7 +1311,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, RejectsBEEFResponseWhoseDeclaredLengthDo
     ScriptedMixedCanFlashTransport transport;
     ConfigureAndOpen(executor, *plan, transport);
     ScriptKernelAlive(transport);
-    transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
+    transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24{0}, std::uint16_t{kReadPageSize})));
     bytes::Bytes truncated_declaration = IsoResponse(0x43, bytes::Bytes(kReadPageSize, 0x00));
     truncated_declaration[6] = 0x00;
     truncated_declaration[7] = 0x01;
@@ -1403,7 +1403,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, TimeoutAndDisconnectPropagateWithoutAnUn
         ScriptedMixedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
         ScriptKernelAlive(transport);
-        transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
+        transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24{0}, std::uint16_t{kReadPageSize})));
         transport.QueueNoIsoFrame();
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
@@ -1467,7 +1467,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortReadAndCrcPayloadsAreRejectedBefore
         ScriptedMixedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
         ScriptKernelAlive(transport);
-        transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
+        transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24{0}, std::uint16_t{kReadPageSize})));
         transport.QueueIsoRead(IsoResponse(0x43, bytes::Bytes(kReadPageSize - 1, 0x00)));
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
@@ -1486,7 +1486,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortReadAndCrcPayloadsAreRejectedBefore
         ScriptedMixedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
         ScriptKernelAlive(transport);
-        transport.ExpectIsoWrite(IsoRequest(0x02, ComposeBe(block.start, 0x00_b, U24(block.length))));
+        transport.ExpectIsoWrite(IsoRequest(0x02, ComposeBe(block.start, 0x00_b, U24{block.length})));
         transport.QueueIsoRead(IsoResponse(0x42, bytes::Bytes{0x00, 0x00, 0x00}));
 
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
@@ -1680,7 +1680,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadAndWriteCancellationStopBeforeASecon
         ScriptedMixedCanFlashTransport transport;
         ConfigureAndOpen(executor, *plan, transport);
         ScriptKernelAlive(transport);
-        transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24(0), std::uint16_t{kReadPageSize})));
+        transport.ExpectIsoWrite(IsoRequest(0x03, ComposeBe(0x00_b, U24{0}, std::uint16_t{kReadPageSize})));
         transport.QueueIsoRead(IsoResponse(0x43, bytes::Bytes(kReadPageSize, 0)));
         FakeCancellationToken cancellation;
         FakeClock clock;

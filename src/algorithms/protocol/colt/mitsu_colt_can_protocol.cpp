@@ -97,7 +97,7 @@ bool IsDestructiveRequest(bytes::ByteView pdu)
 
 bytes::Bytes BuildRequestDownload(std::uint32_t start, std::uint32_t size)
 {
-    return uds::BuildRequest(kServiceRequestDownload, ComposeBe(U24(start), 0x00_b, U24(size)));
+    return uds::BuildRequest(kServiceRequestDownload, ComposeBe(U24{start}, 0x00_b, U24{size}));
 }
 
 std::vector<bytes::Bytes> BuildTransferDataFrames(bytes::ByteView payload)
@@ -134,7 +134,7 @@ bytes::Bytes BuildRequestReflashUnlock()
 
 bytes::Bytes BuildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len)
 {
-    return uds::BuildRequest(kServiceReadMemoryByAddress, ComposeBe(U24(addr), len));
+    return uds::BuildRequest(kServiceReadMemoryByAddress, ComposeBe(U24{addr}, len));
 }
 
 bytes::Bytes BuildDiagnosticSession(bytes::Byte session_id)

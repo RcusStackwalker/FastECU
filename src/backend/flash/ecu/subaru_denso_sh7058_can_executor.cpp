@@ -295,7 +295,7 @@ Result<std::uint32_t> ReadRamLocation(Context& context, std::uint32_t address)
     bytes::Bytes request{0xA8, 0x00};
     for (std::uint32_t offset = 0; offset < 4; ++offset)
     {
-        const bytes::Bytes encoded = ComposeBe(bytes::U24(address + offset));
+        const bytes::Bytes encoded = ComposeBe(bytes::U24{address + offset});
         request.insert(request.end(), encoded.begin(), encoded.end());
     }
     Result<bytes::Bytes> reply = ChannelRequest(context, request, kReadTimeout);
@@ -612,13 +612,10 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     {
         return std::unexpected(encrypted.error());
     }
-    const std::size_t data_length = encrypted->size();
 
     LogDebug(context, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address));
     LogInfo(context, "Initialize kernel upload");
-    if (const Status initialized = StrictPayload(context,
-                                                 ComposeBe(0x34_b, 0x04_b, 0x33_b, bytes::U24(kernel.load_address),
-                                                           bytes::U24(static_cast<std::uint32_t>(data_length))),
+    if (const Status initialized = StrictPayload(context, BeefKernelDownloadRequest(kernel.load_address, *encrypted),
                                                  bytes::Bytes{0x20}, "kernel download");
         !initialized.has_value())
     {

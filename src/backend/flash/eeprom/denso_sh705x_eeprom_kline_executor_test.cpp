@@ -76,11 +76,11 @@ bytes::Bytes Sid10StartDiagRequest()
 }
 bytes::Bytes Sid34RequestUploadRequest(std::uint32_t dataaddr, std::uint32_t datalen)
 {
-    return ssm_protocol::AddHeader(ComposeBe(0x34_b, U24(dataaddr), 0x04_b, U24(datalen)), kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(ComposeBe(0x34_b, U24{dataaddr}, 0x04_b, U24{datalen}), kTesterId, kTargetId);
 }
 bytes::Bytes Sid36TransferDataRequest(std::uint32_t blockaddr, bytes::ByteView block_bytes)
 {
-    return ssm_protocol::AddHeader(ComposeBe(0x36_b, U24(blockaddr), block_bytes), kTesterId, kTargetId);
+    return ssm_protocol::AddHeader(ComposeBe(0x36_b, U24{blockaddr}, block_bytes), kTesterId, kTargetId);
 }
 bytes::Bytes Sid31StartRoutineRequest()
 {

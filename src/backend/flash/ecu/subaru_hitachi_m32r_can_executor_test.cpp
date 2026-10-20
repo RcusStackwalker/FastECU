@@ -204,7 +204,7 @@ void ScriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, 
     {
         bytes::Bytes reply = Response({0xF7});
         reply.insert(reply.end(), wire_page.begin(), wire_page.end());
-        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(addr))), reply);
+        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24{addr})), reply);
     }
 }
 
@@ -232,7 +232,7 @@ void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& transport)
     ScriptBenchConnect(transport);
     ScriptDumpSetup(transport);
     const auto section = transport.Section("first dump chunk (request only)");
-    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24(0))));
+    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24{0})));
 }
 
 // Scripts erase_memory's single write + single successful read.
@@ -258,7 +258,7 @@ void ScriptReflashChunks(ScriptedCanFlashTransport& transport, bytes::ByteView r
     for (std::uint32_t addr = 0; addr < rom.size(); addr += chunk_size)
     {
         bytes::Bytes req =
-            bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24(addr), bytes::ByteView(encrypted).subspan(addr, chunk_size));
+            bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24{addr}, bytes::ByteView(encrypted).subspan(addr, chunk_size));
         transport.Exchange(Request(req), Response({0xF6}));
     }
 }
@@ -465,7 +465,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteStopsWhenTheEraseIsRejected)
 
     const bytes::Bytes encrypted = ToWire(rom);
     bytes::Bytes first_chunk_request =
-        bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24(0), bytes::ByteView(encrypted).subspan(0, 256));
+        bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24{0}, bytes::ByteView(encrypted).subspan(0, 256));
     transport.Exchange(Request(first_chunk_request), Response({0x7F, 0xB6, 0x22}));
 
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);

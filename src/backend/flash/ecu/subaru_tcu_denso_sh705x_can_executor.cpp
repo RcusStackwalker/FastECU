@@ -432,14 +432,11 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     {
         return Fail(ErrorKind::kInvalidConfig, "TCU kernel upload size is invalid");
     }
-    const std::size_t data_length = encrypted->size();
 
     LogDebug(context, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address));
     LogInfo(context, "Initialize kernel upload");
-    if (const Status request_download = StrictPayload(context,
-                                                      ComposeBe(0x34_b, 0x04_b, 0x33_b, bytes::U24(kernel.load_address),
-                                                                bytes::U24(static_cast<std::uint32_t>(data_length))),
-                                                      bytes::Bytes{0x20}, "kernel download");
+    if (const Status request_download = StrictPayload(
+            context, BeefKernelDownloadRequest(kernel.load_address, *encrypted), bytes::Bytes{0x20}, "kernel download");
         !request_download.has_value())
     {
         return request_download;
@@ -523,7 +520,7 @@ Result<bytes::Bytes> ReadMemory(Context& context, const FlashPlan& plan, PhaseRe
             return std::unexpected(checkpoint.error());
         }
         const std::uint32_t address = region.start + offset;
-        const bytes::Bytes payload = ComposeBe(bytes::Byte{0x00}, bytes::U24(address), std::uint16_t{kKernelPageSize});
+        const bytes::Bytes payload = ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kKernelPageSize});
         Result<bytes::Bytes> reply = BeefExchange(context, kKernelReadArea, payload, kKernelPageSize, kReadTimeout);
         if (!reply.has_value())
         {

@@ -270,7 +270,7 @@ Result<bytes::Bytes> ReadRom(IKlineFlashTransport& transport, const ICancellatio
         }
         const std::uint32_t address = logical + p.read_address_bias;
         auto response = Exchange(transport, cancellation,
-                                 ComposeBe(0xa0_b, 0x00_b, 0x00_b, U24(address), bytes::Byte(p.chunk_size - 1)), p);
+                                 ComposeBe(0xa0_b, 0x00_b, 0x00_b, U24{address}, bytes::Byte(p.chunk_size - 1)), p);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
@@ -342,7 +342,7 @@ Status TransferRom(IKlineFlashTransport& transport, const ICancellationToken& ca
             return Fail(ErrorKind::kCancelled, "cancelled during ROM write");
         }
         const bytes::Bytes request =
-            ComposeBe(uds::kSidTransferData, U24(address), bytes::ByteView(encrypted).subspan(address, p.chunk_size));
+            ComposeBe(uds::kSidTransferData, U24{address}, bytes::ByteView(encrypted).subspan(address, p.chunk_size));
         auto ack = ExchangeOptional(transport, cancellation, request, p);
         if (!ack.has_value())
         {

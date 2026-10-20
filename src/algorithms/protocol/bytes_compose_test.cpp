@@ -36,12 +36,12 @@ TEST(ComposeBe, EmitsTwoBytesForUint16MostSignificantFirst)
 
 TEST(ComposeBe, EmitsThreeBytesForU24MostSignificantFirst)
 {
-    EXPECT_THAT(ComposeBe(U24(0x123456)), ElementsAre(0x12, 0x34, 0x56));
+    EXPECT_THAT(ComposeBe(U24{0x123456}), ElementsAre(0x12, 0x34, 0x56));
 }
 
 TEST(ComposeBe, TruncatesU24ToItsLowThreeBytes)
 {
-    EXPECT_THAT(ComposeBe(U24(0xFF123456)), ElementsAre(0x12, 0x34, 0x56));
+    EXPECT_THAT(ComposeBe(U24{0xFF123456}), ElementsAre(0x12, 0x34, 0x56));
 }
 
 TEST(ComposeBe, EmitsFourBytesForUint32MostSignificantFirst)
@@ -97,7 +97,7 @@ TEST(ComposeBe, EmitsNothingForNoArguments)
 
 TEST(ComposeBe, AppendsArgumentsLeftToRight)
 {
-    EXPECT_THAT(ComposeBe(0x34_b, U24(0x00A000), 0x04_b, U24(0x000200)),
+    EXPECT_THAT(ComposeBe(0x34_b, U24{0x00A000}, 0x04_b, U24{0x000200}),
                 ElementsAre(0x34, 0x00, 0xA0, 0x00, 0x04, 0x00, 0x02, 0x00));
 }
 

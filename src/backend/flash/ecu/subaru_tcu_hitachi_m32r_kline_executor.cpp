@@ -308,7 +308,7 @@ Result<bytes::Bytes> ReadRom(IKlineFlashTransport& transport, IClock& clock, con
         }
         const std::uint32_t length = std::min(p.block_size, kRomSize - address);
         const bytes::Bytes request =
-            ComposeBe(0xa0_b, 0x00_b, bytes::U24(address), static_cast<bytes::Byte>(length - 1));
+            ComposeBe(0xa0_b, 0x00_b, bytes::U24{address}, static_cast<bytes::Byte>(length - 1));
 
         // read_a0_rom's retry loop: up to five attempts while the response is
         // too short to carry data. Each attempt keeps the legacy
