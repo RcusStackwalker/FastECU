@@ -1,0 +1,14 @@
+load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+# The machine's clang-tidy, the one the fastecu_tidy plugin is built against
+# (//bazel:llvm.bzl). The pinned Linux LLVM replaces it once CI runs the aspect.
+native_binary(
+    name = "clang_tidy",
+    src = "@local_llvm//:bin/clang-tidy",
+    out = "clang_tidy",
+    tags = ["manual"],
+)
+
+exports_files(["linters.bzl"])

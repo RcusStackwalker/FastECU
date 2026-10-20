@@ -29,6 +29,8 @@ build:macos --host_cxxopt=-std=c++23
 build:macos --per_file_copt=^(src|apps|tests|bazel)/.*[.](cc|cpp|cxx|mm)$@-Wsign-compare
 # needed for std::format
 build:macos --macos_minimum_os=26.0
+# Tools built for the exec platform (the clang-tidy plugin under the lint aspect) need it too.
+build:macos --host_macos_minimum_os=26.0
 # MSVC does not accept a plain /std:c++23 (it warns D9002 and falls back to its
 # default standard); /std:c++latest is the accepted spelling that enables the
 # C++23 library features we need (std::expected). clang/gcc use -std=c++23 above.

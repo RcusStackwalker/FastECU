@@ -115,6 +115,7 @@ cc_binary(
     visibility = [
         "//:__pkg__",
         "//bazel:__pkg__",
+        "//tools/clang-tidy/aspect:__pkg__",
         "//tools/clang-tidy/scripts:__pkg__",
     ],
     deps = ["@local_llvm//:clang_tidy_headers"],
