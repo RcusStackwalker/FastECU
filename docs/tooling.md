@@ -118,7 +118,9 @@ runs do not reject entries outside their analyzed scope.
 Result access reasoning is intraprocedural and bounded to structured control
 flow, fatal state matchers, terminating guards, stable local/member identities,
 and supported mutation/alias patterns. Functions containing source-level
-`goto`, `switch`, or exception handlers receive no propagated state proofs;
+`goto` or exception handlers receive no propagated state proofs;
+`switch` bodies do not export new proofs, and possible mutations invalidate
+prior facts. Fresh assertions after a switch can establish a new proof.
 GoogleTest's internal macro control flow does not impose this restriction.
 Captured lambda and framework setup proofs are not inferred across functions.
 Use a simpler local proof or a narrowly justified central exception where

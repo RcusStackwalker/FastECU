@@ -2,9 +2,10 @@
 
 Conventions for new and edited C++ code. Pre-existing code is converted
 opportunistically as files are touched, not in repo-wide sweeps; remaining
-violations are tracked in [technical debt](tech-debt.md). The exception is
-[Naming](#naming): a rule clang-tidy enforces is applied to every existing site
-by the change that adopts it.
+violations are tracked in [technical debt](tech-debt.md). When adopting or
+widening an enabled mechanical rule, clean every existing finding in its full
+platform scope before enabling it; this includes [naming](#naming) and
+[assertions](#assertions). Review-only conventions retain opportunistic cleanup.
 
 Structural decisions (build graph, layering, CI) live in the
 [ADR index](adr/README.md). Enforcement is review plus the mechanical

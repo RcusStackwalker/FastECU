@@ -246,11 +246,6 @@ class NonlocalFlowFinder : public clang::RecursiveASTVisitor<NonlocalFlowFinder>
         found |= !statement->getBeginLoc().isMacroID();
         return true;
     }
-    bool VisitSwitchStmt(clang::SwitchStmt *statement)
-    {
-        found |= !statement->getBeginLoc().isMacroID();
-        return true;
-    }
 };
 
 struct Flow
@@ -290,16 +285,9 @@ class FunctionAnalysis
             if (auto assertion = AnalyzeAssertion(statement, macro, facts))
                 return *assertion;
         if (const auto *block = llvm::dyn_cast<clang::CompoundStmt>(statement))
-        {
-            Flow flow{std::move(facts), false};
-            for (const auto *child : block->body())
-            {
-                flow = Analyze(child, std::move(flow.facts));
-                if (flow.exits)
-                    break;
-            }
-            return flow;
-        }
+            return AnalyzeBlock(*block, std::move(facts));
+        if (const auto *selection = llvm::dyn_cast<clang::SwitchStmt>(statement))
+            return AnalyzeSelection(*selection, std::move(facts));
         if (const auto *branch = llvm::dyn_cast<clang::IfStmt>(statement))
             return AnalyzeBranch(*branch, std::move(facts));
         if (const auto *loop = llvm::dyn_cast<clang::ForStmt>(statement))
@@ -444,6 +432,32 @@ class FunctionAnalysis
             return Flow{facts, false};
         }
         return std::nullopt;
+    }
+
+    Flow AnalyzeBlock(const clang::CompoundStmt& block, Facts facts)
+    {
+        Flow flow{std::move(facts), false};
+        for (const auto *child : block.body())
+        {
+            flow = Analyze(child, std::move(flow.facts));
+            if (flow.exits)
+                break;
+        }
+        return flow;
+    }
+
+    Flow AnalyzeSelection(const clang::SwitchStmt& selection, Facts facts)
+    {
+        Scan(selection.getInit(), facts);
+        Scan(selection.getConditionVariableDeclStmt(), facts);
+        Scan(selection.getCond(), facts);
+        MutationFinder mutations;
+        mutations.TraverseStmt(const_cast<clang::Stmt *>(selection.getBody()));
+        for (const auto& key : mutations.keys)
+            Kill(facts, key);
+        auto body_facts = facts;
+        Scan(selection.getBody(), body_facts);
+        return {std::move(facts), false};
     }
 
     Flow AnalyzeBranch(const clang::IfStmt& branch, Facts facts)

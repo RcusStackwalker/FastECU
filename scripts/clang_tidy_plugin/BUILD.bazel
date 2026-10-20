@@ -26,10 +26,13 @@ cc_binary(
         "*Check.cpp",
         "*Check.h",
     ]),
-    copts = ["/GR-"],
-    # MSVC-shaped toolchains otherwise lower system_includes to ordinary /I.
-    # Mark dependency headers external while retaining /WX for our sources.
-    features = ["external_include_paths"],
+    additional_compiler_inputs = ["@local_llvm//:clang_tidy_headers"],
+    # The Windows toolchain lowers CcInfo.system_includes to ordinary /I.
+    # clang-cl's /imsvc restores the dependency header classification.
+    copts = [
+        "/GR-",
+        "@$(location @local_llvm//:clang_tidy_headers)",
+    ],
     linkopts = [
         "psapi.lib",
         "shell32.lib",

@@ -820,6 +820,26 @@ TEST(ResultAccess, Exception) {
 }
 """)
 
+    def test_result_access_reestablishes_proof_after_switch(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+int Choice();
+TEST(ResultAccess, Switch) {
+    auto result = ReadValue();
+    switch (Choice()) {
+    case 0:
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+        break;
+    default: break;
+    }
+    EXPECT_EQ(*result, 7); // error: result-access
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(*result, 7);
+}
+""")
+
     def test_result_access_invalidates_mutation_and_merges_branches(self) -> None:
         self.assert_diagnostics("""#include <gmock/gmock.h>
 #include "src/backend/ports/result.h"
