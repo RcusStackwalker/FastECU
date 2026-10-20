@@ -45,10 +45,9 @@
 // reflash_block all differ across all three in timeouts, retry counts,
 // geometry, address indexing, startup ordering or log wording.
 //
-// Inside upload_kernel, two steps are identical in all three and are shared
-// below: building the checksummed, encrypted payload, and walking it in 0xB6
-// blocks. Each family keeps its own size checks, wording, B6 reply handling
-// and kernel start.
+// Inside upload_kernel, the encrypted payload, initial download request and
+// 0xB6 block walk are shared. Each family keeps its own size checks, wording,
+// reply handling and kernel start.
 //
 // The executor suites do NOT read these helpers back: each carries wire
 // expectations transcribed independently from its legacy oracle, so a wrong
@@ -74,6 +73,14 @@ inline bytes::Bytes BeefRequest(bytes::Byte opcode, bytes::ByteView payload = {}
 inline bytes::Bytes EncryptPayload(bytes::ByteView payload)
 {
     return DensoEncryptRom(payload);
+}
+
+// The initial upload request describes the encrypted payload without embedding
+// it. Callers retain their existing kernel-size validation.
+inline bytes::Bytes BeefKernelDownloadRequest(std::uint32_t load_address, bytes::ByteView encrypted_payload)
+{
+    return bytes::ComposeBe(bytes::Byte{0x34}, bytes::Byte{0x04}, bytes::Byte{0x33}, bytes::U24{load_address},
+                            bytes::U24{static_cast<std::uint32_t>(encrypted_payload.size())});
 }
 
 // The kernel zero-padded to whole `block_size` transfer blocks, its last word

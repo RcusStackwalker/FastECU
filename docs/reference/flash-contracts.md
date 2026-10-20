@@ -47,6 +47,13 @@ including unsupported TCU TestWrite and SH7055 Write rejection before invalid
 image/kernel errors. Kernel upload arithmetic and erase-region construction keep
 their existing owners; family upload padding still differs (six versus 128 bytes).
 
+## Denso BEEF CAN kernel download framing
+
+The [BEEF CAN helpers](../../src/backend/flash/ecu/denso_beef_can_common.h) own
+the shared kernel-download request: `34 04 33`, then the low 24 address bits and
+the checked 24-bit encrypted payload length, both big-endian. Payload validation
+precedes serialization; each family retains its reply policy and upload ordering.
+
 ## Denso BEEF K-Line (MC68, SH7055)
 
 The [BEEF K-Line primitives](../../src/backend/flash/ecu/denso_beef_kline_common.h)

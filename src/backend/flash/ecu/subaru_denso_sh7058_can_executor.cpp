@@ -612,13 +612,10 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     {
         return std::unexpected(encrypted.error());
     }
-    const std::size_t data_length = encrypted->size();
 
     LogDebug(context, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address));
     LogInfo(context, "Initialize kernel upload");
-    if (const Status initialized = StrictPayload(context,
-                                                 ComposeBe(0x34_b, 0x04_b, 0x33_b, bytes::U24{kernel.load_address},
-                                                           bytes::U24{static_cast<std::uint32_t>(data_length)}),
+    if (const Status initialized = StrictPayload(context, BeefKernelDownloadRequest(kernel.load_address, *encrypted),
                                                  bytes::Bytes{0x20}, "kernel download");
         !initialized.has_value())
     {
