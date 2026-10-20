@@ -1,0 +1,48 @@
+name: LLVM release (Linux, Windows)
+description: >-
+  Install an official llvm-project release tarball, checked against its
+  SHA-256, and put its unversioned clang, clang-tidy and run-clang-tidy first
+  on PATH. On Windows it also points Bazel at the install and selects clang-cl.
+inputs:
+  version:
+    description: LLVM release version, for example 23.1.2.
+    required: true
+  sha256:
+    description: >-
+      SHA-256 of the release asset for this runner OS:
+      LLVM-<version>-Linux-X64.tar.xz or
+      clang+llvm-<version>-x86_64-pc-windows-msvc.tar.xz.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install LLVM ${{ inputs.version }}
+      shell: bash
+      env:
+        LLVM_VERSION: ${{ inputs.version }}
+        LLVM_SHA256: ${{ inputs.sha256 }}
+      run: |
+        if [ "${RUNNER_OS}" = Windows ]; then
+          name="clang+llvm-${LLVM_VERSION}-x86_64-pc-windows-msvc.tar.xz"
+          # GNU tar reads "D:\..." as host:path, so work in POSIX form and
+          # hand the runner native paths only when writing its files.
+          temp="$(cygpath -u "${RUNNER_TEMP}")"
+          native() { cygpath -w "$1"; }
+        else
+          name="LLVM-${LLVM_VERSION}-Linux-X64.tar.xz"
+          temp="${RUNNER_TEMP}"
+          native() { printf '%s' "$1"; }
+        fi
+        archive="${temp}/${name}"
+        curl -fsSL --retry 3 -o "${archive}" \
+          "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/${name}"
+        echo "${LLVM_SHA256}  ${archive}" | sha256sum --check --strict
+        mkdir "${temp}/llvm"
+        tar -xJf "${archive}" -C "${temp}/llvm" --strip-components=1
+        rm "${archive}"
+        echo "$(native "${temp}/llvm/bin")" >> "$GITHUB_PATH"
+        echo "FASTECU_LLVM_ROOT=$(native "${temp}/llvm")" >> "$GITHUB_ENV"
+        if [ "${RUNNER_OS}" = Windows ]; then
+          echo "BAZEL_LLVM=$(native "${temp}/llvm")" >> "$GITHUB_ENV"
+          echo "USE_CLANG_CL=1" >> "$GITHUB_ENV"
+        fi

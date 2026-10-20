@@ -518,7 +518,7 @@ def config_changed(changed: Sequence[Path]) -> bool:
             return True
         if ".github" in path.parts and (
             (path.parent.name == "workflows" and path.name == "pr.yml")
-            or "llvm-linux" in path.parts
+            or "llvm-release" in path.parts
         ):
             return True
     return False

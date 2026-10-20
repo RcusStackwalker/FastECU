@@ -113,6 +113,9 @@ jobs:
     # tools/clang-tidy/scripts/clang_tidy_runner.py) and hanging so hard it stopped honouring
     # step-level timeout-minutes. Same reasoning as sonar.yml's own 60.
     timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -143,18 +146,8 @@ jobs:
       - uses: ./.github/actions/qt-runtime-linux
         if: runner.os == 'Linux'
 
-      - name: Install Bazel prerequisites (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          choco install llvm -y --no-progress
-          "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Install Bazel prerequisites (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install llvm
-          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/llvm-bazel-prereqs
+        if: runner.os != 'Linux'
 
       - name: Build Bazel targets
         run: |
@@ -171,7 +164,6 @@ jobs:
 
       - name: Package from Bazel (verify only)
         if: matrix.package
-        shell: bash
         env:
           # Git Bash would rewrite the leading "//" of the Bazel label to "/".
           MSYS_NO_PATHCONV: '1'
@@ -203,7 +195,7 @@ jobs:
         with:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
 
-      - uses: ./.github/actions/llvm-linux
+      - uses: ./.github/actions/llvm-release
         with:
           version: ${{ env.CLANG_TIDY_LLVM_VERSION }}
           sha256: ${{ env.CLANG_TIDY_LLVM_SHA256_LINUX }}
@@ -254,6 +246,9 @@ jobs:
     # (tools/clang-tidy/scripts/clang_tidy_runner.py), whose analysis ran past 58 minutes on a
     # 4-core runner and was cancelled at the earlier 60-minute limit (#480).
     timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -280,49 +275,22 @@ jobs:
       - uses: ./.github/actions/qt-runtime-linux
         if: runner.os == 'Linux'
 
-      - name: Install clang-tidy (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $ver = $env:CLANG_TIDY_LLVM_VERSION
-          $name = "clang+llvm-$ver-x86_64-pc-windows-msvc.tar.xz"
-          $archive = Join-Path $env:RUNNER_TEMP $name
-          Invoke-WebRequest -Uri "https://github.com/llvm/llvm-project/releases/download/llvmorg-$ver/$name" -OutFile $archive
-          $actual = (Get-FileHash -Algorithm SHA256 -Path $archive).Hash.ToLowerInvariant()
-          if ($actual -ne $env:CLANG_TIDY_LLVM_SHA256_WINDOWS) {
-            throw "SHA-256 mismatch for ${name}: expected $env:CLANG_TIDY_LLVM_SHA256_WINDOWS, got $actual"
-          }
-          $dest = Join-Path $env:RUNNER_TEMP 'llvm'
-          New-Item -ItemType Directory -Path $dest | Out-Null
-          tar -xf $archive -C $dest --strip-components=1
-          Remove-Item $archive
-          Join-Path $dest 'bin' | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          "FASTECU_LLVM_ROOT=$dest" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "BAZEL_LLVM=$dest" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "USE_CLANG_CL=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
       # The tarball ships unversioned clang-tidy and run-clang-tidy, which is
       # where the runner looks them up.
-      - uses: ./.github/actions/llvm-linux
-        if: runner.os == 'Linux'
+      - uses: ./.github/actions/llvm-release
         with:
           version: ${{ env.CLANG_TIDY_LLVM_VERSION }}
-          sha256: ${{ env.CLANG_TIDY_LLVM_SHA256_LINUX }}
+          sha256: ${{ runner.os == 'Windows' && env.CLANG_TIDY_LLVM_SHA256_WINDOWS || env.CLANG_TIDY_LLVM_SHA256_LINUX }}
 
       - name: Select LLVM compiler for the Linux analysis extension
         if: runner.os == 'Linux'
-        shell: bash
         run: |
           echo "CC=$FASTECU_LLVM_ROOT/bin/clang" >> "$GITHUB_ENV"
           echo "CXX=$FASTECU_LLVM_ROOT/bin/clang++" >> "$GITHUB_ENV"
 
       - name: clang-tidy module fixtures
-        shell: bash
         run: bazel run --config=release //:clang_tidy_check_fixtures
 
       - name: clang-tidy report
-        # bash, not the Windows default pwsh: pwsh swallows the `--`, so bazel
-        # would read --profile as its own flag ("Expected value after --profile").
-        shell: bash
         run: |
           bazel run --config=release //:clang_tidy_report_changed -- --profile --annotate ${{ matrix.scope }}

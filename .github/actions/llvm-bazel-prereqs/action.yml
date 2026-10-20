@@ -1,0 +1,21 @@
+name: LLVM for Bazel (Windows, macOS)
+description: >-
+  Install the package-manager LLVM that Bazel's release config needs on the
+  Windows and macOS runners, and put it on PATH. Linux gets its LLVM from
+  llvm-release.
+runs:
+  using: composite
+  steps:
+    - name: Install LLVM
+      shell: bash
+      run: |
+        case "${RUNNER_OS}" in
+          Windows)
+            choco install llvm -y --no-progress
+            echo 'C:\Program Files\LLVM\bin' >> "$GITHUB_PATH"
+            ;;
+          macOS)
+            brew install llvm
+            echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+            ;;
+        esac
