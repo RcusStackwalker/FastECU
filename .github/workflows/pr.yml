@@ -296,6 +296,9 @@ jobs:
           tar -xf $archive -C $dest --strip-components=1
           Remove-Item $archive
           Join-Path $dest 'bin' | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "FASTECU_LLVM_ROOT=$dest" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "BAZEL_LLVM=$dest" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "USE_CLANG_CL=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       # The tarball ships unversioned clang-tidy and run-clang-tidy, which is
       # where the runner looks them up.
@@ -304,6 +307,13 @@ jobs:
         with:
           version: ${{ env.CLANG_TIDY_LLVM_VERSION }}
           sha256: ${{ env.CLANG_TIDY_LLVM_SHA256_LINUX }}
+
+      - name: Select LLVM compiler for the Linux analysis extension
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          echo "CC=$FASTECU_LLVM_ROOT/bin/clang" >> "$GITHUB_ENV"
+          echo "CXX=$FASTECU_LLVM_ROOT/bin/clang++" >> "$GITHUB_ENV"
 
       - name: clang-tidy report
         # bash, not the Windows default pwsh: pwsh swallows the `--`, so bazel

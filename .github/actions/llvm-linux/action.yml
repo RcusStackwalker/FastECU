@@ -28,3 +28,4 @@ runs:
         tar -xJf "${archive}" -C "${RUNNER_TEMP}/llvm" --strip-components=1
         rm "${archive}"
         echo "${RUNNER_TEMP}/llvm/bin" >> "$GITHUB_PATH"
+        echo "FASTECU_LLVM_ROOT=${RUNNER_TEMP}/llvm" >> "$GITHUB_ENV"

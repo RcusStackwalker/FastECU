@@ -1,6 +1,8 @@
 package(default_visibility = ["//visibility:private"])
 
 exports_files([
+    "llvm_headers.bzl",
+    "llvm_static_runtime.bzl",
     "gtest_targets.bzl",
     "qt_common.bzl",
     "qt_targets.bzl",

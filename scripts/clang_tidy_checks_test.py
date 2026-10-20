@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 import clang_tidy_runner as runner
+import clang_tidy_toolchain as toolchain
 import yaml
 
 
@@ -16,8 +17,11 @@ class ClangTidyChecks(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.workspace = runner.workspace_root(os.environ)
+        cls.host = toolchain.runfiles_analysis_host(os.environ)
         cls.tools = runner.discover_tools(
-            "report", platform_name=runner.sys.platform, environ=os.environ
+            "report",
+            platform_name=runner.sys.platform,
+            environ=dict(os.environ, FASTECU_LLVM_ROOT=str(cls.host.llvm_root)),
         )
         entries = json.loads((cls.workspace / "compile_commands.json").read_text())
         cls.entry = next(
@@ -26,29 +30,28 @@ class ClangTidyChecks(unittest.TestCase):
             if str(entry["file"]).endswith("src/backend/ports/result_test.cpp")
         )
 
-    @classmethod
-    def plugin_library(cls) -> Path | None:
-        """The AST-only checks, built by Bazel and shipped as runfiles data."""
-        directory = Path(__file__).with_name("clang_tidy_plugin")
-        return next(directory.glob("libfastecu_tidy.*"), None)
-
     def assert_diagnostics(
-        self, body: str, filename: str = "fixture.cpp", plugin: bool = False
+        self,
+        body: str,
+        filename: str = "fixture_test.cpp",
+        plugin: bool = False,
+        checks: str | None = None,
+        exceptions: list[dict[str, str]] | None = None,
     ) -> None:
         # Literal markers identify independently expected user-file locations.
         # Plugin checks are registered without the custom- prefix.
-        prefix = "fastecu-" if plugin else "custom-fastecu-"
-        checks = "fastecu-*" if plugin else "custom-fastecu-*"
-        library = self.plugin_library()
-        if plugin and library is None:
-            self.skipTest("run //:clang_tidy_plugin_fixtures to build the AST plugin")
-        load = ["-load", str(library)] if plugin else []
+        prefix = "fastecu-"
+        load = [argument.replace("--load=", "-load=") for argument in self.host.arguments]
         expected = set()
         for line, text in enumerate(body.splitlines(), 1):
             for severity in ("error", "warning"):
                 marker = f"// {severity}: "
                 if marker in text:
                     expected.add((prefix + text.split(marker)[1], line, severity.title()))
+        if checks is None:
+            checks = ",".join(sorted({name for name, _, _ in expected}))
+        if not checks:
+            raise ValueError("negative fixtures must name the check they exercise")
         with tempfile.TemporaryDirectory(prefix="fastecu-inline-fixture-") as directory:
             source = Path(directory) / filename
             source.parent.mkdir(parents=True, exist_ok=True)
@@ -61,17 +64,28 @@ class ClangTidyChecks(unittest.TestCase):
             (Path(directory) / "compile_commands.json").write_text(json.dumps([entry]))
             fixes = Path(directory) / "fixes"
             fixes.mkdir()
+            configuration = yaml.safe_load((self.workspace / ".clang-tidy").read_text())
+            options = configuration.get("CheckOptions", {})
+            if isinstance(options, list):
+                options = {item["key"]: item["value"] for item in options}
+            policy_file = self.workspace / ".clang-tidy-exceptions.yaml"
+            if exceptions is not None:
+                policy_file = Path(directory) / ".clang-tidy-exceptions.yaml"
+                policy_file.write_text(yaml.safe_dump({"version": 1, "exceptions": exceptions}))
+            options["fastecu.ExceptionsFile"] = str(policy_file)
+            usage = Path(directory) / "usage"
+            usage.mkdir()
+            configuration["CheckOptions"] = options
+            fixture_config = Path(directory) / "config.yaml"
+            fixture_config.write_text(yaml.safe_dump(configuration))
             result = subprocess.run(
                 [
                     runner.sys.executable,
-                    str(Path(__file__).with_name("clang_tidy_adapter.py")),
-                    "--upstream",
                     self.tools.run_clang_tidy,
-                    "--",
                     "-clang-tidy-binary",
-                    self.tools.clang_tidy,
+                    str(self.host.executable),
                     "-config-file",
-                    str(self.workspace / ".clang-tidy"),
+                    str(fixture_config),
                     f"-checks=-*,{checks}",
                     *load,
                     "-extra-arg=-Wno-error",
@@ -85,6 +99,7 @@ class ClangTidyChecks(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 cwd=self.workspace,
+                env={**os.environ, "FASTECU_TIDY_EXCEPTION_USAGE_DIR": str(usage)},
             )
             # Advisory findings must succeed; existing error-level checks still fail.
             self.assertEqual(
@@ -92,6 +107,16 @@ class ClangTidyChecks(unittest.TestCase):
                 result.returncode != 0,
                 result.stdout + result.stderr,
             )
+            if exceptions is not None:
+                used = [
+                    record
+                    for path in usage.glob("*.json")
+                    for record in json.loads(path.read_text())
+                ]
+                self.assertEqual(
+                    {(entry["check"], entry["file"], entry["symbol"]) for entry in exceptions},
+                    {(entry["check"], entry["file"], entry["symbol"]) for entry in used},
+                )
             actual = set()
             diagnostics = [
                 diagnostic
@@ -104,7 +129,9 @@ class ClangTidyChecks(unittest.TestCase):
                     line = source.read_bytes()[: message["FileOffset"]].count(b"\n") + 1
                     actual.add((diagnostic["DiagnosticName"], line, diagnostic["Level"]))
                     self.assertEqual(
-                        ["typename"] if plugin else [],
+                        ["typename"]
+                        if diagnostic["DiagnosticName"] == "fastecu-template-typename"
+                        else [],
                         [r["ReplacementText"] for r in message["Replacements"]],
                     )
             self.assertEqual(expected, actual, result.stdout + result.stderr)
@@ -308,7 +335,8 @@ void ContiguousAddresses(std::vector<int>& values, const std::vector<int>& const
 """)
 
     def test_redundant_address_dereference_excludes_other_overloads(self) -> None:
-        self.assert_diagnostics("""#include <iterator>
+        self.assert_diagnostics(
+            """#include <iterator>
 #include <list>
 #include <memory>
 #include <vector>
@@ -344,7 +372,9 @@ void OtherAddresses(std::vector<int>& values, std::list<int>& nodes,
     auto nested_lookalike_address = &*nested_lookalike;
     auto derived_address = &*derived;
 }
-""")
+""",
+            checks="fastecu-redundant-address-dereference",
+        )
 
     def test_result_assertions_distinguish_optional_and_matchers(self) -> None:
         self.assert_diagnostics("""#include <gmock/gmock.h>
@@ -386,62 +416,61 @@ TEST(InlineChecks, LowLevelResultApi) {
 }
 """,
             "src/backend/ports/result_test.cpp",
+            checks="fastecu-result-assertion",
         )
 
     def test_first_party_header_filter_reports_actual_header_declarations(self) -> None:
         with tempfile.TemporaryDirectory(prefix="fastecu-header-fixture-") as directory:
             root = Path(directory)
+            header = root / "src/probe.hpp"
+            header.parent.mkdir()
+            header.write_text("template <class T> struct HeaderProbe {};\n")
+            generated = root / "src/generated_ui/moc_probe.h"
+            generated.parent.mkdir()
+            generated.write_text("template <class T> struct GeneratedProbe {};\n")
+            source = root / "main.cpp"
+            source.write_text('#include "src/probe.hpp"\n#include "src/generated_ui/moc_probe.h"\n')
             configuration = {
-                "Checks": "-*,custom-fastecu-header-probe",
-                "WarningsAsErrors": "*,-custom-fastecu-header-probe",
-                "HeaderFilterRegex": runner.inline_header_filter(self.workspace),
-                "CustomChecks": [
-                    {
-                        "Name": "fastecu-header-probe",
-                        "Query": (
-                            'match cxxRecordDecl(hasName("::fastecu::Error"), '
-                            'isDefinition()).bind("header")'
-                        ),
-                        "Diagnostic": [
-                            {
-                                "BindName": "header",
-                                "Message": "header coverage probe",
-                                "Level": "Warning",
-                            }
-                        ],
-                    }
-                ],
+                "Checks": "-*,fastecu-template-typename",
+                "WarningsAsErrors": "*",
+                "HeaderFilterRegex": runner.first_party_header_filter(root),
+                "ExcludeHeaderFilterRegex": yaml.safe_load(
+                    (self.workspace / ".clang-tidy").read_text()
+                )["ExcludeHeaderFilterRegex"],
             }
             config = root / "config.yaml"
             config.write_text(yaml.safe_dump(configuration))
-            (root / "compile_commands.json").write_text(json.dumps([self.entry]))
+            entry = dict(self.entry)
+            arguments = [
+                str(source) if arg == str(entry["file"]) else arg for arg in entry["arguments"]
+            ]
+            entry.update(file=str(source), arguments=[*arguments, "-I", directory])
+            (root / "compile_commands.json").write_text(json.dumps([entry]))
             fixes = root / "fixes.yaml"
             result = subprocess.run(
                 [
-                    self.tools.clang_tidy,
-                    "--experimental-custom-checks",
+                    str(self.host.executable),
+                    *self.host.arguments,
                     f"--config-file={config}",
                     "-extra-arg=-Wno-error",
                     "-p",
                     directory,
                     f"-export-fixes={fixes}",
-                    self.entry["file"],
+                    str(source),
                 ],
                 capture_output=True,
                 text=True,
                 cwd=self.workspace,
             )
-            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertEqual(1, result.returncode, result.stdout + result.stderr)
             diagnostics = (
                 (yaml.safe_load(fixes.read_text()) or {}).get("Diagnostics", [])
                 if fixes.exists()
                 else []
             )
             self.assertEqual(1, len(diagnostics), result.stdout + result.stderr)
-            message = diagnostics[0]["DiagnosticMessage"]
             self.assertEqual(
-                self.workspace / "src/backend/ports/error.h",
-                (self.workspace / message["FilePath"]).resolve(),
+                header.resolve(), Path(diagnostics[0]["DiagnosticMessage"]["FilePath"]).resolve()
             )
 
     def test_container_predicates_distinguish_plain_booleans_and_matchers(self) -> None:
