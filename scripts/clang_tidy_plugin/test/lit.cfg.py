@@ -3,12 +3,12 @@
 import json
 import os
 import shlex
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import lit.formats
+import lit.llvm
 
 config = globals()["config"]
 lit_config = globals()["lit_config"]
@@ -21,9 +21,9 @@ config.test_source_root = str(Path(__file__).parent)
 config.test_exec_root = lit_config.params["exec_root"]
 config.environment["PATH"] = lit_config.params["tools"] + os.pathsep + os.environ["PATH"]
 config.environment["CLANG_NO_DEFAULT_CONFIG"] = "1"
-# The upstream helper invokes diff as a subprocess, including on Windows.
-if os.name == "nt" and (git := shutil.which("git")):
-    config.environment["PATH"] += os.pathsep + str(Path(git).parents[1] / "usr/bin")
+# Use LLVM's Windows Unix-tool discovery, including Git for Windows' registry
+# installation path. RUN commands need cp and the upstream helper needs diff.
+lit.llvm.initialize(lit_config, config)
 
 # check_clang_tidy.py intentionally uses -nostdinc++. Supply the selected
 # compiler's real search paths to retain the integration coverage of these tests.

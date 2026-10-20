@@ -151,8 +151,9 @@ Bazel compiles LLVM's FileCheck driver against the selected development
 libraries because the official archives omit that executable. The macOS
 archives contain LLVM bitcode, so linking FileCheck uses their matching LTO
 library; Windows uses their static release CRT, as does the analysis host.
-The upstream helper requires `diff` on `PATH`; on Windows, the lit configuration
-also searches Git for Windows' `usr/bin`.
+Fixture commands require Unix tools such as `cp`, and the upstream helper
+requires `diff`. LLVM's lit initialization discovers these on Windows,
+including Git for Windows installations registered outside `PATH`.
 
 Fixtures require the registered checks and do not silently skip when an
 extension is missing. They are a manual, local Bazel test because they require
