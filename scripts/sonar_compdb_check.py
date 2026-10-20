@@ -1,14 +1,11 @@
-"""Sonar spike: inspect the Hedron compile_commands.json before it is scanned.
+"""Fail the SonarCloud job if the compile database cannot carry Qt's `emit`.
 
-Reports whether the database can carry Qt's `emit` macro to Sonar's CFamily
-analyzer: entry count, the compiler in argv[0], how many include directories
-exist on this runner, and whether Qt's qobjectdefs.h (which defines `emit`)
-resolves through them. With --rewrite-compiler, Bazel's cc_wrapper.sh in argv[0]
-is replaced with plain clang (the rewrite refresh_sonar.py used to do), because
-Sonar skips entries whose compiler it cannot identify.
-
-Throwaway: delete with the spike (see the findings doc) unless the compile
-database path is adopted.
+Sonar's CFamily analyzer reads `emit Signal(...)` as a declaration when it cannot
+open qobjectdefs.h (which defines `emit`), and reports shadowing false positives
+(cpp:S1117, cpp:S824). The database lists generated include trees under
+bazel-out/.../_virtual_includes; a build served from the remote cache may not
+download them. Print how many include directories exist on this runner and exit
+non-zero if no QtCore include directory resolves qobjectdefs.h.
 """
 
 import argparse
@@ -57,7 +54,6 @@ def inspect(entries):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("database", type=pathlib.Path)
-    parser.add_argument("--rewrite-compiler", action="store_true")
     args = parser.parse_args()
 
     entries = json.loads(args.database.read_text())
@@ -71,15 +67,6 @@ def main():
     missing = sorted(str(d) for d, ok in dirs.items() if not ok)
     for d in missing[:10]:
         print(f"  missing: {d}")
-
-    if args.rewrite_compiler:
-        rewritten = 0
-        for entry in entries:
-            if entry["arguments"][0].endswith("cc_wrapper.sh"):
-                entry["arguments"][0] = "clang"
-                rewritten += 1
-        args.database.write_text(json.dumps(entries))
-        print(f"rewrote compiler in {rewritten}/{len(entries)} entries")
 
     return 0 if qt_hits else 1
 

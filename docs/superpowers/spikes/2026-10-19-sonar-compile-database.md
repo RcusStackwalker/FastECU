@@ -1,6 +1,24 @@
 # Spike: SonarCloud from a cached Bazel compile database
 
-Status: **in progress** (workflow written, not yet run).
+Status: **adopted** (2026-10-20). `sonar.yml` now builds with the BuildBuddy
+cache and reads Hedron's `compile_commands.json`; the build wrapper, the
+`sonar` Bazel config and the `no-sonar-build-wrapper` test tag are gone.
+
+What the spike measured (warm cache, same commit, Ubuntu runner):
+
+| | build wrapper | Hedron + remote cache |
+|---|---|---|
+| Build + test | 979 s + 58 s | 233 s |
+| CFamily units analysed | 261 | 261 |
+| Symbolic-execution / taint issues | 2 / 1 | 2 / 1 |
+| `qobjectdefs.h` resolves | 1 of 2 QtCore dirs | 1 of 2 QtCore dirs |
+
+**Not verified:** SonarCloud's server-side issue counts (`cpp:S1117`,
+`cpp:S824`, total). The spike project's background task failed on both
+variants, so the comparison rests on identical unit counts and analyzer
+findings. The first master scan after adoption is the check: new
+`emit`-shaped `S1117`/`S824` findings mean the Qt headers did not resolve, and
+`scripts/sonar_compdb_check.py` fails the job when they cannot.
 
 ## Question
 

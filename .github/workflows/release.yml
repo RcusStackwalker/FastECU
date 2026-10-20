@@ -60,6 +60,7 @@ jobs:
       cache-save: true
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}
 
   build:
     needs: release

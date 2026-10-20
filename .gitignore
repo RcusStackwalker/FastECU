@@ -60,8 +60,8 @@ compile_commands.json
 # root when generating compile_commands.json.
 /external
 
-# SonarCloud build-wrapper output (compile_commands.json + trace log).
-/bw-output/
+# Hedron compile database for SonarCloud (bazel run //bazel/compile_commands:refresh).
+/compile_commands.json
 
 # clangd fallback flags (machine-specific absolute paths, e.g. Homebrew prefix)
 compile_flags.txt
@@ -88,7 +88,7 @@ compile_flags.txt
 /reports/
 
 # Python bytecode caches. scripts/ and bazel/compile_commands/ hold the only
-# Python in the tree (clang_tidy_runner, refresh_sonar); running either or
+# Python in the tree (clang_tidy_runner, sonar_compdb_check); running either or
 # their pytest suites drops a __pycache__ next to the source, and an
 # untracked-but-not-ignored .pyc is one `git add -A` away from being
 # committed.
