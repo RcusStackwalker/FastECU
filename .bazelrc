@@ -6,15 +6,16 @@ build --incompatible_default_to_explicit_init_py
 # see https://github.com/bazelbuild/rules_cc/issues/591
 build --features=-default_cpp_std
 
+# Let Bazel generate only PIC objects instead of separate .o/.pic.o actions.
+# Linux also needs PIC references to Qt's staticMetaObject data to avoid copy
+# relocations that break qobject_cast. MSVC uses its own COFF relocation model
+# and rejects --force_pic. Scope the flag to Unix configurations: a global
+# build option overrides Windows options expanded from common configuration.
+build:linux --force_pic
+build:macos --force_pic
+
 build:linux --cxxopt=-std=c++23
 build:linux --host_cxxopt=-std=c++23
-# Compile as PIC so the executable reaches Qt's exported staticMetaObject data
-# through the GOT. Non-PIC objects make the linker take copy relocations of
-# some of them (QMenu, QWidgetAction, QTableWidget), so qobject_cast in our
-# code compares against a different QMetaObject than the objects Qt itself
-# creates. A bare --copt, not --force_pic: that flag fails analysis of the
-# Android and Windows cross toolchains.
-build:linux --copt=-fPIC
 build:macos --cxxopt=-std=c++23
 build:macos --host_cxxopt=-std=c++23
 # GCC's -Wall includes -Wsign-compare but clang's does not, so Linux CI failed

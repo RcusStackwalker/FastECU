@@ -3,6 +3,25 @@
 How to run the static-analysis, mutation and fuzzing checks and the NLOC
 hill-climbing loop locally, and how CI runs them. The rules they enforce live in the [coding style guide](coding-style.md).
 
+## Build code generation
+
+[Bazel configuration](../.bazelrc) enables `--force_pic` only in the Linux and
+macOS configurations. A global build option overrides platform options expanded
+from common configuration, so a global flag with a Windows opt-out is insufficient.
+On Linux this replaces the raw `-fPIC` flag: Bazel
+now generates one PIC compilation instead of separate `.o` and `.pic.o`
+actions that both already emitted PIC. Executables also link as PIE, retaining
+the Qt `staticMetaObject` identity needed by `qobject_cast` without copy
+relocations. macOS uses its native PIC-capable toolchain. MSVC and clang-cl
+retain their native COFF mode; declaring unsupported PIC features is unnecessary.
+
+The [Windows x86 toolchain](../bazel/toolchains/windows_x86_msvc/BUILD.bazel)
+is target-compatible only with Windows, so Unix wildcard builds skip it rather
+than validate an unselected MSVC toolchain under `--force_pic`. The
+[Android rules patch](../bazel/patches/rules_android_ndk_pic.patch) declares the
+PIC mode already implemented by the NDK's unconditional `-fPIC`, allowing
+Android cross-compilation from Unix hosts with the same default flag.
+
 ## Static analysis
 
 ### prek
