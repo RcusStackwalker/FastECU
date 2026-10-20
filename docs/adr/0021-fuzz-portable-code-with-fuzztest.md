@@ -50,7 +50,9 @@ generates the test targets
 ## Consequences
 
 - `MODULE.bazel` carries FuzzTest as a dev dependency plus root
-  `single_version_override`s for modules in its graph that predate Bazel 9.
+  dev dependencies that set minimum compatible versions for modules in its
+  graph that predate Bazel 9. Bazel minimal version selection can raise these
+  versions when another dependency requires it.
   A FuzzTest bump is the time to try dropping them.
 - The root module resolves FuzzTest's whole graph (protobuf, flatbuffers,
   riegeli, abseil) on every build, though it fetches it only for the fuzz
