@@ -2006,7 +2006,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
             "bazel/fuzz.bazelrc",
             "bazel/toolchains/compiler_settings.bzl",
             ".github/workflows/pr.yml",
-            ".github/actions/llvm-linux/action.yml",
+            ".github/actions/llvm-release/action.yml",
             "BUILD.bazel",
             "tools/clang-tidy/plugin/ResultAssertionCheck.cpp",
             "tools/clang-tidy/plugin/BUILD.bazel",
