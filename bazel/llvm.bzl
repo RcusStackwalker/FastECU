@@ -52,7 +52,7 @@ def _local_llvm_impl(repository_ctx):
     repository_ctx.file("BUILD.bazel", """load("@rules_cc//cc:defs.bzl", "cc_library")
 load("{headers_rule}", "llvm_headers")
 
-exports_files(["llvm-identity.json"])
+exports_files(["llvm-identity.json", "lib/libLTO.dylib"])
 
 llvm_headers(
     name = "clang_tidy_headers",
@@ -64,11 +64,23 @@ llvm_headers(
 )
 
 cc_library(
+    name = "filecheck_libraries",
+    srcs = {filecheck_libraries},
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "clang_tidy_libraries",
     srcs = glob(["lib/clang*.lib", "lib/LLVM*.lib"], exclude = ["lib/LLVM-C.lib"], allow_empty = True),
     visibility = ["//visibility:public"],
 )
-""".replace("{headers_rule}", str(repository_ctx.attr._headers_rule)))
+""".replace("{headers_rule}", str(repository_ctx.attr._headers_rule)).replace(
+        "{filecheck_libraries}",
+        json.encode([
+            "lib/LLVM" + name + ".lib" if repository_ctx.os.name.startswith("windows") else "lib/libLLVM" + name + ".a"
+            for name in ["FileCheck", "Support", "Demangle"]
+        ]),
+    ))
 
 local_llvm = repository_rule(
     implementation = _local_llvm_impl,

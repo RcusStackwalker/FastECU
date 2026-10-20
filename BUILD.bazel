@@ -1,5 +1,5 @@
 load("@gazelle//:def.bzl", "gazelle", "gazelle_binary")
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:defs.bzl", "py_test")
 load("//bazel:clang_tidy.bzl", "clang_tidy_runner")
 
 package(default_visibility = ["//visibility:public"])
@@ -146,25 +146,43 @@ py_test(
     main = "scripts/clang_tidy_toolchain_test.py",
 )
 
-py_binary(
+py_test(
     name = "clang_tidy_check_fixtures",
+    size = "medium",
     srcs = [
-        "scripts/clang_tidy_checks_test.py",
-        "scripts/clang_tidy_exceptions.py",
-        "scripts/clang_tidy_output.py",
-        "scripts/clang_tidy_profile.py",
-        "scripts/clang_tidy_runner.py",
-        "scripts/clang_tidy_scope.py",
+        "scripts/clang_tidy_lit.py",
         "scripts/clang_tidy_toolchain.py",
     ],
-    data = ["//scripts/clang_tidy_plugin:llvm_identity"] + select({
+    args = [
+        "--helper",
+        "$(location @llvm_check_clang_tidy//file)",
+        "--filecheck",
+        "$(location //scripts/clang_tidy_plugin:FileCheck)",
+        "--gtest-header",
+        "$(location @googletest//:googletest/include/gtest/gtest.h)",
+        "--gmock-header",
+        "$(location @googletest//:googlemock/include/gmock/gmock.h)",
+    ],
+    data = [
+        ".clang-tidy",
+        "//scripts/clang_tidy_plugin:FileCheck",
+        "//scripts/clang_tidy_plugin:llvm_identity",
+        "//scripts/clang_tidy_plugin:test_files",
+        "//tests:clang_tidy_fixture_headers",
+        "@googletest//:googlemock/include/gmock/gmock.h",
+        "@googletest//:googletest/include/gtest/gtest.h",
+        "@llvm_check_clang_tidy//file",
+    ] + select({
         "@platforms//os:windows": ["//scripts/clang_tidy_plugin:fastecu_clang_tidy"],
         "//conditions:default": ["//scripts/clang_tidy_plugin:fastecu_tidy"],
     }),
     imports = ["scripts"],
-    main = "scripts/clang_tidy_checks_test.py",
-    tags = ["manual"],
-    deps = ["@python_deps//pyyaml"],
+    main = "scripts/clang_tidy_lit.py",
+    tags = [
+        "local",
+        "manual",
+    ],
+    deps = ["@python_deps//lit"],
 )
 
 # Compatibility label; all fixtures now require the registered checks.

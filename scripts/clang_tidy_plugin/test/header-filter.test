@@ -1,0 +1,5 @@
+// RUN: rm -rf %t.dir
+// RUN: mkdir -p %t.dir
+// RUN: cp -r %S/Inputs/header-filter/. %t.dir
+// RUN: not %clang_tidy %t.dir/main.cpp %load --config-file=%workspace/.clang-tidy --checks=-*,fastecu-template-typename -- -std=c++23 -I%t.dir %cxx_flags 2>&1 | FileCheck %s --implicit-check-not='{{warning|error}}:'
+// CHECK: {{[/\\]}}src{{[/\\]}}probe.hpp:2:11: error: declare this template type parameter with typename instead of class [fastecu-template-typename,-warnings-as-errors]

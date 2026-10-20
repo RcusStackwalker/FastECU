@@ -1,5 +1,6 @@
 """The clang-tidy runner targets behind //:clang_tidy_*."""
 
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_python//python:defs.bzl", "py_binary")
 
 def _clang_tidy_runner_impl(name, visibility, mode, changed):
@@ -67,4 +68,16 @@ clang_tidy_runner = macro(
         "changed": attr.bool(default = False, configurable = False),
     },
     doc = "A clang-tidy runner for report or fix mode, optionally restricted to changed files.",
+)
+
+def _clang_tidy_headers_impl(ctx):
+    return [DefaultInfo(files = depset(transitive = [
+        dep[CcInfo].compilation_context.headers
+        for dep in ctx.attr.deps
+    ]))]
+
+clang_tidy_headers = rule(
+    implementation = _clang_tidy_headers_impl,
+    attrs = {"deps": attr.label_list(providers = [CcInfo])},
+    doc = "Expose real transitive C++ headers as lit runfiles without compiling them.",
 )

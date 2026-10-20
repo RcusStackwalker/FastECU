@@ -104,3 +104,74 @@ cc_binary(
     ],
     deps = ["@local_llvm//:clang_tidy_headers"],
 )
+
+# Release archives contain these libraries but omit the test executable.
+# Compile LLVM's unmodified driver instead of maintaining a FileCheck substitute.
+cc_binary(
+    name = "filecheck_host",
+    srcs = ["@llvm_filecheck_driver//file"],
+    additional_compiler_inputs = ["@local_llvm//:clang_tidy_headers"],
+    additional_linker_inputs = select({
+        "@platforms//os:macos": ["@local_llvm//:lib/libLTO.dylib"],
+        "//conditions:default": [],
+    }),
+    copts = select({
+        "@platforms//os:windows": [
+            "/GR-",
+            "@$(location @local_llvm//:clang_tidy_headers)",
+        ],
+        "//conditions:default": ["-fno-rtti"],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "advapi32.lib",
+            "ole32.lib",
+            "shell32.lib",
+            "uuid.lib",
+            "psapi.lib",
+            "ws2_32.lib",
+            "ntdll.lib",
+            "version.lib",
+        ],
+        "@platforms//os:macos": ["-Wl,-lto_library,$(location @local_llvm//:lib/libLTO.dylib)"],
+        "@platforms//os:linux": [
+            "-ldl",
+            "-lpthread",
+            "-lm",
+        ],
+        "//conditions:default": [],
+    }),
+    tags = ["manual"],
+    deps = [
+        "@local_llvm//:clang_tidy_headers",
+        "@local_llvm//:filecheck_libraries",
+        "@zlib",
+        "@zstd",
+    ],
+)
+
+llvm_static_binary(
+    name = "FileCheck_windows",
+    binary = ":filecheck_host",
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//os:windows"],
+)
+
+alias(
+    name = "FileCheck",
+    actual = select({
+        "@platforms//os:windows": ":FileCheck_windows",
+        "//conditions:default": ":filecheck_host",
+    }),
+    tags = ["manual"],
+    visibility = ["//:__pkg__"],
+)
+
+filegroup(
+    name = "test_files",
+    srcs = glob(
+        ["test/**"],
+        exclude = ["test/**/__pycache__/**"],
+    ),
+    visibility = ["//:__pkg__"],
+)
