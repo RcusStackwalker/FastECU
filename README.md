@@ -37,7 +37,7 @@ Commercial uses is possible, but **all code linked with GPL 3.0 source code must
 
 ### Build and test
 
-FastECU uses Bazel 9.1.1 and Qt 6.8.3. Install Bazelisk (or the pinned Bazel
+FastECU uses Bazel 9.3.0 and Qt 6.8.3. Install Bazelisk (or the pinned Bazel
 version) and the platform compiler. Bazel downloads Qt itself, so no Qt install
 is needed.
 The exact CI setup is documented in `.github/workflows/pr.yml`.
