@@ -38,13 +38,16 @@ analyse like the wrapper's.
 `.github/workflows/sonar-spike.yml` (manual dispatch), scanning into project
 `rcusstackwalker_fastecu-sonar-spike` (token: `SONAR_SPIKE_TOKEN`):
 
-1. `wrapper` job: today's build-wrapper path, branch `wrapper` (baseline).
+1. `wrapper` job: today's build-wrapper path, as `master` (baseline).
 2. `compdb` job: BuildBuddy-cached coverage build with
    `--remote_download_regex=.*/_virtual_includes/.*`, Hedron `:refresh`,
    `scripts/sonar_spike_compdb_check.py` (entry count, `argv[0]`, include dirs
    that exist, whether `qobjectdefs.h` resolves; rewrites `cc_wrapper.sh` to
-   `clang` if present), then scan as branch `compdb`.
-3. `compare` job: issue totals, `cpp:S1117`, `cpp:S824`, `ncloc` per branch.
+   `clang` if present), then scan as `master`.
+3. After each scan, `scripts/sonar_spike_results.sh` waits for processing and
+   records issue totals, `cpp:S1117`, `cpp:S824` and `ncloc` for the main
+   branch in the job summary. The free plan analyses only the main branch
+   (`master`), so the variants take turns on it and are read back immediately.
 
 Run it twice: the first `compdb` run populates the BuildBuddy cache for the
 coverage config (the other jobs only build `release`), the second is the
