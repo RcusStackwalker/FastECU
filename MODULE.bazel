@@ -1,7 +1,7 @@
 module(name = "fastecu")
 
 bazel_dep(name = "rules_cc", version = "0.2.26")
-bazel_dep(name = "rules_python", version = "2.4.1")
+bazel_dep(name = "rules_python", version = "2.4.2")
 bazel_dep(name = "fastecu_qt", version = "0.0.0")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_android_ndk", version = "0.1.5")
@@ -18,40 +18,17 @@ bazel_dep(name = "fuzztest", version = "20260629.0", dev_dependency = True)
 # Micro-benchmarks; their targets are tagged manual and run with `bazel run -c opt`.
 bazel_dep(name = "google_benchmark", version = "1.9.5", dev_dependency = True)
 
-# Modules in FuzzTest's graph whose resolved versions predate Bazel 9 (they
-# call removed native rules or rule() arguments) and fail to load. Only the root
-# module's overrides take effect. rules_foreign_cc and aspect_bazel_lib repeat
-# FuzzTest's own overrides; the rest are ours. On a fuzztest bump, drop each
-# one `bazel build --config=asan //src/algorithms/...` no longer needs.
-single_version_override(
-    module_name = "rules_foreign_cc",
-    version = "0.15.1",
-)
-
-single_version_override(
-    module_name = "aspect_bazel_lib",
-    version = "2.22.5",
-)
-
-single_version_override(
-    module_name = "aspect_rules_esbuild",
-    version = "0.27.1",
-)
-
-single_version_override(
-    module_name = "brotli",
-    version = "1.2.0.bcr.3",
-)
-
-single_version_override(
-    module_name = "highwayhash",
-    version = "0.0.0-20240305-5ad3bf8.bcr.1",
-)
-
-single_version_override(
-    module_name = "snappy",
-    version = "1.2.2.bcr.3",
-)
+# Minimum versions for Bazel 9 compatibility in FuzzTest's transitive graph.
+# Ordinary dev dependencies let minimal version selection raise these versions
+# when another dependency needs more, without exact-version overrides.
+# On a FuzzTest bump, drop each floor that
+# `bazel build --config=asan //src/algorithms/...` no longer needs.
+bazel_dep(name = "rules_foreign_cc", version = "0.16.0", dev_dependency = True)
+bazel_dep(name = "aspect_bazel_lib", version = "2.22.5", dev_dependency = True)
+bazel_dep(name = "aspect_rules_esbuild", version = "0.27.1", dev_dependency = True)
+bazel_dep(name = "brotli", version = "1.2.0.bcr.3", dev_dependency = True)
+bazel_dep(name = "highwayhash", version = "0.0.0-20240305-5ad3bf8.bcr.1", dev_dependency = True)
+bazel_dep(name = "snappy", version = "1.2.2.bcr.3", dev_dependency = True)
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.defaults(python_version = "3.14")
