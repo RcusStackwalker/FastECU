@@ -27,7 +27,7 @@ nisprog/npkernel project by rimwall, modified for Subaru
 
 **Without all mentioned efforts this project would not have succeeded so far!**
 
-The code, unless otherwise specified, is licensed under GPLv3 which has certain restrictions. Here is a short summary:
+The code, unless otherwise specified, is licensed under GPLv3 which has certain restrictions. The build-time clang-tidy tooling in [`tools/clang-tidy/`](tools/clang-tidy/) is separately licensed under Apache-2.0 with LLVM exceptions. Here is a short summary of the GPLv3 terms:
 
 Source: https://tldrlegal.com/license/gnu-general-public-license-v3-(gpl-3)
 
