@@ -20,7 +20,7 @@ def run() -> None:
     parser.add_argument("--gmock-header", required=True)
     args, lit_args = parser.parse_known_args()
     host = toolchain.runfiles_analysis_host(os.environ)
-    suite = Path(__file__).with_name("clang_tidy_plugin") / "test"
+    suite = Path(__file__).parent.parent / "plugin" / "test"
     with tempfile.TemporaryDirectory(prefix="fastecu-lit-") as directory:
         tools = Path(directory) / "bin"
         tools.mkdir()
@@ -47,7 +47,7 @@ def run() -> None:
                 "helper": str(Path(args.helper).resolve()),
                 "llvm_root": str(host.llvm_root),
                 "load": list(host.arguments),
-                "workspace": str(suite.parents[2]),
+                "workspace": str(suite.parents[3]),
                 "gtest": str(Path(args.gtest_header).resolve().parents[1]),
                 "gmock": str(Path(args.gmock_header).resolve().parents[1]),
             }

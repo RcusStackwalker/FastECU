@@ -12,6 +12,7 @@ genrule(
     visibility = [
         "//:__pkg__",
         "//bazel:__pkg__",
+        "//tools/clang-tidy/scripts:__pkg__",
     ],
 )
 
@@ -61,14 +62,15 @@ llvm_static_binary(
     visibility = [
         "//:__pkg__",
         "//bazel:__pkg__",
+        "//tools/clang-tidy/scripts:__pkg__",
     ],
 )
 
 py_binary(
-    name = "qualification_smoke",
-    srcs = ["qualification/smoke.py"],
-    data = ["qualification/smoke.cpp"],
-    main = "qualification/smoke.py",
+    name = "load_smoke",
+    srcs = ["smoke/smoke.py"],
+    data = ["smoke/smoke.cpp"],
+    main = "smoke/smoke.py",
     deps = ["@python_deps//pyyaml"],
 )
 
@@ -101,6 +103,7 @@ cc_binary(
     visibility = [
         "//:__pkg__",
         "//bazel:__pkg__",
+        "//tools/clang-tidy/scripts:__pkg__",
     ],
     deps = ["@local_llvm//:clang_tidy_headers"],
 )
@@ -164,7 +167,10 @@ alias(
         "//conditions:default": ":filecheck_host",
     }),
     tags = ["manual"],
-    visibility = ["//:__pkg__"],
+    visibility = [
+        "//:__pkg__",
+        "//tools/clang-tidy/scripts:__pkg__",
+    ],
 )
 
 filegroup(
@@ -173,5 +179,8 @@ filegroup(
         ["test/**"],
         exclude = ["test/**/__pycache__/**"],
     ),
-    visibility = ["//:__pkg__"],
+    visibility = [
+        "//:__pkg__",
+        "//tools/clang-tidy/scripts:__pkg__",
+    ],
 )

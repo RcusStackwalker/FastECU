@@ -2008,8 +2008,8 @@ class ClangTidyRunnerTest(unittest.TestCase):
             ".github/workflows/pr.yml",
             ".github/actions/llvm-linux/action.yml",
             "BUILD.bazel",
-            "scripts/clang_tidy_plugin/ResultAssertionCheck.cpp",
-            "scripts/clang_tidy_plugin/BUILD.bazel",
+            "tools/clang-tidy/plugin/ResultAssertionCheck.cpp",
+            "tools/clang-tidy/plugin/BUILD.bazel",
             "bazel/llvm_headers.bzl",
             ".clang-tidy-exceptions.yaml",
         ):
@@ -2072,7 +2072,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         header = next(arg for arg in analyses[0] if arg.startswith("-header-filter="))
         self.assertIn("apps", header)
         self.assertIn("tests", header)
-        self.assertIn("scripts", header)
+        self.assertIn("tools", header)
 
     def test_config_changed_ignores_look_alike_names(self) -> None:
         self.assertFalse(runner.config_changed([]))

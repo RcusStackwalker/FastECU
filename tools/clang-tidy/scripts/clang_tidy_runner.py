@@ -30,6 +30,7 @@ import yaml
 SOURCE_SUFFIXES = frozenset((".c", ".cc", ".cpp", ".cxx"))
 HEADER_SUFFIXES = frozenset((".h", ".hpp"))
 CONFIG_FILE_NAME = ".clang-tidy"
+_TIDY_PLUGIN_DIR = ("tools", "clang-tidy", "plugin")
 
 
 class WorkflowError(RuntimeError):
@@ -509,7 +510,9 @@ def config_changed(changed: Sequence[Path]) -> bool:
             "MODULE.bazel.lock",
         }:
             return True
-        if "clang_tidy_plugin" in path.parts:
+        if _TIDY_PLUGIN_DIR in zip(path.parts, path.parts[1:], path.parts[2:], strict=False):
+            return True
+        if path.parent.name == "scripts" and path.name.startswith("clang_tidy_"):
             return True
         if "bazel" in path.parts:
             return True
@@ -517,8 +520,6 @@ def config_changed(changed: Sequence[Path]) -> bool:
             (path.parent.name == "workflows" and path.name == "pr.yml")
             or "llvm-linux" in path.parts
         ):
-            return True
-        if path.parent.name == "scripts" and path.name.startswith("clang_tidy_"):
             return True
     return False
 
@@ -1027,7 +1028,7 @@ def first_party_header_filter(workspace: PurePath) -> str:
     """First-party headers with Clang's native or normalized separators."""
     parts = re.split(r"[/\\]", str(workspace))
     prefix = r"[/\\]".join(re.escape(part) for part in parts)
-    return rf"^({prefix}[/\\]|[.][/\\])?(src|apps|tests|scripts)[/\\].*\.(h|hpp)$"
+    return rf"^({prefix}[/\\]|[.][/\\])?(src|apps|tests|tools)[/\\].*\.(h|hpp)$"
 
 
 def run_workflow(

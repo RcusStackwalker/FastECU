@@ -46,7 +46,7 @@ class AnalysisHost:
 
 
 def runfiles_analysis_host(environ: Mapping[str, str]) -> AnalysisHost:
-    directory = Path(__file__).with_name("clang_tidy_plugin")
+    directory = Path(__file__).parent.parent / "plugin"
     artifact = directory / (
         "fastecu_clang_tidy.exe"
         if os.name == "nt"

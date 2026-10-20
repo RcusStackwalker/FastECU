@@ -209,7 +209,7 @@ fastecu_gtest(
 clang_tidy_headers(
     name = "clang_tidy_fixture_headers",
     testonly = True,
-    visibility = ["//:__pkg__"],
+    visibility = ["//tools/clang-tidy/scripts:__pkg__"],
     deps = [
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:flash_plan",

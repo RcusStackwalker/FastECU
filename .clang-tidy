@@ -1,6 +1,6 @@
 # Editing this file makes CI's changed-files clang-tidy run analyze every
 # translation unit in scope instead of only the changed ones
-# (config_changed in scripts/clang_tidy_runner.py): budget for a full run.
+# (config_changed in tools/clang-tidy/scripts/clang_tidy_runner.py): budget for a full run.
 #
 # CI pins LLVM 23 for clang-tidy (CLANG_TIDY_LLVM_* in .github/workflows/pr.yml);
 # bumping it should touch this comment so the whole tree is re-checked.

@@ -27,5 +27,5 @@ prefixes = [
   # Manual extension sources have no application compilation-database entries.
   # Their reachable first-party headers use the common header filter; native
   # extension compilation and real-dependency fixtures provide their gate.
-  "scripts/clang_tidy_plugin",
+  "tools/clang-tidy/plugin",
 ]

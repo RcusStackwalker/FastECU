@@ -80,7 +80,7 @@ bazel run //:clang_tidy_fix_changed               # apply fixes (macOS/Linux, sy
 #### Repository checks
 
 Repository checks are compiled in
-[`scripts/clang_tidy_plugin/`](../scripts/clang_tidy_plugin/); the enabled
+[`tools/clang-tidy/plugin/`](../tools/clang-tidy/plugin/); the enabled
 `fastecu-*` names live in [`.clang-tidy`](../.clang-tidy). Bazel builds the
 analysis artifact automatically for the report, fix, benchmark and fixture
 commands. The runner validates the selected LLVM installation, release and
@@ -106,12 +106,12 @@ headers while retaining warnings as errors in first-party code.
 macOS/Linux load a shared extension. The pinned Windows executable does not
 export the required symbols, so Bazel builds an analysis host with the checks
 linked into it and supplies its missing compression dependencies. The
-[packaging smoke test](../scripts/clang_tidy_plugin/qualification/README.md)
+[packaging smoke test](../tools/clang-tidy/plugin/smoke/README.md)
 checks that a host loads the extension. Ordinary application builds do not
 need LLVM development headers.
 
 Built-in and repository checks run together with the wider first-party header
-scope under `src/`, `apps/`, `tests/`, and `scripts/`, including `.hpp`. Generated
+scope under `src/`, `apps/`, `tests/`, and `tools/`, including `.hpp`. Generated
 headers retain their exclusions; vendor headers stay outside the scope.
 Changing enforcement sources or configuration widens a changed-files run to
 all translation units in its platform scope. Before delivering an enabled
@@ -128,7 +128,7 @@ bazel run --config=release //:clang_tidy_check_fixtures -- --filter template-typ
 bazel run --config=release //:clang_tidy_benchmark -- --jobs 4 --output reports/clang-tidy-custom
 ```
 
-The [module test suite](../scripts/clang_tidy_plugin/test/) follows
+The [module test suite](../tools/clang-tidy/plugin/test/) follows
 [LLVM's in-tree test conventions](https://clang.llvm.org/extra/clang-tidy/Contributing.html#testing-checks):
 standalone source fixtures carry `RUN`, `CHECK-MESSAGES` and `CHECK-FIXES`
 directives, interpreted by lit, FileCheck and the unmodified upstream
