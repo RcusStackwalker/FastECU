@@ -1,9 +1,7 @@
 # LLVM packaging qualification
 
-This record supports the
-[rollout qualification](../../../docs/reference/clang-tidy-plugin-qualification.md).
 The exact macOS/Linux shared-host smoke and the Windows linked-host workflow
-have passed. Broader parity, runtime and review evidence belongs to that record.
+have passed.
 
 ## Smoke contract
 

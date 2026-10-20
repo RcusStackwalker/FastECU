@@ -192,7 +192,7 @@ Remove stale commented-out code as nearby behavior changes.
 
 Legacy suites still use a `Test` suffix. Rename them for the type under test as
 their files are touched, following the [test conventions](coding-style.md#structure).
-The [native clang-tidy rollout](reference/clang-tidy-plugin-qualification.md)
+The native clang-tidy rollout
 completed the Result assertion migration and now enforces it; ordinary optional
 checks and low-level Result API tests remain permitted.
 

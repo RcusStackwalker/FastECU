@@ -106,11 +106,9 @@ headers while retaining warnings as errors in first-party code.
 macOS/Linux load a shared extension. The pinned Windows executable does not
 export the required symbols, so Bazel builds an analysis host with the checks
 linked into it and supplies its missing compression dependencies. The
-[packaging qualification](../scripts/clang_tidy_plugin/qualification/README.md)
-records the archive evidence; the
-[rollout qualification](reference/clang-tidy-plugin-qualification.md) records
-checks, scope, parity, runtime measurements, and platform evidence. Ordinary
-application builds do not need LLVM development headers.
+[packaging smoke test](../scripts/clang_tidy_plugin/qualification/README.md)
+checks that a host loads the extension. Ordinary application builds do not
+need LLVM development headers.
 
 Built-in and repository checks run together with the wider first-party header
 scope under `src/`, `apps/`, `tests/`, and `scripts/`, including `.hpp`. Generated
