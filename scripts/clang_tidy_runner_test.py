@@ -1897,6 +1897,11 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
     def test_enforcement_sources_invalidate_full_scope(self) -> None:
         for relative in (
+            ".bazelrc",
+            "bazel/fuzz.bazelrc",
+            "bazel/toolchains/compiler_settings.bzl",
+            ".github/workflows/pr.yml",
+            ".github/actions/llvm-linux/action.yml",
             "BUILD.bazel",
             "scripts/clang_tidy_plugin/ResultAssertionCheck.cpp",
             "scripts/clang_tidy_plugin/BUILD.bazel",

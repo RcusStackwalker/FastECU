@@ -771,6 +771,121 @@ void Pairs(std::vector<int>& calls, const std::vector<int>& values) {
 }
 """)
 
+    def test_review_single_use_rejects_conditional_and_repeated_execution(self) -> None:
+        self.assert_diagnostics(
+            """#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Status Act();
+bool Enabled();
+TEST(SingleUse, Conditional) {
+    auto status = Act();
+    if (Enabled()) EXPECT_THAT(status, fastecu::testing::IsOk());
+}
+TEST(SingleUse, Repeated) {
+    auto status = Act();
+    for (int index = 0; index < 2; ++index)
+        EXPECT_THAT(status, fastecu::testing::IsOk());
+}
+""",
+            checks="fastecu-single-use-result",
+        )
+
+    def test_review_result_conditions_preserve_mutation_order(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+fastecu::Result<int> ReadValue();
+bool Mutate(fastecu::Result<int>&);
+TEST(ResultAccess, Conditions) {
+    auto first = ReadValue();
+    if (first.has_value() && Mutate(first))
+        EXPECT_EQ(*first, 1); // error: result-access
+    auto second = ReadValue();
+    if (second.has_value() || Mutate(second)) {}
+    else EXPECT_EQ(second.error().kind, fastecu::ErrorKind::kTimeout); // error: result-access
+    auto guarded = ReadValue();
+    if (Mutate(guarded) || !guarded.has_value()) return;
+    EXPECT_EQ(*guarded, 1);
+}
+""")
+
+    def test_review_result_continues_join_increment_and_do_condition(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+void Consume(int);
+bool Again(int);
+TEST(ResultAccess, ContinueIncrement) {
+    auto result = ReadValue();
+    for (int index = 0; index < 2; Consume(*result), ++index) { // error: result-access
+        if (index == 0) continue;
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+    }
+}
+TEST(ResultAccess, ContinueCondition) {
+    auto result = ReadValue();
+    int index = 0;
+    do {
+        if (index++ == 0) continue;
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+    } while (Again(*result)); // error: result-access
+}
+TEST(ResultAccess, ReadonlyContinue) {
+    auto result = ReadValue();
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    for (int index = 0; index < 2; Consume(*result), ++index) {
+        if (index == 0) continue;
+    }
+}
+""")
+
+    def test_review_lambdas_get_independent_result_and_loop_analysis(self) -> None:
+        self.assert_diagnostics("""#include <gmock/gmock.h>
+#include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
+fastecu::Result<int> ReadValue();
+TEST(ResultAccess, Lambdas) {
+    [] {
+        auto result = ReadValue();
+        EXPECT_EQ(*result, 1); // error: result-access
+    }();
+    [] {
+        auto result = ReadValue();
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+        EXPECT_EQ(*result, 1);
+    }();
+    [] {
+        for (int index = 0; index < 2; ++index) // error: assertion-loop-trace
+            EXPECT_EQ(index, index);
+    }();
+    auto captured = ReadValue();
+    ASSERT_THAT(captured, fastecu::testing::IsOk());
+    [&] { EXPECT_EQ(*captured, 1); }(); // error: result-access
+    [&] {
+        if (!captured.has_value()) return;
+        EXPECT_EQ(*captured, 1);
+    }();
+}
+""")
+
+    def test_review_nested_trace_alone_is_not_an_assertion(self) -> None:
+        self.assert_diagnostics("""#include <gtest/gtest.h>
+TEST(LoopTrace, TraceOnly) {
+    for (int outer = 0; outer < 2; ++outer)
+        for (int inner = 0; inner < 2; ++inner) {
+            SCOPED_TRACE(inner);
+        }
+}
+TEST(LoopTrace, NestedAssertion) {
+    for (int outer = 0; outer < 2; ++outer) // error: assertion-loop-trace
+        for (int inner = 0; inner < 2; ++inner) {
+            SCOPED_TRACE(inner);
+            EXPECT_EQ(inner, inner);
+        }
+}
+""")
+
     def test_result_access_requires_state_specific_fatal_guards(self) -> None:
         self.assert_diagnostics("""#include <gmock/gmock.h>
 #include "src/backend/ports/result.h"

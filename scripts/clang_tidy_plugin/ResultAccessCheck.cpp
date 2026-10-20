@@ -49,6 +49,8 @@ const clang::Expr *ConditionObject(const clang::Expr *condition)
     return condition;
 }
 
+void InvalidateChanges(const clang::Stmt *statement, Facts& facts);
+
 void ApplyCondition(const clang::Expr *condition, bool truth, Facts& facts)
 {
     condition = StripExpression(condition);
@@ -65,6 +67,9 @@ void ApplyCondition(const clang::Expr *condition, bool truth, Facts& facts)
         if ((binary->getOpcode() == clang::BO_LAnd && truth) || (binary->getOpcode() == clang::BO_LOr && !truth))
         {
             ApplyCondition(binary->getLHS(), truth, facts);
+            // The RHS executes after the LHS proof. Do not resurrect that
+            // proof after a subsequent operand may have changed its object.
+            InvalidateChanges(binary->getRHS(), facts);
             ApplyCondition(binary->getRHS(), truth, facts);
         }
         return;
@@ -228,6 +233,14 @@ class MutationFinder : public clang::RecursiveASTVisitor<MutationFinder>
     }
 };
 
+void InvalidateChanges(const clang::Stmt *statement, Facts& facts)
+{
+    MutationFinder mutations;
+    mutations.TraverseStmt(const_cast<clang::Stmt *>(statement));
+    for (const auto& key : mutations.keys)
+        Kill(facts, key);
+}
+
 bool HasUnsequencedOperands(const clang::BinaryOperator& operation)
 {
     return !operation.isAssignmentOp() && operation.getOpcode() != clang::BO_Comma &&
@@ -260,6 +273,49 @@ class NonlocalFlowFinder : public clang::RecursiveASTVisitor<NonlocalFlowFinder>
         return true;
     }
 };
+
+class ContinueFinder : public clang::RecursiveASTVisitor<ContinueFinder>
+{
+  public:
+    bool found = false;
+    bool VisitContinueStmt(clang::ContinueStmt *)
+    {
+        found = true;
+        return true;
+    }
+    bool TraverseLambdaExpr(clang::LambdaExpr *)
+    {
+        return true;
+    }
+    bool TraverseForStmt(clang::ForStmt *)
+    {
+        return true;
+    }
+    bool TraverseCXXForRangeStmt(clang::CXXForRangeStmt *)
+    {
+        return true;
+    }
+    bool TraverseWhileStmt(clang::WhileStmt *)
+    {
+        return true;
+    }
+    bool TraverseDoStmt(clang::DoStmt *)
+    {
+        return true;
+    }
+};
+
+Facts MergeContinues(const clang::Stmt *body, Facts fallthrough, Facts entry)
+{
+    ContinueFinder continues;
+    continues.TraverseStmt(const_cast<clang::Stmt *>(body));
+    if (!continues.found)
+        return fallthrough;
+    // Every continue reaches the back edge, including paths that bypass
+    // body-local fatal assertions. Retain only mutation-free entry proof.
+    InvalidateChanges(body, entry);
+    return Intersection(fallthrough, entry);
+}
 
 struct Flow
 {
@@ -507,7 +563,9 @@ class FunctionAnalysis
         auto iteration = facts;
         if (condition_first)
             ApplyCondition(condition, true, iteration);
+        const auto entry = iteration;
         auto flow = Analyze(body, std::move(iteration));
+        flow.facts = MergeContinues(body, std::move(flow.facts), entry);
         Scan(increment, flow.facts);
         if (!condition_first)
             Scan(condition, flow.facts);

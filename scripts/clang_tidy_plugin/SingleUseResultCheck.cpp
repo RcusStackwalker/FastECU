@@ -44,6 +44,10 @@ bool IsPureStatusAssertion(const clang::CompoundStmt& selected, const clang::Var
                            clang::ASTContext& context)
 {
     const auto *block = &selected;
+    const auto macro =
+        AssertionMacro(block->body_back()->getBeginLoc(), context.getSourceManager(), context.getLangOpts());
+    if (macro != "ASSERT_THAT" && macro != "EXPECT_THAT")
+        return false;
     Assertion assertion(context);
     assertion.TraverseStmt(const_cast<clang::Stmt *>(block->body_back()));
     if (!assertion.found)

@@ -314,8 +314,6 @@ bool IsResultPlanType(clang::QualType type)
 
 bool IsTestFunction(const clang::FunctionDecl& function, const clang::SourceManager& source)
 {
-    if (const auto *method = llvm::dyn_cast<clang::CXXMethodDecl>(&function); method && method->getParent()->isLambda())
-        return false;
     return IsTestSource(function.getBeginLoc(), source);
 }
 

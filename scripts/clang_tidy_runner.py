@@ -357,6 +357,7 @@ def config_changed(changed: Sequence[Path]) -> bool:
     for path in changed:
         if path.name in {
             CONFIG_FILE_NAME,
+            ".bazelrc",
             "BUILD",
             "BUILD.bazel",
             ".clang-tidy-exceptions.yaml",
@@ -367,7 +368,12 @@ def config_changed(changed: Sequence[Path]) -> bool:
             return True
         if "clang_tidy_plugin" in path.parts:
             return True
-        if path.parent.name == "bazel" and path.name.startswith(("llvm", "clang_tidy")):
+        if "bazel" in path.parts:
+            return True
+        if ".github" in path.parts and (
+            (path.parent.name == "workflows" and path.name == "pr.yml")
+            or "llvm-linux" in path.parts
+        ):
             return True
         if path.parent.name == "scripts" and path.name.startswith("clang_tidy_"):
             return True

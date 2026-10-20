@@ -41,7 +41,11 @@ class TraceAnalysis
             return false;
         if (const auto *block = llvm::dyn_cast<clang::CompoundStmt>(statement))
             return MissingInBlock(*block, active, accept_trace);
-        if (!AssertionMacro(statement->getBeginLoc(), context_.getSourceManager(), context_.getLangOpts()).empty())
+        const auto macro =
+            AssertionMacro(statement->getBeginLoc(), context_.getSourceManager(), context_.getLangOpts());
+        if (macro == "SCOPED_TRACE")
+            return false;
+        if (!macro.empty())
             return !active;
         if (const auto *body = LoopBody(statement))
             return Missing(body, active, false);
