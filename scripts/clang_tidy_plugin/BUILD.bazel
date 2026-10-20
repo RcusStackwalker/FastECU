@@ -27,6 +27,9 @@ cc_binary(
         "*Check.h",
     ]),
     copts = ["/GR-"],
+    # MSVC-shaped toolchains otherwise lower system_includes to ordinary /I.
+    # Mark dependency headers external while retaining /WX for our sources.
+    features = ["external_include_paths"],
     linkopts = [
         "psapi.lib",
         "shell32.lib",
@@ -67,7 +70,7 @@ py_binary(
 )
 
 # Built against the system LLVM's headers (see //bazel:llvm.bzl). Tagged manual:
-# it needs an LLVM matching the clang-tidy that loads it, which CI does not have.
+# it needs the selected LLVM development installation used by analysis jobs.
 cc_binary(
     name = "fastecu_tidy",
     srcs = [
