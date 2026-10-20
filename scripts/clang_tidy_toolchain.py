@@ -6,8 +6,7 @@ import os
 import re
 import subprocess
 import sys
-import time
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,18 +38,6 @@ class ToolchainError(RuntimeError):
     """The analysis host and compiled checks are incompatible or incomplete."""
 
 
-def retry_locked[T](action: Callable[[], T], attempts: int = 20, delay: float = 0.5) -> T:
-    """Retry while Windows still holds a freshly materialized runfile (reported as EACCES)."""
-    for _ in range(attempts - 1):
-        try:
-            return action()
-        except PermissionError:
-            if os.name != "nt":
-                raise
-            time.sleep(delay)
-    return action()
-
-
 @dataclass(frozen=True)
 class AnalysisHost:
     executable: Path
@@ -68,7 +55,7 @@ def runfiles_analysis_host(environ: Mapping[str, str]) -> AnalysisHost:
         else "libfastecu_tidy.so"
     )
     try:
-        identity = json.loads(retry_locked((directory / "llvm-identity.json").read_text))
+        identity = json.loads((directory / "llvm-identity.json").read_text())
         root = Path(environ.get("FASTECU_LLVM_ROOT") or identity["root"])
     except (OSError, ValueError, KeyError) as error:
         raise ToolchainError(
@@ -84,7 +71,7 @@ def resolve_analysis_host(llvm_root: Path, artifact: Path) -> AnalysisHost:
             f"missing analysis artifact: {artifact}; build the Bazel analysis target"
         )
     try:
-        identity = json.loads(retry_locked((artifact.parent / "llvm-identity.json").read_text))
+        identity = json.loads((artifact.parent / "llvm-identity.json").read_text())
     except (OSError, ValueError) as error:
         raise ToolchainError(f"missing or invalid LLVM build identity: {error}") from error
     if not isinstance(identity, dict) or not isinstance(identity.get("root"), str):
