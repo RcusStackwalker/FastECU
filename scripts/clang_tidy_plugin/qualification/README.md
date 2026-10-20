@@ -1,11 +1,9 @@
 # LLVM packaging qualification
 
-This record supports Task 1 of the
-[approved enforcement plan](../../../docs/superpowers/plans/2026-10-19-clang-tidy-plugin-enforcement.md).
-Qualification is incomplete until the Windows build/run probe passes. The
-Bazel-built zlib/zstd dependency amendment is approved. Migrated checks and
-assertion fixtures are implemented; this record distinguishes packaging
-qualification from the remaining full-scope and performance gates.
+This record supports the
+[rollout qualification](../../../docs/reference/clang-tidy-plugin-qualification.md).
+The exact macOS/Linux shared-host smoke and the Windows linked-host workflow
+have passed. Broader parity, runtime and review evidence belongs to that record.
 
 ## Smoke contract
 
@@ -29,7 +27,7 @@ bazel run --config=release //scripts/clang_tidy_plugin:qualification_smoke -- \
 On Linux the extension suffix is `.so`. A linked analysis host can run the same
 smoke without `--plugin`; the check must already be registered in that host.
 
-## Evidence on 2026-10-19
+## Evidence on 2026-10-20
 
 The selected release is
 [LLVM 23.1.2](https://github.com/llvm/llvm-project/releases/tag/llvmorg-23.1.2),
@@ -41,6 +39,8 @@ asset SHA-256 metadata:
 | `LLVM-23.1.2-macOS-ARM64.tar.zst` | `3da0e91b5dfe3a5ec795ad2be79b3f5e6f28c8b23edcd3847fad7742b25e0507` |
 | `LLVM-23.1.2-Linux-X64.tar.zst` | `6382de1c1a210ce5a5cc49d18bc8444d137742e7cbf9b19f4ae602bb1ab52534` |
 | `clang+llvm-23.1.2-x86_64-pc-windows-msvc.tar.zst` | `ceaee048142fece144752c6f6431cb0905a7a6160f78ab8cf5cf0b6216f99418` |
+| `LLVM-23.1.2-Linux-X64.tar.xz` (CI) | `b5ed9675149cc837c282e9b6962c276c9fa62863d5b2f91537b60848552995b7` |
+| `clang+llvm-23.1.2-x86_64-pc-windows-msvc.tar.xz` (CI) | `8fb91cdc44fcbbdcf6b3ffd0a1f9859abd14a3c3aae4423c2b6d4a4f90bf0095` |
 
 ### macOS ARM64
 
@@ -82,7 +82,15 @@ archive:
   `LLVM_ENABLE_ABI_BREAKING_CHECKS=0`. The host and extra libraries must use
   compatible settings; a matching release number alone is insufficient.
 
-A linked-host smoke has not passed. The user approved keeping the official LLVM
-installation and supplying zlib/zstd as Bazel-built static dependencies with
-compatible Windows runtime settings. This needs a real Windows link/run smoke
-before the analysis gate is changed.
+The user approved supplying zlib/zstd as Bazel-built static dependencies with
+compatible runtime settings. The host now builds with the selected clang-cl;
+LLVM dependency headers use `/imsvc` while first-party warnings remain errors.
+Bazel generates the two missing force-linker configuration switches from the
+optional module libraries installed in the archive.
+
+[CI run 39394823557](https://github.com/RcusStackwalker/FastECU/actions/runs/39394823557/job/118535102310)
+built and ran the linked host, validated all 16 registered checks, reported zero
+findings in the 41-unit Windows-exclusive scope, and passed all 37 real-dependency
+fixtures. The template fixture verifies the original diagnostic location,
+severity, replacement text and replacement range. This closes the Windows
+packaging prerequisite without building LLVM from source.

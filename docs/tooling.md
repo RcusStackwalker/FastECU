@@ -80,8 +80,10 @@ macOS/Linux load a shared extension. The pinned Windows executable does not
 export the required symbols, so Bazel builds an analysis host with the checks
 linked into it and supplies its missing compression dependencies. The
 [packaging qualification](../scripts/clang_tidy_plugin/qualification/README.md)
-records the evidence and outstanding platform probes. Ordinary application
-builds do not need LLVM development headers.
+records the archive evidence; the
+[rollout qualification](reference/clang-tidy-plugin-qualification.md) records
+checks, scope, parity, runtime measurements, and platform evidence. Ordinary
+application builds do not need LLVM development headers.
 
 Built-in and repository checks run together with the wider first-party header
 scope under `src/`, `apps/`, `tests/`, and `scripts/`, including `.hpp`. Generated
@@ -122,7 +124,11 @@ and supported mutation/alias patterns. Functions containing source-level
 `switch` bodies do not export new proofs, and possible mutations invalidate
 prior facts. Fresh assertions after a switch can establish a new proof.
 GoogleTest's internal macro control flow does not impose this restriction.
-Captured lambda and framework setup proofs are not inferred across functions.
+Lambda bodies are analyzed independently with empty incoming facts; caller,
+captured-state and framework setup proofs are not imported across functions.
+At loop increments and do-while conditions, continue paths conservatively
+retain only mutation-free loop-entry proof, rather than assertions that a
+continue could bypass.
 Use a simpler local proof or a narrowly justified central exception where
 needed. Unknown aliases and complex matcher compositions remain review
 responsibilities. Single-use suggestions require an adjacent final block pair,
