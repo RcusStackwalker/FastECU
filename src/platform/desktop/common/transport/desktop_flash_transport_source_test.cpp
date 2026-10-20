@@ -33,6 +33,7 @@ TEST(TestDesktopFlashTransportSource, makesTheDesktopTransportOfEachKind)
     FakeBackedSerial serial;
     for (SerialPortActions *adapter : {serial.Get(), static_cast<SerialPortActions *>(nullptr)})
     {
+        SCOPED_TRACE(::testing::PrintToString(adapter));
         DesktopFlashTransportSource source(adapter);
         const auto kline = source.MakeKline();
         const auto can = source.MakeCan();

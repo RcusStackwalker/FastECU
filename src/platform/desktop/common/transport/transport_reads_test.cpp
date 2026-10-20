@@ -1,3 +1,4 @@
+#include <array>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
@@ -251,8 +252,8 @@ TEST(TransportReadPrechecks, ClosedAdaptersKeepCancellationAndModePrecedence)
     EXPECT_THAT(can_closed, IsErrWith(ErrorKind::kDisconnected, StrEq("read() called after close()")));
 
     cancellation.SetCancelled(true);
-    EXPECT_EQ(kline.ReadRaw(10ms, cancellation).error().kind, ErrorKind::kCancelled);
-    EXPECT_EQ(can.Read(10ms, cancellation).error().kind, ErrorKind::kCancelled);
+    EXPECT_THAT(kline.ReadRaw(10ms, cancellation), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(can.Read(10ms, cancellation), fastecu::testing::IsErr(ErrorKind::kCancelled));
     // Mixed CAN checks its lifecycle/mode before the serial-read precheck.
     const auto mixed_closed = mixed.ReadIso15765(10ms, cancellation);
     EXPECT_THAT(mixed_closed, IsErrWith(ErrorKind::kDisconnected, StrEq("ISO-15765 read called after close()")));
@@ -297,7 +298,14 @@ TEST(GuardedDriverCall, ResetOfAClosedSerialIsDisconnected)
 
 INSTANTIATE_TEST_SUITE_P(Adapters, TransportReads,
                          ::testing::Values(ReadPath::kKline, ReadPath::kSsm, ReadPath::kKlineFlash, ReadPath::kKlineRaw,
-                                           ReadPath::kCanFlash, ReadPath::kMixedCan));
+                                           ReadPath::kCanFlash, ReadPath::kMixedCan),
+                         (
+                             [](const auto& info)
+                             {
+                                 static constexpr std::array kNames{"Kline",    "Ssm",      "KlineFlash",
+                                                                    "KlineRaw", "CanFlash", "MixedCan"};
+                                 return kNames[info.index];
+                             }));
 
 const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);

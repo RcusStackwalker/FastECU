@@ -36,21 +36,19 @@ class NullDiagnostics final : public fastecu::IEventSink
     }
 };
 
-LoggingSession Session(LoggingPolicy policy = {.poll_timeout = 5ms,
-                                               .car_silence_miss_threshold = 2,
-                                               .reconnect_attempt_threshold = 1000,
-                                               .reconnect_retry_period = 0})
+fastecu::Result<LoggingSession> Session(LoggingPolicy policy = {.poll_timeout = 5ms,
+                                                                .car_silence_miss_threshold = 2,
+                                                                .reconnect_attempt_threshold = 1000,
+                                                                .reconnect_retry_period = 0})
 {
-    auto result = MakeLoggingSession(LoggingProtocolId::kSsm,
-                                     {LoggingChannel{.id = "rpm",
-                                                     .address = 0x10,
-                                                     .length = 1,
-                                                     .from_byte_expression = "x",
-                                                     .unit = "rpm",
-                                                     .decimal_precision = 0}},
-                                     policy);
-    Q_ASSERT(result.has_value());
-    return std::move(*result);
+    return MakeLoggingSession(LoggingProtocolId::kSsm,
+                              {LoggingChannel{.id = "rpm",
+                                              .address = 0x10,
+                                              .length = 1,
+                                              .from_byte_expression = "x",
+                                              .unit = "rpm",
+                                              .decimal_precision = 0}},
+                              policy);
 }
 
 } // namespace
@@ -64,7 +62,9 @@ TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
     protocol.QueuePollResult(
         PollData{.responded = true, .samples = {ProtocolSample{.channel_id = "rpm", .raw_value = "1234"}}});
     NullDiagnostics diagnostics;
-    LoggingWorker worker(Session(), &protocol, diagnostics);
+    const auto session = Session();
+    ASSERT_THAT(session, fastecu::testing::IsOk());
+    LoggingWorker worker(*session, &protocol, diagnostics);
     fastecu::testing::SignalRecorder state_spy(&worker, &LoggingWorker::stateChanged);
     fastecu::testing::SignalRecorder samples_spy(&worker, &LoggingWorker::samplesReady);
     fastecu::testing::SignalRecorder finished_spy(&worker, &LoggingWorker::sessionFinished);
@@ -99,7 +99,9 @@ TEST(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
     ScriptedLoggingProtocol protocol;
     protocol.QueueStartResult(fastecu::Fail(fastecu::ErrorKind::kBadResponse, "handshake rejected"));
     NullDiagnostics diagnostics;
-    LoggingWorker worker(Session(), &protocol, diagnostics);
+    const auto session = Session();
+    ASSERT_THAT(session, fastecu::testing::IsOk());
+    LoggingWorker worker(*session, &protocol, diagnostics);
     fastecu::testing::SignalRecorder finished_spy(&worker, &LoggingWorker::sessionFinished);
 
     worker.start();
@@ -121,7 +123,9 @@ TEST(TestLoggingWorker, destruction_cancels_and_joins_a_blocked_poll)
     QElapsedTimer elapsed;
     elapsed.start();
     {
-        LoggingWorker worker(Session(), &protocol, diagnostics);
+        const auto session = Session();
+        ASSERT_THAT(session, fastecu::testing::IsOk());
+        LoggingWorker worker(*session, &protocol, diagnostics);
         worker.start();
         ASSERT_TRUE(protocol.WaitUntilPollEntered(std::chrono::milliseconds(500)));
     }

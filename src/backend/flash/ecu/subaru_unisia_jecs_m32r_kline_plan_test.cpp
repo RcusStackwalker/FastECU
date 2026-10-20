@@ -66,6 +66,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, ReadCoversEachVariantFromTheReadBase)
 {
     for (const Variant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         const auto plan = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, variant.protocol, variant.mcu,
                                                              std::nullopt, false);
         ASSERT_THAT(plan, IsOk()) << variant.protocol;
@@ -86,6 +87,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, WriteCarriesTheImageAndAsksForVppOnlyWithout
 {
     for (const Variant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         if (!variant.writable)
         {
             continue;
@@ -116,6 +118,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, RejectsEveryOtherIdentity)
              {"sub_ecu_unisia_jecs_m3779x", "M3779x"},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         EXPECT_THAT(BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, protocol, mcu, std::nullopt, false),
                     IsErr(ErrorKind::kInvalidConfig))
             << protocol << " / " << mcu;
@@ -138,6 +141,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, AcceptsBootmodeProtocolsForReadOnly)
              {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         const auto read = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, variant.protocol, variant.mcu,
                                                              std::nullopt, false);
         ASSERT_THAT(read, IsOk()) << variant.protocol;
@@ -147,6 +151,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, AcceptsBootmodeProtocolsForReadOnly)
 
         for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
         {
+            SCOPED_TRACE(::testing::PrintToString(operation));
             EXPECT_THAT(BuildSubaruUnisiaJecsM32rKlinePlan(operation, variant.protocol, variant.mcu,
                                                            bytes::Bytes(variant.rom_size, 0x00), false),
                         IsErr(ErrorKind::kUnsupported))
@@ -159,6 +164,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, RejectsTestWriteEverywhereAndWriteOnReadOnly
 {
     for (const Variant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         EXPECT_THAT(BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kTestWrite, variant.protocol, variant.mcu,
                                                        bytes::Bytes(variant.rom_size, 0x00), false),
                     IsErr(ErrorKind::kUnsupported))
@@ -181,6 +187,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, WriteImageMustBeExactlyTheRomSize)
     // dropped any tail; one byte over is exactly that trailing partial block.
     for (const std::size_t size : {std::size_t{0x20000 - 1}, std::size_t{0x20000 + 1}, std::size_t{0x10000}})
     {
+        SCOPED_TRACE(::testing::PrintToString(size));
         EXPECT_THAT(BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kWrite, kProtocol, kMcu,
                                                        bytes::Bytes(size, 0x00), false),
                     IsErr(ErrorKind::kInvalidConfig))
@@ -263,6 +270,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, ValidatorRejectsHandBuiltShapes)
 
     for (auto& test_case : cases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         auto plan = ValidateAndBuild(std::move(test_case.fields));
         ASSERT_THAT(plan, IsOk()) << test_case.name;
         EXPECT_THAT(ValidateSubaruUnisiaJecsM32rKlinePlan(*plan), IsErr(test_case.expected)) << test_case.name;

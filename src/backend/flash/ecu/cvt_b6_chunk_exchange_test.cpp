@@ -16,6 +16,7 @@ TEST(CvtB6ChunkExchangeTest, SendsLiteralFrameAndAcceptsSilentOrUninspectedReply
 {
     for (bool present : {false, true})
     {
+        SCOPED_TRACE(::testing::PrintToString(present));
         uds::ScriptedUdsChannel channel;
         channel.ExpectSend(bytes::Bytes{0xB6, 0x08, 0x00, 0x00, 0x11, 0x22});
         FakeCancellationToken cancellation;
@@ -40,6 +41,7 @@ TEST(CvtB6ChunkExchangeTest, PropagatesSendReceiveAndCancellationErrors)
 {
     for (int scenario : {0, 1, 2})
     {
+        SCOPED_TRACE(::testing::PrintToString(scenario));
         uds::ScriptedUdsChannel channel;
         FakeCancellationToken cancellation(scenario == 2);
         channel.ExpectSend(bytes::Bytes{0xB6, 0x08, 0x00, 0x00, 0x11, 0x22},
@@ -50,10 +52,12 @@ TEST(CvtB6ChunkExchangeTest, PropagatesSendReceiveAndCancellationErrors)
         }
         const auto result = ExchangeCvtB6Chunk(channel, cancellation, 0x080000, bytes::Bytes{0x11, 0x22});
         ASSERT_THAT(result, fastecu::testing::IsErr(scenario == 2 ? ErrorKind::kCancelled : ErrorKind::kDisconnected));
-        EXPECT_EQ(result.error().kind, scenario == 2 ? ErrorKind::kCancelled : ErrorKind::kDisconnected);
-        EXPECT_EQ(result.error().detail, scenario == 0   ? "send failed"
-                                         : scenario == 1 ? "receive failed"
-                                                         : "scripted UDS send cancelled");
+        EXPECT_THAT(result, fastecu::testing::IsErr(scenario == 2 ? ErrorKind::kCancelled : ErrorKind::kDisconnected));
+        EXPECT_THAT(result,
+                    fastecu::testing::IsErrWith(scenario == 2 ? ErrorKind::kCancelled : ErrorKind::kDisconnected,
+                                                ::testing::Eq(scenario == 0   ? "send failed"
+                                                              : scenario == 1 ? "receive failed"
+                                                                              : "scripted UDS send cancelled")));
         EXPECT_EQ(channel.SendCalls(), 1U);
         EXPECT_EQ(channel.timeouts.size(), scenario == 1 ? 1U : 0U);
         if (scenario == 1)

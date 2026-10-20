@@ -107,6 +107,7 @@ TEST(SubaruHitachiSh7058Plan, ValidatorAcceptsTheBuilderShapes)
 {
     for (auto make : {ReadFields, WriteFields})
     {
+        SCOPED_TRACE(::testing::PrintToString(make));
         auto plan = ValidateAndBuild(make());
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         EXPECT_THAT(ValidateSubaruHitachiSh7058Plan(*plan), fastecu::testing::IsOk());
@@ -137,6 +138,7 @@ TEST(SubaruHitachiSh7058Plan, ValidatorRequiresExactlyTheReadConsent)
     };
     for (const Case& test : cases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         auto fields = test.operation == FlashOperation::kRead ? ReadFields() : WriteFields();
         fields.confirmations = test.confirmations;
         auto plan = ValidateAndBuild(std::move(fields));

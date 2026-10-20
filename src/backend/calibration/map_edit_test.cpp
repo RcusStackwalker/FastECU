@@ -64,6 +64,7 @@ TEST(WriteRawElement, WritesInTheLabeledByteOrderForEveryWidth)
 
     for (const auto& c : cases)
     {
+        SCOPED_TRACE(::testing::PrintToString(c));
         MapElementSpec spec;
         spec.storage_type = c.storage;
         spec.endian = c.endian;
@@ -133,6 +134,7 @@ TEST(ResolveEditTarget, StaticScaleTypesRejectAnAxisEdit)
 {
     for (const std::string_view type : {"Static X Axis", "Static Y Axis"})
     {
+        SCOPED_TRACE(::testing::PrintToString(type));
         const auto target = ResolveEditTarget({.first_row = 1, .first_col = 0, .last_row = 2, .last_col = 0},
                                               {.x_size = 4, .y_size = 4}, type);
         EXPECT_EQ(target.kind, EditTargetKind::kRejected) << type;

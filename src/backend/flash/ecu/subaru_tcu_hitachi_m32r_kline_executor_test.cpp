@@ -193,18 +193,18 @@ void ScriptConnect(ScriptedKlineFlashTransport& transport)
     transport.Exchange(Frame(key_request), bytes::Bytes{0x80, 0xf0, 0x18, 0x02, 0x67, 0x02, 0});
 }
 
-FlashPlan ReadPlan()
+Result<FlashPlan> ReadPlan()
 {
-    auto plan = BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline", "M32R_512KB",
-                                                   std::nullopt);
-    EXPECT_THAT(plan, fastecu::testing::IsOk());
-    return std::move(*plan);
+    return BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline", "M32R_512KB",
+                                              std::nullopt);
 }
 
 TEST(SubaruTcuHitachiM32rKlineExecutor, TransportSetupMatchesTheLegacySetters)
 {
     SubaruTcuHitachiM32rKlineExecutor executor;
-    const auto config = executor.TransportSetup(ReadPlan());
+    auto built_plan_1 = ReadPlan();
+    ASSERT_THAT(built_plan_1, fastecu::testing::IsOk());
+    const auto config = executor.TransportSetup(std::move(*built_plan_1));
     ASSERT_THAT(config, fastecu::testing::IsOk());
     EXPECT_EQ(config->baud, 4800);
     // set_is_iso14230_connection(true) in the legacy execute().
@@ -235,7 +235,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ConnectSendsTheFiveLegacyExchangesInOrde
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    const auto result = executor.Execute(ReadPlan(), transport, clock, cancellation, events);
+    auto built_plan_2 = ReadPlan();
+    ASSERT_THAT(built_plan_2, fastecu::testing::IsOk());
+    const auto result = executor.Execute(std::move(*built_plan_2), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
@@ -273,7 +275,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ReadsTheRomIn96ByteBlocksWithA32ByteTail
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    const auto result = executor.Execute(ReadPlan(), transport, clock, cancellation, events);
+    auto built_plan_3 = ReadPlan();
+    ASSERT_THAT(built_plan_3, fastecu::testing::IsOk());
+    const auto result = executor.Execute(std::move(*built_plan_3), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
@@ -310,7 +314,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockUpToFiveTimes)
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    const auto result = executor.Execute(ReadPlan(), transport, clock, cancellation, events);
+    auto built_plan_4 = ReadPlan();
+    ASSERT_THAT(built_plan_4, fastecu::testing::IsOk());
+    const auto result = executor.Execute(std::move(*built_plan_4), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     const auto& read_bytes = result->read_bytes;
@@ -354,7 +360,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockWhenAReadProducesNoFrame)
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    const auto result = executor.Execute(ReadPlan(), transport, clock, cancellation, events);
+    auto built_plan_5 = ReadPlan();
+    ASSERT_THAT(built_plan_5, fastecu::testing::IsOk());
+    const auto result = executor.Execute(std::move(*built_plan_5), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     const auto& read_bytes = result->read_bytes;
@@ -384,7 +392,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenFiveConsecutiveBlockReadsProduc
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    const auto result = executor.Execute(ReadPlan(), transport, clock, cancellation, events);
+    auto built_plan_6 = ReadPlan();
+    ASSERT_THAT(built_plan_6, fastecu::testing::IsOk());
+    const auto result = executor.Execute(std::move(*built_plan_6), transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -411,7 +421,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenABlockExhaustsItsFiveAttempts)
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    const auto result = executor.Execute(ReadPlan(), transport, clock, cancellation, events);
+    auto built_plan_7 = ReadPlan();
+    ASSERT_THAT(built_plan_7, fastecu::testing::IsOk());
+    const auto result = executor.Execute(std::move(*built_plan_7), transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
@@ -429,7 +441,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsABlockResponseOfTheWrongLength)
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    const auto result = executor.Execute(ReadPlan(), transport, clock, cancellation, events);
+    auto built_plan_8 = ReadPlan();
+    ASSERT_THAT(built_plan_8, fastecu::testing::IsOk());
+    const auto result = executor.Execute(std::move(*built_plan_8), transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
@@ -462,7 +476,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenRe
     EXPECT_CALL(clock, Sleep(std::chrono::milliseconds{100}, ::testing::_)).Times(1 + 2 * 5462);
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    const auto result = executor.Execute(ReadPlan(), transport, clock, cancellation, events);
+    auto built_plan_9 = ReadPlan();
+    ASSERT_THAT(built_plan_9, fastecu::testing::IsOk());
+    const auto result = executor.Execute(std::move(*built_plan_9), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(transport.read_timeouts.size(), 5U + 5462U);
@@ -474,6 +490,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenRe
     // Connect: five plain exchange() round trips -- Write/Read, no Sleep.
     for (std::size_t i = 1; i < 11U; i += 2)
     {
+        SCOPED_TRACE(::testing::PrintToString(i));
         EXPECT_EQ(trace[i], Step::kWrite);
         EXPECT_EQ(trace[i + 1], Step::kRead);
     }
@@ -518,7 +535,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
     MockClock clock;
     TraceSleeps(clock, trace);
     RecordingEventSink events;
-    const auto result = executor.Execute(ReadPlan(), transport, clock, cancellation, events);
+    auto built_plan_10 = ReadPlan();
+    ASSERT_THAT(built_plan_10, fastecu::testing::IsOk());
+    const auto result = executor.Execute(std::move(*built_plan_10), transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_LT(transport.WritesConsumed(), 100U);
@@ -529,6 +548,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
     // Connect: five plain exchange() round trips -- Write/Read, no Sleep.
     for (std::size_t i = 1; i < 11U; i += 2)
     {
+        SCOPED_TRACE(::testing::PrintToString(i));
         EXPECT_EQ(trace[i], Step::kWrite);
         EXPECT_EQ(trace[i + 1], Step::kRead);
     }
@@ -583,7 +603,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheSeedResponseIsTooShort)
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    EXPECT_THAT(executor.Execute(ReadPlan(), transport, clock, cancellation, events),
+    auto built_plan_11 = ReadPlan();
+    ASSERT_THAT(built_plan_11, fastecu::testing::IsOk());
+    EXPECT_THAT(executor.Execute(std::move(*built_plan_11), transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
@@ -598,7 +620,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheTcuNeverAnswers)
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    EXPECT_THAT(executor.Execute(ReadPlan(), transport, clock, cancellation, events),
+    auto built_plan_12 = ReadPlan();
+    ASSERT_THAT(built_plan_12, fastecu::testing::IsOk());
+    EXPECT_THAT(executor.Execute(std::move(*built_plan_12), transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kTimeout));
 }
 
@@ -620,7 +644,10 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PreservesPrefixFailureDetails)
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-        EXPECT_EQ(result.error().detail, response.size() == 4 ? "response is too short" : "wrong response from TCU");
+        EXPECT_THAT(result,
+                    fastecu::testing::IsErrWith(
+                        ErrorKind::kBadResponse,
+                        ::testing::Eq(response.size() == 4 ? "response is too short" : "wrong response from TCU")));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -641,7 +668,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PreservesRequiredResponseTimeoutDetail)
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
-    EXPECT_EQ(result.error().detail, "no response from TCU");
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, ::testing::Eq("no response from TCU")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
@@ -662,7 +689,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PreservesPresentEmptyResponseValidation)
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_EQ(result.error().detail, "response is too short");
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("response is too short")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
@@ -683,7 +710,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PreservesExchangeReadFailure)
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
-    EXPECT_EQ(result.error().detail, "read fault");
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("read fault")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }

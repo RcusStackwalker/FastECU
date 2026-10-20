@@ -293,6 +293,7 @@ TEST(SelectMemoryMapForAFile, RejectsAnEmptyFile)
 {
     for (const ProtocolSpec *protocol : {static_cast<const ProtocolSpec *>(nullptr), &kPlain, &kMapped})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         const auto map = SelectMemoryMap(protocol, 0);
 
         ASSERT_FALSE(map.has_value());

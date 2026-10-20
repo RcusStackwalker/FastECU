@@ -1,3 +1,4 @@
+#include <gmock/gmock.h>
 #include "src/platform/desktop/unix/j2534/serial_byte_buffer.h"
 
 #include <gtest/gtest.h>
@@ -147,10 +148,7 @@ TEST(SerialByteBuffer, WaitsOneMillisecondAtATimeWhenSilent)
     buffer.Take(1, 3);
 
     ASSERT_FALSE(source.waits.empty());
-    for (int ms : source.waits)
-    {
-        EXPECT_EQ(ms, 1);
-    }
+    EXPECT_THAT(source.waits, ::testing::Each(::testing::Eq(1)));
 }
 
 TEST(SerialByteBuffer, ZeroLengthRequestReturnsImmediately)

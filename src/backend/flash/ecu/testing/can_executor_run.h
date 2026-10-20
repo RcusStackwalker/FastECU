@@ -412,7 +412,7 @@ void ExpectCancellationAfterPageFailsButAtStopIsSwallowed(MakePlan make_plan, Re
 
 // An OBK probe that mismatches (0), is absent (1) or is empty (2) is a miss:
 // the ECU is initialised and the read proceeds, here until the scripted stop.
-template <class Executor, class MakePlan, class BenchConnect, class ReadSetup>
+template <typename Executor, typename MakePlan, typename BenchConnect, typename ReadSetup>
 void ExpectObkProbeMissesInitialise(MakePlan make_plan, BenchConnect bench_connect, ReadSetup read_setup,
                                     std::uint32_t block_start)
 {
@@ -438,7 +438,7 @@ void ExpectObkProbeMissesInitialise(MakePlan make_plan, BenchConnect bench_conne
 
 // A transport error, a cancellation or a malformed reply to the OBK probe is
 // returned as is, before the ECU is initialised.
-template <class Executor, class MakePlan> void ExpectObkProbeErrorsPropagate(MakePlan make_plan)
+template <typename Executor, typename MakePlan> void ExpectObkProbeErrorsPropagate(MakePlan make_plan)
 {
     for (const auto kind : {ErrorKind::kDisconnected, ErrorKind::kCancelled, ErrorKind::kBadResponse})
     {

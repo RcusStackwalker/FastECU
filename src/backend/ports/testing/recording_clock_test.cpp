@@ -16,8 +16,8 @@ TEST(RecordingClock, RecordsEachRequestedDurationInOrderAndAdvances)
     RecordingClock clock;
     FakeCancellationToken active;
 
-    ASSERT_TRUE(clock.Sleep(5ms, active));
-    ASSERT_TRUE(clock.Sleep(20ms, active));
+    ASSERT_THAT(clock.Sleep(5ms, active), fastecu::testing::IsOk());
+    ASSERT_THAT(clock.Sleep(20ms, active), fastecu::testing::IsOk());
 
     EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{5ms, 20ms}));
     EXPECT_EQ(clock.Elapsed(), 25ms);

@@ -55,6 +55,7 @@ TEST(PlanPrimitives, OperationImageShapeRequiresNoReadImageAndExactWriteSize)
 {
     for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         auto plan = ValidateAndBuild({
             .operation = operation,
             .family = FlashFamily::kMitsuColtM32rCan,
@@ -93,6 +94,7 @@ TEST(PlanPrimitives, Padded128ByteUploadsMustFitIncludingTheLastBlock)
 {
     for (const std::uint64_t size : {1U, 127U, 128U, 129U, 0x8F81U, 0x9000U})
     {
+        SCOPED_TRACE(::testing::PrintToString(size));
         EXPECT_THAT((ValidateKernelUpload<128>(size, 0xFFFF3000, 0xFFFF3000, kRegion)), fastecu::testing::IsOk())
             << size;
     }
@@ -110,6 +112,7 @@ TEST(PlanPrimitives, SixBytePaddingUsesItsOwnBoundary)
     const KernelBlock region{0x100, 12};
     for (const std::uint64_t size : {1U, 5U, 6U, 7U, 11U, 12U})
     {
+        SCOPED_TRACE(::testing::PrintToString(size));
         EXPECT_THAT((ValidateKernelUpload<6>(size, 0x100, 0x100, region)), fastecu::testing::IsOk()) << size;
     }
     EXPECT_THAT((ValidateKernelUpload<6>(13, 0x100, 0x100, region)),
@@ -124,6 +127,7 @@ TEST(PlanPrimitives, AddressWindowChecksDoNotUnderflowOrWrapAt32Bits)
 {
     for (const std::uint32_t address : {0xFFFF2FFFU, 0xFFFFC000U, 0xFFFFC001U})
     {
+        SCOPED_TRACE(::testing::PrintToString(address));
         EXPECT_THAT((ValidateKernelUpload<128>(1, address, address, kRegion)),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig))
             << address;
@@ -146,6 +150,7 @@ template <std::uint64_t Padding> void ExpectOverflowBoundary()
                                             ::testing::StrEq("padded kernel lies outside the MCU kernel region")));
     for (const std::uint64_t size : {largest_addable + 1, std::numeric_limits<std::uint64_t>::max()})
     {
+        SCOPED_TRACE(::testing::PrintToString(size));
         const auto overflow = ValidateKernelUpload<Padding>(size, 0, 0, kRegion);
         EXPECT_THAT(overflow,
                     fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
@@ -174,6 +179,7 @@ TEST(PlanPrimitives, EraseRegionsPreserveOrderedBlockAddressesAndLengths)
     EXPECT_TRUE(EraseGeometryMatches(regions, device));
     for (unsigned index = 0; index < 3; ++index)
     {
+        SCOPED_TRACE(::testing::PrintToString(index));
         auto altered = regions;
         ++altered[index].start;
         EXPECT_FALSE(EraseGeometryMatches(altered, device));

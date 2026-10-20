@@ -35,12 +35,10 @@ bytes::Bytes KernelFile()
     return kernel;
 }
 
-FlashPlan KernelPlan()
+Result<FlashPlan> KernelPlan()
 {
-    auto plan = BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation::kWrite, "sub_ecu_unisia_jecs_20_bootmode",
-                                                            "M32R_128KB", KernelFile());
-    EXPECT_THAT(plan, IsOk());
-    return std::move(*plan);
+    return BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation::kWrite, "sub_ecu_unisia_jecs_20_bootmode",
+                                                       "M32R_128KB", KernelFile());
 }
 
 bytes::Bytes Chunk(const FlashPlan& plan, std::size_t index)
@@ -73,7 +71,9 @@ void ScriptUpload(ScriptedKlineFlashTransport& transport, const FlashPlan& plan)
 
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, TransportSetupIs39063BaudEvenParity)
 {
-    const auto setup = SubaruUnisiaJecsM32rBootModeKernelExecutor{}.TransportSetup(KernelPlan());
+    auto built_plan_1 = KernelPlan();
+    ASSERT_THAT(built_plan_1, fastecu::testing::IsOk());
+    const auto setup = SubaruUnisiaJecsM32rBootModeKernelExecutor{}.TransportSetup(std::move(*built_plan_1));
     ASSERT_THAT(setup, IsOk());
     EXPECT_EQ(setup->baud, 39063);                // execute() :58
     EXPECT_EQ(setup->parity, KlineParity::kEven); // execute() :57
@@ -95,7 +95,9 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, BeforeConfigureResetsThenClears
 
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, UploadsEveryChunkUnderBootModeLines)
 {
-    const FlashPlan plan = KernelPlan();
+    auto built_plan_2 = KernelPlan();
+    ASSERT_THAT(built_plan_2, fastecu::testing::IsOk());
+    const FlashPlan plan = std::move(*built_plan_2);
     ScriptedKlineFlashTransport transport;
     ScriptUpload(transport, plan);
     RunContext context;
@@ -109,7 +111,9 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, UploadsEveryChunkUnderBootModeL
 
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, SettleReplyIsLoggedAndIgnored)
 {
-    const FlashPlan plan = KernelPlan();
+    auto built_plan_3 = KernelPlan();
+    ASSERT_THAT(built_plan_3, fastecu::testing::IsOk());
+    const FlashPlan plan = std::move(*built_plan_3);
     ScriptedKlineFlashTransport transport;
     transport.ExpectWrite(Chunk(plan, 0));
     transport.ExpectWrite(Chunk(plan, 1));
@@ -155,7 +159,10 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CancellationAtEachCheckpointDro
 {
     for (const std::size_t check : {1U, 2U, 3U})
     {
-        const FlashPlan plan = KernelPlan();
+        SCOPED_TRACE(::testing::PrintToString(check));
+        auto built_plan_4 = KernelPlan();
+        ASSERT_THAT(built_plan_4, fastecu::testing::IsOk());
+        const FlashPlan plan = std::move(*built_plan_4);
         ScriptedKlineFlashTransport transport;
         ScriptUpload(transport, plan);
         RunContext context;
@@ -170,7 +177,9 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CancellationAtEachCheckpointDro
 
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, LineFailureStillDropsTheLinesAndKeepsItsError)
 {
-    const FlashPlan plan = KernelPlan();
+    auto built_plan_5 = KernelPlan();
+    ASSERT_THAT(built_plan_5, fastecu::testing::IsOk());
+    const FlashPlan plan = std::move(*built_plan_5);
     ScriptedKlineFlashTransport transport;
     transport.enable_boot_mode_lines_result = Fail(ErrorKind::kInternal, "lines");
     transport.disable_lec_lines_result = Fail(ErrorKind::kDisconnected, "cleanup");
@@ -181,7 +190,9 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, LineFailureStillDropsTheLinesAn
 
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CleanupFailureFailsAnOtherwiseGoodUpload)
 {
-    const FlashPlan plan = KernelPlan();
+    auto built_plan_6 = KernelPlan();
+    ASSERT_THAT(built_plan_6, fastecu::testing::IsOk());
+    const FlashPlan plan = std::move(*built_plan_6);
     ScriptedKlineFlashTransport transport;
     ScriptUpload(transport, plan);
     transport.disable_lec_lines_result = Fail(ErrorKind::kDisconnected, "cleanup");

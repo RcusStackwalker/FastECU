@@ -146,10 +146,12 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
     // The 5 oldest (mtime 0..4) are the ones removed.
     for (int i = 0; i < 5; ++i)
     {
+        SCOPED_TRACE(::testing::PrintToString(i));
         EXPECT_FALSE(fs.Exists(paths.syslog_files_directory + "log" + std::to_string(i) + ".txt"));
     }
     for (int i = 5; i < 25; ++i)
     {
+        SCOPED_TRACE(::testing::PrintToString(i));
         EXPECT_TRUE(fs.Exists(paths.syslog_files_directory + "log" + std::to_string(i) + ".txt"));
     }
 }

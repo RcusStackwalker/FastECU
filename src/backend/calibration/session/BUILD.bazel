@@ -214,6 +214,7 @@ fastecu_portable_gtest(
     deps = [
         ":map_operations",
         "//src/algorithms/memory/testing:memory_views",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",

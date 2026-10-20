@@ -110,11 +110,9 @@ void QueueRaw(ScriptedKlineFlashTransport& transport, std::initializer_list<byte
     transport.QueueRawRead(bytes::Bytes(values));
 }
 
-FlashPlan ReadPlan()
+Result<FlashPlan> ReadPlan()
 {
-    auto plan = BuildSubaruUnisiaJecsPlan(FlashOperation::kRead, "sub_ecu_unisia_jecs_m3779x", "M3779x", std::nullopt);
-    EXPECT_THAT(plan, fastecu::testing::IsOk());
-    return std::move(*plan);
+    return BuildSubaruUnisiaJecsPlan(FlashOperation::kRead, "sub_ecu_unisia_jecs_m3779x", "M3779x", std::nullopt);
 }
 
 void ScriptWakeup(ScriptedKlineFlashTransport& transport)
@@ -125,12 +123,19 @@ void ScriptWakeup(ScriptedKlineFlashTransport& transport)
 Result<FlashExecutionResult> ExecuteRead(ScriptedKlineFlashTransport& transport, FakeClock& clock,
                                          const ICancellationToken& cancellation, RecordingEventSink& events)
 {
-    return SubaruUnisiaJecsExecutor{}.Execute(ReadPlan(), transport, clock, cancellation, events);
+    auto built_plan_1 = ReadPlan();
+    if (!built_plan_1.has_value())
+    {
+        return std::unexpected(built_plan_1.error());
+    }
+    return SubaruUnisiaJecsExecutor{}.Execute(std::move(*built_plan_1), transport, clock, cancellation, events);
 }
 
 TEST(SubaruUnisiaJecsExecutor, TransportSetupRequests1953BaudEvenParity)
 {
-    const auto setup = SubaruUnisiaJecsExecutor{}.TransportSetup(ReadPlan());
+    auto built_plan_2 = ReadPlan();
+    ASSERT_THAT(built_plan_2, fastecu::testing::IsOk());
+    const auto setup = SubaruUnisiaJecsExecutor{}.TransportSetup(std::move(*built_plan_2));
     ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->baud, 1953);
     EXPECT_FALSE(setup->iso14230);

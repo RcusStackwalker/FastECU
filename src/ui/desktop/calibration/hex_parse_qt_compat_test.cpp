@@ -26,6 +26,7 @@ TEST(HexParseQtCompat, AgreesWithQtOnEveryRealKernelAddr)
 {
     for (const char *text : kRealKernelAddrs)
     {
+        SCOPED_TRACE(::testing::PrintToString(text));
         bool ok = false;
         const std::uint32_t qtValue = QString(text).toUInt(&ok, 16);
         ASSERT_TRUE(ok) << "Qt rejected a real kernel_addr: " << text;
@@ -45,6 +46,7 @@ TEST(HexParseQtCompat, AgreesWithQtOnVerticalTabAndFormFeed)
 {
     for (const char *text : {"\v0x10", "0x10\v", "\f0x10", "0x10\f", "\f0x10\f"})
     {
+        SCOPED_TRACE(::testing::PrintToString(text));
         bool ok = false;
         const std::uint32_t qtValue = QString(text).toUInt(&ok, 16);
         ASSERT_TRUE(ok) << "Qt rejected: " << text;
@@ -59,6 +61,7 @@ TEST(HexParseQtCompat, AgreesWithQtOnRejectionCases)
 {
     for (const char *text : {"", "0x", "nonsense", "not_hex", "0xZZZZ"})
     {
+        SCOPED_TRACE(::testing::PrintToString(text));
         bool ok = true;
         std::ignore = QString(text).toUInt(&ok, 16);
         EXPECT_FALSE(ok) << "Qt unexpectedly accepted: " << text;

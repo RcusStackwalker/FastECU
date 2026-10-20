@@ -256,6 +256,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_sh7058_can_diesel_executor",
         ":subaru_denso_sh7058_can_diesel_plan",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash/ecu/testing:recording_can_flash_transport",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -962,6 +963,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_unisia_jecs_m32r_kline_executor",
         ":subaru_unisia_jecs_m32r_kline_plan",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -1669,6 +1671,7 @@ fastecu_portable_gtest(
     srcs = ["denso_beef_can_common_test.cpp"],
     deps = [
         ":denso_beef_can_common",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",

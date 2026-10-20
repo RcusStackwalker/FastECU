@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.h"
 
 #include <algorithm>
@@ -566,6 +567,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, TransportSetupUsesExactIsoConfiguration
     SubaruDensoSh7058CanDieselExecutor executor;
     for (const DieselVariant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         auto plan = PlanFor(variant, FlashOperation::kRead);
         ASSERT_THAT(plan, IsOk());
         auto setup = executor.TransportSetup(*plan);
@@ -728,14 +730,16 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadsLiteralKernelAtEachGenerationAdd
                                               ? bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xB6, 0xFF, 0x40, 0x00}
                                               : bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xB6, 0xFE, 0xE0, 0x00};
         ASSERT_EQ(transport.writes[11].size(), 136U);
-        EXPECT_TRUE(std::equal(first_prefix.begin(), first_prefix.end(), transport.writes[11].begin()));
+        EXPECT_THAT(bytes::ByteView(transport.writes[11]).first(first_prefix.size()),
+                    test_bytes::BytesEq(first_prefix));
         EXPECT_EQ(bytes::Bytes(transport.writes[11].begin() + 8, transport.writes[11].begin() + 16),
                   (bytes::Bytes{0xE7, 0xE2, 0x14, 0x30, 0xE7, 0xE2, 0x14, 0x30}));
         const bytes::Bytes second_prefix = variant.mcu == "SH7058d"
                                                ? bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xB6, 0xFF, 0x40, 0x80}
                                                : bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xB6, 0xFE, 0xE0, 0x80};
         ASSERT_EQ(transport.writes[12].size(), 136U);
-        EXPECT_TRUE(std::equal(second_prefix.begin(), second_prefix.end(), transport.writes[12].begin()));
+        EXPECT_THAT(bytes::ByteView(transport.writes[12]).first(second_prefix.size()),
+                    test_bytes::BytesEq(second_prefix));
         EXPECT_EQ(bytes::Bytes(transport.writes[12].begin() + 8, transport.writes[12].begin() + 12),
                   (bytes::Bytes{0xC0, 0x41, 0xD4, 0xCA}));
         EXPECT_EQ(bytes::Bytes(transport.writes[12].end() - 4, transport.writes[12].end()),
@@ -854,6 +858,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, EveryB6ReplyIsRawAndIgnoredExceptCancel
     for (const auto& [reply, expected] : {std::pair{UploadB6Reply::kCancelled, ErrorKind::kCancelled},
                                           std::pair{UploadB6Reply::kDisconnected, ErrorKind::kDisconnected}})
     {
+        SCOPED_TRACE(::testing::PrintToString(reply));
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 1;
         auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
@@ -1368,6 +1373,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, DisconnectAtAnyReadOfAColdWriteIsReport
 {
     for (const DieselVariant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         const auto run = [&](std::optional<std::size_t> fail_at, ColdWriteOutcome& outcome)
         {
             bytes::Bytes kernel_data(129, bytes::Byte{0});
@@ -1409,6 +1415,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UnchangedWriteSkipsFlashForBothGenerati
 {
     for (const DieselVariant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         auto plan = PlanFor(variant, FlashOperation::kWrite);
         ASSERT_THAT(plan, IsOk());
         SubaruDensoSh7058CanDieselExecutor executor;
@@ -1542,6 +1549,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, NonzeroLargeBlockCommitsEveryWindowWith
     EXPECT_EQ(write_progress.front(), (RecordedPhaseProgress{"Write", 3, 4, 0, 0x18000}));
     for (std::size_t index = 1; index < 192; ++index)
     {
+        SCOPED_TRACE(::testing::PrintToString(index));
         EXPECT_EQ(write_progress[index].done, static_cast<int>(index * kWriteChunkSize));
         EXPECT_EQ(write_progress[index].total, 0x18000);
         EXPECT_LT(write_progress[index - 1].done, write_progress[index].done);

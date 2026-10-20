@@ -99,6 +99,7 @@ TEST(BuildHeaderFormTest, PreservesFieldLabelsAndPlacement)
          "Transmission", "Year", "Flash Method", "Memory Model", "Checksum Module", "Include", "Notes"});
     for (std::size_t row = 0; row < labels.size(); ++row)
     {
+        SCOPED_TRACE(::testing::PrintToString(row));
         const auto *label = qobject_cast<QLabel *>(grid->itemAtPosition(static_cast<int>(row), 0)->widget());
         ASSERT_NE(label, nullptr);
         EXPECT_EQ(label->text(), QString::fromUtf8(labels[row]));

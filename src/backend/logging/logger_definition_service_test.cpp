@@ -213,7 +213,7 @@ TEST_F(LoggerDefinitionServiceTest, InitializePropagatesAReplaceFailure)
     const auto selection =
         Service().LoadOrInitializeSelection("logger.cfg", "NEWECU", fastecu::logging::LoggerSelection{});
     ASSERT_THAT(selection, fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
-    EXPECT_THAT(selection.error().detail, HasSubstr("disk full"));
+    EXPECT_THAT(selection, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, HasSubstr("disk full")));
 }
 
 TEST_F(LoggerDefinitionServiceTest, SaveSelectionPropagatesAnUnreadableHandle)
@@ -239,7 +239,7 @@ TEST_F(LoggerDefinitionServiceTest, SaveSelectionPropagatesAReplaceFailure)
 
     const auto status = Service().SaveSelection("logger.cfg", "ECUID1", fastecu::logging::LoggerSelection{});
     ASSERT_THAT(status, fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
-    EXPECT_THAT(status.error().detail, HasSubstr("read-only volume"));
+    EXPECT_THAT(status, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, HasSubstr("read-only volume")));
 }
 
 } // namespace

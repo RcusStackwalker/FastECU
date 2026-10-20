@@ -64,6 +64,7 @@ TEST(DensoSh705xEepromCommonTest, Mode3And4AddCycleIgnitionConfirmation)
 {
     for (EepromReadMode mode : {EepromReadMode::kMode3, EepromReadMode::kMode4})
     {
+        SCOPED_TRACE(::testing::PrintToString(mode));
         auto plan = BuildDensoSh705xEepromPlan(ValidKlineInput(mode));
 
         ASSERT_THAT(plan, fastecu::testing::IsOk());
@@ -119,6 +120,7 @@ TEST(DensoSh705xEepromCommonTest, CanAcceptsAllFourSecurityVariants)
     for (DensoSecurityVariant security : {DensoSecurityVariant::kStock, DensoSecurityVariant::kEcuTek,
                                           DensoSecurityVariant::kCobb, DensoSecurityVariant::kEcuTekRaceRom})
     {
+        SCOPED_TRACE(::testing::PrintToString(security));
         auto input = ValidKlineInput();
         input.family = FlashFamily::kDensoSh705xEepromCan;
         input.security = security;
@@ -206,7 +208,7 @@ TEST(DensoSh705xEepromCommonTest, NoTransportOrConfigurationCallOccursOnRejectio
     input.operation = FlashOperation::kWrite;
 
     static_assert(std::is_same_v<decltype(BuildDensoSh705xEepromPlan(input)), Result<FlashPlan>>);
-    EXPECT_THAT(BuildDensoSh705xEepromPlan(input), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(BuildDensoSh705xEepromPlan(input), fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
 } // namespace

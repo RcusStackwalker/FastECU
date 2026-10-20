@@ -139,7 +139,7 @@ TEST(DefinitionCatalogTest, FindsEntryByFormatAndDefinitionId)
 
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     auto found = catalog->Find(DefinitionFormat::kEcuFlash, "ECUFLASH");
-    ASSERT_TRUE(found);
+    ASSERT_THAT(found, fastecu::testing::IsOk());
     EXPECT_EQ(found->get().source, "ecuflash.xml");
     EXPECT_EQ(catalog->Entries().size(), 2U);
 }
@@ -166,8 +166,8 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateInternalIdIsInvalidConfig)
     auto result = DefinitionCatalog::Create({first, second});
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("a.xml"));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("b.xml"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("a.xml")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("b.xml")));
 }
 
 TEST(DefinitionCatalogTest, ConflictingDuplicateEcuIdentityIsInvalidConfig)
@@ -179,8 +179,8 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateEcuIdentityIsInvalidConfig)
     auto result = DefinitionCatalog::Create({first, second});
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("a.xml"));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("b.xml"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("a.xml")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("b.xml")));
 }
 
 TEST(DefinitionCatalogTest, ConflictingDuplicateAddressIsInvalidConfig)

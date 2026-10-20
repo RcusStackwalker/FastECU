@@ -41,6 +41,7 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, KernelPlanPadsToWholeChunks)
 {
     for (const Variant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         const auto plan = BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation::kWrite, variant.protocol,
                                                                       variant.mcu, bytes::Bytes(200, 0x5a));
         ASSERT_THAT(plan, IsOk()) << variant.protocol;
@@ -74,6 +75,7 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, ProgramPlanTakesExactlyTheRomSize)
 {
     for (const Variant& variant : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(variant));
         const auto plan = BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(
             FlashOperation::kWrite, variant.protocol, variant.mcu, bytes::Bytes(variant.rom_size, 0x5a));
         ASSERT_THAT(plan, IsOk()) << variant.protocol;
@@ -84,6 +86,7 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, ProgramPlanTakesExactlyTheRomSize)
 
         for (const std::uint32_t size : {variant.rom_size - 1, variant.rom_size + 1, variant.rom_size - 0x40})
         {
+            SCOPED_TRACE(::testing::PrintToString(size));
             EXPECT_THAT(BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation::kWrite, variant.protocol,
                                                                      variant.mcu, bytes::Bytes(size, 0x5a)),
                         IsErr(ErrorKind::kInvalidConfig))
@@ -99,6 +102,7 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, RejectsReadAndTestWrite)
 {
     for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         EXPECT_THAT(BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(operation, "sub_ecu_unisia_jecs_20_bootmode",
                                                                 "M32R_128KB", bytes::Bytes(1, 0x00)),
                     IsErr(ErrorKind::kUnsupported));
@@ -117,6 +121,7 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, RejectsEveryOtherIdentity)
              {"sub_ecu_unisia_jecs_40_bootmode", "M32R_384KB"},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         EXPECT_THAT(
             BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation::kWrite, protocol, mcu, bytes::Bytes(1, 0x00)),
             IsErr(ErrorKind::kInvalidConfig))

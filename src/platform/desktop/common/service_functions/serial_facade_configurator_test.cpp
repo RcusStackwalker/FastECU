@@ -102,9 +102,7 @@ TEST(SerialFacadeConfiguratorTest, klineConfigurationPreservesLegacyOpenBaudHead
     EXPECT_CALL(*harness.fake, IsSerialPortOpen()).WillOnce(::testing::Return(true));
     EXPECT_CALL(*harness.fake, SetAddIso14230Header(false)).WillOnce(::testing::Return(true));
 
-    const auto result = harness.configurator->Apply(KlineConfig());
-
-    EXPECT_THAT(result, IsOk());
+    EXPECT_THAT(harness.configurator->Apply(KlineConfig()), IsOk());
 }
 
 TEST(SerialFacadeConfiguratorTest, nullFacadeIsDisconnected)

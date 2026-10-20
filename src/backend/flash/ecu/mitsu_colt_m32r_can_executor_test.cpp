@@ -545,6 +545,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
 
     for (const Case& test : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test));
         ScriptedCanFlashTransport transport;
         FakeClock clock;
         RecordingEventSink events;
@@ -568,6 +569,7 @@ TEST(MitsuColtM32rCanExecutor, ReadReturnsEachProtocolCapacityFromAddressZero)
              {kProtocol512, 0x80000},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         ScriptedCanFlashTransport transport;
         FakeClock clock;
         RecordingEventSink events;
@@ -811,6 +813,7 @@ TEST(MitsuColtM32rCanExecutor, ReadEmitsMonotonicProgress)
     int previous = -1;
     for (const auto& event : read_events)
     {
+        SCOPED_TRACE(::testing::PrintToString(event));
         EXPECT_GE(event.done, previous);
         EXPECT_EQ(event.total, static_cast<int>(plan->TransferRegion().length));
         previous = event.done;
@@ -970,7 +973,7 @@ struct MitsuColtM32rCanWriteExecutor : ::testing::Test
     fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
     const bytes::Bytes rom = WriteRom();
-    fastecu::Result<fastecu::flash::FlashPlan> plan = WritePlan(rom);
+    const fastecu::Result<fastecu::flash::FlashPlan> plan = WritePlan(rom);
 };
 
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
@@ -1040,8 +1043,8 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WritePropagatesACarrierReadFailureBeforeRe
 
     const auto result = ExecuteGuarded(executor, *plan, transport, clock, cancellation, events);
 
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_EQ(result.error(), (fastecu::Error{ErrorKind::kDisconnected, "carrier read disconnected"}));
+    ASSERT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("carrier read disconnected")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::kError, "the flash read at 0x8000 rejected: carrier read disconnected")));
@@ -1584,7 +1587,8 @@ TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBefor
     // kRoutineExchangePolicy/kSlowExchangePolicy), so a cancel() call
     // right after the write is caught by the read call itself rather than by
     // an inter-exchange sleep -- the guard owns the refusal detail.
-    EXPECT_EQ(result.error().detail, "CAN read cancelled before delegation");
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled,
+                                                    ::testing::Eq("CAN read cancelled before delegation")));
     EXPECT_FALSE(transport.ScriptConsumed()); // the reply was never read
 }
 
@@ -1880,7 +1884,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAResponseToADifferentService)
     const auto result = ExecuteGuarded(executor, *plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("0x10")));
-    EXPECT_THAT(result.error().detail, HasSubstr("0x27"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("0x27")));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 

@@ -52,11 +52,9 @@ FlashPlanFields KlineReadFields()
     };
 }
 
-FlashPlan BuiltPlan()
+Result<FlashPlan> BuiltPlan()
 {
-    auto plan = ValidateAndBuild(KlineReadFields());
-    EXPECT_THAT(plan, fastecu::testing::IsOk());
-    return std::move(*plan);
+    return ValidateAndBuild(KlineReadFields());
 }
 
 constexpr KlineConfig kSetup{.baud = 4800, .iso14230 = false, .tester_id = 0xf0, .target_id = 0x10};
@@ -207,13 +205,13 @@ struct Harness
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    Harness()
+    explicit Harness(FlashPlan plan)
     {
         auto owned_transport = std::make_unique<ScriptedKlineFlashTransport>();
         auto owned_executor = std::make_unique<FakeKlineExecutor>();
         transport = owned_transport.get();
         executor = owned_executor.get();
-        attempt = BindFlashAttempt(BuiltPlan(), std::move(owned_executor), std::move(owned_transport));
+        attempt = BindFlashAttempt(std::move(plan), std::move(owned_executor), std::move(owned_transport));
     }
 
     Result<FlashExecutionResult> Run()
@@ -224,7 +222,9 @@ struct Harness
 
 TEST(BoundFlashAttemptTest, ConfiguresAndOpensBeforeExecuteAndClosesOnce)
 {
-    Harness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    Harness h(std::move(*built_plan));
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsOk());
     ASSERT_TRUE(h.transport->last_config.has_value());
@@ -236,7 +236,9 @@ TEST(BoundFlashAttemptTest, ConfiguresAndOpensBeforeExecuteAndClosesOnce)
 
 TEST(BoundFlashAttemptTest, InvalidPlanTouchesNoTransportCall)
 {
-    Harness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    Harness h(std::move(*built_plan));
     h.executor->setup_ok = false;
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -247,7 +249,9 @@ TEST(BoundFlashAttemptTest, InvalidPlanTouchesNoTransportCall)
 
 TEST(BoundFlashAttemptTest, ConfigureFailureSkipsOpenAndExecuteAndClose)
 {
-    Harness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    Harness h(std::move(*built_plan));
     h.transport->configure_result = Fail(ErrorKind::kDisconnected, "no port");
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kDisconnected));
@@ -257,7 +261,9 @@ TEST(BoundFlashAttemptTest, ConfigureFailureSkipsOpenAndExecuteAndClose)
 
 TEST(BoundFlashAttemptTest, OpenFailureSkipsExecuteAndClose)
 {
-    Harness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    Harness h(std::move(*built_plan));
     h.transport->open_result = Fail(ErrorKind::kDisconnected, "open failed");
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kDisconnected));
@@ -267,7 +273,9 @@ TEST(BoundFlashAttemptTest, OpenFailureSkipsExecuteAndClose)
 
 TEST(BoundFlashAttemptTest, CancelledBeforeConfigureDoesNotConfigure)
 {
-    Harness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    Harness h(std::move(*built_plan));
     h.cancellation.SetCancelled(true);
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kCancelled));
@@ -276,7 +284,9 @@ TEST(BoundFlashAttemptTest, CancelledBeforeConfigureDoesNotConfigure)
 
 TEST(BoundFlashAttemptTest, CancellationIsNotUniversallyPolledBetweenConfigureAndOpen)
 {
-    Harness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    Harness h(std::move(*built_plan));
     h.cancellation.CancelOnCheck(2);
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsOk());
@@ -287,7 +297,9 @@ TEST(BoundFlashAttemptTest, CancellationIsNotUniversallyPolledBetweenConfigureAn
 
 TEST(BoundFlashAttemptTest, ExecuteErrorIsReturnedAndTransportStillClosesOnce)
 {
-    Harness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    Harness h(std::move(*built_plan));
     h.executor->execute_ok = false;
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
@@ -296,7 +308,9 @@ TEST(BoundFlashAttemptTest, ExecuteErrorIsReturnedAndTransportStillClosesOnce)
 
 TEST(BoundFlashAttemptTest, CloseOnlyErrorIsReturned)
 {
-    Harness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    Harness h(std::move(*built_plan));
     h.transport->close_result = Fail(ErrorKind::kInternal, "close failed");
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kInternal));
@@ -305,7 +319,9 @@ TEST(BoundFlashAttemptTest, CloseOnlyErrorIsReturned)
 
 TEST(BoundFlashAttemptTest, ExecuteErrorWinsOverCloseErrorAndCloseIsLogged)
 {
-    Harness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    Harness h(std::move(*built_plan));
     h.executor->execute_ok = false;
     h.transport->close_result = Fail(ErrorKind::kInternal, "close failed");
 
@@ -320,7 +336,9 @@ TEST(BoundFlashAttemptTest, RequestUnblockReachesTheTransport)
 {
     using namespace std::chrono_literals;
 
-    Harness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    Harness h(std::move(*built_plan));
     h.transport->QueueBlockingRead();
 
     h.attempt->RequestUnblock();
@@ -332,7 +350,9 @@ TEST(BoundFlashAttemptTest, RequestUnblockReachesTheTransport)
 TEST(BoundFlashAttemptTest, MixedTransportUsesOuterLifecycleExactlyOnce)
 {
     std::vector<std::string> calls;
-    auto attempt = BindFlashAttempt(BuiltPlan(), std::make_unique<TestMixedExecutor>(calls),
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    auto attempt = BindFlashAttempt(std::move(*built_plan), std::make_unique<TestMixedExecutor>(calls),
                                     std::make_unique<RecordingMixedTransport>(calls));
     FakeClock clock;
     FakeCancellationToken cancellation;
@@ -347,7 +367,10 @@ TEST(BoundFlashAttemptTest, MixedTransportBeforeConfigureErrorSkipsConfigureOpen
     std::vector<std::string> calls;
     auto executor = std::make_unique<TestMixedExecutor>(calls);
     executor->before_configure_ok = false;
-    auto attempt = BindFlashAttempt(BuiltPlan(), std::move(executor), std::make_unique<RecordingMixedTransport>(calls));
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    auto attempt =
+        BindFlashAttempt(std::move(*built_plan), std::move(executor), std::make_unique<RecordingMixedTransport>(calls));
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
@@ -411,11 +434,11 @@ class GuardedCanExecutorProbe : public CanExecutorProbe
 
 template <typename Executor = GuardedCanExecutorProbe> struct CanProbeHarness
 {
-    explicit CanProbeHarness(bool cancel_inside = true)
+    explicit CanProbeHarness(FlashPlan plan, bool cancel_inside = true)
     {
         auto owned = std::make_unique<BlindCanTransport>();
         inner = owned.get();
-        attempt = BindFlashAttempt(BuiltPlan(), std::make_unique<Executor>(cancel_inside ? &token : nullptr),
+        attempt = BindFlashAttempt(std::move(plan), std::make_unique<Executor>(cancel_inside ? &token : nullptr),
                                    std::move(owned));
     }
     Result<FlashExecutionResult> Run()
@@ -431,7 +454,9 @@ template <typename Executor = GuardedCanExecutorProbe> struct CanProbeHarness
 
 TEST(BoundFlashAttemptTest, OptedInExecutorRefusesCancelledWrite)
 {
-    CanProbeHarness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    CanProbeHarness h(std::move(*built_plan));
     const auto result = h.Run();
     EXPECT_EQ(h.inner->write_calls, 0);
     EXPECT_EQ(h.inner->configure_call_count, 1);
@@ -442,7 +467,9 @@ TEST(BoundFlashAttemptTest, OptedInExecutorRefusesCancelledWrite)
 
 TEST(BoundFlashAttemptTest, UnoptedInCanExecutorKeepsItsExistingPath)
 {
-    CanProbeHarness<CanExecutorProbe> h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    CanProbeHarness<CanExecutorProbe> h(std::move(*built_plan));
     ASSERT_THAT(h.Run(), fastecu::testing::IsOk());
     EXPECT_EQ(h.inner->write_calls, 1);
     EXPECT_EQ(h.inner->close_call_count, 1);
@@ -450,7 +477,9 @@ TEST(BoundFlashAttemptTest, UnoptedInCanExecutorKeepsItsExistingPath)
 
 TEST(BoundFlashAttemptTest, OptedInExecutionErrorWinsOverCloseError)
 {
-    CanProbeHarness h;
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    CanProbeHarness h(std::move(*built_plan));
     h.inner->close_result = Fail(ErrorKind::kInternal, "close failed");
     ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(h.inner->close_call_count, 1);
@@ -460,7 +489,9 @@ TEST(BoundFlashAttemptTest, OptedInExecutionErrorWinsOverCloseError)
 
 TEST(BoundFlashAttemptTest, OptedInCloseOnlyFailureIsReturned)
 {
-    CanProbeHarness h(false);
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    CanProbeHarness h(std::move(*built_plan), false);
     h.inner->close_result = Fail(ErrorKind::kInternal, "close failed");
     ASSERT_THAT(h.Run(), fastecu::testing::IsErrWith(ErrorKind::kInternal, "close failed"));
     EXPECT_EQ(h.inner->close_call_count, 1);
@@ -468,7 +499,9 @@ TEST(BoundFlashAttemptTest, OptedInCloseOnlyFailureIsReturned)
 
 TEST(BoundFlashAttemptTest, OptedInUnblockReachesOwnedTransport)
 {
-    CanProbeHarness h(false);
+    auto built_plan = BuiltPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    CanProbeHarness h(std::move(*built_plan), false);
     h.attempt->RequestUnblock();
     EXPECT_EQ(h.inner->unblock_calls, 1);
     ASSERT_THAT(h.Run(), fastecu::testing::IsOk());

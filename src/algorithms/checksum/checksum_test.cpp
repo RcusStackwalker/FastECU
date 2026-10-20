@@ -54,6 +54,7 @@ void CompareChangedBytes(const bytes::Bytes& original, const bytes::Bytes& actua
     bytes::Bytes expected = original;
     for (const auto& replacement : replacements)
     {
+        SCOPED_TRACE(::testing::PrintToString(replacement));
         const std::size_t pos = replacement.first;
         const bytes::Bytes& payload = replacement.second;
         ASSERT_LE(pos, expected.size());
@@ -319,6 +320,7 @@ TEST(ChecksumPortable, HitachiM32rCanTcuRejectsAFileTooShortOrNotWordAligned)
 {
     for (const std::size_t size : {std::size_t{0x8020}, std::size_t{0x80001}})
     {
+        SCOPED_TRACE(::testing::PrintToString(size));
         const bytes::Bytes original(size, 0x3C);
         const ChecksumResult result = ChecksumTcuSubaruHitachiM32rCan::CalculateChecksumResult(original);
         EXPECT_EQ(result.status, ChecksumResult::Status::kInvalidSize) << size;

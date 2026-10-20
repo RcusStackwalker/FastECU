@@ -73,6 +73,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, Revision04IsNotAProtocolOfThisFamily)
 {
     for (auto *name : {"sub_ecu_denso_mc68hc16y5_04", "sub_ecu_denso_mc68hc16y5_04_ecutek"})
     {
+        SCOPED_TRACE(::testing::PrintToString(name));
         ASSERT_THAT(BuildSubaruDensoMc68hc16y502Plan(FlashOperation::kRead, name, "MC68HC16Y5", std::nullopt,
                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -96,6 +97,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, RejectsEveryKnownButWrongProtocolMcuPair)
              std::pair{"sub_ecu_denso_mc68hc16y5_02", "SH7055"},
          })
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         ASSERT_THAT(BuildSubaruDensoMc68hc16y502Plan(FlashOperation::kRead, protocol, mcu, std::nullopt,
                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig))
@@ -125,6 +127,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, StockAndEcutekTestWritesCarryExactImage)
     ASSERT_GE(index, 0);
     for (const auto *protocol : {"sub_ecu_denso_mc68hc16y5_02", "sub_ecu_denso_mc68hc16y5_02_ecutek"})
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         bytes::Bytes rom(kFlashDevices[index].romsize, bytes::Byte{0});
         auto plan = BuildSubaruDensoMc68hc16y502Plan(FlashOperation::kTestWrite, protocol, "MC68HC16Y5",
                                                      testing::PackedMc68Image(std::move(rom)),
@@ -174,6 +177,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, TpuRejectsWriteAndTestWrite)
     ASSERT_GE(index, 0);
     for (const auto operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         bytes::Bytes rom(kFlashDevices[index].romsize, bytes::Byte{0});
         ASSERT_THAT(BuildSubaruDensoMc68hc16y502Plan(operation, "sub_ecu_denso_mc68hc16y5_02_tpu", "MC68HC16Y5_TPU",
                                                      fastecu::memory::testing::IdentityImage(std::move(rom)),
@@ -186,6 +190,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsEveryNonCanonicalWireField)
 {
     for (int field = 0; field < 5; ++field)
     {
+        SCOPED_TRACE(::testing::PrintToString(field));
         auto fields = ValidMcFields();
         auto& wire = std::get<SubaruDensoMc68hc16y5_02Plan>(fields.family_plan);
         switch (field)
@@ -211,7 +216,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsEveryNonCanonicalWireField)
         auto plan = ValidateAndBuild(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         auto valid = ValidateSubaruDensoMc68hc16y502Plan(*plan);
-        EXPECT_THAT(valid, ::testing::Not(fastecu::testing::IsOk())) << "field " << field;
+        EXPECT_THAT(valid, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig)) << "field " << field;
         EXPECT_THAT(valid, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     }
 }
@@ -220,6 +225,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsTransferEraseAndConfirmationD
 {
     for (int field = 0; field < 3; ++field)
     {
+        SCOPED_TRACE(::testing::PrintToString(field));
         auto fields = ValidMcFields();
         if (field == 0)
         {
@@ -235,7 +241,8 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsTransferEraseAndConfirmationD
         }
         auto plan = ValidateAndBuild(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_THAT(ValidateSubaruDensoMc68hc16y502Plan(*plan), ::testing::Not(fastecu::testing::IsOk()));
+        EXPECT_THAT(ValidateSubaruDensoMc68hc16y502Plan(*plan),
+                    fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     }
 
     auto fields = ValidMcFields();
@@ -244,7 +251,8 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsTransferEraseAndConfirmationD
     fields.erase_regions.push_back({.start = 0, .length = 0x1000});
     auto plan = ValidateAndBuild(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_THAT(ValidateSubaruDensoMc68hc16y502Plan(*plan), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ValidateSubaruDensoMc68hc16y502Plan(*plan),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Plan, KernelUploadRequiresCanonicalAddressAndPaddedModelFit)
@@ -259,6 +267,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, KernelUploadRequiresCanonicalAddressAndPadded
              KernelImage{.id = "padded-past-end", .load_address = 0x20000, .bytes = bytes::Bytes(0x8001, 0)},
          })
     {
+        SCOPED_TRACE(::testing::PrintToString(kernel));
         ASSERT_THAT(BuildSubaruDensoMc68hc16y502Plan(FlashOperation::kRead, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5",
                                                      std::nullopt, std::move(kernel)),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig));

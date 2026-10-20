@@ -252,6 +252,7 @@ TEST(BuildEepromReadPlanTest, EveryBuiltinEepromProtocolBuildsWithItsBundledKern
     int checked = 0;
     for (const config::ProtocolSpec& protocol : config::BuiltinCatalog().Protocols())
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         if (!protocol.name.starts_with("sub_ecu_eeprom_"))
         {
             continue;
@@ -261,6 +262,7 @@ TEST(BuildEepromReadPlanTest, EveryBuiltinEepromProtocolBuildsWithItsBundledKern
         ASSERT_FALSE(repository.files.begin()->second.empty()) << protocol.kernel;
         for (EepromReadMode mode : {EepromReadMode::kMode2, EepromReadMode::kMode3, EepromReadMode::kMode4})
         {
+            SCOPED_TRACE(::testing::PrintToString(mode));
             EXPECT_THAT(BuildEepromReadPlan(TestPaths(), protocol, mode, repository), fastecu::testing::IsOk())
                 << protocol.name << " mode " << static_cast<int>(mode);
         }

@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include <cctype>
 #include <ranges>
 #include <string>
@@ -717,6 +718,7 @@ class MainWindowTest : public ::testing::Test
         ASSERT_TRUE(QDir().mkpath(root + suffix));
         for (const QString& name : source.entryList(QDir::Files))
         {
+            SCOPED_TRACE(::testing::PrintToString(name));
             ASSERT_TRUE(QFile::copy(source.filePath(name), root + suffix + name));
         }
     }
@@ -1886,7 +1888,7 @@ void MainWindowTest::checkChecksumAndSaveUseATemporaryImage()
 
     window.saveCalibrationFile();
     EXPECT_THAT(services.file_repository.Read(path.toStdString()), fastecu::testing::IsOkAnd(corrected));
-    ASSERT_TRUE(std::ranges::equal(session->File(), original));
+    ASSERT_THAT(session->File(), test_bytes::BytesEq(original));
     ASSERT_TRUE(!session->Dirty());
     ASSERT_THAT(session->WriteBytes(0, bytes::Bytes{2}), fastecu::testing::IsOk());
     const bytes::Bytes edited(session->File().begin(), session->File().end());
@@ -1897,7 +1899,7 @@ void MainWindowTest::checkChecksumAndSaveUseATemporaryImage()
     window.saveCalibrationFile();
     ASSERT_TRUE(session->Source() == source);
     ASSERT_TRUE(session->Dirty());
-    ASSERT_TRUE(std::ranges::equal(session->File(), edited));
+    ASSERT_THAT(session->File(), test_bytes::BytesEq(edited));
     driver.stop();
     ASSERT_TRUE(!driver.timedOut());
 }
@@ -2275,6 +2277,7 @@ void MainWindowTest::checkLoggingCapturesTargetForEachRun()
         });
     for (bool target : {true, false})
     {
+        SCOPED_TRACE(::testing::PrintToString(target));
         window.ecu_radio_button_->setAutoExclusive(false);
         window.ecu_radio_button_->setChecked(target);
         window.connection_presentation_.identified({.ecu_id = target ? "ECU" : "TCU"});
@@ -3216,6 +3219,7 @@ void MainWindowTest::checkLoggingSwitchValuesAndLiteralUnits()
     EXPECT_EQ(window.logging_run_->view().values.ParameterValue("SSM", "rpm"), "42");
     for (int i : {0, 1})
     {
+        SCOPED_TRACE(::testing::PrintToString(i));
         auto *value = window.findChild<QLabel *>("log_label" + QString::number(i));
         ASSERT_NE(value, nullptr);
         EXPECT_EQ(value->text(), "42 <b>unit</b>");
@@ -3482,6 +3486,7 @@ void MainWindowTest::checkDtcWindowWithoutAPortWarnsInsteadOfCrashing()
     driver.start();
     for (const ActionName& command : {kDtcWindow, kBiuCommunication, kTerminal})
     {
+        SCOPED_TRACE(::testing::PrintToString(command));
         ASSERT_TRUE(triggerMenu(window, command));
     }
     driver.stop();
@@ -4348,8 +4353,10 @@ void MainWindowTest::checkNoTwoActionsShareAShortcutAndNoneLostItsBinding()
     QSet<QString> seen;
     for (const QAction *action : window.findChildren<QAction *>())
     {
+        SCOPED_TRACE(::testing::PrintToString(action));
         for (const QKeySequence& sequence : action->shortcuts())
         {
+            SCOPED_TRACE(::testing::PrintToString(sequence));
             const QString text = sequence.toString(QKeySequence::PortableText);
             EXPECT_FALSE(seen.contains(text)) << qPrintable(text) << " bound twice";
             seen.insert(text);
@@ -4357,6 +4364,7 @@ void MainWindowTest::checkNoTwoActionsShareAShortcutAndNoneLostItsBinding()
     }
     for (const ActionName *name : {&kLogToFile, &kConnectToEcu, &kDisconnectFromEcu, &kToggleRealtime})
     {
+        SCOPED_TRACE(::testing::PrintToString(name));
         EXPECT_FALSE(menuAction(window, *name)->shortcuts().isEmpty()) << name->member;
     }
     // Open, Save, Save As, Copy, Paste and Quit had shortcuts in menu.cfg. Qt
@@ -4365,6 +4373,7 @@ void MainWindowTest::checkNoTwoActionsShareAShortcutAndNoneLostItsBinding()
     for (const char *member : {"actionOpenCalibration", "actionSaveCalibration", "actionSaveCalibrationAs",
                                "actionCopy", "actionPaste", "actionQuit"})
     {
+        SCOPED_TRACE(::testing::PrintToString(member));
         const auto *action = window.findChild<QAction *>(QString::fromLatin1(member));
         ASSERT_NE(action, nullptr) << member;
         EXPECT_FALSE(action->shortcut().isEmpty()) << member;
@@ -4395,6 +4404,7 @@ void MainWindowTest::checkToolbarKeepsMenuActionsBeforeTheTransportWidgets()
     // that MainWindow added in code.
     for (int i = 0; i < 9; ++i)
     {
+        SCOPED_TRACE(::testing::PrintToString(i));
         EXPECT_EQ(qobject_cast<QWidgetAction *>(actions[i]), nullptr) << i;
     }
     EXPECT_NE(qobject_cast<QWidgetAction *>(actions[9]), nullptr);
@@ -4425,6 +4435,7 @@ void MainWindowTest::checkAStaleOrMalformedMenuCfgIsIgnored()
     // ModalDriver accepts any box it does not recognise, so check its record.
     for (const QString& text : constructorDriver.acceptedTexts())
     {
+        SCOPED_TRACE(::testing::PrintToString(text));
         EXPECT_FALSE(text.startsWith(QStringLiteral("Unable to load menu config file"))) << qPrintable(text);
     }
     EXPECT_NE(window.ui_->actionToggleRealtime, nullptr);
@@ -4581,9 +4592,9 @@ void MainWindowTest::checkTuneActionsEditTheSelectionThroughTheirOwnHandlers()
         table->clearSelection();
         table->setRangeSelected(QTableWidgetSelectionRange(top, left, bottom, right), true);
     };
-    const auto grid = [&]
+    const auto grid = [&, id = opened->id]
     {
-        const bytes::ByteView rom = services.calibrations.Find(opened->id)->File();
+        const bytes::ByteView rom = services.calibrations.Find(id)->File();
         const auto first = rom.begin() + static_cast<std::ptrdiff_t>(kBody);
         return std::vector<int>(first, first + static_cast<std::ptrdiff_t>(body.size()));
     };
@@ -4598,6 +4609,7 @@ void MainWindowTest::checkTuneActionsEditTheSelectionThroughTheirOwnHandlers()
     }};
     for (const auto& [action, expected] : steps)
     {
+        SCOPED_TRACE(::testing::PrintToString(action));
         select(2, 2, 2, 2);
         action->trigger();
         EXPECT_EQ(grid()[4], expected) << qPrintable(action->objectName());
@@ -4611,6 +4623,7 @@ void MainWindowTest::checkTuneActionsEditTheSelectionThroughTheirOwnHandlers()
     }};
     for (const auto& [action, expected] : interpolations)
     {
+        SCOPED_TRACE(::testing::PrintToString(action));
         ASSERT_THAT(services.calibrations.Find(opened->id)->WriteBytes(kBody, body), fastecu::testing::IsOk());
         select(1, 1, 3, 3);
         action->trigger();
@@ -4751,9 +4764,9 @@ void MainWindowTest::checkCopyFromALargerMapPastesIntoASmallerOneThroughItsScali
     ASSERT_NE(sourceTable, nullptr);
     ASSERT_NE(destTable, nullptr);
 
-    const auto destBody = [&]
+    const auto destBody = [&, id = opened->id]
     {
-        const bytes::ByteView rom = services.calibrations.Find(opened->id)->File();
+        const bytes::ByteView rom = services.calibrations.Find(id)->File();
         const auto first = rom.begin() + static_cast<std::ptrdiff_t>(kDest);
         return std::vector<int>(first, first + 4);
     };
@@ -5129,6 +5142,7 @@ void MainWindowTest::checkTargetChangeInvalidatesIdentificationAndSupport()
     prepareLogging(window, "SSM");
     for (const auto oldSupport : {fastecu::logging::EcuSupport::kSupported, fastecu::logging::EcuSupport::kUnsupported})
     {
+        SCOPED_TRACE(::testing::PrintToString(oldSupport));
         window.ecu_init_complete_ = true;
         window.ecuid_ = "OLD_TARGET";
         window.logger_model_->SetParameterSupport("SSM", "rpm", oldSupport);

@@ -146,6 +146,7 @@ TEST(SubaruDensoSh705xKlinePlan, WritesRequireAnExactRomSizedImage)
 {
     for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         EXPECT_THAT(BuildSubaruDensoSh705xKlinePlan(operation, "sub_ecu_denso_sh7058", "SH7058", std::nullopt,
                                                     KernelFor("SH7058")),
                     IsErr(ErrorKind::kInvalidConfig));
@@ -161,12 +162,14 @@ TEST(SubaruDensoSh705xKlinePlan, DeviceGeometrySatisfiesTheExecutorsChunking)
     // indexing the image by physical address; the plan relies on this.
     for (const std::string_view mcu : {"SH7055", "SH7058"})
     {
+        SCOPED_TRACE(::testing::PrintToString(mcu));
         const FlashDevice *device = FindFlashDevice(mcu);
         ASSERT_NE(device, nullptr);
         EXPECT_EQ(device->fblocks[0].start, 0U);
         std::uint32_t total = 0;
         for (unsigned i = 0; i < device->numblocks; ++i)
         {
+            SCOPED_TRACE(::testing::PrintToString(i));
             EXPECT_EQ(device->fblocks[i].len % 0x1000, 0U);
             total += device->fblocks[i].len;
         }

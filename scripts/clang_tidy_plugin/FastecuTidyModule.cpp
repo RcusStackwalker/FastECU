@@ -1,5 +1,11 @@
 #include "RedundantAddressDereferenceCheck.h"
 #include "ResultAssertionCheck.h"
+#include "ResultAccessCheck.h"
+#include "PlanHelperCheck.h"
+#include "UniformBytesCheck.h"
+#include "AssertionLoopTraceCheck.h"
+#include "ParameterizedCaseNameCheck.h"
+#include "SingleUseResultCheck.h"
 #include "ContainerAssertionCheck.h"
 #include "MessageConcatenationCheck.h"
 #include "LinearSearchLoopCheck.h"
@@ -21,6 +27,12 @@ class FastecuModule : public clang::tidy::ClangTidyModule
     {
         factories.registerCheck<RedundantAddressDereferenceCheck>("fastecu-redundant-address-dereference");
         factories.registerCheck<ResultAssertionCheck>("fastecu-result-assertion");
+        factories.registerCheck<ParameterizedCaseNameCheck>("fastecu-parameterized-case-name");
+        factories.registerCheck<AssertionLoopTraceCheck>("fastecu-assertion-loop-trace");
+        factories.registerCheck<UniformBytesCheck>("fastecu-uniform-bytes");
+        factories.registerCheck<PlanHelperCheck>("fastecu-plan-helper");
+        factories.registerCheck<SingleUseResultCheck>("fastecu-single-use-result");
+        factories.registerCheck<ResultAccessCheck>("fastecu-result-access");
         factories.registerCheck<ContainerAssertionCheck>("fastecu-container-assertion");
         factories.registerCheck<MessageConcatenationCheck>("fastecu-message-concatenation");
         factories.registerCheck<LinearSearchLoopCheck>("fastecu-linear-search-loop");

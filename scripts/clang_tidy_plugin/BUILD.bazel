@@ -20,6 +20,8 @@ cc_binary(
     srcs = [
         "FastecuTidyMain.cpp",
         "FastecuTidyModule.cpp",
+        "TestAssertionSupport.cpp",
+        "TestAssertionSupport.h",
     ] + glob([
         "*Check.cpp",
         "*Check.h",
@@ -76,6 +78,8 @@ cc_binary(
     name = "fastecu_tidy",
     srcs = [
         "FastecuTidyModule.cpp",
+        "TestAssertionSupport.cpp",
+        "TestAssertionSupport.h",
     ] + glob([
         "*Check.cpp",
         "*Check.h",

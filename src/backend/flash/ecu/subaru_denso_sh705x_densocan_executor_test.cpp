@@ -579,6 +579,7 @@ void ExpectPhaseTrace(const RecordingEventSink& events, std::string_view write_p
     ASSERT_EQ(events.phase_progress_calls.size(), expected.size());
     for (std::size_t index = 0; index < expected.size(); ++index)
     {
+        SCOPED_TRACE(::testing::PrintToString(index));
         const auto& actual = events.phase_progress_calls[index];
         const auto& want = expected[index];
         EXPECT_EQ(actual.phase_name, want.name) << index;
@@ -595,6 +596,7 @@ void ExpectUnchangedWritePhaseTrace(const RecordingEventSink& events, std::strin
     ASSERT_EQ(events.phase_progress_calls.size(), expected.size());
     for (std::size_t index = 0; index < expected.size(); ++index)
     {
+        SCOPED_TRACE(::testing::PrintToString(index));
         const auto& actual = events.phase_progress_calls[index];
         const auto& want = expected[index];
         EXPECT_EQ(actual.phase_name, want.name) << index;
@@ -625,6 +627,7 @@ void ExpectTwoBlockWriteProgress(const RecordingEventSink& events)
     ASSERT_EQ(write_updates.size(), kExpectedDone.size());
     for (std::size_t index = 0; index < kExpectedDone.size(); ++index)
     {
+        SCOPED_TRACE(::testing::PrintToString(index));
         EXPECT_EQ(write_updates[index].phase_index, 3) << index;
         EXPECT_EQ(write_updates[index].phase_count, 4) << index;
         EXPECT_EQ(write_updates[index].done, kExpectedDone[index]) << index;
@@ -790,6 +793,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, TransportSetupUsesExactMixedCanConfigura
     SubaruDensoSh705xDensoCanExecutor executor;
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         auto plan = ReadPlan(test_case);
         ASSERT_THAT(plan, IsOk());
         auto setup = executor.TransportSetup(*plan);
@@ -1179,6 +1183,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, AllCatalogGeometriesUseFullPagedReads)
     FakeClock clock;
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         auto plan = ReadPlan(test_case);
         ASSERT_THAT(plan, IsOk());
         ScriptedMixedCanFlashTransport transport;
@@ -1737,6 +1742,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor,
     ASSERT_EQ(device->numblocks, 16U);
     for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         auto plan = WritePlan(test_case, operation);
         ASSERT_THAT(plan, IsOk());
         SubaruDensoSh705xDensoCanExecutor executor;
@@ -1767,6 +1773,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, WriteAndTestWriteUseCrcInitAndDistinctEr
     ASSERT_NE(device, nullptr);
     for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         auto plan = WritePlan(test_case, operation);
         ASSERT_THAT(plan, IsOk());
         SubaruDensoSh705xDensoCanExecutor executor;

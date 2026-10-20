@@ -272,8 +272,8 @@ TEST_F(DefinitionServiceTest, PropagatesDiscoveryFailureWithoutReadingFiles)
 
     auto result = service_.BuildEcuflashCatalog("defs");
 
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_EQ(result.error(), (Error{ErrorKind::kDisconnected, "catalog directory unavailable"}));
+    ASSERT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("catalog directory unavailable")));
     EXPECT_TRUE(repository_.read_handles.empty());
 }
 
@@ -530,8 +530,7 @@ TEST_F(DefinitionServiceTest, LoadPropagatesRepositoryFailure)
 
     auto result = service_.Load(*catalog, DefinitionFormat::kEcuFlash, "BROKEN");
 
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_EQ(result.error(), (Error{ErrorKind::kDisconnected, "definition read failed"}));
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("definition read failed")));
 }
 
 TEST_F(DefinitionServiceTest, LoadPropagatesParentRepositoryFailureUnchanged)
@@ -547,8 +546,8 @@ TEST_F(DefinitionServiceTest, LoadPropagatesParentRepositoryFailureUnchanged)
 
     auto result = service_.Load(*catalog, DefinitionFormat::kEcuFlash, "CHILD");
 
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_EQ(result.error(), (Error{ErrorKind::kInvalidConfig, "parent definition read failed"}));
+    ASSERT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("parent definition read failed")));
     EXPECT_EQ(repository_.ReadCount("child.xml"), 1);
     EXPECT_EQ(repository_.ReadCount("base.xml"), 1);
 }
@@ -572,9 +571,9 @@ TEST_F(DefinitionServiceTest, LoadRejectsEcuFlashIdentityThatDoesNotMatchCatalog
     auto result = service_.Load(*catalog, DefinitionFormat::kEcuFlash, "EXPECTED");
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("EXPECTED"));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("OTHER"));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("stale.xml"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("EXPECTED")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("OTHER")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("stale.xml")));
 }
 
 TEST_F(DefinitionServiceTest, LoadPropagatesDefinitionParseFailure)
@@ -598,7 +597,7 @@ TEST_F(DefinitionServiceTest, LoadPropagatesResolutionFailure)
     auto result = service_.Load(*catalog, DefinitionFormat::kEcuFlash, "CHILD");
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("MISSING"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("MISSING")));
     EXPECT_EQ(repository_.ReadCount("child.xml"), 1);
 }
 
@@ -622,7 +621,7 @@ TEST_F(DefinitionServiceTest, RejectsCreationWhenDestinationAlreadyExists)
     auto result = service_.CreateDefinition("existing.xml", input);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("existing.xml"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("existing.xml")));
     EXPECT_TRUE(writer_.replace_calls.empty());
 }
 
@@ -661,8 +660,7 @@ TEST_F(DefinitionServiceTest, ImportPropagatesSourceReadFailureBeforeAtomicRepla
 
     auto result = service_.ImportDefinition("source.xml", "untouched.xml", ValidHeaderInput());
 
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_EQ(result.error(), (Error{ErrorKind::kDisconnected, "source vanished"}));
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("source vanished")));
     EXPECT_TRUE(writer_.replace_calls.empty());
 }
 
@@ -701,7 +699,7 @@ TEST_F(DefinitionServiceTest, ImportRejectsDuplicateRomIdBeforeAtomicReplacement
     auto result = service_.ImportDefinition("source.xml", "untouched.xml", ValidHeaderInput());
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, ::testing::HasSubstr("<romid>"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("<romid>")));
     EXPECT_TRUE(writer_.replace_calls.empty());
 }
 
@@ -711,8 +709,7 @@ TEST_F(DefinitionServiceTest, PropagatesAtomicReplacementFailureUnchanged)
 
     auto result = service_.CreateDefinition("destination.xml", ValidHeaderInput());
 
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_EQ(result.error(), (Error{ErrorKind::kInternal, "atomic commit failed"}));
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInternal, ::testing::Eq("atomic commit failed")));
     ASSERT_EQ(writer_.replace_calls.size(), 1U);
     EXPECT_EQ(writer_.replace_calls.front().handle, "destination.xml");
 }

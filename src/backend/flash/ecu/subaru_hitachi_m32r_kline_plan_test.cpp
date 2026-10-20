@@ -45,6 +45,7 @@ TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToTheirSessionModeAndWirePara
              std::pair{std::string_view("sub_ecu_hitachi_m32r_kline_recovery"), HitachiM32rKlineSessionMode::kRecovery},
          })
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         const auto plan =
             BuildSubaruHitachiM32rKlinePlan(FlashOperation::kRead, protocol, "M32R_512KB_1block", std::nullopt);
         ASSERT_THAT(plan, fastecu::testing::IsOk());

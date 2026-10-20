@@ -37,6 +37,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
 {
     for (const bool already_active : {true, false})
     {
+        SCOPED_TRACE(::testing::PrintToString(already_active));
         auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                  std::nullopt);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
@@ -88,6 +89,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsShortWrongServiceAndBadChecksumPag
 {
     for (int fault = 0; fault < 3; ++fault)
     {
+        SCOPED_TRACE(::testing::PrintToString(fault));
         auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                  std::nullopt);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
@@ -120,6 +122,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, CancellationAndBaudFailureStopBeforeAnyRe
     SubaruHitachiSh7058KlineExecutor executor;
     for (const bool cancel_first : {true, false})
     {
+        SCOPED_TRACE(::testing::PrintToString(cancel_first));
         ScriptedKlineFlashTransport transport;
         if (!cancel_first)
         {

@@ -22,7 +22,7 @@ TEST(InMemoryFileRepository, RecordsAndCanOverrideNextRead)
     fastecu::InMemoryFileRepository repository;
     repository.next_read_result = fastecu::Fail(fastecu::ErrorKind::kInternal, "disk error");
 
-    ASSERT_THAT(repository.Read("kernel"), ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(repository.Read("kernel"), fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
     EXPECT_EQ(repository.read_handles, std::vector<std::string>{"kernel"});
 }
 
@@ -32,7 +32,7 @@ TEST(InMemoryFileRepository, ReadOverrideIsConsumedAfterOneRead)
     repository.files["kernel"] = {0xaa, 0xbb};
     repository.next_read_result = fastecu::Fail(fastecu::ErrorKind::kInternal, "disk error");
 
-    ASSERT_THAT(repository.Read("kernel"), ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(repository.Read("kernel"), fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
     ASSERT_THAT(repository.Read("kernel"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xaa, 0xbb})));
     EXPECT_EQ(repository.read_handles, (std::vector<std::string>{"kernel", "kernel"}));
 }
@@ -62,8 +62,8 @@ TEST(InMemoryFileRepository, PersistentReadErrorAppliesAfterOneShotOverride)
 
     ASSERT_THAT(repository.Read("kernel"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xbb})));
     auto second = repository.Read("kernel");
-    ASSERT_THAT(second, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_EQ(second.error(), repository.read_errors.at("kernel"));
+    ASSERT_THAT(second, fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
+    EXPECT_THAT(second, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, ::testing::Eq("persistent error")));
     EXPECT_EQ(repository.ReadCount("kernel"), 2);
 }
 
@@ -72,8 +72,8 @@ TEST(InMemoryFileRepository, ReadCountIsPerHandleAndIncludesFailures)
     fastecu::InMemoryFileRepository repository;
     repository.read_errors.insert_or_assign("broken", fastecu::Error{fastecu::ErrorKind::kInternal, "broken"});
 
-    EXPECT_THAT(repository.Read("broken"), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(repository.Read("missing"), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(repository.Read("broken"), fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
+    EXPECT_THAT(repository.Read("missing"), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 
     EXPECT_EQ(repository.ReadCount("broken"), 1);
     EXPECT_EQ(repository.ReadCount("missing"), 1);

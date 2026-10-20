@@ -102,7 +102,7 @@ TEST(ReadSelection, RejectsMalformedXml)
 {
     const auto result = ReadSelection(View("<config><logger>"), "ECUID1", "broken.xml");
     ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("broken.xml"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, HasSubstr("broken.xml")));
 }
 
 TEST(InitialSelection, TakesTheFirstEntriesIgnoringEnabled)
@@ -187,8 +187,8 @@ TEST(WriteSelection, RejectsADocumentWhoseRootIsNotConfig)
     const auto written =
         WriteSelection(View(R"(<notconfig><data id="keep"/></notconfig>)"), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-    EXPECT_THAT(written.error().detail, HasSubstr("conf.xml"));
-    EXPECT_THAT(written.error().detail, HasSubstr("notconfig"));
+    EXPECT_THAT(written, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, HasSubstr("conf.xml")));
+    EXPECT_THAT(written, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, HasSubstr("notconfig")));
 }
 
 TEST(WriteSelection, CreatesTheLoggerElementWhenConfigHasNone)

@@ -348,7 +348,10 @@ TEST(SubaruHitachiM32rKlineExecutor, PreservesPrefixFailureDetails)
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-        EXPECT_EQ(result.error().detail, response.size() == 4 ? "response is too short" : "wrong response from ECU");
+        EXPECT_THAT(result,
+                    fastecu::testing::IsErrWith(
+                        ErrorKind::kBadResponse,
+                        ::testing::Eq(response.size() == 4 ? "response is too short" : "wrong response from ECU")));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
@@ -371,7 +374,7 @@ TEST(SubaruHitachiM32rKlineExecutor, PreservesRequiredResponseTimeoutDetail)
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
-    EXPECT_EQ(result.error().detail, "no response from ECU");
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, ::testing::Eq("no response from ECU")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 2U);
 }
@@ -394,7 +397,7 @@ TEST(SubaruHitachiM32rKlineExecutor, PreservesPresentEmptyResponseValidation)
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_EQ(result.error().detail, "response is too short");
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("response is too short")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 2U);
 }
@@ -415,7 +418,7 @@ TEST(SubaruHitachiM32rKlineExecutor, PreservesExchangeReadFailure)
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
-    EXPECT_EQ(result.error().detail, "read fault");
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("read fault")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }

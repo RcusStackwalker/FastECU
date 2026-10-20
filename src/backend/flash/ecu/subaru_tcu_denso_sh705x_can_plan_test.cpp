@@ -110,12 +110,14 @@ TEST(SubaruTcuDensoSh705xCanPlan, BuildsExactCapabilitiesWireAndGeometry)
 {
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         const std::array<FlashOperation, 2> operations = test_case.supports_write
                                                              ? std::array{FlashOperation::kRead, FlashOperation::kWrite}
                                                              : std::array{FlashOperation::kRead, FlashOperation::kRead};
         const std::size_t operation_count = test_case.supports_write ? 2U : 1U;
         for (std::size_t index = 0; index < operation_count; ++index)
         {
+            SCOPED_TRACE(::testing::PrintToString(index));
             const FlashOperation operation = operations[index];
             auto plan = BuildSubaruTcuDensoSh705xCanPlan(operation, test_case.protocol, test_case.mcu,
                                                          ImageFor(test_case, operation), KernelFor(test_case));
@@ -149,6 +151,7 @@ TEST(SubaruTcuDensoSh705xCanPlan, BuildsExactCapabilitiesWireAndGeometry)
                 ASSERT_EQ(plan->EraseRegions().size(), test_case.blocks.size());
                 for (std::size_t block = 0; block < test_case.blocks.size(); ++block)
                 {
+                    SCOPED_TRACE(::testing::PrintToString(block));
                     EXPECT_EQ(plan->EraseRegions()[block].start, test_case.blocks[block].start);
                     EXPECT_EQ(plan->EraseRegions()[block].length, test_case.blocks[block].length);
                 }
@@ -165,6 +168,7 @@ TEST(SubaruTcuDensoSh705xCanPlan, RejectsUnsupportedOperationsBeforeImageOrKerne
 
     for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
+        SCOPED_TRACE(::testing::PrintToString(operation));
         auto rejected = BuildSubaruTcuDensoSh705xCanPlan(
             operation, sh7055.protocol, sh7055.mcu, std::nullopt,
             KernelImage{.id = "", .load_address = sh7055.kernel_load_address + 1, .bytes = {}});
@@ -186,9 +190,11 @@ TEST(SubaruTcuDensoSh705xCanPlan, RejectsUnknownNearMissAndWrongMcuIdentities)
 {
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         for (const std::string_view bad_protocol :
              {"unknown_tcu_denso_can", "sub_tcu_denso_sh7058_can_typo", "sub_tcu_denso_sh7055_can_extra"})
         {
+            SCOPED_TRACE(::testing::PrintToString(bad_protocol));
             auto plan = BuildSubaruTcuDensoSh705xCanPlan(FlashOperation::kRead, bad_protocol, test_case.mcu,
                                                          std::nullopt, KernelFor(test_case));
             ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << bad_protocol;
@@ -207,6 +213,7 @@ TEST(SubaruTcuDensoSh705xCanPlan, EnforcesExactImagePresenceAndRomSize)
          {std::optional<bytes::Bytes>{}, std::optional<bytes::Bytes>{bytes::Bytes(sh7058.rom_size - 1, 0)},
           std::optional<bytes::Bytes>{bytes::Bytes(sh7058.rom_size + 1, 0)}})
     {
+        SCOPED_TRACE(::testing::PrintToString(bad_image));
         auto plan = BuildSubaruTcuDensoSh705xCanPlan(FlashOperation::kWrite, sh7058.protocol, sh7058.mcu, bad_image,
                                                      KernelFor(sh7058));
         EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -221,6 +228,7 @@ TEST(SubaruTcuDensoSh705xCanPlan, EnforcesKernelIdentityAddressAnd128BytePaddedB
 {
     for (const Case& test_case : kCases)
     {
+        SCOPED_TRACE(::testing::PrintToString(test_case));
         const std::size_t capacity = static_cast<std::size_t>(test_case.kernel_region_start) +
                                      test_case.kernel_region_size - test_case.kernel_load_address;
         const std::size_t padded_capacity = capacity / 128U * 128U;
@@ -237,6 +245,7 @@ TEST(SubaruTcuDensoSh705xCanPlan, EnforcesKernelIdentityAddressAnd128BytePaddedB
                  KernelFor(test_case, bytes::Bytes(padded_capacity + 1, bytes::Byte{0xA5})),
              })
         {
+            SCOPED_TRACE(::testing::PrintToString(kernel));
             auto plan = BuildSubaruTcuDensoSh705xCanPlan(FlashOperation::kRead, test_case.protocol, test_case.mcu,
                                                          std::nullopt, std::move(kernel));
             EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << test_case.protocol;
@@ -249,6 +258,7 @@ TEST(SubaruTcuDensoSh705xCanPlan, ValidatorRejectsWireRegionGeometryAndConfirmat
     const Case& sh7058 = kCases[1];
     for (int mutation = 0; mutation < 6; ++mutation)
     {
+        SCOPED_TRACE(::testing::PrintToString(mutation));
         auto fields = ValidFields(sh7058, FlashOperation::kWrite);
         auto& wire = std::get<SubaruTcuDensoSh705xCanPlan>(fields.family_plan);
         switch (mutation)
@@ -285,8 +295,10 @@ TEST(SubaruTcuDensoSh705xCanPlan, RejectsAlteredAddressesAndLengthsInEveryEraseB
 {
     for (unsigned index = 0; index < 16; ++index)
     {
+        SCOPED_TRACE(::testing::PrintToString(index));
         for (bool alter_start : {false, true})
         {
+            SCOPED_TRACE(::testing::PrintToString(alter_start));
             auto fields = ValidFields(kCases[1], FlashOperation::kWrite);
             if (alter_start)
             {

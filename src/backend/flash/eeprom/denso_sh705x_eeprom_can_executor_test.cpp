@@ -626,6 +626,7 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
 
     for (DensoSecurityVariant security : kVariants)
     {
+        SCOPED_TRACE(::testing::PrintToString(security));
         auto plan = MakeCanPlan(security, EepromReadMode::kMode2, KernelFixtureBytes(), kKernelStartAddr);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
 
@@ -665,8 +666,10 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
 
     for (std::size_t i = 0; i < seed_key_frames.size(); ++i)
     {
+        SCOPED_TRACE(::testing::PrintToString(i));
         for (std::size_t j = i + 1; j < seed_key_frames.size(); ++j)
         {
+            SCOPED_TRACE(::testing::PrintToString(j));
             EXPECT_NE(seed_key_frames[i], seed_key_frames[j])
                 << "variants " << i << " and " << j << " produced the same seed-key frame";
         }

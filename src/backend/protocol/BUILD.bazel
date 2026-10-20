@@ -32,6 +32,7 @@ fastecu_portable_gtest(
     srcs = ["init_test.cpp"],
     deps = [
         ":protocol",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
         "@googletest//:gtest",
     ],

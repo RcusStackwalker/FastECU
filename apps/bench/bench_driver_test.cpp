@@ -226,6 +226,7 @@ TEST(BenchDriver, EveryGlobalOptionIsRejectedOnAScriptLine)
     ASSERT_FALSE(GlobalOptionTable().empty());
     for (const GlobalOptionSpec& option : GlobalOptionTable())
     {
+        SCOPED_TRACE(::testing::PrintToString(option.name));
         Harness harness;
 
         const int code = harness.Run({"--json", "--script", "-"}, std::format("read 0x200 1 {}\n", option.name));
@@ -330,6 +331,7 @@ TEST(BenchDriver, DownloadBetweenEraseHelperAndUnlockInvalidatesThePlan)
                                         "download", "0x900000", "payload.bin", "--destructive", ":", "unlock",
                                         "--destructive", ":", "erase", "--destructive"}})
     {
+        SCOPED_TRACE(::testing::PrintToString(args));
         Harness harness;
         harness.files.contents["payload.bin"] = {0xAA};
 
@@ -514,6 +516,7 @@ TEST(BenchDriver, ExplicitConnectMustBeTheFirstSessionStepAndAppearOnlyOnce)
          {std::vector<std::string_view>{"read", "0x200", "1", ":", "connect"},
           std::vector<std::string_view>{"connect", ":", "connect"}})
     {
+        SCOPED_TRACE(::testing::PrintToString(args));
         Harness harness;
 
         const int code = harness.Run(args);

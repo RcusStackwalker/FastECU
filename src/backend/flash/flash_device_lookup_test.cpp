@@ -41,6 +41,7 @@ TEST(FindFlashDevice, ReturnsDeviceForEveryMcuStringInShippedProtocolsCfg)
     });
     for (const char *name : kKnown)
     {
+        SCOPED_TRACE(::testing::PrintToString(name));
         EXPECT_NE(FindFlashDevice(name), nullptr) << name;
         EXPECT_GE(FindFlashDeviceIndex(name), 0) << name;
     }
@@ -124,6 +125,7 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
 
     for (std::size_t device_index = 0; device_index < kCount; ++device_index)
     {
+        SCOPED_TRACE(::testing::PrintToString(device_index));
         const FlashDevice& actual = kFlashDevices[device_index];
         const FlashDeviceSummary& summary = kExpected[device_index];
         EXPECT_STREQ(actual.name, summary.name);
@@ -134,6 +136,7 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
         EXPECT_EQ(final_block.start + final_block.len, summary.final_block_end);
         for (unsigned block_index = 0; block_index < actual.numblocks; ++block_index)
         {
+            SCOPED_TRACE(::testing::PrintToString(block_index));
             EXPECT_GT(actual.fblocks[block_index].len, 0U);
             if (block_index > 0)
             {

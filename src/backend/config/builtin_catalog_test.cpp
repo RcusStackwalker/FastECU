@@ -74,9 +74,11 @@ TEST(BuiltinCatalogFixes, VehicleTextHasNoStrayWhitespace)
 {
     for (const auto& vehicle : BuiltinCatalog().Vehicles())
     {
+        SCOPED_TRACE(::testing::PrintToString(vehicle));
         for (std::string_view field : {vehicle.make, vehicle.model, vehicle.version, vehicle.type, vehicle.kw,
                                        vehicle.hp, vehicle.fuel, vehicle.year})
         {
+            SCOPED_TRACE(::testing::PrintToString(field));
             EXPECT_EQ(field, Trimmed(field)) << vehicle.id;
         }
     }
@@ -94,6 +96,7 @@ TEST(BuiltinCatalogFixes, UnisiaJecsM377xDeclareNoKernelLoadAddress)
 {
     for (std::string_view name : {"sub_ecu_unisia_jecs_m3779x", "sub_ecu_unisia_jecs_m3775x"})
     {
+        SCOPED_TRACE(::testing::PrintToString(name));
         EXPECT_TRUE(ProtocolNamed(name).kernel.empty()) << name;
         EXPECT_FALSE(ProtocolNamed(name).kernel_load_address.has_value()) << name;
     }
@@ -152,6 +155,7 @@ TEST(BuiltinCatalogFixes, CobbAliasesNowSelectTheirVehicles)
          {std::pair{"sti04_cobb", "sub_ecu_denso_sh7055_04_cobb"}, std::pair{"sti05_cobb", "sub_ecu_denso_sh7058_cobb"},
           std::pair{"subarucan_cobb", "sub_ecu_denso_sh7058_can_cobb"}})
     {
+        SCOPED_TRACE(::testing::PrintToString(alias));
         const auto *vehicle = BuiltinCatalog().FirstVehicleForAlias(alias);
         ASSERT_NE(vehicle, nullptr) << alias;
         EXPECT_EQ(vehicle->protocol->name, protocol);
@@ -189,6 +193,7 @@ TEST(BuiltinCatalogMemoryMaps, Mc68PackedFilesReadErasedFlashInTheRamRange)
 {
     for (const std::string_view protocol : kMc68Protocols)
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         const std::optional<MemoryMap> map = MapFor(protocol, 0x28000);
         ASSERT_TRUE(map.has_value());
         const MemoryBlock *ram = map->BlockAt(FlashAddress{0x20000});
@@ -207,6 +212,7 @@ TEST(BuiltinCatalogMemoryMaps, Mc68FullFilesHoldReadOnlyBytesForTheRamRange)
 {
     for (const std::string_view protocol : kMc68Protocols)
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         const std::optional<MemoryMap> map = MapFor(protocol, 0x30000);
         ASSERT_TRUE(map.has_value());
         const MemoryBlock *ram = map->BlockAt(FlashAddress{0x20000});
@@ -224,6 +230,7 @@ TEST(BuiltinCatalogMemoryMaps, Mc68FilesOfOtherSizesAreRejectedNotPadded)
 {
     for (const std::uint32_t file_size : {0x20000U, 0x40000U})
     {
+        SCOPED_TRACE(::testing::PrintToString(file_size));
         const auto map = SelectMemoryMap(&ProtocolNamed("sub_ecu_denso_mc68hc16y5_02"), file_size);
         ASSERT_FALSE(map.has_value()) << file_size;
         EXPECT_EQ(map.error().kind, MemoryErrorKind::kFileSizeMismatch) << file_size;
@@ -241,6 +248,7 @@ TEST(BuiltinCatalogMemoryMaps, N83mFilesStartAtTheirImageAddress)
     for (const N83mFile file : {N83mFile{"sub_ecu_denso_1n83m_4m_can", 0x3E4000, 0x0937FF00},
                                 N83mFile{"sub_ecu_denso_1n83m_1_5m_can", 0x184000, 0x0911FF00}})
     {
+        SCOPED_TRACE(::testing::PrintToString(file));
         const std::optional<MemoryMap> map = MapFor(file.protocol, file.file_size);
         ASSERT_TRUE(map.has_value());
         const MemoryBlock *lead = map->BlockAt(FlashAddress{0x08F9C000});
@@ -278,6 +286,7 @@ TEST(BuiltinCatalogMemoryMaps, ProtocolsDeclaringNoMapGetTheIdentityMapAtAnySize
 {
     for (const std::uint32_t file_size : {0x100000U, 0x12345U})
     {
+        SCOPED_TRACE(::testing::PrintToString(file_size));
         const std::optional<MemoryMap> map = MapFor("sub_ecu_denso_sh7058", file_size);
         ASSERT_TRUE(map.has_value());
         ASSERT_EQ(map->Blocks().size(), 1U) << file_size;
@@ -317,6 +326,7 @@ TEST(BuiltinCatalogMemoryMaps, FastEcuReadFilesOpenWithTheirProtocolsMap)
              {"sub_ecu_denso_1n83m_1_5m_can", 0x184000},
          }))
     {
+        SCOPED_TRACE(::testing::PrintToString(file));
         EXPECT_TRUE(MapFor(file.protocol, file.file_size).has_value()) << file.protocol;
     }
 }
@@ -336,9 +346,11 @@ TEST(BuiltinCatalogMemoryMaps, OnlyN83mDefinitionsCountFromTheirImageAddress)
 {
     for (const ProtocolSpec& protocol : BuiltinCatalog().Protocols())
     {
+        SCOPED_TRACE(::testing::PrintToString(protocol));
         const bool n83m = protocol.name.starts_with("sub_ecu_denso_1n83m_");
         for (const fastecu::config::MemoryMapSpec& spec : protocol.memory_maps)
         {
+            SCOPED_TRACE(::testing::PrintToString(spec));
             EXPECT_EQ(spec.definition_base, FlashAddress{n83m ? 0x08F9C000U : 0U}) << protocol.name;
         }
     }

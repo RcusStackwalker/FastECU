@@ -101,6 +101,7 @@ TEST(CatalogChecksumAgreement, EveryRoutedProtocolCorrectsEachFileSizeItAccepts)
     int checked = 0;
     for (const config::VehicleSpec *vehicle : OneVehiclePerRoutedProtocol())
     {
+        SCOPED_TRACE(::testing::PrintToString(vehicle));
         const config::ProtocolSpec& protocol = *vehicle->protocol;
         const std::vector<std::uint32_t> sizes = AcceptedFileSizes(protocol);
         ASSERT_FALSE(sizes.empty()) << protocol.name;
@@ -126,6 +127,7 @@ TEST(CatalogChecksumAgreement, EveryRoutedProtocolRejectsAFileOneWordLonger)
 {
     for (const config::VehicleSpec *vehicle : OneVehiclePerRoutedProtocol())
     {
+        SCOPED_TRACE(::testing::PrintToString(vehicle));
         const config::ProtocolSpec& protocol = *vehicle->protocol;
         for (const std::uint32_t size : AcceptedFileSizes(protocol))
         {

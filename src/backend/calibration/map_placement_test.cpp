@@ -114,6 +114,7 @@ TEST(CheckMapPlacement, ChecksDeclaredAxesEvenWhenDecoderOmitsThem)
 {
     for (const auto *type : {"", "Static X Axis", "unexpected"})
     {
+        SCOPED_TRACE(::testing::PrintToString(type));
         for (const std::uint32_t dimension : {1U, 2U})
         {
             SCOPED_TRACE(type);

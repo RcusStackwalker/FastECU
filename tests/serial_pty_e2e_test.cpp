@@ -64,6 +64,7 @@ TEST(TestPtyE2e, workerThread_writeRead_overPty_deliversFramedMessage)
             bool replied = false;
             while (!stop.load())
             {
+                SCOPED_TRACE(received.size());
                 struct pollfd pfd{master, POLLIN, 0};
                 int pr = ::poll(&pfd, 1, 100); // 100ms: re-check stop periodically
                 if (pr <= 0)

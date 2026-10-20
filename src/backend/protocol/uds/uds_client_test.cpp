@@ -123,7 +123,7 @@ TEST(UdsClientTest, GivesUpAfterMaxPendingRepeats)
     const auto received = client.Request(request, kPolicy, f.cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::kTimeout));
-    EXPECT_THAT(received.error().detail, HasSubstr("responsePending"));
+    EXPECT_THAT(received, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("responsePending")));
     EXPECT_EQ(f.channel.SendsConsumed(), 1U);
 }
 
@@ -166,8 +166,8 @@ TEST(UdsClientTest, RejectsAResponseToADifferentService)
     const auto received = client.Request(request, kPolicy, f.cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_THAT(received.error().detail, HasSubstr("0x27"));
-    EXPECT_THAT(received.error().detail, HasSubstr("0x10"));
+    EXPECT_THAT(received, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("0x27")));
+    EXPECT_THAT(received, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("0x10")));
 }
 
 TEST(UdsClientTest, RejectsAMalformedResponse)
@@ -181,7 +181,7 @@ TEST(UdsClientTest, RejectsAMalformedResponse)
     const auto received = client.Request(request, kPolicy, f.cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_THAT(received.error().detail, HasSubstr("malformed"));
+    EXPECT_THAT(received, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("malformed")));
 }
 
 TEST(UdsClientTest, ReportsATimeoutWhenNothingArrives)

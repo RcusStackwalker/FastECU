@@ -39,14 +39,12 @@ LoggingPolicy ValidPolicy()
     };
 }
 
-LoggingSession MakeSessionWithChannel(LoggingChannel channel)
+fastecu::Result<LoggingSession> MakeSessionWithChannel(LoggingChannel channel)
 {
-    auto session = MakeLoggingSession(LoggingProtocolId::kSsm, {std::move(channel)}, ValidPolicy());
-    EXPECT_THAT(session, fastecu::testing::IsOk());
-    return std::move(*session);
+    return MakeLoggingSession(LoggingProtocolId::kSsm, {std::move(channel)}, ValidPolicy());
 }
 
-LoggingSession MakeValidSession()
+fastecu::Result<LoggingSession> MakeValidSession()
 {
     return MakeSessionWithChannel(Channel("rpm", 0x10));
 }
@@ -58,7 +56,9 @@ TEST(LoggingConversionTest, ScalesDecodedSsmNumericInput)
     LoggingChannel c = Channel("rpm", 0x10);
     c.from_byte_expression = "x/4";
     c.unit = "rpm";
-    auto session = MakeSessionWithChannel(c);
+    auto built_session_1 = MakeSessionWithChannel(c);
+    ASSERT_THAT(built_session_1, fastecu::testing::IsOk());
+    auto session = std::move(*built_session_1);
     auto result = ConvertSample(session, ProtocolSample{"rpm", "258"});
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->raw_value, "258");
@@ -68,14 +68,18 @@ TEST(LoggingConversionTest, ScalesDecodedSsmNumericInput)
 
 TEST(LoggingConversionTest, RejectsUnknownOrMismatchedChannel)
 {
-    auto session = MakeValidSession();
+    auto built_session_2 = MakeValidSession();
+    ASSERT_THAT(built_session_2, fastecu::testing::IsOk());
+    auto session = std::move(*built_session_2);
     ASSERT_THAT(ConvertSample(session, ProtocolSample{"missing", "12"}),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
 }
 
 TEST(LoggingConversionTest, PreservesProtocolRawValueWithoutReassembly)
 {
-    auto session = MakeValidSession();
+    auto built_session_3 = MakeValidSession();
+    ASSERT_THAT(built_session_3, fastecu::testing::IsOk());
+    auto session = std::move(*built_session_3);
     auto result = ConvertSample(session, ProtocolSample{"rpm", "0012"});
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->raw_value, "0012");
@@ -86,7 +90,9 @@ TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
 {
     auto c = Channel("rpm", 0x10);
     c.from_byte_expression = "x/(x-1)";
-    auto session = MakeSessionWithChannel(c);
+    auto built_session_4 = MakeSessionWithChannel(c);
+    ASSERT_THAT(built_session_4, fastecu::testing::IsOk());
+    auto session = std::move(*built_session_4);
 
     ASSERT_THAT(
         ConvertSample(session, ProtocolSample{"rpm", "1"}),
@@ -99,7 +105,9 @@ TEST(LoggingConversionTest, EvaluatesIntermediateResultsWithoutTextRounding)
     auto c = Channel("rpm", 0x10);
     c.from_byte_expression = "x/3*3";
     c.decimal_precision = 2;
-    auto session = MakeSessionWithChannel(c);
+    auto built_session_5 = MakeSessionWithChannel(c);
+    ASSERT_THAT(built_session_5, fastecu::testing::IsOk());
+    auto session = std::move(*built_session_5);
 
     auto result = ConvertSample(session, ProtocolSample{"rpm", "10"});
 
@@ -109,7 +117,9 @@ TEST(LoggingConversionTest, EvaluatesIntermediateResultsWithoutTextRounding)
 
 TEST(LoggingConversionTest, RejectsNonNumericRawValue)
 {
-    auto session = MakeValidSession();
+    auto built_session_6 = MakeValidSession();
+    ASSERT_THAT(built_session_6, fastecu::testing::IsOk());
+    auto session = std::move(*built_session_6);
 
     ASSERT_THAT(ConvertSample(session, ProtocolSample{"rpm", "12ab"}),
                 fastecu::testing::IsErrWith(
@@ -134,7 +144,9 @@ TEST(LoggingConversionTest, ExtractsSwitchBitInsteadOfTreatingWholeByteAsValue)
     source.length = 1;
     source.decimal_precision = 0;
     source.sample_bit = 7;
-    const auto session = MakeSessionWithChannel(source);
+    auto built_session_7 = MakeSessionWithChannel(source);
+    ASSERT_THAT(built_session_7, fastecu::testing::IsOk());
+    const auto session = std::move(*built_session_7);
     const auto on = ConvertSample(session, {"switch:flag", "128"});
     const auto off = ConvertSample(session, {"switch:flag", "0"});
     ASSERT_THAT(on, fastecu::testing::IsOk());

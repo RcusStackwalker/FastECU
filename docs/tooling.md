@@ -35,7 +35,8 @@ bazel run //:clang_tidy_fix_changed               # apply fixes (macOS/Linux, sy
   GitHub annotation; GitHub shows at most 10 error annotations per step, so
   past that the job log is the full list.
 - **LLVM pin.** CI pins LLVM (`CLANG_TIDY_LLVM_*` in
-  [pr.yml](../.github/workflows/pr.yml)) on Linux and Windows. Local analysis requires that exact release.
+  [pr.yml](../.github/workflows/pr.yml)) on Linux and Windows. The supported
+  local analysis workflow requires that exact release.
 - **CI.** The `clang-tidy` job runs in parallel with the build and test job, on
   Linux and, for Windows-exclusive code, on Windows. The Linux job uses the
   shared [Qt runtime setup](../.github/actions/qt-runtime-linux/action.yml)
@@ -48,10 +49,6 @@ bazel run //:clang_tidy_fix_changed               # apply fixes (macOS/Linux, sy
   changed-files run to every translation unit in scope. Before delivering a
   check change, run the full report and fix everything it finds in the same
   PR; passing fixtures alone do not show a clean production scope.
-
-The built-in and existing custom checks use the same reachable first-party header
-scope under `src/`, `apps/`, `tests/`, and `scripts/`, including `.hpp`.
-Generated and vendor headers retain their exclusions.
 
 #### Repository checks
 
@@ -109,6 +106,33 @@ It writes raw logs and JSON into a new output directory. Per-check CPU seconds
 sum work across translation units; they are not elapsed time. Investigate
 reproducible runtime regressions above 10 percent on the same machine and scope;
 wall-clock timing is a review threshold, not a CI pass/fail gate.
+
+The [central exception policy](../.clang-tidy-exceptions.yaml) has schema
+`version: 1`, with `exceptions` entries containing exactly `check`, `file`,
+`symbol`, and `rationale`. Files are canonical repository-relative paths;
+identities are `Suite.Test` or a qualified helper signature. Wildcards and
+line-number identities are unsupported. Malformed and duplicate entries fail
+before analysis; a full-scope report also rejects unused entries. Changed-file
+runs do not reject entries outside their analyzed scope.
+
+Result access reasoning is intraprocedural and bounded to structured control
+flow, fatal state matchers, terminating guards, stable local/member identities,
+and supported mutation/alias patterns. Functions containing source-level
+`goto` or exception handlers receive no propagated state proofs;
+`switch` bodies do not export new proofs, and possible mutations invalidate
+prior facts. Fresh assertions after a switch can establish a new proof.
+GoogleTest's internal macro control flow does not impose this restriction.
+Lambda bodies are analyzed independently with empty incoming facts; caller,
+captured-state and framework setup proofs are not imported across functions.
+At loop increments and do-while conditions, continue paths conservatively
+retain only mutation-free loop-entry proof, rather than assertions that a
+continue could bypass.
+Use a simpler local proof or a narrowly justified central exception where
+needed. Unknown aliases and complex matcher compositions remain review
+responsibilities. Single-use suggestions require an adjacent final block pair,
+a void Result, and a pure `IsOk()` matcher to preserve cleanup ordering.
+Uniform-buffer detection covers supported unsigned-byte vectors, spans and
+arrays; custom projections and unrelated containers are permitted.
 
 ### SonarCloud
 
