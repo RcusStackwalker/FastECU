@@ -17,7 +17,7 @@ class FakeBenchFiles : public IBenchFiles
     std::map<std::string, int> load_calls;
     bool fail_on_repeated_load = false;
 
-    Result<bytes::Bytes> load(std::string_view path) override
+    Result<bytes::Bytes> Load(std::string_view path) override
     {
         const std::string key(path);
         if (const int call = ++load_calls[key]; fail_on_repeated_load && call > 1)
@@ -32,7 +32,7 @@ class FakeBenchFiles : public IBenchFiles
         return found->second;
     }
 
-    Status save(std::string_view path, bytes::ByteView data) override
+    Status Save(std::string_view path, bytes::ByteView data) override
     {
         saved[std::string(path)] = bytes::Bytes(data.begin(), data.end());
         return {};

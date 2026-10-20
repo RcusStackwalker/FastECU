@@ -47,9 +47,9 @@ struct GlobalOptionSpec
     Status (*apply)(GlobalOptions& options, std::string_view value) = nullptr;
 };
 
-std::span<const GlobalOptionSpec> global_option_table();
+std::span<const GlobalOptionSpec> GlobalOptionTable();
 
-const GlobalOptionSpec *find_global_option(std::string_view token);
+const GlobalOptionSpec *FindGlobalOption(std::string_view token);
 
 struct ParsedCommandLine
 {
@@ -59,13 +59,13 @@ struct ParsedCommandLine
 
 // `args` excludes argv[0]. Global options may appear anywhere; everything else
 // is grouped into steps split on kStepSeparator.
-Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> args);
+Result<ParsedCommandLine> ParseCommandLine(std::span<const std::string_view> args);
 
 // Accepts "0x"-prefixed hex or plain decimal. Rejects empty input, trailing
 // junk, and anything exceeding 32 bits.
-Result<std::uint32_t> parse_u32(std::string_view text);
+Result<std::uint32_t> ParseU32(std::string_view text);
 
 // Each token is exactly two hex digits.
-Result<bytes::Bytes> parse_hex_bytes(std::span<const std::string> tokens);
+Result<bytes::Bytes> ParseHexBytes(std::span<const std::string> tokens);
 
 } // namespace fastecu::bench

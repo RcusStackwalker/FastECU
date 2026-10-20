@@ -14,9 +14,9 @@ TEST(FakeBenchFiles, RoundTripsLoadAndSave)
     FakeBenchFiles files;
     files.contents["in.bin"] = bytes::Bytes{1, 2, 3};
 
-    EXPECT_THAT(files.load("in.bin").value(), test_bytes::BytesEq((bytes::Bytes{1, 2, 3})));
-    EXPECT_THAT(files.load("missing.bin"), ::testing::Not(fastecu::testing::IsOk()));
-    ASSERT_THAT(files.save("out.bin", bytes::Bytes{4, 5}), fastecu::testing::IsOk());
+    EXPECT_THAT(files.Load("in.bin").value(), test_bytes::BytesEq((bytes::Bytes{1, 2, 3})));
+    EXPECT_THAT(files.Load("missing.bin"), ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(files.Save("out.bin", bytes::Bytes{4, 5}), fastecu::testing::IsOk());
     EXPECT_THAT(files.saved["out.bin"], test_bytes::BytesEq((bytes::Bytes{4, 5})));
 }
 
@@ -24,7 +24,7 @@ TEST(FakeBenchFiles, MissingFileReportsInvalidConfig)
 {
     FakeBenchFiles files;
 
-    ASSERT_THAT(files.load("missing.bin"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(files.Load("missing.bin"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 } // namespace

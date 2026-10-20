@@ -20,41 +20,41 @@ class FakeBenchSession : public IBenchSession
     std::vector<std::uint64_t> elapsed_ms;
     std::size_t next_reply = 0;
     Result<double> battery = 11.676;
-    Status connect_result = {};
+    Status connect_result;
     TrafficEvidence connect_traffic;
     int connect_calls = 0;
 
-    Status connect() override
+    Status Connect() override
     {
         ++connect_calls;
         last_traffic_ = connect_traffic;
         return connect_result;
     }
 
-    Result<bytes::Bytes> exchange(bytes::ByteView pdu, const uds::ExchangePolicy& policy) override
+    Result<bytes::Bytes> Exchange(bytes::ByteView pdu, const uds::ExchangePolicy& policy) override
     {
         policies.push_back(policy);
-        return take(pdu);
+        return Take(pdu);
     }
 
-    Result<bytes::Bytes> exchange_raw(bytes::ByteView pdu, int timeout_ms) override
+    Result<bytes::Bytes> ExchangeRaw(bytes::ByteView pdu, int timeout_ms) override
     {
         raw_timeouts.push_back(timeout_ms);
-        return take(pdu);
+        return Take(pdu);
     }
 
-    Result<double> vbatt() override
+    Result<double> Vbatt() override
     {
         return battery;
     }
 
-    const TrafficEvidence& last_traffic() const override
+    const TrafficEvidence& LastTraffic() const override
     {
         return last_traffic_;
     }
 
   private:
-    Result<bytes::Bytes> take(bytes::ByteView pdu)
+    Result<bytes::Bytes> Take(bytes::ByteView pdu)
     {
         requests.emplace_back(pdu.begin(), pdu.end());
         last_traffic_ = TrafficEvidence{.exchange_count = 1,

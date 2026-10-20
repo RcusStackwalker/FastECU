@@ -2,7 +2,7 @@
 
 #include <QDir>
 
-QString default_config_root()
+QString DefaultConfigRoot()
 {
     return QDir::homePath() + "/.config/FastECU/";
 }

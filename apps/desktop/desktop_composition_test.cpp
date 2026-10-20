@@ -164,8 +164,8 @@ TEST_F(DesktopCompositionTest, compositionRegistersAllLoggingProtocolsWithoutWin
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{root.path()};
-    ASSERT_TRUE(composition.started());
-    ASSERT_EQ(composition.services().logging_engine.registrations_.keys(), (QStringList{"CDBG", "MUT_DMA", "SSM"}));
+    ASSERT_TRUE(composition.Started());
+    ASSERT_EQ(composition.Services().logging_engine.registrations_.keys(), (QStringList{"CDBG", "MUT_DMA", "SSM"}));
 }
 
 TEST_F(DesktopCompositionTest, servicesReferToTheCompositionsOwnObjects)
@@ -174,8 +174,8 @@ TEST_F(DesktopCompositionTest, servicesReferToTheCompositionsOwnObjects)
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{root.path()};
 
-    const MainWindowServices first = composition.services();
-    const MainWindowServices second = composition.services();
+    const MainWindowServices first = composition.Services();
+    const MainWindowServices second = composition.Services();
 
     ASSERT_EQ(&first.definition_catalogs, &second.definition_catalogs);
     ASSERT_EQ(&first.config_repository, &second.config_repository);
@@ -200,9 +200,9 @@ TEST_F(DesktopCompositionTest, failedStartupBuildsNoServicesAndPerformsNoEcuIo)
 
     DesktopComposition composition{root.path()};
 
-    ASSERT_TRUE(!composition.started());
-    ASSERT_TRUE(composition.startup_error().has_value());
-    ASSERT_TRUE(QString::fromStdString(composition.startup_error()->detail).contains(config_dir + "fastecu.cfg"));
+    ASSERT_TRUE(!composition.Started());
+    ASSERT_TRUE(composition.StartupError().has_value());
+    ASSERT_TRUE(QString::fromStdString(composition.StartupError()->detail).contains(config_dir + "fastecu.cfg"));
     // Nothing that could log, thread, or talk to an ECU was created.
     ASSERT_TRUE(!DefinitionCatalogsOf(composition));
     ASSERT_TRUE(!DefinitionServiceOf(composition));
@@ -220,7 +220,7 @@ TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{root.path()};
-    ASSERT_TRUE(composition.started());
+    ASSERT_TRUE(composition.Started());
     ASSERT_TRUE(CalibrationWorkspaceOf(composition));
 
     const QString rom_path = root.filePath("synthetic.bin");
@@ -254,7 +254,7 @@ TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)
 
     DesktopComposition composition{root.path()};
 
-    ASSERT_TRUE(composition.started());
+    ASSERT_TRUE(composition.Started());
     ASSERT_EQ(ConfigOf(composition).Settings().serial_port, std::string("ttyMIGRATED_UNIQUE"));
     QFile saved{current_file};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
@@ -273,7 +273,7 @@ TEST_F(DesktopCompositionTest, aPreviousVersionsSavedRowSelectsNoVehicle)
 
     DesktopComposition composition{root.path()};
 
-    ASSERT_TRUE(composition.started());
+    ASSERT_TRUE(composition.Started());
     ASSERT_TRUE(ConfigOf(composition).SelectedVehicle() == nullptr);
 }
 
@@ -287,10 +287,10 @@ TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
 
     DesktopComposition composition{root.path()};
 
-    ASSERT_TRUE(!composition.started());
-    const auto& startup_error = composition.startup_error();
+    ASSERT_TRUE(!composition.Started());
+    const auto& startup_error = composition.StartupError();
     ASSERT_TRUE(startup_error.has_value());
-    const QString text = startup_failure_text(*startup_error);
+    const QString text = StartupFailureText(*startup_error);
     ASSERT_TRUE(text.contains(config_dir + "fastecu.cfg"));
     ASSERT_TRUE(!SerialOf(composition));
 }
@@ -313,10 +313,10 @@ TEST_F(DesktopCompositionTest, settingsRewriteFailureIsAStartupWarning)
 
     DesktopComposition composition{root.path()};
 
-    ASSERT_TRUE(composition.started());
+    ASSERT_TRUE(composition.Started());
     // Joined so a failure prints the warnings as text; a path has no '\n',
     // so no match can span two warnings.
-    ASSERT_THAT(composition.startup_warnings().join('\n').toStdString(),
+    ASSERT_THAT(composition.StartupWarnings().join('\n').toStdString(),
                 ::testing::HasSubstr(config_file.toStdString()));
 }
 
@@ -325,9 +325,9 @@ TEST_F(DesktopCompositionTest, servicesShareTheCompositionsSession)
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{root.path()};
-    ASSERT_TRUE(composition.started());
-    ASSERT_EQ(&composition.services().config, &ConfigOf(composition));
-    ASSERT_EQ(composition.services().application.version, std::string(kVersion));
+    ASSERT_TRUE(composition.Started());
+    ASSERT_EQ(&composition.Services().config, &ConfigOf(composition));
+    ASSERT_EQ(composition.Services().application.version, std::string(kVersion));
     ASSERT_EQ(QString::fromStdString(ConfigOf(composition).ProvisionedPaths().base_config_directory), root.path());
 }
 
@@ -338,13 +338,13 @@ TEST_F(DesktopCompositionTest, restartSeesSavedSettingsAndTheDatalogDirectory)
     const std::string datalogs = root.path().toStdString() + "/elsewhere/";
     {
         DesktopComposition first{root.path()};
-        ASSERT_TRUE(first.started());
+        ASSERT_TRUE(first.Started());
         ConfigOf(first).Settings().serial_port = "ttyRESTART";
         ConfigOf(first).Settings().datalog_files_directory = datalogs;
         ASSERT_THAT(ConfigOf(first).Save(), IsOk());
     }
     DesktopComposition second{root.path()};
-    ASSERT_TRUE(second.started());
+    ASSERT_TRUE(second.Started());
     ASSERT_EQ(ConfigOf(second).Settings().serial_port, std::string("ttyRESTART"));
     ASSERT_EQ(ConfigOf(second).Settings().datalog_files_directory, datalogs);
 }
@@ -354,7 +354,7 @@ TEST_F(DesktopCompositionTest, channelLevelsReachTheLogWindowWithTheirPrefix)
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{root.path()};
-    LogChannel& log = composition.services().log;
+    LogChannel& log = composition.Services().log;
     fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
     emit log.logE("error line", true, false);
@@ -374,7 +374,7 @@ TEST_F(DesktopCompositionTest, debugLinesStayOutOfTheLogWindow)
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{root.path()};
-    LogChannel& log = composition.services().log;
+    LogChannel& log = composition.Services().log;
     fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
     emit log.logD("debug line", true, false);
@@ -393,7 +393,7 @@ TEST_F(DesktopCompositionTest, relayedLineSurvivesItsSenderButADirectOneDoesNot)
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{root.path()};
-    LogChannel& log = composition.services().log;
+    LogChannel& log = composition.Services().log;
     fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
     {
@@ -422,10 +422,10 @@ TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{root.path()};
     const QString syslog_dir =
-        QString::fromStdString(composition.services().config.EffectivePaths().syslog_files_directory);
+        QString::fromStdString(composition.Services().config.EffectivePaths().syslog_files_directory);
     ASSERT_TRUE(!syslog_dir.isEmpty());
     ASSERT_TRUE(QDir().mkpath(syslog_dir));
-    LogChannel& log = composition.services().log;
+    LogChannel& log = composition.Services().log;
     fastecu::testing::SignalRecorder window{&log, &LogChannel::logWindowMessage};
 
     emit log.enableLogWriteToFile(true);
@@ -467,8 +467,8 @@ TEST_F(DesktopCompositionTest, constructingTwiceInOneProcessSucceeds)
     for (int iteration = 0; iteration < 2; ++iteration)
     {
         DesktopComposition composition{root.path()};
-        ASSERT_TRUE(composition.started());
-        ASSERT_EQ(QString::fromStdString(composition.services().config.ProvisionedPaths().base_config_directory),
+        ASSERT_TRUE(composition.Started());
+        ASSERT_EQ(QString::fromStdString(composition.Services().config.ProvisionedPaths().base_config_directory),
                   root.path());
     }
 }

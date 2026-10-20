@@ -16,17 +16,17 @@ namespace fastecu::bench
 
 enum class CommandId
 {
-    Ports,
-    Connect,
-    Read,
-    Dump,
-    CrcCheck,
-    Send,
-    SendRaw,
-    Unlock,
-    Erase,
-    Download,
-    UploadRoutine,
+    kPorts,
+    kConnect,
+    kRead,
+    kDump,
+    kCrcCheck,
+    kSend,
+    kSendRaw,
+    kUnlock,
+    kErase,
+    kDownload,
+    kUploadRoutine,
 };
 
 // `max_args` is kUnbounded for the variadic hex commands.
@@ -44,9 +44,9 @@ struct CommandSpec
     std::size_t max_args;
 };
 
-std::span<const CommandSpec> command_table();
-const CommandSpec *find_command(std::string_view name);
-const CommandSpec *find_command(CommandId id);
+std::span<const CommandSpec> CommandTable();
+const CommandSpec *FindCommand(std::string_view name);
+const CommandSpec *FindCommand(CommandId id);
 
 struct StepSpec
 {
@@ -59,7 +59,7 @@ struct StepSpec
 // and that a destructive command carries its --destructive acknowledgement.
 // The parser, the preparer and the last gate before the wire all call this, so
 // one table row governs all three and the messages cannot drift apart.
-Status validate_against_table(const CommandSpec& spec, const StepSpec& step);
+Status ValidateAgainstTable(const CommandSpec& spec, const StepSpec& step);
 
 // Diagnostic evidence for one session operation. `tx`/`rx` are the first
 // request and response PDUs; `last_tx`/`last_rx` are the final pair. The two
@@ -79,7 +79,7 @@ struct TrafficEvidence
 // exchange's pair is kept, the last pair overwrites it, and counts and elapsed
 // time add up. Templated on the accumulator because CommandOutcome carries the
 // same six fields inline, so both it and TrafficEvidence are valid totals.
-template <typename Accumulator> void append_traffic(Accumulator& total, const TrafficEvidence& next)
+template <typename Accumulator> void AppendTraffic(Accumulator& total, const TrafficEvidence& next)
 {
     if (next.exchange_count == 0)
     {

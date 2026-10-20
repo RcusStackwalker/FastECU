@@ -9,7 +9,7 @@
 namespace fastecu::bench
 {
 
-Result<bytes::Bytes> BenchFiles::load(std::string_view path)
+Result<bytes::Bytes> BenchFiles::Load(std::string_view path)
 {
     std::ifstream file(std::string(path), std::ios::binary);
     if (!file.is_open())
@@ -42,7 +42,7 @@ Result<bytes::Bytes> BenchFiles::load(std::string_view path)
     return data;
 }
 
-Status BenchFiles::save(std::string_view path, bytes::ByteView data)
+Status BenchFiles::Save(std::string_view path, bytes::ByteView data)
 {
     std::ofstream file(std::string(path), std::ios::binary | std::ios::trunc);
     if (!file.is_open())

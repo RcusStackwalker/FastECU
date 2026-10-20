@@ -53,13 +53,13 @@ class DesktopComposition
     DesktopComposition(const DesktopComposition&) = delete;
     DesktopComposition& operator=(const DesktopComposition&) = delete;
 
-    bool started() const;
-    const std::optional<fastecu::Error>& startup_error() const;
+    bool Started() const;
+    const std::optional<fastecu::Error>& StartupError() const;
     // Nonfatal configuration warnings raised while starting.
-    QStringList startup_warnings() const;
+    QStringList StartupWarnings() const;
 
     // Requires started().
-    MainWindowServices services();
+    MainWindowServices Services();
 
   private:
     QtFileSystem file_system_;

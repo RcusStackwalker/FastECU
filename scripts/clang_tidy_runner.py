@@ -987,6 +987,7 @@ def run_workflow(
             # gate.
             "-extra-arg=-Wno-error",
         ]
+        command.append(f"-header-filter={inline_header_filter(workspace)}")
         if jobs is not None:
             command.extend(["-j", str(jobs)])
         if macos_sdk is not None:

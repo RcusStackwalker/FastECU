@@ -12,7 +12,7 @@ name: nloc-loop
 
 on:
   pull_request:
-    branches: [master]
+    branches: [master, "feat/clang-tidy-plugin-enforcement", "stack/clang-tidy-*"]
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:

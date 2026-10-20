@@ -11,39 +11,39 @@ namespace
 {
 
 constexpr std::array kCommands = {
-    CommandSpec{CommandId::Ports, "ports", false, 0, 0},
-    CommandSpec{CommandId::Connect, "connect", false, 0, 0},
-    CommandSpec{CommandId::Read, "read", false, 2, 2},
-    CommandSpec{CommandId::Dump, "dump", false, 3, 3},
-    CommandSpec{CommandId::CrcCheck, "crc-check", false, 1, 1},
-    CommandSpec{CommandId::Send, "send", true, 1, kUnbounded},
-    CommandSpec{CommandId::SendRaw, "send-raw", true, 1, kUnbounded},
-    CommandSpec{CommandId::Unlock, "unlock", true, 0, 0},
-    CommandSpec{CommandId::Erase, "erase", true, 0, 0},
-    CommandSpec{CommandId::Download, "download", true, 2, 2},
-    CommandSpec{CommandId::UploadRoutine, "upload-routine", true, 1, 3}, // routine name, plus optional --from <path>
+    CommandSpec{CommandId::kPorts, "ports", false, 0, 0},
+    CommandSpec{CommandId::kConnect, "connect", false, 0, 0},
+    CommandSpec{CommandId::kRead, "read", false, 2, 2},
+    CommandSpec{CommandId::kDump, "dump", false, 3, 3},
+    CommandSpec{CommandId::kCrcCheck, "crc-check", false, 1, 1},
+    CommandSpec{CommandId::kSend, "send", true, 1, kUnbounded},
+    CommandSpec{CommandId::kSendRaw, "send-raw", true, 1, kUnbounded},
+    CommandSpec{CommandId::kUnlock, "unlock", true, 0, 0},
+    CommandSpec{CommandId::kErase, "erase", true, 0, 0},
+    CommandSpec{CommandId::kDownload, "download", true, 2, 2},
+    CommandSpec{CommandId::kUploadRoutine, "upload-routine", true, 1, 3}, // routine name, plus optional --from <path>
 };
 
 } // namespace
 
-std::span<const CommandSpec> command_table()
+std::span<const CommandSpec> CommandTable()
 {
     return kCommands;
 }
 
-const CommandSpec *find_command(std::string_view name)
+const CommandSpec *FindCommand(std::string_view name)
 {
     const auto found = std::ranges::find(kCommands, name, &CommandSpec::name);
     return found == kCommands.end() ? nullptr : std::to_address(found);
 }
 
-const CommandSpec *find_command(CommandId id)
+const CommandSpec *FindCommand(CommandId id)
 {
     const auto found = std::ranges::find(kCommands, id, &CommandSpec::id);
     return found == kCommands.end() ? nullptr : std::to_address(found);
 }
 
-Status validate_against_table(const CommandSpec& spec, const StepSpec& step)
+Status ValidateAgainstTable(const CommandSpec& spec, const StepSpec& step)
 {
     if (step.args.size() < spec.min_args || (spec.max_args != kUnbounded && step.args.size() > spec.max_args))
     {

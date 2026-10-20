@@ -60,15 +60,15 @@ int main(int argc, char *argv[])
     // Declared before the window so it outlives it: MainWindow holds
     // references into the composition until it is destroyed.
     DesktopComposition composition;
-    if (const auto& startup_error = composition.startup_error(); startup_error.has_value())
+    if (const auto& startup_error = composition.StartupError(); startup_error.has_value())
     {
-        present_startup_failure(*startup_error);
+        PresentStartupFailure(*startup_error);
         return EXIT_FAILURE;
     }
-    present_startup_warnings(composition.startup_warnings());
+    PresentStartupWarnings(composition.StartupWarnings());
     // MainWindow requires a selected vehicle; a first start, or a saved
     // vehicle this build no longer has, asks for one here.
-    fastecu::config::ConfigSession& config = composition.services().config;
+    fastecu::config::ConfigSession& config = composition.Services().config;
     const auto choose = [&config]
     {
         VehicleSelect chooser(config);
@@ -77,16 +77,16 @@ int main(int argc, char *argv[])
     };
     const auto report_save_failure = [](const fastecu::Error& error)
     {
-        present_startup_warnings(
+        PresentStartupWarnings(
             {QStringLiteral("The vehicle choice could not be saved and will be asked for again at the next start."),
              QString::fromStdString(error.detail)});
     };
-    if (const std::optional<int> exit_code = startup_vehicle_gate(config, choose, report_save_failure);
+    if (const std::optional<int> exit_code = StartupVehicleGate(config, choose, report_save_failure);
         exit_code.has_value())
     {
         return *exit_code;
     }
-    MainWindow w(composition.services());
+    MainWindow w(composition.Services());
 
     QScreen *screen = QGuiApplication::primaryScreen();
     QRect screen_geometry = screen->geometry();

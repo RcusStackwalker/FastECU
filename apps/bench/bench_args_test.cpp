@@ -13,7 +13,7 @@ namespace
 
 Result<ParsedCommandLine> Parse(std::vector<std::string_view> args)
 {
-    return parse_command_line(args);
+    return ParseCommandLine(args);
 }
 
 TEST(BenchArgs, ParsesASingleStepWithItsArguments)
@@ -22,7 +22,7 @@ TEST(BenchArgs, ParsesASingleStepWithItsArguments)
 
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     ASSERT_EQ(parsed->steps.size(), 1U);
-    EXPECT_EQ(parsed->steps[0].id, CommandId::Read);
+    EXPECT_EQ(parsed->steps[0].id, CommandId::kRead);
     EXPECT_EQ(parsed->steps[0].args, (std::vector<std::string>{"0x200", "1"}));
 }
 
@@ -32,8 +32,8 @@ TEST(BenchArgs, SplitsChainedStepsOnTheColonSeparator)
 
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     ASSERT_EQ(parsed->steps.size(), 2U);
-    EXPECT_EQ(parsed->steps[0].id, CommandId::Read);
-    EXPECT_EQ(parsed->steps[1].id, CommandId::CrcCheck);
+    EXPECT_EQ(parsed->steps[0].id, CommandId::kRead);
+    EXPECT_EQ(parsed->steps[1].id, CommandId::kCrcCheck);
     EXPECT_EQ(parsed->steps[1].args, (std::vector<std::string>{"0x8000"}));
 }
 
@@ -131,7 +131,7 @@ TEST(BenchArgs, PassesUploadRoutineFromThroughAsOrdinaryArguments)
 
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     ASSERT_EQ(parsed->steps.size(), 1U);
-    EXPECT_EQ(parsed->steps[0].id, CommandId::UploadRoutine);
+    EXPECT_EQ(parsed->steps[0].id, CommandId::kUploadRoutine);
     EXPECT_TRUE(parsed->steps[0].destructive_ack);
     EXPECT_EQ(parsed->steps[0].args, (std::vector<std::string>{"erase-redirect", "--from", "custom.bin"}));
 }
@@ -203,19 +203,19 @@ TEST(BenchArgs, RejectsAScriptValueOtherThanStdin)
 
 TEST(BenchArgs, ParsesU32InHexAndDecimal)
 {
-    EXPECT_EQ(parse_u32("0x8056a8").value(), 0x8056a8U);
-    EXPECT_EQ(parse_u32("0X10").value(), 0x10U);
-    EXPECT_EQ(parse_u32("192").value(), 192U);
-    EXPECT_THAT(parse_u32(""), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(parse_u32("0xzz"), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(parse_u32("12nonsense"), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(parse_u32("0x1ffffffff"), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_EQ(ParseU32("0x8056a8").value(), 0x8056a8U);
+    EXPECT_EQ(ParseU32("0X10").value(), 0x10U);
+    EXPECT_EQ(ParseU32("192").value(), 192U);
+    EXPECT_THAT(ParseU32(""), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ParseU32("0xzz"), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ParseU32("12nonsense"), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ParseU32("0x1ffffffff"), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(BenchArgs, ParsesHexByteTokens)
 {
     const std::vector<std::string> tokens{"31", "e0", "FF"};
-    ASSERT_THAT(parse_hex_bytes(tokens), fastecu::testing::IsOkAnd((bytes::Bytes{0x31, 0xE0, 0xFF})));
+    ASSERT_THAT(ParseHexBytes(tokens), fastecu::testing::IsOkAnd((bytes::Bytes{0x31, 0xE0, 0xFF})));
 }
 
 TEST(BenchArgs, RejectsMalformedHexByteTokens)
@@ -223,14 +223,14 @@ TEST(BenchArgs, RejectsMalformedHexByteTokens)
     const std::vector<std::string> too_wide{"1ff"};
     const std::vector<std::string> not_hex{"zz"};
 
-    EXPECT_THAT(parse_hex_bytes(too_wide), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(parse_hex_bytes(not_hex), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ParseHexBytes(too_wide), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(ParseHexBytes(not_hex), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(BenchArgs, VendorExtDefaultsToOff)
 {
     const std::vector<std::string_view> args{"read", "0x200", "1"};
-    const Result<ParsedCommandLine> parsed = parse_command_line(args);
+    const Result<ParsedCommandLine> parsed = ParseCommandLine(args);
 
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_FALSE(parsed->options.vendor_ext);
@@ -239,7 +239,7 @@ TEST(BenchArgs, VendorExtDefaultsToOff)
 TEST(BenchArgs, VendorExtFlagIsRecognisedAnywhereOnTheCommandLine)
 {
     const std::vector<std::string_view> args{"read", "0x200", "1", "--vendor-ext"};
-    const Result<ParsedCommandLine> parsed = parse_command_line(args);
+    const Result<ParsedCommandLine> parsed = ParseCommandLine(args);
 
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_TRUE(parsed->options.vendor_ext);
@@ -251,7 +251,7 @@ TEST(BenchArgs, VendorExtFlagIsRecognisedAnywhereOnTheCommandLine)
 TEST(BenchArgs, StatsFlagIsRecognised)
 {
     const std::vector<std::string_view> args{"--stats", "read", "0x200", "1"};
-    const Result<ParsedCommandLine> parsed = parse_command_line(args);
+    const Result<ParsedCommandLine> parsed = ParseCommandLine(args);
 
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_TRUE(parsed->options.stats);

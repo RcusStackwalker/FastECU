@@ -106,12 +106,12 @@ Result<std::optional<bytes::Bytes>> BenchSession::RecordingChannel::Receive(std:
     return result;
 }
 
-void BenchSession::RecordingChannel::reset()
+void BenchSession::RecordingChannel::Reset()
 {
     last_rx_.clear();
 }
 
-const bytes::Bytes& BenchSession::RecordingChannel::last_rx() const
+const bytes::Bytes& BenchSession::RecordingChannel::LastRx() const
 {
     return last_rx_;
 }
@@ -125,9 +125,9 @@ BenchSession::BenchSession(std::unique_ptr<flash::ICanFlashTransport> transport,
 {
 }
 
-Result<bytes::Bytes> BenchSession::requestOnce(bytes::ByteView pdu, const uds::ExchangePolicy& policy)
+Result<bytes::Bytes> BenchSession::RequestOnce(bytes::ByteView pdu, const uds::ExchangePolicy& policy)
 {
-    recording_channel_.reset();
+    recording_channel_.Reset();
     const auto started = clock_.Now();
     Result<bytes::Bytes> result = client_.Request(pdu, policy, cancellation_);
     const auto finished = clock_.Now();
@@ -135,21 +135,21 @@ Result<bytes::Bytes> BenchSession::requestOnce(bytes::ByteView pdu, const uds::E
     last_traffic_ =
         TrafficEvidence{.exchange_count = 1,
                         .tx = tx,
-                        .rx = recording_channel_.last_rx(),
+                        .rx = recording_channel_.LastRx(),
                         .last_tx = tx,
-                        .last_rx = recording_channel_.last_rx(),
+                        .last_rx = recording_channel_.LastRx(),
                         .elapsed_ms = static_cast<std::uint64_t>(
                             std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count())};
     return result;
 }
 
-Status BenchSession::connect()
+Status BenchSession::Connect()
 {
     TrafficEvidence total;
     const auto request = [&](bytes::ByteView pdu) -> Result<bytes::Bytes>
     {
-        Result<bytes::Bytes> result = requestOnce(pdu, kConnectPolicy);
-        append_traffic(total, last_traffic_);
+        Result<bytes::Bytes> result = RequestOnce(pdu, kConnectPolicy);
+        AppendTraffic(total, last_traffic_);
         last_traffic_ = total;
         return result;
     };
@@ -184,14 +184,14 @@ Status BenchSession::connect()
                      "security access key");
 }
 
-Result<bytes::Bytes> BenchSession::exchange(bytes::ByteView pdu, const uds::ExchangePolicy& policy)
+Result<bytes::Bytes> BenchSession::Exchange(bytes::ByteView pdu, const uds::ExchangePolicy& policy)
 {
-    return requestOnce(pdu, policy);
+    return RequestOnce(pdu, policy);
 }
 
-Result<bytes::Bytes> BenchSession::exchange_raw(bytes::ByteView pdu, int timeout_ms)
+Result<bytes::Bytes> BenchSession::ExchangeRaw(bytes::ByteView pdu, int timeout_ms)
 {
-    recording_channel_.reset();
+    recording_channel_.Reset();
     const auto started = clock_.Now();
     const auto finish = [&]
     {
@@ -200,9 +200,9 @@ Result<bytes::Bytes> BenchSession::exchange_raw(bytes::ByteView pdu, int timeout
         last_traffic_ =
             TrafficEvidence{.exchange_count = 1,
                             .tx = tx,
-                            .rx = recording_channel_.last_rx(),
+                            .rx = recording_channel_.LastRx(),
                             .last_tx = tx,
-                            .last_rx = recording_channel_.last_rx(),
+                            .last_rx = recording_channel_.LastRx(),
                             .elapsed_ms = static_cast<std::uint64_t>(
                                 std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count())};
     };
@@ -225,12 +225,12 @@ Result<bytes::Bytes> BenchSession::exchange_raw(bytes::ByteView pdu, int timeout
     return std::move(**received);
 }
 
-const TrafficEvidence& BenchSession::last_traffic() const
+const TrafficEvidence& BenchSession::LastTraffic() const
 {
     return last_traffic_;
 }
 
-Result<double> BenchSession::vbatt()
+Result<double> BenchSession::Vbatt()
 {
     // ICanFlashTransport exposes no read_vbatt(); CommandOutcome::vbatt is
     // optional, so this degrades cleanly rather than widening the transport

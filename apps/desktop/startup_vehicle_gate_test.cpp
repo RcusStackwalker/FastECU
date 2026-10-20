@@ -33,7 +33,7 @@ TEST(StartupVehicleGate, AnExistingSelectionDoesNotAsk)
     ASSERT_THAT(f.Initialize(), IsOk());
     int asked = 0;
 
-    EXPECT_EQ(startup_vehicle_gate(
+    EXPECT_EQ(StartupVehicleGate(
                   f.session,
                   [&asked]
                   {
@@ -51,7 +51,7 @@ TEST(StartupVehicleGate, AChosenVehicleIsSelectedSavedAndStartupContinues)
     ASSERT_THAT(f.Initialize(), IsOk());
     int reported = 0;
 
-    EXPECT_EQ(startup_vehicle_gate(
+    EXPECT_EQ(StartupVehicleGate(
                   f.session, [] { return std::optional<std::size_t>{1}; }, [&reported](const Error&) { ++reported; }),
               std::nullopt);
 
@@ -61,7 +61,7 @@ TEST(StartupVehicleGate, AChosenVehicleIsSelectedSavedAndStartupContinues)
     // Saved: the session an in-app restart builds asks nothing.
     ASSERT_THAT(f.Initialize(), IsOk());
     int asked = 0;
-    EXPECT_EQ(startup_vehicle_gate(
+    EXPECT_EQ(StartupVehicleGate(
                   f.session,
                   [&asked]
                   {
@@ -80,7 +80,7 @@ TEST(StartupVehicleGate, AFailedSaveIsReportedAndStartupContinues)
     f.file_repository.write_errors[f.paths.config_file] = Error{ErrorKind::kInvalidConfig, "cannot open file"};
     std::vector<Error> reported;
 
-    EXPECT_EQ(startup_vehicle_gate(
+    EXPECT_EQ(StartupVehicleGate(
                   f.session, [] { return std::optional<std::size_t>{1}; },
                   [&reported](const Error& error) { reported.push_back(error); }),
               std::nullopt);
@@ -102,7 +102,7 @@ TEST(StartupVehicleGate, ACancelEndsStartupWithExitCodeZero)
     ConfigSessionFixture f;
     ASSERT_THAT(f.Initialize(), IsOk());
 
-    EXPECT_EQ(startup_vehicle_gate(
+    EXPECT_EQ(StartupVehicleGate(
                   f.session, [] { return std::optional<std::size_t>{}; }, UnexpectedSaveFailure),
               std::optional<int>(EXIT_SUCCESS));
     EXPECT_EQ(f.session.SelectedVehicle(), nullptr);
@@ -113,7 +113,7 @@ TEST(StartupVehicleGate, AnInvalidRowIsTreatedAsACancel)
     ConfigSessionFixture f;
     ASSERT_THAT(f.Initialize(), IsOk());
 
-    EXPECT_EQ(startup_vehicle_gate(
+    EXPECT_EQ(StartupVehicleGate(
                   f.session, [] { return std::optional<std::size_t>{99}; }, UnexpectedSaveFailure),
               std::optional<int>(EXIT_SUCCESS));
 }
