@@ -28,7 +28,15 @@ def run() -> None:
         for name, source in [("clang-tidy", host.executable), ("FileCheck", Path(args.filecheck))]:
             target = tools / (name + suffix)
             if os.name == "nt":
-                shutil.copy2(source, target)
+                try:
+                    shutil.copy2(source, target)
+                except OSError:
+                    print(
+                        f"[DEBUG-lit-tools] source={source} resolved={source.resolve()} "
+                        f"metadata={source.lstat()} symlink={source.is_symlink()}",
+                        file=sys.stderr,
+                    )
+                    raise
             else:
                 target.symlink_to(source.resolve())
         sys.argv = [sys.argv[0], "-v", str(suite), *lit_args]
