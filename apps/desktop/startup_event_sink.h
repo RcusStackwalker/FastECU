@@ -27,7 +27,7 @@ class StartupEventSink : public fastecu::IEventSink
     {
         warnings_.append(QString::fromUtf8(message.data(), static_cast<qsizetype>(message.size())));
     }
-    const QStringList& warnings() const
+    const QStringList& Warnings() const
     {
         return warnings_;
     }

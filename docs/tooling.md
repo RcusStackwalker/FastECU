@@ -50,12 +50,16 @@ bazel run //:clang_tidy_fix_changed               # apply fixes (macOS/Linux, sy
   check change, run the full report and fix everything it finds in the same
   PR; passing fixtures alone do not show a clean production scope.
 
+The built-in and existing custom checks use the same reachable first-party header
+scope under `src/`, `apps/`, `tests/`, and `scripts/`, including `.hpp`.
+Generated and vendor headers retain their exclusions.
+
 #### Custom checks
 
 The repository checks are the `CustomChecks` entries in
 [`.clang-tidy`](../.clang-tidy); each query's comment documents what it
-matches and how to fix a finding. They run in a separate inline pass that also
-covers headers under `apps/` and `tests/`. The
+matches and how to fix a finding. They run in a separate inline pass with the
+same header scope as the built-ins. The
 [adapter](../scripts/clang_tidy_adapter.py) adds LLVM's experimental flag; a
 direct invocation needs it plus the registered name:
 

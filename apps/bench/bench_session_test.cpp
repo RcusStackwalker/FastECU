@@ -101,9 +101,9 @@ TEST(BenchSession, ConnectSendsTheExactThreeHandshakePdusOnceAndRecordsEvidence)
     harness.ExpectSeed();
     harness.ExpectKey();
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsOk());
+    ASSERT_THAT(harness.session->Connect(), fastecu::testing::IsOk());
     EXPECT_TRUE(harness.transport->ScriptConsumed());
-    const TrafficEvidence& traffic = harness.session->last_traffic();
+    const TrafficEvidence& traffic = harness.session->LastTraffic();
     EXPECT_EQ(traffic.exchange_count, 3U);
     EXPECT_THAT(traffic.tx,
                 test_bytes::BytesEq(mitsu_colt_can::BuildDiagnosticSession(mitsu_colt_can::kSessionBootload)));
@@ -119,8 +119,8 @@ TEST(BenchSession, ConnectRejectsAWrongPositiveSessionEcho)
     Harness harness;
     harness.ExpectSession(mitsu_colt_can::kSessionBasic);
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_EQ(harness.session->last_traffic().rx, (bytes::Bytes{0x50, mitsu_colt_can::kSessionBasic}));
+    ASSERT_THAT(harness.session->Connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_EQ(harness.session->LastTraffic().rx, (bytes::Bytes{0x50, mitsu_colt_can::kSessionBasic}));
 }
 
 TEST(BenchSession, ConnectRejectsAWrongPositiveSeedLevelEcho)
@@ -129,7 +129,7 @@ TEST(BenchSession, ConnectRejectsAWrongPositiveSeedLevelEcho)
     harness.ExpectSession();
     harness.ExpectSeed(0x04);
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    ASSERT_THAT(harness.session->Connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(BenchSession, ConnectRejectsAWrongPositiveKeyLevelEcho)
@@ -139,7 +139,7 @@ TEST(BenchSession, ConnectRejectsAWrongPositiveKeyLevelEcho)
     harness.ExpectSeed();
     harness.ExpectKey(0x07);
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    ASSERT_THAT(harness.session->Connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(BenchSession, VendorChallengeIsSkippedWhenNotRequested)
@@ -149,9 +149,9 @@ TEST(BenchSession, VendorChallengeIsSkippedWhenNotRequested)
     harness.ExpectSeed();
     harness.ExpectKey();
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsOk());
+    ASSERT_THAT(harness.session->Connect(), fastecu::testing::IsOk());
     EXPECT_TRUE(harness.transport->ScriptConsumed());
-    EXPECT_EQ(harness.session->last_traffic().exchange_count, 3U);
+    EXPECT_EQ(harness.session->LastTraffic().exchange_count, 3U);
 }
 
 TEST(BenchSession, VendorChallengePrecedesTheBootloadSessionInOrder)
@@ -164,11 +164,11 @@ TEST(BenchSession, VendorChallengePrecedesTheBootloadSessionInOrder)
     harness.ExpectSeed();
     harness.ExpectKey();
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsOk());
+    ASSERT_THAT(harness.session->Connect(), fastecu::testing::IsOk());
     // ScriptedCanFlashTransport rejects any write that does not match the next
     // expectation in order, so a green script IS the ordering assertion.
     EXPECT_TRUE(harness.transport->ScriptConsumed());
-    EXPECT_EQ(harness.session->last_traffic().exchange_count, 6U);
+    EXPECT_EQ(harness.session->LastTraffic().exchange_count, 6U);
 }
 
 TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesTheSelector)
@@ -180,7 +180,7 @@ TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesTheSelector)
     // but the ECU has not granted the transition.
     harness.ExpectVendorKey(0x00);
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    ASSERT_THAT(harness.session->Connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesAcceptance)
@@ -196,7 +196,7 @@ TEST(BenchSession, VendorChallengeRejectsAKeyReplyThatOnlyEchoesAcceptance)
     harness.transport->QueueRead(
         Response(bytes::Bytes{0x63, 0x00, mitsu_colt_can_vendor_ext::kVendorChallengeAccepted}));
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    ASSERT_THAT(harness.session->Connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(BenchSession, VendorChallengeRejectsAShortSeedReply)
@@ -209,7 +209,7 @@ TEST(BenchSession, VendorChallengeRejectsAShortSeedReply)
         Response(bytes::Bytes{0x63, mitsu_colt_can_vendor_ext::kVendorChallengeSelector,
                               mitsu_colt_can_vendor_ext::kVendorChallengeSeedSubfunction, 0xDE, 0xAD}));
 
-    ASSERT_THAT(harness.session->connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    ASSERT_THAT(harness.session->Connect(), fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 } // namespace

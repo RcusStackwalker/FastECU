@@ -18,20 +18,20 @@ class IBenchSession
     virtual ~IBenchSession() = default;
 
     // 0x10 diagnostic session plus 0x27 security access.
-    virtual Status connect() = 0;
+    virtual Status Connect() = 0;
 
     // One round trip through UdsClient: SID echo checked, NRC 0x78 absorbed.
     // Returns the positive-response PDU, service byte first.
-    virtual Result<bytes::Bytes> exchange(bytes::ByteView pdu, const uds::ExchangePolicy& policy) = 0;
+    virtual Result<bytes::Bytes> Exchange(bytes::ByteView pdu, const uds::ExchangePolicy& policy) = 0;
 
     // Bypasses UdsClient's echo and NRC handling; returns whatever arrives.
-    virtual Result<bytes::Bytes> exchange_raw(bytes::ByteView pdu, int timeout_ms) = 0;
+    virtual Result<bytes::Bytes> ExchangeRaw(bytes::ByteView pdu, int timeout_ms) = 0;
 
     // Evidence from the most recent public operation. `connect()` represents
     // all three handshake exchanges; exchange/exchange_raw represent one.
-    virtual const TrafficEvidence& last_traffic() const = 0;
+    virtual const TrafficEvidence& LastTraffic() const = 0;
 
-    virtual Result<double> vbatt() = 0;
+    virtual Result<double> Vbatt() = 0;
 };
 
 // File access, kept behind an interface for the same reason as the session.
@@ -39,8 +39,8 @@ class IBenchFiles
 {
   public:
     virtual ~IBenchFiles() = default;
-    virtual Result<bytes::Bytes> load(std::string_view path) = 0;
-    virtual Status save(std::string_view path, bytes::ByteView data) = 0;
+    virtual Result<bytes::Bytes> Load(std::string_view path) = 0;
+    virtual Status Save(std::string_view path, bytes::ByteView data) = 0;
 };
 
 } // namespace fastecu::bench

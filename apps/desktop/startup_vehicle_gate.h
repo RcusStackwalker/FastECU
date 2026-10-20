@@ -18,5 +18,5 @@ using SaveFailureReporter = std::function<void(const fastecu::Error&)>;
 // ends with, before any window or ECU I/O exists. A failed save goes to
 // `report_save_failure` and startup still continues: the choice holds for
 // this run, and the next start asks again.
-std::optional<int> startup_vehicle_gate(fastecu::config::ConfigSession& session, const VehicleChooser& choose,
-                                        const SaveFailureReporter& report_save_failure);
+std::optional<int> StartupVehicleGate(fastecu::config::ConfigSession& session, const VehicleChooser& choose,
+                                      const SaveFailureReporter& report_save_failure);

@@ -93,7 +93,7 @@ std::optional<double> MsPerExchange(const CommandOutcome& outcome)
 
 } // namespace
 
-std::string format_text(const CommandOutcome& outcome, bool stats)
+std::string FormatText(const CommandOutcome& outcome, bool stats)
 {
     std::string out = std::format("{}\n", outcome.step);
     out += std::format("  {} {} ({} ms)\n", outcome.exchange_count,
@@ -141,7 +141,7 @@ std::string format_text(const CommandOutcome& outcome, bool stats)
     return out;
 }
 
-std::string format_json(const CommandOutcome& outcome, bool stats)
+std::string FormatJson(const CommandOutcome& outcome, bool stats)
 {
     std::string out = std::format(
         R"({{"step":"{}","exchanges":{},"tx":"{}","rx":"{}","last_tx":"{}","last_rx":"{}","data":"{}","ms":{},"ok":{})",
@@ -176,7 +176,7 @@ std::string format_json(const CommandOutcome& outcome, bool stats)
     return out;
 }
 
-int exit_code_for(ErrorKind kind)
+int ExitCodeFor(ErrorKind kind)
 {
     switch (kind)
     {

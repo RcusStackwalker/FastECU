@@ -1537,6 +1537,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         header_filter = next(arg for arg in analyses[1] if arg.startswith("-header-filter="))
         self.assertIn("apps", header_filter)
         self.assertIn("tests", header_filter)
+        self.assertIn(header_filter, analyses[0])
         self.assertIn("-j", analyses[1])
         self.assertIn("custom-analysis", output.getvalue())
 

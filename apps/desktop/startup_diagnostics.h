@@ -6,7 +6,7 @@
 
 // Startup has no window yet, so configuration failures and warnings are shown
 // in standalone message boxes. The *_text functions are the testable part.
-QString startup_failure_text(const fastecu::Error& error);
-QString startup_warning_text(const QStringList& warnings);
-void present_startup_failure(const fastecu::Error& error);
-void present_startup_warnings(const QStringList& warnings); // no-op when empty
+QString StartupFailureText(const fastecu::Error& error);
+QString StartupWarningText(const QStringList& warnings);
+void PresentStartupFailure(const fastecu::Error& error);
+void PresentStartupWarnings(const QStringList& warnings); // no-op when empty

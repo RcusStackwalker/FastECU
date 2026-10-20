@@ -64,12 +64,12 @@ class DesktopBenchEnvironment final : public IBenchEnvironment
     {
     }
 
-    Result<std::vector<std::string>> list_ports(const GlobalOptions&) override
+    Result<std::vector<std::string>> ListPorts(const GlobalOptions&) override
     {
         return fastecu::flash::ListDesktopSerialPorts(DirectTransportConfig());
     }
 
-    Result<std::reference_wrapper<IBenchSession>> session(const GlobalOptions& options,
+    Result<std::reference_wrapper<IBenchSession>> Session(const GlobalOptions& options,
                                                           bool connect_implicitly) override
     {
         if (session_.has_value())
@@ -93,8 +93,8 @@ class DesktopBenchEnvironment final : public IBenchEnvironment
                          cancellation_, options.vendor_ext);
         if (connect_implicitly)
         {
-            const Status connected = session_->connect();
-            last_setup_traffic_ = session_->last_traffic();
+            const Status connected = session_->Connect();
+            last_setup_traffic_ = session_->LastTraffic();
             if (!connected.has_value())
             {
                 const Error error = connected.error();
@@ -105,7 +105,7 @@ class DesktopBenchEnvironment final : public IBenchEnvironment
         return std::ref(static_cast<IBenchSession&>(*session_));
     }
 
-    const TrafficEvidence& last_setup_traffic() const override
+    const TrafficEvidence& LastSetupTraffic() const override
     {
         return last_setup_traffic_;
     }
@@ -132,5 +132,5 @@ int main(int argc, char *argv[])
 
     DesktopBenchEnvironment environment(cancellation);
     fastecu::bench::BenchFiles files;
-    return fastecu::bench::run_cli(environment, files, args, std::cin, std::cout, std::cerr);
+    return fastecu::bench::RunCli(environment, files, args, std::cin, std::cout, std::cerr);
 }

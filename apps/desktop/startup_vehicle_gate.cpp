@@ -2,8 +2,8 @@
 
 #include <cstdlib>
 
-std::optional<int> startup_vehicle_gate(fastecu::config::ConfigSession& session, const VehicleChooser& choose,
-                                        const SaveFailureReporter& report_save_failure)
+std::optional<int> StartupVehicleGate(fastecu::config::ConfigSession& session, const VehicleChooser& choose,
+                                      const SaveFailureReporter& report_save_failure)
 {
     if (session.SelectedVehicle() != nullptr)
     {

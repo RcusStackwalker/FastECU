@@ -41,8 +41,9 @@ Qt exceptions:
   `NOLINTBEGIN/NOLINTEND` block that says why. `on_<widget>_<signal>` slots are
   allowed by `MethodIgnoredRegexp` in `src/ui/desktop/.clang-tidy`.
 
-clang-tidy's `HeaderFilterRegex` does not yet cover headers under `apps/` and
-`tests/`; follow the rules there anyway.
+Analysis covers reachable first-party `.h` and `.hpp` headers under `src/`,
+`apps/`, `tests/`, and `scripts/`; generated and vendor headers are excluded.
+See [the analysis workflow](tooling.md#clang-tidy).
 
 ## Strings and messages
 

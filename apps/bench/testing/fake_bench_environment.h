@@ -16,7 +16,7 @@ class FakeBenchEnvironment final : public IBenchEnvironment
     {
     }
 
-    Result<std::vector<std::string>> list_ports(const GlobalOptions&) override
+    Result<std::vector<std::string>> ListPorts(const GlobalOptions&) override
     {
         ++port_calls;
         if (port_error.has_value())
@@ -26,7 +26,7 @@ class FakeBenchEnvironment final : public IBenchEnvironment
         return ports;
     }
 
-    Result<std::reference_wrapper<IBenchSession>> session(const GlobalOptions& options,
+    Result<std::reference_wrapper<IBenchSession>> Session(const GlobalOptions& options,
                                                           bool connect_implicitly) override
     {
         ++session_calls;
@@ -39,7 +39,7 @@ class FakeBenchEnvironment final : public IBenchEnvironment
         return std::ref(static_cast<IBenchSession&>(session_));
     }
 
-    const TrafficEvidence& last_setup_traffic() const override
+    const TrafficEvidence& LastSetupTraffic() const override
     {
         return setup_traffic;
     }
