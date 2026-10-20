@@ -1,0 +1,2 @@
+# RUN/CHECK locations and deliberately nonconforming source are test inputs.
+DisableFormat: true

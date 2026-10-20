@@ -1,4 +1,5 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("//bazel:clang_tidy.bzl", "clang_tidy_headers")
 
 # Tests regenerate; production sources and helper binaries retain existing owners.
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
@@ -200,6 +201,19 @@ fastecu_gtest(
         "//src/backend/checksum:dispatch",
         "//src/backend/config:builtin_catalog",
         "//src/backend/flash:flash_device_lookup",
+        "@googletest//:gtest",
+    ],
+)
+
+# Real transitive headers for the lit suite; no C++ compilation is needed.
+clang_tidy_headers(
+    name = "clang_tidy_fixture_headers",
+    testonly = True,
+    visibility = ["//:__pkg__"],
+    deps = [
+        "//src/algorithms/protocol/testing:byte_matchers",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

@@ -316,10 +316,13 @@ jobs:
           echo "CC=$FASTECU_LLVM_ROOT/bin/clang" >> "$GITHUB_ENV"
           echo "CXX=$FASTECU_LLVM_ROOT/bin/clang++" >> "$GITHUB_ENV"
 
+      - name: clang-tidy module fixtures
+        shell: bash
+        run: bazel run --config=release //:clang_tidy_check_fixtures
+
       - name: clang-tidy report
         # bash, not the Windows default pwsh: pwsh swallows the `--`, so bazel
         # would read --profile as its own flag ("Expected value after --profile").
         shell: bash
         run: |
           bazel run --config=release //:clang_tidy_report_changed -- --profile --annotate ${{ matrix.scope }}
-          bazel run --config=release //:clang_tidy_check_fixtures

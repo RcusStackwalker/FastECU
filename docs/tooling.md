@@ -122,14 +122,43 @@ establish a clean production scope.
 
 ```sh
 # Required real-dependency positive and permitted-counterexample fixtures.
-# Prepare the compilation database with a report first.
+# No application build or compilation database is needed.
 bazel run --config=release //:clang_tidy_check_fixtures
+# Select individual fixtures with lit's filter (or list them with --show-tests).
+bazel run --config=release //:clang_tidy_check_fixtures -- --filter template-type
 # Compare built-ins alone with built-ins plus repository checks.
 bazel run --config=release //:clang_tidy_benchmark -- --jobs 4 --output reports/clang-tidy-custom
 ```
 
+The [module test suite](../scripts/clang_tidy_plugin/test/) follows
+[LLVM's in-tree test conventions](https://clang.llvm.org/extra/clang-tidy/Contributing.html#testing-checks):
+standalone source fixtures carry `RUN`, `CHECK-MESSAGES` and `CHECK-FIXES`
+directives, interpreted by lit, FileCheck and the unmodified upstream
+`check_clang_tidy.py`. Diagnostic expectations also reject unexpected warnings
+and errors; checks without fixes must leave their source unchanged. Exception
+usage and first-party/generated-header filtering are exercised by explicit
+`RUN` commands. The C++ standard-library and GoogleTest headers are real,
+with FastECU's transitive headers supplied by Bazel rather than a compilation
+database. The lit configuration discovers the selected compiler's standard
+include paths because LLVM's helper disables automatic C++ header lookup.
+Use a temporary source name ending in `_test.cpp` (the fixtures use `%t_test`)
+for checks restricted to test code. Keep helper options such as `-std` before
+its positional arguments so its argument parser separates compiler flags correctly.
+
+The lit package, helper and FileCheck driver are pinned to the analysis LLVM
+release in [requirements.txt](../requirements.txt) and [MODULE.bazel](../MODULE.bazel).
+Bazel compiles LLVM's FileCheck driver against the selected development
+libraries because the official archives omit that executable. The macOS
+archives contain LLVM bitcode, so linking FileCheck uses their matching LTO
+library; Windows uses their static release CRT, as does the analysis host.
+Fixture commands require Unix tools such as `cp`, and the upstream helper
+requires `diff`. LLVM's lit initialization discovers these on Windows,
+including Git for Windows installations registered outside `PATH`.
+
 Fixtures require the registered checks and do not silently skip when an
-extension is missing. The benchmark pins translation-unit scheduling and
+extension is missing. They are a manual, local Bazel test because they require
+the selected host LLVM installation; the analysis CI job runs them explicitly.
+The benchmark pins translation-unit scheduling and
 fingerprints check sources, configuration, host identity and compiled artifacts.
 It writes raw logs and JSON into a new output directory. Per-check CPU seconds
 sum work across translation units; they are not elapsed time. Investigate
