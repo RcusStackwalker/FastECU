@@ -38,6 +38,13 @@ than copying its inventory.
 
 ## Active work
 
+The [clang-tidy rollout qualification](reference/clang-tidy-plugin-qualification.md)
+records the completed native migration, assertion cleanup, gate evidence and
+runtime limitations. Its
+[approved design](superpowers/specs/2026-10-19-clang-tidy-plugin-enforcement-design.md)
+and [implementation plan](superpowers/plans/2026-10-19-clang-tidy-plugin-enforcement.md)
+remain for history preservation until merge; retire them separately afterward.
+
 The [size-reduction strategy](superpowers/specs/2026-10-18-size-reduction-strategy.md)
 phases the reduction toward 100k NLOC: remote-mode deletion, tooling audit,
 transport-level cancellation, separately assessed test compression, and a later

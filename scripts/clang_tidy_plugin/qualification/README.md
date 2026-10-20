@@ -1,8 +1,9 @@
 # LLVM packaging qualification
 
-The selected LLVM packages support a shared extension on macOS/Linux and a
-Bazel-linked host with static compression dependencies on Windows. The smoke
-contract and original packaging evidence are recorded below.
+This record supports the
+[rollout qualification](../../../docs/reference/clang-tidy-plugin-qualification.md).
+The exact macOS/Linux shared-host smoke and the Windows linked-host workflow
+have passed. Broader parity, runtime and review evidence belongs to that record.
 
 ## Smoke contract
 
