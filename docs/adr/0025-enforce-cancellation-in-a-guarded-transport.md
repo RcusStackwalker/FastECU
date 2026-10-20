@@ -2,14 +2,14 @@
 
 ## Status
 
-Accepted direction, narrowed during the
-[guarded-transport refinement](../superpowers/specs/2026-10-19-guarded-transport-refinement-design.md).
+Accepted direction, narrowed after the
+[size-reduction pilots](../reference/guarded-transport-pilot-lessons.md).
 The original Colt pilot in [PR #756](https://github.com/RcusStackwalker/FastECU/pull/756)
 had not merged or completed its bench exit gate at the 2026-10-19 design review.
 The replacement Colt-only implementation now has a guarded CAN port, executor
 opt-in at BoundAttempt, and four fewer explicit Colt polls. The
 [pilot results](../reference/colt-cancellation-centralization-results.md) record
-verification and outstanding delivery gates; the
+verification and delivery CI; the
 [flash contract](../reference/flash-contracts.md#colt-cancellation-ownership)
 owns its enduring boundaries. Expansion and hardware qualification remain gated.
 
@@ -71,7 +71,8 @@ change to cancellation refusal; protocol error handling remains separate.
   Neither a transcript framework nor a generated-scenario framework is required
   for the cancellation pilot, which retains existing Colt behavior tests.
   Initial measured support growth is permitted and must not be called savings.
-- The focused design owns runner opt-in, evidence and measurement requirements.
+- The flash contract owns runner opt-in; the pilot results retain preservation
+  evidence, measurements and delivery gates.
   A separately assessed compression change and the applicable recorded Colt
   bench checklist precede any expansion. K-Line, additional families, and
   deferral need separate decisions after the pilot's evidence is reviewed.

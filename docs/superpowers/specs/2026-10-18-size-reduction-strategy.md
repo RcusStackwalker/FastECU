@@ -1,7 +1,8 @@
 # Size-reduction strategy
 
-Status: accepted direction. Phase 1 is done (−1,437 NLOC); later phases are
-not yet implemented.
+Status: accepted direction. Phase 1 is done (−1,437 NLOC); phase 3's Colt
+cancellation ownership change is merged. Its separate compression assessment
+and bench exit gate remain outstanding; later per-family rollout is unapproved.
 Baseline: `136ad0fa` (master, 2026-10-18), 150,494 NLOC (70,746 production,
 79,748 test) by `python3 scripts/nloc_loop.py measure`.
 
@@ -152,22 +153,23 @@ and documentation.
 
 ### 3. Colt cancellation ownership, then test compression
 
-The [focused Colt design](2026-10-19-guarded-transport-refinement-design.md)
+The [Colt cancellation contract](../../reference/flash-contracts.md#colt-cancellation-ownership)
 replaces the original bundled cancellation/transcript pilot. The
 [lessons from PRs #756 and #768](../../reference/guarded-transport-pilot-lessons.md)
 record the failed size goals, lost abort protection, and harness costs.
 
 The [Colt implementation results](../../reference/colt-cancellation-centralization-results.md)
-record the ownership candidate, retained tests, measurements and outstanding gates.
+record the merged ownership change, retained tests, measurements and delivery CI.
 Assess test compression in a separate change. Cancellation
 ownership may initially add measured support cost; it must not be reported as a
-size reduction. The focused design owns the guard contract, boundary inventory,
-preservation evidence, measurements, and exit criteria. It requires no transcript
+size reduction. The flash contract owns the guard boundaries and exit criteria;
+the results retain the boundary inventory, preservation evidence and measurements.
+The ownership change requires no transcript
 framework, error normalization, or cancellation-deferral mechanism.
 
 ### 4. Review before per-family rollout
 
-Rollout is a later decision, after the focused design's compression and hardware
+Rollout is a later decision, after the Colt compression and hardware
 exit gates are satisfied. Review the recorded net/cumulative cost before
 extrapolating savings. Each future migration must inventory cancellation
 boundaries and retain family abort/continue decisions and wire behavior under the

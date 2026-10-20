@@ -1,7 +1,10 @@
 # Colt cancellation centralization results
 
-Status: Colt-only candidate implemented; local build, test, analysis, coverage and measurements pass; fresh branch review found no issues.
-Platform CI is pending. Local Mull produces no mutants and establishes no
+Status: Colt-only implementation merged in
+[PR #770](https://github.com/RcusStackwalker/FastECU/pull/770); local build, test,
+analysis, coverage and measurements passed; fresh branch review found no issues.
+Delivery CI passed on `6d067a46e760daae7c7b420186943274c0151c97`.
+Local Mull produced no mutants and establishes no
 automatic mutation coverage. No hardware qualification is claimed.
 
 Implementation base: `883b2afb89464e576ab9a07cdd3442dc997e2130`.
@@ -212,8 +215,8 @@ Four supplemental guard mutations were rejected by the existing contract tests:
 - `read-post-call-check`: `ReadOutcomesPassThrough` failed.
 
 Full commands, source locations, original/mutant SHA-256 values and failing
-logs are retained. Every source hash was checked after restoration. Effective
-automatic Mull evidence remains pending CI; no CI policy was changed.
+logs are retained. Every source hash was checked after restoration. Automatic
+Mull effectiveness remains unproven locally; no CI policy was changed.
 
 ## Gate verdicts
 
@@ -230,9 +233,9 @@ automatic Mull evidence remains pending CI; no CI policy was changed.
 | Named source mutation checks | PASS; three planned and four supplemental mutants rejected |
 | Matched runtime | PASS; +11.54%, below the 25% threshold |
 | NLOC accounting | Complete; +689, no net-reduction claim |
-| Linux/macOS/Windows PR, Android portable-core, ASan/UBSan and packaging CI | Pending delivery PR; local macOS results do not replace CI |
+| Linux/macOS/Windows PR, Android portable-core, ASan/UBSan and packaging CI | PASS on the [delivery revision](https://github.com/RcusStackwalker/FastECU/pull/770/checks); changed-line advisory mutation, clang-tidy, Sonar, pre-commit and Gazelle jobs also passed |
 | Colt bench checklist | Not performed; qualification unchanged |
-| Fresh branch review | PASS; no Critical, Important or Minor findings; code/PR ready, merge pending external gates |
+| Fresh branch review | PASS; no Critical, Important or Minor findings; delivered in PR #770 |
 
 The guard has 41 contract cases, the runner gains five cases, and Colt gains
 seven cases (47 baseline to 54 candidate). No predecessor case was removed.
@@ -248,11 +251,13 @@ command scripts, source hashes and named mutation records. Its SHA256SUMS file
 checks every retained member. Generated profiles and binaries are excluded.
 The archive's SHA-256 is recorded below after packaging.
 
-The original plan/spec remain at the implementation base and are copied into
-the evidence. They are not yet retired: their originals were introduced on the
-unmerged documentation branch, so a combined introducing/deleting squash would
-lose them. Complete preservation delivery and pending CI before retirement,
-then retarget inbound links to this record and the owning flash contract.
+The original plan/spec were delivered in PR #770 as
+`79cdcfd5f0abfb7bd3317ae91fd793a7fe53b101` and are copied into the evidence.
+They were retired in a separate documentation cleanup after preservation and
+delivery CI completed. Recover them through
+[Git history](../README.md#recover-completed-work-and-deleted-source-citations);
+the [flash contract](flash-contracts.md#colt-cancellation-ownership) owns the
+implemented boundaries.
 
 The independent compression proposal and recorded applicable Colt bench run
 remain prerequisites for expansion. No additional family is enabled and no

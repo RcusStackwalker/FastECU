@@ -5,8 +5,8 @@
 Accepted. Supersedes [ADR 0023](0023-hill-climb-nloc-with-kind-specific-guards.md).
 Implementation is phased in the
 [size-reduction strategy](../superpowers/specs/2026-10-18-size-reduction-strategy.md).
-The [focused Colt pilot](../superpowers/specs/2026-10-19-guarded-transport-refinement-design.md)
-centralizes cancellation first while retaining existing scripted tests; test
+The [Colt implementation](../reference/flash-contracts.md#colt-cancellation-ownership)
+centralizes cancellation while retaining existing scripted tests; test
 compression is a separate change. It does not require transcript infrastructure.
 
 ## Context
