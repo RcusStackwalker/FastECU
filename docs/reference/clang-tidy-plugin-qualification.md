@@ -119,9 +119,11 @@ not change the measured analyzer artifacts.
 
 ## Preservation
 
-The approved design and plan remain in this PR so their original contents reach
-delivered history. Retire them in a separate change after that preservation;
-adding and removing them inside one squash would discard the original records.
+The approved design and plan were preserved in
+[PR #785](https://github.com/RcusStackwalker/FastECU/pull/785), delivered as
+`cb0428028f5613af1af54163d6cdc60d74e99e12`. They were retired in a separate
+documentation cleanup; recover them through
+[Git history](../README.md#recover-completed-work-and-deleted-source-citations).
 
 [Execution decisions and tradeoffs](clang-tidy-plugin-qualification/execution-decisions.md)
 preserve all rulings and their costs in order. No independent review findings

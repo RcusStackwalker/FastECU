@@ -1,7 +1,7 @@
 # Lessons from the October 2026 size-reduction pilots
 
 Reviewed on 2026-10-19 for the
-[focused Colt cancellation design](../superpowers/specs/2026-10-19-guarded-transport-refinement-design.md).
+[Colt cancellation ownership change](flash-contracts.md#colt-cancellation-ownership).
 These findings concern the pinned PR revisions below. They do not describe
 merged implementation or hardware qualification.
 
@@ -77,6 +77,6 @@ owns test evidence and deletion policy.
 The original Colt implementation plan is preserved in
 [commit 4d7e67c0](https://github.com/RcusStackwalker/FastECU/blob/4d7e67c0/docs/superpowers/plans/2026-10-18-colt-guarded-transport-pilot.md).
 It bundled a transcript framework, cancellation, critical sections, and test
-removal. It is superseded by the focused design and leaves the checkout; it is
-not an implementation plan for the replacement pilot. The old PRs remain
+removal. The [Colt-only implementation](colt-cancellation-centralization-results.md)
+replaced it without that infrastructure. The old PRs remain
 historical evidence, not dependencies or instructions to merge their code.

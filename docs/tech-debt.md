@@ -188,17 +188,13 @@ integer facade statuses with typed results using names that cannot collide with
 Windows SDK macros; see the [desktop boundary contract](reference/desktop-contracts.md#composition-lifetime).
 Remove stale commented-out code as nearby behavior changes.
 
-### P2: Convert legacy test assertions
+### P2: Convert legacy test suite names
 
-Tests predating the [assertion conventions](coding-style.md#assertions) still
-assert `has_value()` directly (about 454 sites in October 2026, 111 of them
-under `src/backend/flash/ecu`) and name suites with a `Test` suffix (about 1096
-test cases). Convert them as their files are touched; recount with:
-
-```sh
-rg '(EXPECT|ASSERT)_\w+\(.*has_value\(\)\)' -g '*_test.cpp' src apps tests | wc -l
-rg -o '^TEST(_F|_P)?\(\w+Test,' -g '*_test.cpp' src apps tests | wc -l
-```
+Legacy suites still use a `Test` suffix. Rename them for the type under test as
+their files are touched, following the [test conventions](coding-style.md#structure).
+The [native clang-tidy rollout](reference/clang-tidy-plugin-qualification.md)
+completed the Result assertion migration and now enforces it; ordinary optional
+checks and low-level Result API tests remain permitted.
 
 ### P2: Analyze fuzz harnesses with clang-tidy
 
