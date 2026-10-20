@@ -34,6 +34,14 @@ bazel run //:clang_tidy_fix_changed               # apply fixes (macOS/Linux, sy
   `--annotate`, which CI passes, each finding in a repository file is also a
   GitHub annotation; GitHub shows at most 10 error annotations per step, so
   past that the job log is the full list.
+- **Compilation commands.** Analysis keeps the first equivalent command from
+  the Bazel database, without rewriting that shared database. This removes the
+  Linux `.o`/`.pic.o` duplicate when both already compile with `-fPIC`. Distinct
+  compiler, directory, define, include, language and target settings retain
+  separate analyses. Unknown options, response files and forwarded arguments
+  are handled conservatively; shell command strings are compared literally.
+  The log reports retained command configurations and unique source files
+  separately.
 - **LLVM pin.** CI pins LLVM (`CLANG_TIDY_LLVM_*` in
   [pr.yml](../.github/workflows/pr.yml)) on Linux and Windows. The supported
   local analysis workflow requires that exact release.

@@ -165,6 +165,111 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         self.assertEqual([str(source)], [entry["file"] for entry in entries])
 
+    def load_commands(self, commands: list[dict[str, object]]) -> list[dict[str, object]]:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        database = self.root / "compile_commands.json"
+        database.write_text(json.dumps(commands))
+        result = runner.load_project_entries(self.root, database)
+        self.assertEqual(commands, json.loads(database.read_text()))
+        return result
+
+    def compile_entry(self, arguments: list[str], **extra: object) -> dict[str, object]:
+        return {
+            "directory": str(self.root),
+            "file": str(self.root / _MAIN_CPP),
+            "arguments": arguments,
+            **extra,
+        }
+
+    def test_database_collapses_equivalent_pic_actions_without_rewriting_commands(self) -> None:
+        common = [
+            "clang++",
+            "-DNDEBUG",
+            "-iquote",
+            ".",
+            "-fPIC",
+            "-std=c++23",
+            "-c",
+            str(self.root / _MAIN_CPP),
+        ]
+        pic = self.compile_entry(
+            common[:1]
+            + ["-fPIC"]
+            + common[1:]
+            + ["-MF", "main.pic.d", "-frandom-seed=main.pic.o", "-o", "main.pic.o"],
+            output="main.pic.o",
+        )
+        regular = self.compile_entry(
+            common + ["-MF", "main.d", "-frandom-seed=main.o", "-o", "main.o"], output="main.o"
+        )
+        self.assertEqual([pic], self.load_commands([pic, regular, pic]))
+
+    def test_database_keeps_meaningful_configuration_differences(self) -> None:
+        base = ["clang++", "-fPIC", "-c", str(self.root / _MAIN_CPP)]
+        first = self.compile_entry(base + ["-o", "first.o"])
+        for flags in (
+            ["-DMODE=other"],
+            ["-I", "another/include"],
+            ["-std=c++20"],
+            ["--target=aarch64-linux-gnu"],
+            ["-x", "c"],
+            ["-fno-pic"],
+        ):
+            with self.subTest(flags=flags):
+                second = self.compile_entry(base + list(flags) + ["-o", "second.o"])
+                self.assertEqual([first, second], self.load_commands([first, second]))
+        without_pic = self.compile_entry([a for a in base if a != "-fPIC"] + ["-o", "second.o"])
+        self.assertEqual([first, without_pic], self.load_commands([first, without_pic]))
+
+    def test_database_preserves_directory_compiler_and_extra_metadata(self) -> None:
+        base = ["clang++", "-c", str(self.root / _MAIN_CPP)]
+        first = self.compile_entry(base)
+        for second in (
+            self.compile_entry(["g++", *base[1:]]),
+            self.compile_entry(base, directory=str(self.root / "other")),
+            self.compile_entry(base, environment={"MODE": "other"}),
+        ):
+            with self.subTest(second=second):
+                self.assertEqual([first, second], self.load_commands([first, second]))
+
+    def test_database_preserves_opaque_options_and_response_files(self) -> None:
+        for flags in (
+            ["@flags.rsp"],
+            ["-Xclang", "-fPIC"],
+            ["-mllvm", "-some-option"],
+            ["-unknown-driver-option", "-o"],
+            ["-fplugin=custom.so"],
+        ):
+            with self.subTest(flags=flags):
+                base = ["clang++", *flags, "-c", str(self.root / _MAIN_CPP)]
+                entries = [
+                    self.compile_entry(base + ["-o", output]) for output in ("one.o", "two.o")
+                ]
+                self.assertEqual(entries, self.load_commands(entries))
+
+    def test_database_preserves_pic_override_order_and_option_operands(self) -> None:
+        source = str(self.root / _MAIN_CPP)
+        pairs = (
+            (["-fPIC", "-fno-pic"], ["-fno-pic", "-fPIC"]),
+            (["-I", "-fPIC"], ["-fPIC"]),
+            (["-include", "-o"], ["-include", "another.h"]),
+        )
+        for left, right in pairs:
+            with self.subTest(left=left, right=right):
+                entries = [
+                    self.compile_entry(["clang++", *flags, "-c", source, "-o", "out.o"])
+                    for flags in (left, right)
+                ]
+                self.assertEqual(entries, self.load_commands(entries))
+
+    def test_database_only_deduplicates_identical_shell_commands(self) -> None:
+        first = self.compile_entry([])
+        first.pop("arguments")
+        first["command"] = 'clang++ -I"include dir" -c main.cpp -o main.o'
+        second = {**first, "command": 'clang++ -I"include dir" -c main.cpp -o main.pic.o'}
+        self.assertEqual([first, second], self.load_commands([first, first, second]))
+
     def test_database_rejects_missing_workspace_translation_unit(self) -> None:
         missing = self.root / "missing.cpp"
         self.write_database([missing])
@@ -618,7 +723,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
     def test_scope_os_analyzes_only_that_oss_prefixes(self) -> None:
         self.scoped_fixture()
         _, output = self.run_scoped()
-        self.assertIn("Analyzing 1 translation units", output)
+        self.assertIn("Analyzing 1 compilation commands for 1 source files", output)
 
     def test_scope_os_narrows_the_prebuild_but_not_the_refresh(self) -> None:
         self.scoped_fixture()
@@ -1911,6 +2016,40 @@ class ClangTidyRunnerTest(unittest.TestCase):
             with self.subTest(relative=relative):
                 self.assertTrue(runner.config_changed([self.root / relative]))
 
+    def test_workflow_passes_deduplicated_commands_and_reports_unique_sources(self) -> None:
+        _, original_run = self.prebuild_fixture()
+        base = ["clang++", "-fPIC", "-c", str(self.root / _MAIN_CPP)]
+        first = self.compile_entry(base + ["-o", "first.o"])
+        duplicate = self.compile_entry([*base, "-fPIC", "-o", "first.pic.o"])
+        distinct = self.compile_entry(base + ["-DMODE=other", "-o", "other.o"])
+        self.load_commands([first, duplicate, distinct])
+        analyzed: list[dict[str, object]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command[0] == _UNIX_TOOLS.run_clang_tidy:
+                directory = Path(command[command.index("-p") + 1])
+                analyzed.extend(json.loads((directory / "compile_commands.json").read_text()))
+            return original_run(command, **kwargs)
+
+        output = StringIO()
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+            redirect_stdout(output),
+        ):
+            report = runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="linux",
+                environ={},
+                command_runner=fake_run,
+                stream_runner=_streaming(fake_run),
+            )
+        self.assertEqual([first, distinct], analyzed)
+        self.assertEqual(2, report["translation_units"])
+        self.assertIn("Analyzing 2 compilation commands for 1 source files", output.getvalue())
+        self.assertIn("clang-tidy: 1 files clean, 0 findings", output.getvalue())
+
     def test_single_pass_uses_wide_scope(self) -> None:
         commands, fake_run = self.prebuild_fixture()
         host = runner.analysis_toolchain.AnalysisHost(
@@ -1988,7 +2127,7 @@ class ClangTidyRunnerTest(unittest.TestCase):
         _, output = self.run_scoped(changed=True, changed_paths=[self.root / ".clang-tidy"])
 
         # win/w.cpp only: widened, but p.cpp stays outside the windows scope.
-        self.assertIn("Analyzing 1 translation units", output)
+        self.assertIn("Analyzing 1 compilation commands for 1 source files", output)
         self.assertNotIn("no changed C/C++ translation units", output)
 
     def finding_line(self, check: str = "c") -> str:

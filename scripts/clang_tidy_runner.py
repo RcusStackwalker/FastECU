@@ -213,6 +213,143 @@ def _entry_source_path(entry: dict[str, object], tree: _WorkspaceTree) -> Path:
     return source
 
 
+# Normalize only driver syntax we understand. Unknown options and response files
+# retain their complete argument list, including output paths.
+_GNU_VALUE_OPTIONS = frozenset(
+    (
+        "-I",
+        "-D",
+        "-U",
+        "-isystem",
+        "-iquote",
+        "-idirafter",
+        "-include",
+        "-imacros",
+        "-isysroot",
+        "--sysroot",
+        "-x",
+        "-target",
+        "--target",
+        "-B",
+        "-resource-dir",
+        "--gcc-toolchain",
+        "-gcc-toolchain",
+        "-MT",
+        "-MQ",
+    )
+)
+_GNU_SINGLE_OPTIONS = frozenset(
+    (
+        "-c",
+        "-MD",
+        "-MMD",
+        "-MP",
+        "-pthread",
+        "-pipe",
+        "-nostdinc",
+        "-nostdinc++",
+        "-no-canonical-prefixes",
+        "-fstack-protector",
+        "-fstack-protector-strong",
+        "-fcolor-diagnostics",
+        "-fno-color-diagnostics",
+        "-fno-omit-frame-pointer",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-fexceptions",
+        "-fno-exceptions",
+        "-frtti",
+        "-fno-rtti",
+        "-fvisibility-inlines-hidden",
+        "-m32",
+        "-m64",
+    )
+)
+_GNU_JOINED_OPTIONS = (
+    "-I",
+    "-D",
+    "-U",
+    "-W",
+    "-O",
+    "-std=",
+    "--target=",
+    "--sysroot=",
+    "-stdlib=",
+    "-fvisibility=",
+    "-fsanitize=",
+    "-fno-sanitize=",
+    "-fdiagnostics-color=",
+    "-fdebug-prefix-map=",
+    "-ffile-prefix-map=",
+    "-fmacro-prefix-map=",
+)
+
+
+def _analysis_arguments(arguments: list[str]) -> list[str]:
+    """A conservative equality key, never the command that will be executed."""
+    driver = Path(arguments[0]).name
+    if not re.fullmatch(r"(?:clang(?:\+\+)?|gcc|g\+\+|cc|c\+\+)(?:-\d+(?:\.\d+)*)?", driver):
+        return arguments
+    if any(
+        arg.startswith("@")
+        or arg
+        in {
+            "-fpic",
+            "-fpie",
+            "-fPIE",
+            "-fno-pic",
+            "-fno-PIC",
+            "-fno-pie",
+            "-fno-PIE",
+        }
+        for arg in arguments
+    ):
+        return arguments
+    result = [arguments[0]]
+    pic = False
+    index = 1
+    while index < len(arguments):
+        arg = arguments[index]
+        if arg in _GNU_VALUE_OPTIONS or arg in {"-o", "-MF"}:
+            if index + 1 == len(arguments):
+                return arguments
+            if arg in _GNU_VALUE_OPTIONS:
+                result.extend(arguments[index : index + 2])
+            index += 2
+            continue
+        if arg == "-fPIC":
+            pic = True
+        elif arg.startswith("-frandom-seed="):
+            pass
+        elif (
+            not arg.startswith("-")
+            or arg in _GNU_SINGLE_OPTIONS
+            or arg.startswith(_GNU_JOINED_OPTIONS)
+            or re.fullmatch(r"-g(?:[0-3]|line-tables-only|dwarf-[2-5])?", arg)
+        ):
+            result.append(arg)
+        else:
+            return arguments
+        index += 1
+    # With competing PIC/PIE switches excluded, repeated -fPIC is idempotent
+    # and its position relative to independent options is immaterial.
+    if pic:
+        result.append("-fPIC")
+    return result
+
+
+def _analysis_command_key(entry: dict[str, object]) -> str | None:
+    canonical = {key: value for key, value in entry.items() if key != "output"}
+    arguments = entry.get("arguments")
+    if isinstance(arguments, list) and arguments and all(isinstance(arg, str) for arg in arguments):
+        canonical["arguments"] = _analysis_arguments(arguments)
+    elif not isinstance(entry.get("command"), str):
+        return None
+    # Shell commands are compared literally; parsing them would require the
+    # platform's quoting rules. Keep directory, compiler and extra metadata.
+    return json.dumps(canonical, sort_keys=True)
+
+
 def load_project_entries(workspace: Path, database: Path) -> list[dict[str, object]]:
     if not database.is_file():
         raise WorkflowError(f"compilation database was not generated: {database}")
@@ -225,6 +362,7 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
 
     tree = _workspace_tree(workspace.resolve())
     entries: list[dict[str, object]] = []
+    seen: set[str] = set()
     for entry in value:
         if not isinstance(entry, dict):
             raise WorkflowError("compilation database is malformed: entry is not an object")
@@ -240,6 +378,11 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
             continue
         if relative not in tree.files:
             raise WorkflowError(f"missing workspace translation unit: {tree.root / relative}")
+        key = _analysis_command_key(entry)
+        if key is not None:
+            if key in seen:
+                continue
+            seen.add(key)
         entries.append(entry)
 
     if not entries:
@@ -1091,7 +1234,18 @@ def run_workflow(
                     "FASTECU_TIDY_EXCEPTION_USAGE_DIR": str(usage_directory),
                 },
             )
-        print(f"Analyzing {len(entries)} translation units in {mode} mode.")
+        source_count = len(
+            {
+                os.path.normpath(
+                    os.path.join(str(workspace), str(entry["directory"]), str(entry["file"]))
+                )
+                for entry in entries
+            }
+        )
+        print(
+            f"Analyzing {len(entries)} compilation commands for {source_count} "
+            f"source files in {mode} mode."
+        )
         with timings.phase("analysis"):
             tidy_result, counts = _run_streaming(stream_runner, command, workspace, new_stream())
         checks = profile_report.parse_check_profile(tidy_result.stdout or "") if profile else {}
@@ -1145,11 +1299,11 @@ def run_workflow(
                 raise WorkflowError(f"exception usage audit failed: {error}") from error
         if finding_count:
             print(
-                f"clang-tidy: {len(entries)} files analyzed, {finding_count} findings "
+                f"clang-tidy: {source_count} files analyzed, {finding_count} findings "
                 f"({counts.unique} unique) (advisory)"
             )
         else:
-            print(f"clang-tidy: {len(entries)} files clean, 0 findings")
+            print(f"clang-tidy: {source_count} files clean, 0 findings")
         return {
             "translation_units": len(entries),
             "phases": dict(timings.durations),
