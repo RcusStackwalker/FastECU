@@ -10,6 +10,7 @@
 
 #include "src/backend/definition/romraider_parser.h"
 #include "src/backend/ports/error.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::definition
 {
