@@ -415,6 +415,9 @@ cc_toolchain(
     compiler = "msvc-cl",
     enabled_features = _ENABLED_FEATURES,
     known_features = _ENABLED_FEATURES + [":treat_warnings_as_errors_feature"],
+    # Wildcard builds analyze this declaration even when it is not selected.
+    # Skip it outside Windows, where --force_pic would fail MSVC validation.
+    target_compatible_with = ["@platforms//os:windows"],
     tool_map = ":tools",
 )
 

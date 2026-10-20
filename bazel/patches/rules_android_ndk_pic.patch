@@ -1,0 +1,12 @@
+diff --git a/ndk_cc_toolchain_config.bzl b/ndk_cc_toolchain_config.bzl
+--- a/ndk_cc_toolchain_config.bzl
++++ b/ndk_cc_toolchain_config.bzl
+@@ -256,5 +256,8 @@
+     # Construct features.
+     features = [
++        # Every compile action already emits -fPIC below. Declare that mode
++        # so rules_cc accepts --force_pic without changing the compiler flags.
++        feature(name = "pic", enabled = True),
+         # This set of magic "feature"s are important configuration information for bazel.
+         feature(
+             name = "no_legacy_features",

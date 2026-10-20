@@ -24,6 +24,13 @@ The spike uses `rules_android_ndk` 0.1.5 and was verified against NDK r30
 builds everything under backend/algorithms, and rejects reachable platform
 labels. CI runs it separately from desktop `bazel build //...`.
 
+The [NDK rules patch](../bazel/patches/rules_android_ndk_pic.patch), applied by
+[the module graph](../MODULE.bazel), declares the `pic` feature implemented by
+the toolchain's existing unconditional `-fPIC`. This lets `--force_pic` pass
+feature validation without changing Android compiler flags. The
+[build code-generation policy](tooling.md#build-code-generation) enables that
+flag on Unix hosts while preserving the native Windows mode.
+
 Remaining milestones:
 
 1. **Pin deployment/toolchain inputs.** Set API 29 explicitly (the spike used the
