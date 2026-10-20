@@ -84,7 +84,7 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "sha256=${sha256}" >> "$GITHUB_OUTPUT"
 
-      - uses: ./.github/actions/llvm-linux
+      - uses: ./.github/actions/llvm-release
         with:
           version: ${{ steps.llvm.outputs.version }}
           sha256: ${{ steps.llvm.outputs.sha256 }}
