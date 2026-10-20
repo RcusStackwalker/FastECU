@@ -14,6 +14,8 @@ on:
     secrets:
       SONAR_TOKEN:
         required: true
+      BUILDBUDDY_API_KEY:
+        required: true
 
 permissions:
   contents: read
@@ -23,8 +25,8 @@ jobs:
   sonarcloud:
     name: SonarCloud
     runs-on: ubuntu-26.04
-    # A hang here (see tests/force_asserts/BUILD.bazel for one known cause) would
-    # otherwise burn the full 6h GitHub Actions default before failing.
+    # A hang here would otherwise burn the full 6h GitHub Actions default before
+    # failing.
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,8 +38,11 @@ jobs:
         with:
           bazelisk-cache: true
           repository-cache: true
-          disk-cache: fastecu-sonar-${{ runner.os }}
           cache-save: ${{ inputs.cache-save }}
+
+      - uses: ./.github/actions/buildbuddy
+        with:
+          api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
 
       - uses: ./.github/actions/qt-runtime-linux
 
@@ -46,28 +51,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang llvm
 
-      - name: Install SonarCloud build wrapper
-        id: build-wrapper
-        uses: SonarSource/sonarqube-scan-action/install-build-wrapper@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
-
-      - name: Compile under the build wrapper
-        run: |
-          "${{ steps.build-wrapper.outputs.build-wrapper-binary }}" --out-dir bw-output \
-            bazel build --config=sonar --spawn_strategy=local --strategy=Genrule=local //...
-
-      # build-wrapper's LD_PRELOAD interceptor is loaded into the Bazel server
-      # once, here, and stays loaded for the server's remaining lifetime since
-      # it's a persistent daemon reused by later bazel invocations. Left
-      # running, it keeps trying to report to build-wrapper's already-exited
-      # CLI process during the unwrapped test run below and crashes the
-      # server. Shut it down so the next invocation starts a clean one.
-      - name: Shut down the build-wrapper-instrumented server
-        run: bazel shutdown
-
-      - name: Run tests with coverage
+      # The Qt headers Sonar parses live under bazel-out/.../_virtual_includes.
+      # A build served from the remote cache would not download them, and
+      # without qobjectdefs.h Sonar misreads Qt's `emit` as a declaration.
+      - name: Build and run tests with coverage
         run: scripts/coverage-local.sh
         env:
-          BAZEL_TEST_CONFIG: sonar
+          EXTRA_BAZEL_ARGS: --remote_download_regex=.*/_virtual_includes/.*
+
+      - name: Generate compile_commands.json
+        run: bazel run --config=coverage //bazel/compile_commands:refresh -- --config=coverage
+
+      - name: Check Qt headers resolve through the compile database
+        run: python3 scripts/sonar_compdb_check.py compile_commands.json
 
       - name: SonarCloud scan
         id: sonarcloud

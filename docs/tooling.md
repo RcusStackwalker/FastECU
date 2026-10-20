@@ -99,19 +99,21 @@ seconds sum work across translation units; they are not elapsed time.
 
 The `sonarcloud` job ([sonar.yml](../.github/workflows/sonar.yml)) gates the PR
 against [sonar-project.properties](../sonar-project.properties). To reproduce
-it locally on Linux, install the SonarSource build wrapper from
-`https://sonarcloud.io/static/cpp/` and `sonar-scanner`, then mirror CI:
+it locally, install `sonar-scanner`, then mirror CI:
 
 ```sh
-build-wrapper-linux-x86-64 --out-dir bw-output \
-    bazel build --config=sonar --spawn_strategy=local --strategy=Genrule=local //...
-bazel shutdown   # the wrapper's interceptor stays loaded in the Bazel server
-BAZEL_TEST_CONFIG=sonar scripts/coverage-local.sh
+scripts/coverage-local.sh
+bazel run --config=coverage //bazel/compile_commands:refresh -- --config=coverage
+python3 scripts/sonar_compdb_check.py compile_commands.json
 sonar-scanner -Dsonar.token=$SONAR_TOKEN
 ```
 
 The token is a personal one (SonarCloud → My Account → Security), not the CI
-secret. On macOS use the `build-wrapper-macosx-x86` package.
+secret. Sonar reads its C++ compile commands from Hedron's
+`compile_commands.json`, so the build stays cacheable (BuildBuddy in CI). The
+check script fails if Qt's `qobjectdefs.h` does not resolve through the
+database: without it Sonar misreads `emit` as a declaration and raises
+`cpp:S1117`/`cpp:S824` false positives.
 
 ### CodeQL
 

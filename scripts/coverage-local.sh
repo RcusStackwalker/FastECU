@@ -31,10 +31,12 @@ cd "$repo_root"
 # name; %p prevents collisions between concurrent processes from that binary.
 #
 # BAZEL_TEST_CONFIG lets a caller select a different named config from
-# bazel/coverage.bazelrc; the SonarCloud build-wrapper step (.github/workflows/sonar.yml)
-# passes `sonar`, which layers on :coverage with the disk cache disabled.
+# bazel/coverage.bazelrc.
+# EXTRA_BAZEL_ARGS is split on whitespace on purpose: it carries flags only.
+# shellcheck disable=SC2086
 bazel test \
   --config="$bazel_test_config" \
+  ${EXTRA_BAZEL_ARGS:-} \
   --nocache_test_results \
   --sandbox_writable_path="$coverage_root/profiles" \
   --test_env="LLVM_PROFILE_FILE=$coverage_root/profiles/%m-%p.profraw" \
