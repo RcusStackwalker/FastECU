@@ -88,7 +88,9 @@ macOS/Linux load a shared extension. The pinned Windows executable does not
 export the required symbols, so Bazel builds an analysis host with the checks
 linked into it and supplies its missing compression dependencies. The
 [packaging qualification](../scripts/clang_tidy_plugin/qualification/README.md)
-records the archive evidence. Ordinary
+records the archive evidence; the
+[rollout qualification](reference/clang-tidy-plugin-qualification.md) records
+checks, scope, parity, runtime measurements, and platform evidence. Ordinary
 application builds do not need LLVM development headers.
 
 Built-in and repository checks run together with the wider first-party header
