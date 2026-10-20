@@ -5,8 +5,10 @@ hill-climbing loop locally, and how CI runs them. The rules they enforce live in
 
 ## Build code generation
 
-[Bazel configuration](../.bazelrc) enables `--force_pic` by default, with
-`--noforce_pic` on Windows. On Linux this replaces the raw `-fPIC` flag: Bazel
+[Bazel configuration](../.bazelrc) enables `--force_pic` only in the Linux and
+macOS configurations. A global build option overrides platform options expanded
+from common configuration, so a global flag with a Windows opt-out is insufficient.
+On Linux this replaces the raw `-fPIC` flag: Bazel
 now generates one PIC compilation instead of separate `.o` and `.pic.o`
 actions that both already emitted PIC. Executables also link as PIE, retaining
 the Qt `staticMetaObject` identity needed by `qobject_cast` without copy

@@ -9,9 +9,10 @@ build --features=-default_cpp_std
 # Let Bazel generate only PIC objects instead of separate .o/.pic.o actions.
 # Linux also needs PIC references to Qt's staticMetaObject data to avoid copy
 # relocations that break qobject_cast. MSVC uses its own COFF relocation model
-# and rejects --force_pic; keep the Windows build in its native mode.
-build --force_pic
-build:windows --noforce_pic
+# and rejects --force_pic. Scope the flag to Unix configurations: a global
+# build option overrides Windows options expanded from common configuration.
+build:linux --force_pic
+build:macos --force_pic
 
 build:linux --cxxopt=-std=c++23
 build:linux --host_cxxopt=-std=c++23
