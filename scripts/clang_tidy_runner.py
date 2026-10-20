@@ -398,10 +398,12 @@ def find_executable(
     if root := environ.get("FASTECU_LLVM_ROOT"):
         for name in names:
             candidate = Path(root) / "bin" / name
+            candidates = [candidate]
             if platform_name.startswith("win") and not candidate.suffix:
-                candidate = candidate.with_suffix(".exe")
-            if candidate.is_file():
-                return str(candidate)
+                candidates.append(candidate.with_suffix(".exe"))
+            for path in candidates:
+                if path.is_file():
+                    return str(path)
         raise WorkflowError(f"selected LLVM installation {root} is missing {', '.join(names)}")
     for name in names:
         located = shutil.which(name, path=environ.get("PATH"))

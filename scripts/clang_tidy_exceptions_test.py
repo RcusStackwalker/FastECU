@@ -53,7 +53,7 @@ class ExceptionPolicyTest(unittest.TestCase):
 
     def test_paths_are_portable_canonical_and_relative(self):
         for path in (
-            "/tmp/test.cpp",
+            "/absolute/test.cpp",
             "../test.cpp",
             "src/../test.cpp",
             "./test.cpp",

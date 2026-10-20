@@ -283,6 +283,23 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 environ={"PATH": ""},
             )
 
+    def test_selected_windows_llvm_finds_extensionless_python_runner(self) -> None:
+        binary = self.root / "llvm" / "bin"
+        binary.mkdir(parents=True)
+        (binary / "clang-tidy.exe").write_text("native host")
+        (binary / "run-clang-tidy").write_text("# Python runner")
+        tools = runner.discover_tools(
+            "report",
+            platform_name="win32",
+            environ={"FASTECU_LLVM_ROOT": str(binary.parent)},
+        )
+        self.assertEqual(str(binary / "clang-tidy.exe"), tools.clang_tidy)
+        self.assertEqual(str(binary / "run-clang-tidy"), tools.run_clang_tidy)
+        self.assertEqual(
+            [runner.sys.executable, str(binary / "run-clang-tidy")],
+            runner._executable_command(tools.run_clang_tidy, platform_name="win32"),
+        )
+
     def test_windows_report_builds_parallel_runner_command(self) -> None:
         source = self.root / "windows.cpp"
         source.write_text("int windows_source;\n")
