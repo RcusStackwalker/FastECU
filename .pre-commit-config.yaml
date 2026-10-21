@@ -4,11 +4,12 @@ default_stages: [pre-commit]
 repos:
   - repo: builtin
     hooks:
-      # Fuzz seeds are exact bytes; the text fixers below would change them.
+      # Fuzz seeds are exact bytes; the text fixers below would change them. So are
+      # patches: a blank context line is a single space.
       - id: trailing-whitespace
-        exclude: (^|/)testdata/fuzz/
+        exclude: (^|/)testdata/fuzz/|^bazel/patches/.*[.]patch$
       - id: end-of-file-fixer
-        exclude: (^|/)testdata/fuzz/
+        exclude: (^|/)testdata/fuzz/|^bazel/patches/.*[.]patch$
       - id: fix-byte-order-marker
         exclude: (^|/)testdata/fuzz/
       - id: no-commit-to-branch

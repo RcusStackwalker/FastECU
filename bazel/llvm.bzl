@@ -1,6 +1,21 @@
 """Exposes the headers of the LLVM that provides clang-tidy, for the tidy plugin."""
 
+def _write_platform_args(repository_ctx):
+    """Writes defs.bzl with the extra clang-tidy arguments this host needs.
+
+    The Bazel C++ toolchain on macOS finds the SDK through xcrun at compile time, so
+    flags handed to a standalone clang-tidy would not name it; the LLVM libc++ headers
+    then clash with the SDK's.
+    """
+    args = []
+    if repository_ctx.os.name.startswith("mac"):
+        sdk = repository_ctx.execute(["xcrun", "--show-sdk-path"])
+        if not sdk.return_code and sdk.stdout.strip():
+            args = ["-extra-arg-before=-isysroot", "-extra-arg-before=" + sdk.stdout.strip()]
+    repository_ctx.file("defs.bzl", "CLANG_TIDY_PLATFORM_ARGS = " + json.encode(args) + "\n")
+
 def _local_llvm_impl(repository_ctx):
+    _write_platform_args(repository_ctx)
     selected_root = repository_ctx.getenv("FASTECU_LLVM_ROOT")
     llvm_config = repository_ctx.getenv("LLVM_CONFIG")
     if selected_root:
@@ -19,6 +34,7 @@ def _local_llvm_impl(repository_ctx):
     version = repository_ctx.execute([llvm_config, "--version"])
     root = str(repository_ctx.path(prefix.stdout.strip()).realpath)
     repository_ctx.symlink(root + "/lib", "lib")
+    repository_ctx.symlink(root + "/bin", "bin")
     identity = {
         "root": root,
         "version": version.stdout.strip(),
@@ -52,7 +68,7 @@ def _local_llvm_impl(repository_ctx):
     repository_ctx.file("BUILD.bazel", """load("@rules_cc//cc:defs.bzl", "cc_library")
 load("{headers_rule}", "llvm_headers")
 
-exports_files(["llvm-identity.json", "lib/libLTO.dylib"])
+exports_files(["defs.bzl", "llvm-identity.json", "lib/libLTO.dylib", "bin/clang-tidy"])
 
 llvm_headers(
     name = "clang_tidy_headers",
