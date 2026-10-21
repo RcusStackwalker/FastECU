@@ -4,7 +4,7 @@ import json
 import tempfile
 import unittest
 from io import StringIO
-from pathlib import Path
+from pathlib import Path, PurePath
 from subprocess import CompletedProcess
 from unittest import mock
 
@@ -91,6 +91,64 @@ def bep(groups: dict[str, list[str]], directory: Path) -> Path:
 
 
 class OutputFilesTest(unittest.TestCase):
+    def test_windows_file_uri(self) -> None:
+        with mock.patch.object(aspect.os, "name", "nt"):
+            self.assertEqual(
+                "C:/cache/a file.out",
+                aspect._file_path("file:///C:/cache/a%20file.out").as_posix(),
+            )
+
+    def test_encoded_space_in_output_uri(self) -> None:
+        self.assertEqual(Path("/cache/a file.out"), aspect._file_path("file:///cache/a%20file.out"))
+
+    def test_source_identity_uses_bep_name(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            source = "a_rules_lint/src/a.cpp.AspectRulesLintClangTidy.out"
+            path = bep({"rules_lint_human": [source, source + ".exit_code"]}, directory)
+            events = [json.loads(line) for line in path.read_text().splitlines()]
+            for event in events:
+                for index, file in enumerate(event.get("namedSetOfFiles", {}).get("files", [])):
+                    file["uri"] = (directory / f"digest-{index}").as_uri()
+            path.write_text("".join(json.dumps(event) + "\n" for event in events))
+            files = aspect.output_files(path)
+            self.assertEqual("src/a.cpp", files.sources[directory / "digest-0"])
+            self.assertEqual(1, aspect.source_count(files))
+
+    def test_missing_named_set_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            path = bep({"rules_lint_human": ["a.out"]}, Path(name))
+            events = [json.loads(line) for line in path.read_text().splitlines()]
+            path.write_text("".join(json.dumps(event) + "\n" for event in events[1:]))
+            with self.assertRaisesRegex(aspect.AspectError, "missing.*file set"):
+                aspect.output_files(path)
+
+    def test_missing_exit_code_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            path = bep({"rules_lint_human": ["a.AspectRulesLintClangTidy.out"]}, Path(name))
+            with self.assertRaisesRegex(aspect.AspectError, "exit code"):
+                aspect.output_files(path)
+
+    def test_scope_filters_sources_not_uri_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            human = [directory / "digest-a", directory / "digest-b", directory / "digest-c"]
+            codes = [directory / "code-a", directory / "code-b", directory / "code-c"]
+            fixes = [directory / "fix-a", directory / "fix-b", directory / "fix-c"]
+            sources = {
+                output: source
+                for index, source in enumerate(
+                    ("src/win/a.cpp", "src/portable/b.cpp", "src/win/a.cpp")
+                )
+                for output in (human[index], codes[index], fixes[index])
+            }
+            selected = aspect.select_outputs(
+                aspect.OutputFiles(human, codes, fixes, sources), [PurePath("src/win")]
+            )
+            self.assertEqual([human[0], human[2]], selected.human)
+            self.assertEqual([codes[0], codes[2]], selected.exit_codes)
+            self.assertEqual([fixes[0], fixes[2]], selected.fixes)
+
     def test_files_are_classified_by_suffix_through_nested_file_sets(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             directory = Path(name)
@@ -120,11 +178,22 @@ class OutputFilesTest(unittest.TestCase):
     def test_classification_follows_the_output_name_not_the_uri(self) -> None:
         with tempfile.TemporaryDirectory() as name:
             directory = Path(name)
-            path = bep({"rules_lint_human": ["a.AspectRulesLintClangTidy.out"]}, directory)
+            path = bep(
+                {
+                    "rules_lint_human": [
+                        "a.AspectRulesLintClangTidy.out",
+                        "a.AspectRulesLintClangTidy.out.exit_code",
+                    ]
+                },
+                directory,
+            )
             events = [json.loads(line) for line in path.read_text().splitlines()]
             for event in events:
                 for file in event.get("namedSetOfFiles", {}).get("files", []):
-                    file["uri"] = (directory / "digest-0123abcd").as_uri()
+                    file["uri"] = (
+                        directory
+                        / ("code" if file["name"].endswith("exit_code") else "digest-0123abcd")
+                    ).as_uri()
             path.write_text("".join(json.dumps(event) + "\n" for event in events))
             files = aspect.output_files(path)
         self.assertEqual(["digest-0123abcd"], [p.name for p in files.human])
@@ -173,6 +242,40 @@ class MainTest(unittest.TestCase):
 
 
 class ReportTest(unittest.TestCase):
+    def test_malformed_exit_code_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            out, code = directory / "a.out", directory / "a.out.exit_code"
+            out.write_text("")
+            for status in ("", "not a status", "0\n1"):
+                with self.subTest(status=status):
+                    code.write_text(status)
+                    with self.assertRaisesRegex(aspect.AspectError, "exit code"):
+                        self.report(aspect.OutputFiles([out], [code], []))
+
+    def test_failed_build_with_findings_remains_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            output_name = "a_rules_lint/src/a.cpp.AspectRulesLintClangTidy.out"
+            out = directory / output_name
+            out.parent.mkdir(parents=True)
+            out.write_text(_FINDING)
+            Path(str(out) + ".exit_code").write_text("1")
+
+            def failed_build(command: list[str], **kwargs: object) -> CompletedProcess[str]:
+                flag = next(c for c in command if c.startswith("--build_event_json_file="))
+                made = bep(
+                    {"rules_lint_human": [output_name, output_name + ".exit_code"]}, directory
+                )
+                Path(flag.split("=", 1)[1]).write_text(made.read_text())
+                return CompletedProcess(command, 1, "", "")
+
+            args = type(
+                "Args", (), {"targets": ["//src/..."], "bazel_arg": [], "annotate": False}
+            )()
+            with self.assertRaisesRegex(aspect.AspectError, "bazel build failed"):
+                aspect._build_and_report(args, Path("/ws"), failed_build)
+
     def setUp(self) -> None:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)

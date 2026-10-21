@@ -19,7 +19,7 @@ import sys
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePath
 from urllib.parse import unquote, urlparse
 
 import clang_tidy_output as output
@@ -49,6 +49,7 @@ class OutputFiles:
     human: list[Path] = field(default_factory=list)
     exit_codes: list[Path] = field(default_factory=list)
     fixes: list[Path] = field(default_factory=list)
+    sources: dict[Path, str] = field(default_factory=dict)
 
 
 def localize(text: str, workspace: Path) -> str:
@@ -63,19 +64,52 @@ def _file_path(uri: str) -> Path:
             f"an output was not downloaded from the remote cache ({uri}); "
             "pass --bazel-arg=--remote_download_toplevel or a --remote_download_regex"
         )
-    return Path(unquote(parsed.path))
+    path = unquote(parsed.path)
+    if os.name == "nt" and re.match(r"^/[A-Za-z]:", path):
+        path = path[1:]
+    if parsed.netloc and parsed.netloc != "localhost":
+        if os.name != "nt":
+            raise AspectError(f"unsupported file URI host: {parsed.netloc}")
+        path = f"//{parsed.netloc}{path}"
+    return Path(path)
+
+
+def _source_name(name: str) -> str | None:
+    match = re.search(r"_rules_lint/(.+)\.AspectRulesLintClangTidy\.", name)
+    return match[1] if match else None
+
+
+def _read_output(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError as error:
+        raise AspectError(f"cannot read lint output {path}: {error}") from error
+
+
+def _exit_status(path: Path) -> int:
+    text = _read_output(path).strip()
+    if not re.fullmatch(r"-?\d+", text):
+        raise AspectError(f"invalid lint exit code in {path}: {text!r}")
+    return int(text)
 
 
 def output_files(events_path: Path) -> OutputFiles:
     """The aspect outputs named by a build event file, classified by suffix."""
     sets: dict[str, dict[str, object]] = {}
     groups: list[dict[str, object]] = []
-    for line in events_path.read_text(encoding="utf-8").splitlines():
-        event = json.loads(line)
-        named = event.get("namedSetOfFiles")
-        if named is not None:
-            sets[event["id"]["namedSet"]["id"]] = named
-        groups.extend(event.get("completed", {}).get("outputGroup", []))
+    try:
+        for line in _read_output(events_path).splitlines():
+            event = json.loads(line)
+            named = event.get("namedSetOfFiles")
+            if named is not None:
+                sets[event["id"]["namedSet"]["id"]] = named
+            groups.extend(event.get("completed", {}).get("outputGroup", []))
+        return _collect_outputs(sets, groups)
+    except (ValueError, KeyError, TypeError) as error:
+        raise AspectError(f"invalid build events: {error}") from error
+
+
+def _collect_outputs(sets: Mapping[str, dict], groups: Sequence[dict]) -> OutputFiles:
 
     wanted = set(GROUPS.split(","))
     paths: dict[Path, None] = {}
@@ -89,26 +123,55 @@ def output_files(events_path: Path) -> OutputFiles:
         if identifier in seen:
             continue
         seen.add(identifier)
-        named = sets.get(identifier, {})
+        if identifier not in sets:
+            raise AspectError(f"missing build event file set: {identifier}")
+        named = sets[identifier]
         for file in named.get("files", []):
             path = _file_path(file["uri"])
             paths[path] = None
-            names[path] = file["name"]
+            names[path] = "/".join([*file.get("pathPrefix", []), file["name"]])
         pending.extend(ref["id"] for ref in named.get("fileSets", []))
 
     ordered = sorted(paths)
+    all_names = set(names.values())
+    for name in names.values():
+        if name.endswith(".AspectRulesLintClangTidy.out") and name + ".exit_code" not in all_names:
+            raise AspectError(f"missing lint exit code for {name}")
     return OutputFiles(
         human=[p for p in ordered if names[p].endswith(".AspectRulesLintClangTidy.out")],
         exit_codes=[
             p for p in ordered if names[p].endswith(".AspectRulesLintClangTidy.out.exit_code")
         ],
         fixes=[p for p in ordered if names[p].endswith(".AspectRulesLintClangTidy.fixes.yaml")],
+        sources={p: source for p in ordered if (source := _source_name(names[p])) is not None},
+    )
+
+
+def select_outputs(files: OutputFiles, prefixes: Sequence[PurePath]) -> OutputFiles:
+    """Select source outputs by their BEP identity, independently of cache filenames."""
+    if not prefixes:
+        return files
+    selected = {
+        path: source
+        for path, source in files.sources.items()
+        if any(
+            prefix == PurePath(source) or prefix in PurePath(source).parents for prefix in prefixes
+        )
+    }
+    return OutputFiles(
+        human=[p for p in files.human if p in selected],
+        exit_codes=[p for p in files.exit_codes if p in selected],
+        fixes=[p for p in files.fixes if p in selected],
+        sources=selected,
     )
 
 
 def source_count(files: OutputFiles) -> int:
     """How many sources were linted; a target with no sources has a placeholder output."""
-    return sum(any(part.endswith("_rules_lint") for part in path.parts) for path in files.human)
+    return sum(
+        path in files.sources or any(part.endswith("_rules_lint") for part in path.parts)
+        for path in files.human
+    )
 
 
 def report(
@@ -120,6 +183,7 @@ def report(
     annotate: bool,
 ) -> int:
     """Print the findings and return how many there were (failed runs count as one each)."""
+    failed = [path for path in files.exit_codes if _exit_status(path) != 0]
     stream = output.OutputStream(
         workspace=workspace,
         write=lambda text: write(text + "\n"),
@@ -127,15 +191,12 @@ def report(
         annotate=annotate,
     )
     for path in files.human:
-        for line in localize(
-            path.read_text(encoding="utf-8", errors="replace"), workspace
-        ).splitlines():
+        for line in localize(_read_output(path), workspace).splitlines():
             stream.feed(line)
     findings = stream.finish().unique
     if findings:
         return findings
     # A run that failed without producing a parseable finding must not pass silently.
-    failed = [p for p in files.exit_codes if p.read_text(encoding="utf-8").strip() not in ("", "0")]
     for path in failed:
         write(f"clang-tidy failed without a diagnostic: {path.name}\n")
     return len(failed)
@@ -224,7 +285,7 @@ def _build_and_report(
             color=sys.stdout.isatty(),
             annotate=args.annotate,
         )
-    if build.returncode and not findings:
+    if build.returncode:
         raise AspectError(f"bazel build failed with exit code {build.returncode}")
     return findings, files
 
