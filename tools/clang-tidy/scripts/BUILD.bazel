@@ -44,6 +44,7 @@ py_binary(
     }),
     imports = ["."],
     main = "clang_tidy_aspect.py",
+    tags = ["manual"],
     visibility = ["//:__pkg__"],
     deps = ["@python_deps//pyyaml"],
 )
