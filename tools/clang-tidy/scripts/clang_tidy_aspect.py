@@ -23,6 +23,7 @@ from pathlib import Path, PurePath
 from urllib.parse import unquote, urlparse
 
 import clang_tidy_output as output
+import clang_tidy_profile as profile
 import clang_tidy_scope as scope
 import clang_tidy_toolchain as analysis_toolchain
 
@@ -303,12 +304,33 @@ def effective_bazel_args(extra: Sequence[str]) -> list[str]:
     return [*default, *extra]
 
 
+def emit_profile(files: OutputFiles, environ: Mapping[str, str]) -> None:
+    """Render one aggregate table from recorded selected-source outputs."""
+    checks: dict[str, float] = {}
+    missing = 0
+    sources = dict.fromkeys(path for path in files.human if path in files.sources)
+    for path in sources:
+        recorded = profile.parse_check_profile(_read_output(path))
+        missing += not recorded
+        for name, seconds in recorded.items():
+            checks[name] = checks.get(name, 0.0) + seconds
+    table = profile.render_check_table(checks, len(sources), missing)
+    print(table)
+    if summary := environ.get("GITHUB_STEP_SUMMARY"):
+        try:
+            with Path(summary).open("a", encoding="utf-8") as stream:
+                stream.write(table + "\n")
+        except OSError as error:
+            raise AspectError(f"cannot write check timing summary: {error}") from error
+
+
 def main(argv: Sequence[str] | None = None, run: Run = subprocess.run) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("targets", nargs="*", default=["//..."])
     parser.add_argument("--fix", action="store_true", help="apply suggested fixes, then re-check")
     parser.add_argument("--annotate", action="store_true", help="also print GitHub annotations")
     parser.add_argument("--scope-os", help="restrict sources to the OS scope manifest")
+    parser.add_argument("--profile", action="store_true", help="show recorded per-check timings")
     parser.add_argument("--bazel-arg", action="append", default=[], help="extra `bazel build` flag")
     args = parser.parse_args(argv)
     workspace = Path(os.environ.get("BUILD_WORKSPACE_DIRECTORY", Path.cwd()))
@@ -330,6 +352,8 @@ def main(argv: Sequence[str] | None = None, run: Run = subprocess.run) -> int:
             print(f"clang-tidy: applied fixes (pass {attempt + 1}); checking again.")
         noun = "finding" if findings == 1 else "findings"
         print(f"clang-tidy: {source_count(files)} files, {findings} {noun}")
+        if args.profile or os.environ.get("GITHUB_ACTIONS") == "true":
+            emit_profile(files, os.environ)
         return 1 if findings else 0
     except (AspectError, scope.ScopeError, analysis_toolchain.ToolchainError) as error:
         print(f"clang-tidy: {error}", file=sys.stderr)

@@ -91,3 +91,28 @@ def render_markdown(
         lines.append(f"| {name} | {seconds:.1f} | {share:.1f}% |")
     lines.append("")
     return "\n".join(lines)
+
+
+def render_check_table(
+    checks: Mapping[str, float], translation_units: int, missing_profiles: int = 0
+) -> str:
+    """Describe recorded check costs, including samples retrieved from the action cache."""
+    lines = [
+        "### clang-tidy check timings",
+        "",
+        f"Translation units: {translation_units}",
+        "Metric: recorded wall seconds summed across translation units, including cached results.",
+        "Samples span runs and machines; these are not current-run elapsed times.",
+        "",
+    ]
+    if missing_profiles:
+        lines.extend([f"Missing profiles: {missing_profiles} translation units.", ""])
+    if not checks:
+        lines.append("No check profile data was found in the clang-tidy output.")
+    else:
+        lines.extend(["| Check | Recorded wall seconds | Share |", "|---|---:|---:|"])
+        total = sum(checks.values())
+        for name, seconds in sorted(checks.items(), key=lambda item: (-item[1], item[0])):
+            share = 100.0 * seconds / total if total else 0.0
+            lines.append(f"| {name} | {seconds:.6f} | {share:.1f}% |")
+    return "\n".join([*lines, ""])

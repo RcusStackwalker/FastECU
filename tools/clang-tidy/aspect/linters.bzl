@@ -13,5 +13,5 @@ clang_tidy = lint_clang_tidy_aspect(
     plugins = [Label("//tools/clang-tidy/aspect:plugins")],
     deps = [Label("@local_llvm//:clang_resource_headers")],
     rule_kinds = ["cc_binary", "cc_library", "cc_test"],
-    args = CLANG_TIDY_PLATFORM_ARGS,
+    args = CLANG_TIDY_PLATFORM_ARGS + ["--enable-check-profile"],
 )

@@ -211,6 +211,14 @@ class OutputFilesTest(unittest.TestCase):
 
 
 class MainTest(unittest.TestCase):
+    def test_profile_does_not_change_build_command(self) -> None:
+        _, ordinary, _ = self.run_main({})
+        _, profiled, _ = self.run_main({}, ["--profile"])
+        self.assertEqual(
+            [arg for arg in ordinary if not arg.startswith("--build_event_json_file=")],
+            [arg for arg in profiled if not arg.startswith("--build_event_json_file=")],
+        )
+
     def test_preflight_rejects_invalid_analysis_host(self) -> None:
         err = StringIO()
         with (
@@ -454,6 +462,34 @@ class CommandTest(unittest.TestCase):
     def test_a_missing_apply_replacements_is_an_error(self) -> None:
         with self.assertRaises(aspect.AspectError):
             aspect.find_apply_replacements({}, which=lambda _: None, homebrew=())
+
+
+class ProfileOutputTest(unittest.TestCase):
+    def test_profile_includes_cached_outputs_once(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            first, second = root / "cached-a", root / "cached-b"
+            row = "0.0100 (10%) 0.0000 (0%) 0.0100 (10%) 0.0300 (30%) check-a\n"
+            first.write_text(row)
+            second.write_text(row)
+            summary = root / "summary.md"
+            files = aspect.OutputFiles(
+                human=[first, second, first],
+                sources={first: "src/a.cpp", second: "src/b.cpp"},
+            )
+            with mock.patch("sys.stdout", StringIO()) as output:
+                aspect.emit_profile(files, {"GITHUB_STEP_SUMMARY": str(summary)})
+            self.assertIn("| check-a | 0.060000 |", output.getvalue())
+            self.assertEqual(1, output.getvalue().count("| Check |"))
+            self.assertEqual(summary.read_text().strip(), output.getvalue().strip())
+
+    def test_missing_profile_is_explicit(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            out = Path(name) / "empty.out"
+            out.write_text("")
+            with mock.patch("sys.stdout", StringIO()) as output:
+                aspect.emit_profile(aspect.OutputFiles(human=[out], sources={out: "a.cpp"}), {})
+            self.assertIn("Missing profiles: 1", output.getvalue())
 
 
 if __name__ == "__main__":

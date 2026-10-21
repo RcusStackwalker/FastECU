@@ -34,6 +34,7 @@ py_binary(
     srcs = [
         "clang_tidy_aspect.py",
         "clang_tidy_output.py",
+        "clang_tidy_profile.py",
         "clang_tidy_scope.py",
         "clang_tidy_toolchain.py",
     ],
@@ -52,6 +53,7 @@ py_test(
     srcs = [
         "clang_tidy_aspect.py",
         "clang_tidy_output.py",
+        "clang_tidy_profile.py",
         "clang_tidy_scope.py",
         "clang_tidy_toolchain.py",
         "tests/clang_tidy_aspect_test.py",

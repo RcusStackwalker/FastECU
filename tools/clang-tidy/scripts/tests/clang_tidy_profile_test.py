@@ -54,6 +54,24 @@ class ParseCheckProfileTest(unittest.TestCase):
 
 
 class RenderMarkdownTest(unittest.TestCase):
+    def test_one_table_includes_every_check(self) -> None:
+        text = profile.render_check_table({f"check-{i}": float(i + 1) for i in range(20)}, 2)
+        self.assertEqual(1, text.count("| Check |"))
+        for i in range(20):
+            self.assertIn(f"| check-{i} |", text)
+        self.assertLess(text.index("| check-19 |"), text.index("| check-0 |"))
+
+    def test_recorded_wall_time_label(self) -> None:
+        text = profile.render_check_table({"a": 0.03}, 2)
+        self.assertIn("recorded wall seconds summed across translation units", text)
+        self.assertIn("cached", text)
+        self.assertNotIn("| Phase |", text)
+
+    def test_missing_profile_is_explicit(self) -> None:
+        text = profile.render_check_table({}, 2, missing_profiles=1)
+        self.assertIn("Missing profiles: 1", text)
+        self.assertIn("No check profile data", text)
+
     def test_lists_phases_and_checks_slowest_first(self) -> None:
         text = profile.render_markdown(
             {"a-fast": 1.0, "b-slow": 9.0},
