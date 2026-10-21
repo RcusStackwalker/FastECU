@@ -212,14 +212,20 @@ EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
   accessing it.
 - **Pass the operation straight to the assertion** when its result is used
   once, unless a local is needed to preserve operation or cleanup order.
-- `Not(IsOk())` only when the contract permits any error, with an exact
-  rationale in [the central exception policy](../.clang-tidy-exceptions.yaml). Plain
+- `Not(IsOk())` only when the contract permits any error, inside a
+  `NOLINTBEGIN/NOLINTEND(fastecu-result-assertion)` block that says why. Plain
   `std::optional` checks and the low-level Result API tests use ordinary
   assertions.
 - Helpers that fallibly build plans return `Result<FlashPlan>` and propagate
   errors without asserting or throwing to unwrap. The test body asserts
   `IsOk()`. A fatal assertion in a helper returns only from the helper.
   Receiving or forwarding an already valid plan is allowed.
+  A lambda immediately invoked in a GoogleTest fixture constructor's member
+  initializer may instead check `.has_value()` and throw with the error detail
+  to initialize a `const FlashPlan` member. Successful fixture construction then
+  guarantees a valid plan before the test body runs; GoogleTest reports a
+  constructor exception as a test failure with its normal exception handling.
+  This exception does not apply to ordinary helpers or constructor-body lambdas.
 
 **Assert containers with gmock matchers** (`ElementsAre`, `Each`, `Field`),
 not element-checking loops or equality algorithms reduced to `EXPECT_TRUE`.

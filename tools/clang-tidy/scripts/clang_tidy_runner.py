@@ -16,11 +16,9 @@ import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path, PurePath
 from typing import TypedDict
 
-import clang_tidy_exceptions as exception_policy
 import clang_tidy_output as output_format
 import clang_tidy_profile as profile_report
 import clang_tidy_scope as scope_manifest
@@ -504,7 +502,6 @@ def config_changed(changed: Sequence[Path]) -> bool:
             ".bazelrc",
             "BUILD",
             "BUILD.bazel",
-            ".clang-tidy-exceptions.yaml",
             ".clang-tidy-scope.toml",
             "MODULE.bazel",
             "MODULE.bazel.lock",
@@ -1061,16 +1058,6 @@ def run_workflow(
     if analysis_host and analysis_host.llvm_root:
         environ = dict(environ, FASTECU_LLVM_ROOT=str(analysis_host.llvm_root))
 
-    policy_path = workspace / ".clang-tidy-exceptions.yaml"
-    try:
-        rules = (
-            exception_policy.load_exceptions(policy_path)
-            if analysis_host or policy_path.exists()
-            else ()
-        )
-    except exception_policy.ExceptionConfigError as error:
-        raise WorkflowError(str(error)) from error
-    full_scope = not changed
     manifest = _load_scope(workspace)
     scope_prefixes: tuple[PurePath, ...] = ()
     if manifest is not None:
@@ -1133,7 +1120,6 @@ def run_workflow(
         if changed:
             changed_paths = changed_files(workspace, command_runner)
             if config_changed(changed_paths):
-                full_scope = True
                 print(
                     "clang-tidy: enforcement inputs changed; "
                     "analyzing every translation unit in scope."
@@ -1226,15 +1212,6 @@ def run_workflow(
                 annotate=annotate,
             )
 
-        usage_directory = temp_root / "exception-usage"
-        usage_directory.mkdir()
-        if stream_runner is stream_lines:
-            stream_runner = partial(
-                stream_lines,
-                extra_environ={
-                    "FASTECU_TIDY_EXCEPTION_USAGE_DIR": str(usage_directory),
-                },
-            )
         source_count = len(
             {
                 os.path.normpath(
@@ -1273,31 +1250,6 @@ def run_workflow(
             if mode == "fix":
                 detail += "; exported fixes were applied before reporting the failure"
             raise WorkflowError(detail)
-        if custom_checks:
-            try:
-                used = set()
-                for usage_file in usage_directory.glob("*.json"):
-                    records = json.loads(usage_file.read_text())
-                    if not isinstance(records, list):
-                        raise ValueError("usage report must contain a list")
-                    for record in records:
-                        if (
-                            not isinstance(record, dict)
-                            or set(record) != {"check", "file", "symbol"}
-                            or not all(isinstance(value, str) for value in record.values())
-                        ):
-                            raise ValueError("invalid exception usage identity")
-                        used.add((record["check"], record["file"], record["symbol"]))
-                scoped_rules = rules
-                if scope_os is not None:
-                    scoped_rules = tuple(
-                        rule
-                        for rule in rules
-                        if scope_manifest.in_scope(Path(rule.file), scope_prefixes)
-                    )
-                exception_policy.validate_usage(scoped_rules, used, full_scope=full_scope)
-            except (exception_policy.ExceptionConfigError, OSError, ValueError) as error:
-                raise WorkflowError(f"exception usage audit failed: {error}") from error
         if finding_count:
             print(
                 f"clang-tidy: {source_count} files analyzed, {finding_count} findings "

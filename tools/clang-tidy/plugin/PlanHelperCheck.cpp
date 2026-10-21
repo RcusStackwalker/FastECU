@@ -6,6 +6,27 @@ namespace fastecu::tidy
 {
 namespace
 {
+bool IsFixtureMemberInitializer(const clang::FunctionDecl& function, clang::ASTContext& context)
+{
+    using namespace clang::ast_matchers;
+    const auto *method = llvm::dyn_cast<clang::CXXMethodDecl>(&function);
+    if (!method || !method->getParent()->isLambda())
+        return false;
+    const auto *constructor = llvm::dyn_cast<clang::CXXConstructorDecl>(method->getParent()->getDeclContext());
+    if (!constructor ||
+        match(cxxRecordDecl(isDerivedFrom("::testing::Test")), *constructor->getParent(), context).empty())
+        return false;
+    for (const auto *initializer : constructor->inits())
+    {
+        if (!initializer->isMemberInitializer())
+            continue;
+        const auto *call = llvm::dyn_cast_or_null<clang::CallExpr>(StripExpression(initializer->getInit()));
+        if (call && call->getDirectCallee() == method)
+            return true;
+    }
+    return false;
+}
+
 class ReturnDependency : public clang::RecursiveASTVisitor<ReturnDependency>
 {
   public:
@@ -64,7 +85,7 @@ class PlanBody : public clang::RecursiveASTVisitor<PlanBody>
 };
 } // namespace
 PlanHelperCheck::PlanHelperCheck(llvm::StringRef name, clang::tidy::ClangTidyContext *context)
-    : ClangTidyCheck(name, context), policy_(*context)
+    : ClangTidyCheck(name, context)
 {
 }
 void PlanHelperCheck::registerMatchers(clang::ast_matchers::MatchFinder *finder)
@@ -74,7 +95,6 @@ void PlanHelperCheck::registerMatchers(clang::ast_matchers::MatchFinder *finder)
 }
 void PlanHelperCheck::check(const clang::ast_matchers::MatchFinder::MatchResult& result)
 {
-    ast_ = result.Context;
     const auto *function = result.Nodes.getNodeAs<clang::FunctionDecl>("function");
     if (!function || !IsTestFunction(*function, *result.SourceManager))
         return;
@@ -83,25 +103,12 @@ void PlanHelperCheck::check(const clang::ast_matchers::MatchFinder::MatchResult&
     const bool raw = record && record->getQualifiedNameAsString() == "fastecu::flash::FlashPlan";
     if (!raw && !IsResultPlanType(type))
         return;
+    if (raw && IsFixtureMemberInitializer(*function, *result.Context))
+        return;
     PlanBody body(*result.Context);
     body.TraverseStmt(function->getBody());
     if ((raw && body.fallible_return) || (!raw && body.fallible_call && body.aborts))
-        if (!policy_.Allows("fastecu-plan-helper", *function->getBody(), *result.Context))
-            diag(function->getLocation(), "propagate fallible plan construction as Result<FlashPlan>; assert in the "
-                                          "caller instead of unwrapping or throwing in a helper");
-}
-void PlanHelperCheck::storeOptions(clang::tidy::ClangTidyOptions::OptionMap& options)
-{
-    policy_.StoreOptions(options);
-}
-void PlanHelperCheck::onEndOfTranslationUnit()
-{
-    if (!ast_)
-        return;
-    const auto error = policy_.ConfigurationError().empty() ? policy_.FlushUsage() : policy_.ConfigurationError();
-    if (!error.empty())
-        diag(ast_->getSourceManager().getLocForStartOfFile(ast_->getSourceManager().getMainFileID()), "%0",
-             clang::DiagnosticIDs::Error)
-            << error;
+        diag(function->getLocation(), "propagate fallible plan construction as Result<FlashPlan>; assert in the "
+                                      "caller instead of unwrapping or throwing in a helper");
 }
 } // namespace fastecu::tidy

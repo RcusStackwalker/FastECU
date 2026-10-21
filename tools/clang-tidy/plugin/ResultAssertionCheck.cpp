@@ -14,7 +14,7 @@ using namespace clang;
 using namespace clang::ast_matchers;
 
 ResultAssertionCheck::ResultAssertionCheck(llvm::StringRef name, clang::tidy::ClangTidyContext *context)
-    : ClangTidyCheck(name, context), policy_(*context)
+    : ClangTidyCheck(name, context)
 {
 }
 
@@ -94,7 +94,7 @@ bool ResultAssertionCheck::InResultApi(const Stmt& statement) const
 
 void ResultAssertionCheck::DiagnoseBoolean(const Stmt& statement)
 {
-    if (InResultApi(statement) || policy_.Allows("fastecu-result-assertion", statement, *ast_))
+    if (InResultApi(statement))
         return;
     diag(statement.getBeginLoc(),
          "assert Result/Status with IsOk(), IsErr(), or IsErrWith() rather than a bare boolean assertion");
@@ -104,10 +104,10 @@ void ResultAssertionCheck::DiagnoseError(const Expr& expression)
 {
     if (InResultApi(expression) || !IsTestSource(expression.getBeginLoc(), ast_->getSourceManager()))
         return;
-    if (!EnclosingFunction(expression, *ast_) || policy_.Allows("fastecu-result-assertion", expression, *ast_))
+    if (!EnclosingFunction(expression, *ast_))
         return;
     diag(expression.getBeginLoc(),
-         "assert Result errors with IsErr() or IsErrWith(); an any-error assertion requires a documented exception");
+         "assert Result errors with IsErr() or IsErrWith(); an any-error assertion requires a NOLINT that says why");
 }
 
 void ResultAssertionCheck::CheckConversion(const CXXMemberCallExpr& conversion)
@@ -142,20 +142,5 @@ void ResultAssertionCheck::check(const MatchFinder::MatchResult& result)
     }
     if (const auto *node = result.Nodes.getNodeAs<Stmt>("assertion"))
         DiagnoseBoolean(*node);
-}
-void ResultAssertionCheck::storeOptions(clang::tidy::ClangTidyOptions::OptionMap& options)
-{
-    policy_.StoreOptions(options);
-}
-
-void ResultAssertionCheck::onEndOfTranslationUnit()
-{
-    if (!ast_)
-        return;
-    const auto error = policy_.ConfigurationError().empty() ? policy_.FlushUsage() : policy_.ConfigurationError();
-    if (!error.empty())
-        diag(ast_->getSourceManager().getLocForStartOfFile(ast_->getSourceManager().getMainFileID()), "%0",
-             clang::DiagnosticIDs::Error)
-            << error;
 }
 } // namespace fastecu::tidy

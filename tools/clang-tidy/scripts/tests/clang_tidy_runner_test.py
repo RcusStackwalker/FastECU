@@ -48,7 +48,6 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.root = Path(self.temp_dir.name).resolve() / "workspace"
         self.root.mkdir()
         (self.root / ".clang-tidy").write_text("Checks: '-*'\n")
-        (self.root / ".clang-tidy-exceptions.yaml").write_text("version: 1\nexceptions: []\n")
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -1608,39 +1607,6 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 failure = str(error)
         return output.getvalue(), failure
 
-    def test_unused_exception_fails_full_report(self) -> None:
-        (self.root / ".clang-tidy-exceptions.yaml").write_text(
-            yaml.safe_dump(
-                {
-                    "version": 1,
-                    "exceptions": [
-                        {
-                            "check": "fastecu-result-assertion",
-                            "file": "main.cpp",
-                            "symbol": "Fixture.Case",
-                            "rationale": "Only failure matters.",
-                        }
-                    ],
-                }
-            )
-        )
-        _, failure = self.run_repository_pass(findings=0, exit_code=0)
-        self.assertIn("unused exceptions", failure)
-
-    def test_malformed_exception_fails_before_build(self) -> None:
-        (self.root / ".clang-tidy-exceptions.yaml").write_text("version: 1\nexceptions: [{}]\n")
-        commands, fake_run = self.prebuild_fixture()
-        with self.assertRaisesRegex(runner.WorkflowError, "entry requires"):
-            runner.run_workflow(
-                mode="report",
-                workspace=self.root,
-                compdb_tool=_UNIX_COMPDB_TOOL,
-                platform_name="linux",
-                environ={},
-                command_runner=fake_run,
-            )
-        self.assertEqual([], commands)
-
     def test_repository_findings_fail_the_run(self) -> None:
         _, failure = self.run_repository_pass(findings=1, exit_code=1)
         self.assertEqual("1 findings; run-clang-tidy failed with exit code 1", failure)
@@ -1663,7 +1629,6 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
     def test_selected_analysis_host_is_forwarded_to_the_check_pass(self) -> None:
         (self.root / ".clang-tidy").write_text("Checks: '-*'\n")
-        (self.root / ".clang-tidy-exceptions.yaml").write_text("version: 1\nexceptions: []\n")
         configured = runner.analysis_toolchain.AnalysisHost(
             Path("/llvm/bin/clang-tidy"), ("--load=/p/libx.dylib",)
         )
@@ -2011,7 +1976,6 @@ class ClangTidyRunnerTest(unittest.TestCase):
             "tools/clang-tidy/plugin/ResultAssertionCheck.cpp",
             "tools/clang-tidy/plugin/BUILD.bazel",
             "bazel/llvm_headers.bzl",
-            ".clang-tidy-exceptions.yaml",
         ):
             with self.subTest(relative=relative):
                 self.assertTrue(runner.config_changed([self.root / relative]))

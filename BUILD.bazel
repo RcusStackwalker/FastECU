@@ -110,7 +110,6 @@ gazelle(
 # Symbolic macros cannot implicitly declare their hardcoded source inputs.
 exports_files([
     ".clang-tidy",
-    ".clang-tidy-exceptions.yaml",
     ".github/workflows/pr.yml",
 ])
 

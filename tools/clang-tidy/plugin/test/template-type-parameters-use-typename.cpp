@@ -1,5 +1,5 @@
 // RUN: %check_clang_tidy -std=c++23 %s fastecu-template-typename %t_test -- \
-// RUN:   %load %check_config -- %cxx_flags
+// RUN:   %load -- %cxx_flags
 
 #include <concepts>
 template <class First,

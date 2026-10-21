@@ -4,7 +4,6 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang-tidy/ClangTidyDiagnosticConsumer.h"
 
-#include <memory>
 #include <optional>
 #include <string>
 
@@ -39,19 +38,4 @@ ResultState MatcherState(const clang::Expr *matcher);
 bool IsAnyErrorMatcher(const clang::Expr *matcher);
 std::string ResultKey(const clang::Expr *expression);
 const clang::FunctionDecl *EnclosingFunction(const clang::Stmt& statement, clang::ASTContext& context);
-
-class ExceptionPolicy
-{
-  public:
-    explicit ExceptionPolicy(clang::tidy::ClangTidyContext& context);
-    ~ExceptionPolicy();
-    bool Allows(llvm::StringRef check, const clang::Stmt& statement, clang::ASTContext& context);
-    const std::string& ConfigurationError() const;
-    std::string FlushUsage();
-    void StoreOptions(clang::tidy::ClangTidyOptions::OptionMap& options) const;
-
-  private:
-    struct Impl;
-    std::unique_ptr<Impl> impl_;
-};
 } // namespace fastecu::tidy
