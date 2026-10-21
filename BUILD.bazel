@@ -132,6 +132,18 @@ alias(
 )
 
 py_test(
+    name = "clang_tidy_configs_test",
+    size = "small",
+    srcs = [
+        "scripts/clang_tidy_configs.py",
+        "scripts/tests/clang_tidy_configs_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/tests/clang_tidy_configs_test.py",
+    deps = ["@python_deps//pyyaml"],
+)
+
+py_test(
     name = "gazelle_check_test",
     size = "small",
     srcs = [

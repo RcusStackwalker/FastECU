@@ -67,6 +67,9 @@ jobs:
       - name: Check BUILD files are up to date
         run: prek run gazelle --hook-stage pre-push --all-files
 
+      - name: Check clang-tidy configuration chains are up to date
+        run: prek run clang-tidy-configs --hook-stage pre-push --all-files
+
   android-cross-compile:
     name: Portable core (platform-free, Android build)
     needs: pre-commit
