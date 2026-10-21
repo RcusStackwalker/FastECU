@@ -298,17 +298,22 @@ jobs:
         run: |
           bazel run --config=release //:clang_tidy_report_changed -- --profile --annotate ${{ matrix.scope }}
 
-  # The Bazel lint aspect (tools/clang-tidy/aspect), run beside the job above while the spike
-  # (docs/superpowers/specs/2026-10-21-clang-tidy-aspect-spike.md) proves it finds what that job
-  # finds. It checks the whole tree, but Bazel's action cache (BuildBuddy) re-runs clang-tidy only
-  # for sources whose inputs changed. Not a gate yet: continue-on-error keeps a failure from
-  # failing the PR.
+  # Temporary clean/seeded qualification beside the legacy gate. The final cutover
+  # replaces the existing blocking jobs and removes this comparison matrix.
   clang-tidy-aspect:
-    name: clang-tidy aspect (ubuntu-26.04)
+    name: clang-tidy aspect qualification (${{ matrix.os }})
     needs: pre-commit
-    runs-on: ubuntu-26.04
+    runs-on: ${{ matrix.os }}
     continue-on-error: true
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-26.04
+            scope: ''
+          - os: windows-latest
+            scope: '--scope-os windows'
     defaults:
       run:
         shell: bash
@@ -326,18 +331,28 @@ jobs:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
 
       - uses: ./.github/actions/qt-runtime-linux
+        if: runner.os == 'Linux'
 
       # @local_llvm builds the plugin against this install and the aspect runs its clang-tidy.
       - uses: ./.github/actions/llvm-release
         with:
           version: ${{ env.CLANG_TIDY_LLVM_VERSION }}
-          sha256: ${{ env.CLANG_TIDY_LLVM_SHA256_LINUX }}
+          sha256: ${{ runner.os == 'Windows' && env.CLANG_TIDY_LLVM_SHA256_WINDOWS || env.CLANG_TIDY_LLVM_SHA256_LINUX }}
 
       - name: Select LLVM compiler for the Linux analysis extension
+        if: runner.os == 'Linux'
         run: |
           echo "CC=$FASTECU_LLVM_ROOT/bin/clang" >> "$GITHUB_ENV"
           echo "CXX=$FASTECU_LLVM_ROOT/bin/clang++" >> "$GITHUB_ENV"
 
-      - name: clang-tidy aspect
+      - name: Compare clean and seeded clang-tidy scopes
         run: |
-          bazel run --config=release //:clang_tidy_aspect -- --annotate --bazel-arg=--config=release
+          bazel run --config=release //tools/clang-tidy/scripts:clang_tidy_qualify -- --output reports/clang-tidy-qualification ${{ matrix.scope }}
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: clang-tidy-qualification-${{ runner.os }}
+          path: reports/clang-tidy-qualification
+          if-no-files-found: warn

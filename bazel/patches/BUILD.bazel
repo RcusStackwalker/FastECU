@@ -6,6 +6,7 @@ exports_files([
     "rules_lint_clang_tidy_config_chains.patch",
     "rules_lint_clang_tidy_export_fixes.patch",
     "rules_lint_clang_tidy_plugins.patch",
+    "rules_lint_clang_tidy_msvc_standard.patch",
     "rules_qt_drop_intel_mac.patch",
     "rules_qt_mac_single_rpath.patch",
     "rules_qt_windows_addons.patch",

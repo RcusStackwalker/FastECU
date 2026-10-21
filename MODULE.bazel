@@ -38,6 +38,7 @@ single_version_override(
         "//bazel/patches:rules_lint_clang_tidy_plugins.patch",
         "//bazel/patches:rules_lint_clang_tidy_config_chains.patch",
         "//bazel/patches:rules_lint_clang_tidy_export_fixes.patch",
+        "//bazel/patches:rules_lint_clang_tidy_msvc_standard.patch",
     ],
 )
 
