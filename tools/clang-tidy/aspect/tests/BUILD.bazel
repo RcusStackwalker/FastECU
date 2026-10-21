@@ -1,0 +1,43 @@
+# gazelle:ignore
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:defs.bzl", "py_test")
+load(":transition.bzl", "forward", "lint_outputs")
+
+package(default_visibility = ["//visibility:private"])
+
+cc_library(
+    name = "leaf",
+    srcs = ["probe.cpp"],
+    tags = ["manual"],
+)
+
+cc_library(
+    name = "inner",
+    tags = ["manual"],
+    deps = [":leaf"],
+)
+
+forward(
+    name = "forward",
+    binary = ":inner",
+    tags = ["manual"],
+    windows_x86 = select({
+        "@platforms//os:windows": True,
+        "//conditions:default": False,
+    }),
+)
+
+lint_outputs(
+    name = "reports",
+    binary = ":forward",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "transition_outputs_test",
+    size = "small",
+    srcs = ["transition_outputs_test.py"],
+    args = ["$(locations :reports)"],
+    data = [":reports"],
+    tags = ["manual"],
+)

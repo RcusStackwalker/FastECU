@@ -357,6 +357,7 @@ jobs:
 
       - name: Compare clean and seeded clang-tidy scopes
         run: |
+          bazel test --config=release //tools/clang-tidy/aspect/tests:transition_outputs_test
           reference=()
           if [ "$RUNNER_OS" = Linux ]; then
             reference=(--clean-reference "$RUNNER_TEMP/clang-tidy-legacy-reference/clean.json")

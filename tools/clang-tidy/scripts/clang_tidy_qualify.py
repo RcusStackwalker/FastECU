@@ -30,7 +30,7 @@ def action_configurations(
     command = ["bazel", "aquery", "--config=release", "--output=jsonproto"]
     if lint:
         command.extend([f"--aspects={aspect.ASPECT}", f"--output_groups={aspect.GROUPS}"])
-    command.append(f'mnemonic("{mnemonic}", set({" ".join(targets)}))')
+    command.append(f'mnemonic("{mnemonic}", deps(set({" ".join(targets)})))')
     result = subprocess.run(command, cwd=workspace, capture_output=True, text=True, check=True)
     query = json.loads(result.stdout)
     fragments = {item["id"]: item for item in query["pathFragments"]}
@@ -307,6 +307,19 @@ def clean_reference(reference: Path, workspace: Path) -> dict:
         "tools/clang-tidy/scripts/clang_tidy_aspect.py",
         "tools/clang-tidy/scripts/tests/clang_tidy_aspect_test.py",
     }
+    manifest = ".clang-tidy-scope.toml"
+    if manifest in changed:
+        original = subprocess.check_output(
+            ["git", "show", f"{revision}:{manifest}"], cwd=workspace, text=True
+        )
+        current = "".join(
+            line
+            for line in (workspace / manifest).read_text().splitlines(keepends=True)
+            if line.strip() != '"tools/clang-tidy/aspect/tests",'
+        )
+        if current != original:
+            raise RuntimeError("analysis platform scope changed beyond the manual graph fixture")
+        allowed.add(manifest)
     for build_file in ("MODULE.bazel", "bazel/patches/BUILD.bazel"):
         if build_file not in changed:
             continue
@@ -317,11 +330,16 @@ def clean_reference(reference: Path, workspace: Path) -> dict:
         without_wrapper_patch = "".join(
             line
             for line in current.splitlines(keepends=True)
-            if '"rules_lint_clang_tidy_windows_wrapper.patch"' not in line
-            and '"//bazel/patches:rules_lint_clang_tidy_windows_wrapper.patch"' not in line
+            if not any(
+                f'"{name}"' in line or f'"//bazel/patches:{name}"' in line
+                for name in (
+                    "rules_lint_clang_tidy_windows_wrapper.patch",
+                    "rules_lint_clang_tidy_transitions.patch",
+                )
+            )
         )
         if without_wrapper_patch != original:
-            raise RuntimeError("build inputs changed beyond the Windows wrapper patch")
+            raise RuntimeError("build inputs changed beyond the analysis aspect patches")
         allowed.add(build_file)
     workflow = ".github/workflows/pr.yml"
     if workflow in changed:
@@ -353,6 +371,7 @@ def clean_reference(reference: Path, workspace: Path) -> dict:
             (
                 "docs/",
                 "bazel/patches/rules_lint_clang_tidy_",
+                "tools/clang-tidy/aspect/tests/",
             )
         )
         for path in changed

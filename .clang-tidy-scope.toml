@@ -28,4 +28,5 @@ prefixes = [
   # Their reachable first-party headers use the common header filter; native
   # extension compilation and real-dependency fixtures provide their gate.
   "tools/clang-tidy/plugin",
+  "tools/clang-tidy/aspect/tests",
 ]

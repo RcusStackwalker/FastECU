@@ -125,6 +125,27 @@ its GNU driver rejects `-std=c++latest`. The aspect's Windows translation maps
 that option to `-std=c++2d`, which reports the same value. The actual Windows
 configured analysis still requires its host qualification run.
 
+Windows runtime qualification at `2af005f0` reached clang-tidy successfully,
+with no finding differences, and rejected a real coverage gap: 39 legacy
+sources versus 37 aspect sources, and 41 compiled configurations versus 37
+linted configurations. The missing instances were reached through the x86
+forwarding rule's `binary` edge, including its C++ dependencies. The aspect
+now follows `binary`, `deps` and `implementation_deps`, forwards their output
+groups and excludes external-repository sources. It preserves x86 target
+pointer width with `-m32`.
+
+The retained graph regression,
+`bazel test --config=release //tools/clang-tidy/aspect/tests:transition_outputs_test`,
+failed before propagation because transitioned lint reports were absent.
+It now executes the source analysis, checks its exit status, profile and
+replacement report, and exercises a pointer-width assertion on Windows x86.
+On Unix it uses a changed compiler configuration without changing platforms.
+The fixture and test are manual, run explicitly by the analysis CI job, and
+remain outside ordinary application builds. A separate disposable graph probe
+changed from one compile action with zero lint actions to one compile action
+with both human and machine lint actions. The actual candidate wrapper also
+read its forwarded report successfully with zero findings.
+
 ## Retained failure regressions
 
 The aspect suite exercises incomplete named sets, missing/invalid exit status,
