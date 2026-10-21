@@ -97,6 +97,15 @@ repos:
         stages: [pre-push]
         files: '(\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$)|((^|/)BUILD\.bazel$)|(\.bzl$)|(^MODULE\.bazel$)|(^\.pre-commit-config\.yaml$)|(^scripts/(gazelle_check|tests/gazelle_check_test)\.py$)'
 
+      - id: clang-tidy-configs
+        name: clang-tidy configuration chains are current
+        language: python
+        additional_dependencies: [pyyaml]
+        entry: scripts/clang_tidy_configs.py
+        pass_filenames: false
+        stages: [pre-push]
+        files: '((^|/)\.clang-tidy$)|((^|/)BUILD\.bazel$)|(^bazel/clang_tidy_config_chains\.bzl$)|(^scripts/(tests/)?clang_tidy_configs(_test)?\.py$)'
+
   - repo: https://github.com/lycheeverse/lychee.git
     rev: lychee-v0.24.2
     hooks:

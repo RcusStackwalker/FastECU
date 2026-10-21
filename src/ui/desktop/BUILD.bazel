@@ -72,3 +72,5 @@ cc_library(
         "//src/platform/desktop/common/bytes:qt_bytes",
     ],
 )
+
+exports_files([".clang-tidy"])

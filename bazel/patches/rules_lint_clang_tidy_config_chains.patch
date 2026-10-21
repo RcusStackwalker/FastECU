@@ -1,0 +1,64 @@
+--- a/lint/clang_tidy.bzl
++++ b/lint/clang_tidy.bzl
+@@ -48,9 +48,31 @@
+ _DISABLED_FEATURES = [
+     "layering_check",
+ ]
++
++def _configs_for(ctx, src):
++    """The configuration files `src` can see.
++
++    With `config_chains`, a `.clang-tidy` is kept only when it is in the chain of the
++    nearest directory above `src` that has one; every other config file is always kept.
++    """
++    chains = ctx.attr._config_chains
++    if not chains:
++        return ctx.files._configs
++    parts = src.short_path.split("/")[:-1]
++    chain = []
++    for count in range(len(parts), -1, -1):
++        key = "/".join(parts[:count])
++        if key in chains:
++            chain = chains[key]
++            break
++    return [
++        config
++        for config in ctx.files._configs
++        if config.basename != ".clang-tidy" or config.short_path in chain
++    ]
+ 
+ def _gather_inputs(ctx, compilation_context, srcs):
+-    inputs = srcs + ctx.files._configs
++    inputs = srcs + _configs_for(ctx, srcs[0])
+     if (any(ctx.files._global_config)):
+         inputs.append(ctx.files._global_config[0])
+     for dep in ctx.files._deps:
+@@ -425,6 +447,7 @@
+ def lint_clang_tidy_aspect(
+         binary,
+         configs = [],
++        config_chains = {},
+         global_config = [],
+         gcc_install_dir = [],
+         deps = [],
+@@ -450,6 +473,10 @@
+         configs: labels of the .clang-tidy files to make available to clang-tidy's config search. These may be
+             in subdirectories and clang-tidy will apply them if appropriate. This may also include .clang-format
+             files which may be used for formatting fixes.
++        config_chains: optional dict from a directory to the `.clang-tidy` paths (workspace-relative)
++            that apply under it, nearest first. When set, a source only gets the `.clang-tidy` files of
++            the chain of its nearest listed ancestor directory, so editing one config re-runs only
++            the sources it governs. Other files in `configs` are always inputs.
+         global_config: label of a single global .clang-tidy file to pass to clang-tidy on the command line. This
+             will cause clang-tidy to ignore any other config files in the source directories.
+         deps: labels of additional dependencies used during the clang-tidy run.
+@@ -483,6 +510,9 @@
+                 default = configs,
+                 allow_files = True,
+             ),
++            "_config_chains": attr.string_list_dict(
++                default = config_chains,
++            ),
+             "_global_config": attr.label_list(
+                 default = global_config,
+                 allow_files = True,
