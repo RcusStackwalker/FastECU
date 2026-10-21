@@ -1,7 +1,7 @@
 # clang-tidy aspect replacement qualification
 
-Status: qualification in progress. The compilation-database runner remains the
-gate until Linux, Windows and local macOS evidence satisfies the
+Status: qualified at `5e182e64`, with the gate cutover pending. Linux, Windows
+and local macOS evidence satisfies the
 [approved design](../superpowers/specs/2026-10-21-clang-tidy-replacement-design.md#qualification-and-ci-transition).
 
 ## Candidate and local evidence
@@ -124,6 +124,20 @@ The pinned LLVM's clang-cl `/std:c++latest` reports `__cplusplus=202700L`;
 its GNU driver rejects `-std=c++latest`. The aspect's Windows translation maps
 that option to `-std=c++2d`, which reports the same value. The actual Windows
 configured analysis still requires its host qualification run.
+
+The completed Windows job in
+[run 39662735307](https://github.com/RcusStackwalker/FastECU/actions/runs/39662735307)
+passed at merge revision `da12d63f`: 39 matching clean sources across 41
+matching source/target/configuration tuples, zero findings and zero
+differences. With the disposable probe added, both paths analyzed 40 eligible
+sources across 42 configurations and reported the same four findings: the
+three shared source/header probes and the repository check in Windows-only
+`pe_bitness.cpp`. The real transitioned graph test passed on Windows, including
+its 32-bit pointer-width assertion. Linux qualification at the same merge
+revision also passed: 546 clean tuples and 547 seeded tuples, with the three
+shared findings and zero differences. Local macOS at `5e182e64` passed the same
+546/547 tuple comparisons and three seeded findings; its full cached report
+took 1.180s.
 
 Windows runtime qualification at `2af005f0` reached clang-tidy successfully,
 with no finding differences, and rejected a real coverage gap: 39 legacy
