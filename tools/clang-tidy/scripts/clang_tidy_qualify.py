@@ -104,6 +104,19 @@ def run_legacy(
 ) -> dict:
     start = time.monotonic()
     log_path = output / f"{label}-legacy.log"
+    changed = ["tests/clang_tidy_qualification/probe.cpp"] if label == "seeded" else []
+    if changed and sys.platform == "win32":
+        changed.append("src/platform/desktop/windows/j2534/pe_bitness.cpp")
+
+    def commands(command: list[str], **kwargs) -> subprocess.CompletedProcess:
+        # Supply the actual seed edits as a controlled Git input. The migration's
+        # committed enforcement diff must not widen this focused detection probe.
+        if changed and command[:2] == ["git", "diff"]:
+            return subprocess.CompletedProcess(command, 0, "\n".join(changed) + "\n", "")
+        if changed and command[:2] == ["git", "ls-files"]:
+            return subprocess.CompletedProcess(command, 0, "", "")
+        return subprocess.run(command, **kwargs)
+
     with log_path.open("w", encoding="utf-8") as log, contextlib.redirect_stdout(log):
         try:
             legacy.run_workflow(
@@ -117,6 +130,8 @@ def run_legacy(
                 scope_os=scope_os,
                 jobs=4,
                 analysis_host=host,
+                changed=bool(changed),
+                command_runner=commands,
             )
         except legacy.WorkflowError as error:
             print(error)
@@ -134,7 +149,12 @@ def run_legacy(
             and (not prefixes or scope.in_scope(relative, prefixes))
         }
     )
-    return {"seconds": time.monotonic() - start, "sources": sources}
+    return {
+        "seconds": time.monotonic() - start,
+        "sources": sources,
+        "analyzed_sources": changed or sources,
+        "controlled_git_input": bool(changed),
+    }
 
 
 def compare(
@@ -144,12 +164,22 @@ def compare(
     compdb: str,
     scope_os: str | None,
     host: toolchain.AnalysisHost,
+    *,
+    reference: dict | None = None,
 ) -> dict:
-    old = run_legacy(workspace, output, label, compdb, scope_os, host)
+    old = (
+        reference["legacy"]
+        if reference
+        else run_legacy(workspace, output, label, compdb, scope_os, host)
+    )
     prefixes = scope.scope_prefixes(workspace, scope_os)
     targets = scope.build_targets(prefixes) if prefixes else ["//..."]
     new = run_aspect(workspace, output, label, targets, prefixes)
-    expected = parity.findings((output / f"{label}-legacy.log").read_text().splitlines())
+    expected = (
+        {tuple(item) for item in reference["findings"]}
+        if reference
+        else parity.findings((output / f"{label}-legacy.log").read_text().splitlines())
+    )
     actual = parity.findings((output / f"{label}-aspect.log").read_text().splitlines())
     details = {
         "legacy": old,
@@ -166,6 +196,10 @@ def compare(
         ),
     }
     (output / f"{label}.json").write_text(json.dumps(details, indent=2) + "\n")
+    if reference and details["compile_configurations"] != [
+        tuple(item) for item in reference["compile_configurations"]
+    ]:
+        raise RuntimeError("the compiled source/configuration set changed since the reference")
     if (
         details["only_legacy_sources"]
         or details["only_aspect_sources"]
@@ -249,12 +283,50 @@ inline void HeaderProbe(int& value)
                 root.rmdir()
 
 
+def clean_reference(reference: Path, workspace: Path) -> dict:
+    """Reuse a legacy baseline only when its source and build inputs are unchanged."""
+    metadata = json.loads((reference.parent / "metadata.json").read_text())
+    changed = subprocess.check_output(
+        ["git", "diff", "--name-only", metadata["revision"], "HEAD"], cwd=workspace, text=True
+    ).splitlines()
+    allowed = {
+        "tools/clang-tidy/scripts/clang_tidy_qualify.py",
+        "tools/clang-tidy/scripts/clang_tidy_aspect.py",
+        "tools/clang-tidy/scripts/tests/clang_tidy_aspect_test.py",
+    }
+    if any(
+        path not in allowed
+        and not path.startswith(
+            (
+                "docs/",
+                "bazel/patches/rules_lint_clang_tidy_",
+            )
+        )
+        for path in changed
+    ):
+        raise RuntimeError("clean reference predates production or build changes; run clean again")
+    if metadata["platform"] != sys.platform or metadata["llvm"] != toolchain.REQUIRED_LLVM_VERSION:
+        raise RuntimeError("clean reference uses a different platform or LLVM release")
+    details = json.loads(reference.read_text())
+    if (
+        details["findings"]
+        or details["finding_differences"]
+        or details["only_legacy_sources"]
+        or details["only_aspect_sources"]
+        or not details["compile_configurations"]
+        or details["compile_configurations"] != details["aspect_configurations"]
+    ):
+        raise RuntimeError("clean reference does not establish full clean parity")
+    return details
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--compdb-tool", required=True)
     parser.add_argument("--scope-os")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--smoke", action="store_true", help="check the collector on one target")
+    parser.add_argument("--clean-reference", type=Path, help="reuse verified clean evidence")
     args = parser.parse_args()
     workspace = Path(os.environ["BUILD_WORKSPACE_DIRECTORY"]).resolve()
     output = (workspace / args.output).resolve()
@@ -285,9 +357,25 @@ def main() -> int:
             linted = action_configurations(workspace, targets, sources, lint=True)
             if not compiled or compiled != linted:
                 raise RuntimeError(f"smoke configuration mismatch: {compiled} versus {linted}")
+            with seeded_sources(workspace):
+                run_legacy(workspace, output, "seeded", compdb, args.scope_os, host)
+                run_aspect(
+                    workspace, output, "seeded", ["//tests/clang_tidy_qualification:probe"], ()
+                )
+                expected = parity.findings((output / "seeded-legacy.log").read_text().splitlines())
+                actual = parity.findings((output / "seeded-aspect.log").read_text().splitlines())
+                expected = {item for item in expected if "pe_bitness.cpp" not in item[1]}
+                if not actual or parity.compare(expected, actual):
+                    raise RuntimeError("smoke seeded finding parity failed")
             print("Evidence collector smoke passed for one source/configuration.")
             return 0
-        clean = compare(workspace, output, "clean", compdb, args.scope_os, host)
+        if args.clean_reference:
+            baseline = clean_reference(args.clean_reference, workspace)
+            clean = compare(
+                workspace, output, "clean", compdb, args.scope_os, host, reference=baseline
+            )
+        else:
+            clean = compare(workspace, output, "clean", compdb, args.scope_os, host)
         if clean["findings"]:
             raise RuntimeError("clean scope has findings")
         with seeded_sources(workspace):
