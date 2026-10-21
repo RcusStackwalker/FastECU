@@ -60,7 +60,7 @@ Checks: >
   fastecu-parameterized-case-name
 
 WarningsAsErrors: '*'
-HeaderFilterRegex: '(^|[/\\])(src|apps|tests|scripts)[/\\].*\.(h|hpp)$'
+HeaderFilterRegex: '(^|[/\\])(src|apps|tests|scripts|tools)[/\\].*\.(h|hpp)$'
 # workaround for the issue with separators normalization
 ExcludeHeaderFilterRegex: '([/\\\\]generated_ui[/\\\\].*|_replica)\.h'
 FormatStyle: none

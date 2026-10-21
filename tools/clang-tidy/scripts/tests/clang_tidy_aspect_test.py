@@ -211,7 +211,57 @@ class OutputFilesTest(unittest.TestCase):
 
 
 class MainTest(unittest.TestCase):
-    def run_main(self, groups: dict[str, list[str]]) -> tuple[int, list[str], str]:
+    def test_preflight_rejects_invalid_analysis_host(self) -> None:
+        err = StringIO()
+        with (
+            mock.patch.dict("os.environ", {"FASTECU_LLVM_ROOT": "/missing-llvm"}),
+            mock.patch("sys.stderr", err),
+        ):
+            code = aspect.main(["//src/..."])
+        self.assertEqual(2, code)
+        self.assertIn("LLVM", err.getvalue())
+
+    def test_release_configuration_is_default(self) -> None:
+        _, commands, _ = self.run_main({})
+        self.assertIn("--config=release", commands)
+
+    def test_release_configuration_not_repeated(self) -> None:
+        _, commands, _ = self.run_main({}, ["--bazel-arg=--config=release"])
+        self.assertEqual(1, commands.count("--config=release"))
+
+    def test_windows_scope_filters_dependency_outputs(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            (root / "src/win").mkdir(parents=True)
+            (root / ".clang-tidy-scope.toml").write_text('[os.windows]\nprefixes = ["src/win"]\n')
+            groups = {"rules_lint_human": []}
+            for source, diagnostic in (("src/win/a.cpp", ""), ("src/portable/b.cpp", _FINDING)):
+                out = f"a_rules_lint/{source}.AspectRulesLintClangTidy.out"
+                path = root / out
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(diagnostic)
+                Path(str(path) + ".exit_code").write_text("1" if diagnostic else "0")
+                groups["rules_lint_human"].extend((out, out + ".exit_code"))
+
+            def build(command: list[str], **kwargs: object) -> CompletedProcess[str]:
+                flag = next(c for c in command if c.startswith("--build_event_json_file="))
+                made = bep(groups, root)
+                Path(flag.split("=", 1)[1]).write_text(made.read_text())
+                return CompletedProcess(command, 0, "", "")
+
+            with (
+                mock.patch.dict("os.environ", {"BUILD_WORKSPACE_DIRECTORY": name}),
+                mock.patch.object(aspect.analysis_toolchain, "runfiles_analysis_host"),
+                mock.patch("sys.stdout", StringIO()) as output,
+            ):
+                code = aspect.main(["--scope-os", "windows"], run=build)
+            self.assertEqual(0, code)
+            self.assertNotIn("statement should", output.getvalue())
+            self.assertIn("1 files", output.getvalue())
+
+    def run_main(
+        self, groups: dict[str, list[str]], extra: list[str] | None = None
+    ) -> tuple[int, list[str], str]:
         commands: list[str] = []
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -227,8 +277,9 @@ class MainTest(unittest.TestCase):
         with (
             mock.patch("sys.stderr", err),
             mock.patch.dict("os.environ", {"BUILD_WORKSPACE_DIRECTORY": "/ws"}),
+            mock.patch("clang_tidy_toolchain.runfiles_analysis_host"),
         ):
-            code = aspect.main(["//src/..."], run=fake_run)
+            code = aspect.main(["//src/...", *(extra or [])], run=fake_run)
         return code, commands, err.getvalue()
 
     def test_a_build_that_linted_nothing_is_an_error_not_a_pass(self) -> None:

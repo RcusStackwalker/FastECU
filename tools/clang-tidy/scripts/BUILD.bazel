@@ -34,7 +34,13 @@ py_binary(
     srcs = [
         "clang_tidy_aspect.py",
         "clang_tidy_output.py",
+        "clang_tidy_scope.py",
+        "clang_tidy_toolchain.py",
     ],
+    data = ["//tools/clang-tidy/plugin:llvm_identity"] + select({
+        "@platforms//os:windows": ["//tools/clang-tidy/plugin:fastecu_clang_tidy"],
+        "//conditions:default": ["//tools/clang-tidy/plugin:fastecu_tidy"],
+    }),
     imports = ["."],
     main = "clang_tidy_aspect.py",
     visibility = ["//:__pkg__"],
@@ -46,6 +52,8 @@ py_test(
     srcs = [
         "clang_tidy_aspect.py",
         "clang_tidy_output.py",
+        "clang_tidy_scope.py",
+        "clang_tidy_toolchain.py",
         "tests/clang_tidy_aspect_test.py",
     ],
     imports = ["."],

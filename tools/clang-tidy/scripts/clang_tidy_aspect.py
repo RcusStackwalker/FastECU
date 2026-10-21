@@ -23,6 +23,8 @@ from pathlib import Path, PurePath
 from urllib.parse import unquote, urlparse
 
 import clang_tidy_output as output
+import clang_tidy_scope as scope
+import clang_tidy_toolchain as analysis_toolchain
 
 ASPECT = "//tools/clang-tidy/aspect:linters.bzl%clang_tidy"
 GROUPS = "rules_lint_human,rules_lint_fixes"
@@ -267,11 +269,16 @@ def _build_and_report(
 ) -> tuple[int, OutputFiles]:
     with tempfile.TemporaryDirectory(prefix="fastecu-clang-tidy-") as name:
         events = Path(name) / "events.json"
-        extra = [*DOWNLOAD_ARGS, *args.bazel_arg]
-        build = run(build_command(args.targets, events, extra), cwd=workspace, check=False)
+        extra = [*effective_bazel_args(args.bazel_arg), *DOWNLOAD_ARGS]
+        build = run(
+            build_command(args.targets, events, extra),
+            cwd=workspace,
+            check=False,
+            env=getattr(args, "environ", os.environ),
+        )
         if not events.is_file():
             raise AspectError(f"bazel build produced no build events (exit {build.returncode})")
-        files = output_files(events)
+        files = select_outputs(output_files(events), getattr(args, "prefixes", ()))
         if not source_count(files):
             raise AspectError(
                 "the build produced no lint output for any source "
@@ -290,15 +297,29 @@ def _build_and_report(
     return findings, files
 
 
+def effective_bazel_args(extra: Sequence[str]) -> list[str]:
+    """Use the release default once, with the caller's overrides following it."""
+    default = [] if "--config=release" in extra else ["--config=release"]
+    return [*default, *extra]
+
+
 def main(argv: Sequence[str] | None = None, run: Run = subprocess.run) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("targets", nargs="*", default=["//..."])
     parser.add_argument("--fix", action="store_true", help="apply suggested fixes, then re-check")
     parser.add_argument("--annotate", action="store_true", help="also print GitHub annotations")
+    parser.add_argument("--scope-os", help="restrict sources to the OS scope manifest")
     parser.add_argument("--bazel-arg", action="append", default=[], help="extra `bazel build` flag")
     args = parser.parse_args(argv)
     workspace = Path(os.environ.get("BUILD_WORKSPACE_DIRECTORY", Path.cwd()))
     try:
+        host = analysis_toolchain.runfiles_analysis_host(os.environ)
+        args.environ = dict(os.environ)
+        if host.llvm_root is not None:
+            args.environ["FASTECU_LLVM_ROOT"] = str(host.llvm_root)
+        args.prefixes = scope.scope_prefixes(workspace, args.scope_os)
+        if args.prefixes and args.targets == ["//..."]:
+            args.targets = scope.build_targets(args.prefixes)
         for attempt in range(MAX_FIX_PASSES if args.fix else 1):
             findings, files = _build_and_report(args, workspace, run)
             if not args.fix or not findings:
@@ -310,7 +331,7 @@ def main(argv: Sequence[str] | None = None, run: Run = subprocess.run) -> int:
         noun = "finding" if findings == 1 else "findings"
         print(f"clang-tidy: {source_count(files)} files, {findings} {noun}")
         return 1 if findings else 0
-    except AspectError as error:
+    except (AspectError, scope.ScopeError, analysis_toolchain.ToolchainError) as error:
         print(f"clang-tidy: {error}", file=sys.stderr)
         return 2
 

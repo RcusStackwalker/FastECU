@@ -7,13 +7,11 @@ load("//bazel:clang_tidy_config_chains.bzl", "CONFIG_CHAINS", "CONFIG_LABELS")
 clang_tidy = lint_clang_tidy_aspect(
     binary = Label("//tools/clang-tidy/aspect:clang_tidy"),
     # CONFIG_LABELS and CONFIG_CHAINS come from scripts/clang_tidy_configs.py: a source gets
-    # only the .clang-tidy files that govern it. The exceptions policy is read by the fastecu
-    # checks themselves, relative to the working directory, so it is an input for every source.
-    configs = [Label(label) for label in CONFIG_LABELS] + [
-        Label("//:.clang-tidy-exceptions.yaml"),
-    ],
+    # only the .clang-tidy files that govern it.
+    configs = [Label(label) for label in CONFIG_LABELS],
     config_chains = CONFIG_CHAINS,
-    plugins = [Label("//tools/clang-tidy/plugin:fastecu_tidy")],
+    plugins = [Label("//tools/clang-tidy/aspect:plugins")],
+    deps = [Label("@local_llvm//:clang_resource_headers")],
     rule_kinds = ["cc_binary", "cc_library", "cc_test"],
     args = CLANG_TIDY_PLATFORM_ARGS,
 )
