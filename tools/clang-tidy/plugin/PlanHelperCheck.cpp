@@ -6,6 +6,27 @@ namespace fastecu::tidy
 {
 namespace
 {
+bool IsFixtureMemberInitializer(const clang::FunctionDecl& function, clang::ASTContext& context)
+{
+    using namespace clang::ast_matchers;
+    const auto *method = llvm::dyn_cast<clang::CXXMethodDecl>(&function);
+    if (!method || !method->getParent()->isLambda())
+        return false;
+    const auto *constructor = llvm::dyn_cast<clang::CXXConstructorDecl>(method->getParent()->getDeclContext());
+    if (!constructor ||
+        match(cxxRecordDecl(isDerivedFrom("::testing::Test")), *constructor->getParent(), context).empty())
+        return false;
+    for (const auto *initializer : constructor->inits())
+    {
+        if (!initializer->isMemberInitializer())
+            continue;
+        const auto *call = llvm::dyn_cast_or_null<clang::CallExpr>(StripExpression(initializer->getInit()));
+        if (call && call->getDirectCallee() == method)
+            return true;
+    }
+    return false;
+}
+
 class ReturnDependency : public clang::RecursiveASTVisitor<ReturnDependency>
 {
   public:
@@ -81,6 +102,8 @@ void PlanHelperCheck::check(const clang::ast_matchers::MatchFinder::MatchResult&
     const auto *record = type->getAsCXXRecordDecl();
     const bool raw = record && record->getQualifiedNameAsString() == "fastecu::flash::FlashPlan";
     if (!raw && !IsResultPlanType(type))
+        return;
+    if (raw && IsFixtureMemberInitializer(*function, *result.Context))
         return;
     PlanBody body(*result.Context);
     body.TraverseStmt(function->getBody());

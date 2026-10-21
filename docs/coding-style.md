@@ -220,6 +220,12 @@ EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
   errors without asserting or throwing to unwrap. The test body asserts
   `IsOk()`. A fatal assertion in a helper returns only from the helper.
   Receiving or forwarding an already valid plan is allowed.
+  A lambda immediately invoked in a GoogleTest fixture constructor's member
+  initializer may instead check `.has_value()` and throw with the error detail
+  to initialize a `const FlashPlan` member. Successful fixture construction then
+  guarantees a valid plan before the test body runs; GoogleTest reports a
+  constructor exception as a test failure with its normal exception handling.
+  This exception does not apply to ordinary helpers or constructor-body lambdas.
 
 **Assert containers with gmock matchers** (`ElementsAre`, `Each`, `Field`),
 not element-checking loops or equality algorithms reduced to `EXPECT_TRUE`.

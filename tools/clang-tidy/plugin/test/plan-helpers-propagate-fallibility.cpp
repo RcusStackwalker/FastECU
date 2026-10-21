@@ -23,3 +23,47 @@ FlashPlan ThrowingFailure() {
 }
 Result<FlashPlan> Propagate() { return Build(); }
 FlashPlan Forward(FlashPlan plan) { return plan; }
+
+// A constructor establishes the fixture invariant before any test body can run.
+struct PlanFixture : testing::Test {
+    PlanFixture() : plan([] {
+        auto result = Build();
+        if (!result.has_value()) throw std::runtime_error(result.error().detail);
+        return std::move(*result);
+    }()) {}
+    const FlashPlan plan;
+
+    FlashPlan HelperStillPropagates() {
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-plan-helper]
+        auto result = Build();
+        if (!result.has_value()) throw std::runtime_error("failed");
+        return std::move(*result);
+    }
+};
+struct DerivedPlanFixture : PlanFixture {
+    DerivedPlanFixture() : another_plan([] {
+        auto result = Build();
+        if (!result.has_value()) throw std::runtime_error("failed");
+        return std::move(*result);
+    }()) {}
+    const FlashPlan another_plan;
+};
+struct OrdinaryClass {
+    OrdinaryClass() : plan([] {
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-plan-helper]
+        auto result = Build();
+        if (!result.has_value()) throw std::runtime_error("failed");
+        return std::move(*result);
+    }()) {}
+    const FlashPlan plan;
+};
+struct FixtureBody : testing::Test {
+    FixtureBody() {
+        auto plan = [] {
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-plan-helper]
+            auto result = Build();
+            if (!result.has_value()) throw std::runtime_error("failed");
+            return std::move(*result);
+        }();
+    }
+};

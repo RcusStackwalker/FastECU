@@ -374,6 +374,9 @@ class FunctionAnalysis
         if (const auto *loop = llvm::dyn_cast<clang::DoStmt>(statement))
             return AnalyzeLoop(loop->getBody(), loop->getCond(), nullptr, std::move(facts), false);
         Scan(statement, facts);
+        // Throwing a constructed exception wraps the throw in ExprWithCleanups for the temporary.
+        if (const auto *cleanups = llvm::dyn_cast<clang::ExprWithCleanups>(statement))
+            statement = cleanups->getSubExpr();
         return {std::move(facts),
                 llvm::isa<clang::ReturnStmt, clang::BreakStmt, clang::ContinueStmt, clang::CXXThrowExpr>(statement)};
     }
