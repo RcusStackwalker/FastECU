@@ -1,0 +1,85 @@
+--- a/lint/clang_tidy.bzl
++++ b/lint/clang_tidy.bzl
+@@ -329,7 +329,18 @@
+     args.extend(_prefixed(compilation_context.external_includes.to_list(), "-isystem"))
+     return args
+ 
+-def clang_tidy_action(ctx, compilation_context, executable, srcs, stdout, exit_code, patch = None, args = []):
++def _wrapper_command(executable, fixes):
++    """The shell command running the wrapper.
++
++    clang-tidy writes the --export-fixes file only when it has diagnostics, but a declared
++    output must exist, so an empty report is written in its place.
++    """
++    command = executable._clang_tidy_wrapper.path + " $@"
++    if not fixes:
++        return command
++    return command + "; status=$?; [ -e {fixes} ] || printf -- '---\\nMainSourceFile: \"\"\\nDiagnostics: []\\n...\\n' > {fixes}; exit $status".format(fixes = fixes.path)
++
++def clang_tidy_action(ctx, compilation_context, executable, srcs, stdout, exit_code, patch = None, args = [], fixes = None):
+     """Create a Bazel Action that spawns a clang-tidy process.
+ 
+     Adapter for wrapping Bazel around
+@@ -345,6 +356,8 @@
+             If None, then fail the build when clang-tidy exits non-zero.
+         patch: output file for patch (optional). If provided, uses run_patcher instead of run_shell.
+         args: additional clang-tidy arguments passed before the compiler arguments
++        fixes: optional output file for the replacements clang-tidy suggests (`--export-fixes`), in
++            lint mode only
+     """
+ 
+     # Common setup for both patch and non-patch actions
+@@ -376,6 +389,9 @@
+         outputs = [stdout]
+         env = dict(env)  # Make a copy to avoid mutating the original
+         env["CLANG_TIDY__STDOUT_STDERR_OUTPUT_FILE"] = stdout.path
++        if fixes:
++            outputs.append(fixes)
++            clang_tidy_args = ["--export-fixes=" + fixes.path] + clang_tidy_args
+ 
+         if exit_code:
+             env["CLANG_TIDY__EXIT_CODE_OUTPUT_FILE"] = exit_code.path
+@@ -391,7 +407,7 @@
+             inputs = inputs,
+             outputs = outputs,
+             tools = tools,
+-            command = executable._clang_tidy_wrapper.path + " $@",
++            command = _wrapper_command(executable, fixes),
+             arguments = [executable._clang_tidy.path] + clang_tidy_args + ["--", compiler_args_obj],
+             env = env,
+             mnemonic = _MNEMONIC,
+@@ -424,7 +440,12 @@
+     else:
+         outputs, info = output_files(_MNEMONIC, target, ctx, files_to_lint = files_to_lint)
+ 
++    fixes_files = []
+     for output, file in zip(outputs, files_to_lint):
++        fixes = None
++        if not hasattr(output, "patch"):
++            fixes = ctx.actions.declare_file(OUTFILE_FORMAT.format(label = target.label.name + "_rules_lint/" + file.short_path, mnemonic = _MNEMONIC, suffix = "fixes.yaml"))
++            fixes_files.append(fixes)
+         clang_tidy_action(
+             ctx,
+             compilation_context,
+@@ -434,12 +455,21 @@
+             output.human.exit_code,
+             patch = getattr(output, "patch", None),
+             args = ctx.attr._args,
++            fixes = fixes,
+         )
+ 
+         # TODO(alex): if we run with --fix, this will report the issues that were fixed. Does a machine reader want to know about them?
+         raw_machine_report = ctx.actions.declare_file(OUTFILE_FORMAT.format(label = target.label.name + "_rules_lint/" + file.short_path, mnemonic = _MNEMONIC, suffix = "raw_machine_report"))
+         clang_tidy_action(ctx, compilation_context, ctx.executable, [file], raw_machine_report, output.machine.exit_code, args = ctx.attr._args)
+         parse_to_sarif_action(ctx, _MNEMONIC, raw_machine_report, output.machine.out)
++    if fixes_files:
++        # Only one OutputGroupInfo is used, so the fixes join the existing groups.
++        info = OutputGroupInfo(
++            rules_lint_human = info.rules_lint_human,
++            rules_lint_machine = info.rules_lint_machine,
++            rules_lint_fixes = depset(fixes_files),
++            _validation = info._validation,
++        )
+     return [info]
+ 
+ DEFAULT_RULE_KINDS = ["cc_binary", "cc_library"]
