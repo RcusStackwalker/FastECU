@@ -386,8 +386,8 @@ class ReportTest(unittest.TestCase):
         self.assertEqual((0, ""), self.report(self.output("a.out", "", exit_code="0")))
 
     def test_a_nonzero_exit_without_a_parsed_finding_is_still_a_failure(self) -> None:
-        findings = self.report(self.output("a.out", "clang-tidy crashed\n", exit_code="139"))[0]
-        self.assertEqual(1, findings)
+        with self.assertRaisesRegex(aspect.AspectError, "abnormally"):
+            self.report(self.output("a.out", "clang-tidy crashed\n", exit_code="139"))
 
 
 class ApplyFixesTest(unittest.TestCase):
@@ -531,6 +531,7 @@ class FixWorkflowTest(unittest.TestCase):
         residual: bool = False,
         compile_fail: bool = False,
         analysis_fail: bool = False,
+        analysis_status: int = 1,
         windows: bool = False,
     ) -> tuple[int, str, list[int], list[list[str]], str]:
         temporary = tempfile.TemporaryDirectory()
@@ -569,7 +570,7 @@ class FixWorkflowTest(unittest.TestCase):
             stages.append(stage)
             finding = stage < steps or residual
             out.write_text(_FINDING if finding else "")
-            Path(str(out) + ".exit_code").write_text("1" if finding else "0")
+            Path(str(out) + ".exit_code").write_text(str(analysis_status) if finding else "0")
             diagnostics = []
             if stage < steps:
                 diagnostics = [
@@ -632,6 +633,10 @@ class FixWorkflowTest(unittest.TestCase):
 
     def test_failed_analysis_never_applies_fixes(self) -> None:
         code, text, _, builds, _ = self.workflow(analysis_fail=True)
+        self.assertEqual((2, "stage=0", []), (code, text, builds))
+
+    def test_crashed_analysis_never_applies_fixes(self) -> None:
+        code, text, _, builds, _ = self.workflow(analysis_status=139)
         self.assertEqual((2, "stage=0", []), (code, text, builds))
 
     def test_windows_fix_fails_before_mutation(self) -> None:

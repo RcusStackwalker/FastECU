@@ -94,7 +94,10 @@ def _exit_status(path: Path) -> int:
     text = _read_output(path).strip()
     if not re.fullmatch(r"-?\d+", text):
         raise AspectError(f"invalid lint exit code in {path}: {text!r}")
-    return int(text)
+    status = int(text)
+    if status not in (0, 1):
+        raise AspectError(f"clang-tidy exited abnormally (exit code {status}): {path.name}")
+    return status
 
 
 def output_files(events_path: Path) -> OutputFiles:
