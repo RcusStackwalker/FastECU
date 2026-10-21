@@ -10,7 +10,10 @@ from python.runfiles import runfiles
 
 # A cached generated file can have an invalid directory junction in a Windows
 # runfiles tree. The manifest names its actual output file on every platform.
-_RUNFILES = runfiles.CreateManifestBased(str(Path(os.environ["TEST_SRCDIR"]) / "MANIFEST"))
+_MANIFEST = Path(os.environ["TEST_SRCDIR"]) / "MANIFEST"
+_RUNFILES = (
+    runfiles.CreateManifestBased(str(_MANIFEST)) if _MANIFEST.is_file() else runfiles.Create()
+)
 REPORTS = [Path(_RUNFILES.Rlocation(f"_main/{argument}")) for argument in sys.argv[1:]]
 
 
