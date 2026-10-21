@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Read real lint reports produced through a transitioned C++ dependency graph."""
 
+import os
 import sys
 import unittest
 from pathlib import Path
 
 from python.runfiles import runfiles
 
-_RUNFILES = runfiles.Create()
+# A cached generated file can have an invalid directory junction in a Windows
+# runfiles tree. The manifest names its actual output file on every platform.
+_RUNFILES = runfiles.CreateManifestBased(str(Path(os.environ["TEST_SRCDIR"]) / "MANIFEST"))
 REPORTS = [Path(_RUNFILES.Rlocation(f"_main/{argument}")) for argument in sys.argv[1:]]
 
 
@@ -18,7 +21,7 @@ class TransitionOutputsTest(unittest.TestCase):
         for path in statuses:
             self.assertTrue(
                 path.is_file(),
-                f"report is not a file: {path}; resolved={path.resolve()}; "
+                f"report is not a file: {path}; "
                 f"directory={path.is_dir()}; symlink={path.is_symlink()}; "
                 f"junction={path.is_junction()}; "
                 f"entries={list(path.iterdir()) if path.is_dir() else []}",
