@@ -18,12 +18,12 @@ inputs that can drift.
 | Base project | `aspect_rules_lint`, patched with `single_version_override(patches = [...])` so each patch can be upstreamed later. |
 | Custom aspect from scratch | Rejected; `rules_lint` already declares configs as inputs and has a fix flow. |
 | Plugin | A generic `plugins` `label_list` attribute: each plugin is a tool input and a `-load=` argument. Built by Bazel from `//tools/clang-tidy/plugin`. |
-| LLVM | Pinned `http_archive` in `MODULE.bazel` (version and SHA moved from the `pr.yml` env vars), so a bump invalidates cached results. Linux first. |
+| LLVM | The clang-tidy of `@local_llvm` (the `FASTECU_LLVM_ROOT` install the plugin is built against), as a `native_binary`. Its content is an input of every action, so an LLVM bump invalidates cached results without a second pinned copy. An earlier draft pinned a separate `http_archive`; it duplicated `pr.yml` and added nothing, so it was dropped. |
 | Config chain | Current `.clang-tidy` plus parents, only while `InheritParentConfig: true`. See below. |
 | Fix flow | The aspect runs `--export-fixes`; a separate step applies it with `clang-apply-replacements`. `rules_lint`'s in-sandbox `--fix` patch flow is not used: it drops fixed issues from the report. |
-| Exceptions, annotations, profiling | A Python wrapper behind `bazel run //:clang_tidy` post-processes the aspect output with `clang_tidy_exceptions.py` and `clang_tidy_output.py`. Exception edits never invalidate the cache. |
+| Exceptions, annotations, profiling | The plugin applies `.clang-tidy-exceptions.yaml` itself, reading it from the working directory, so the file is an action input. A Python wrapper behind `bazel run //:clang_tidy_aspect` prints and annotates the output with `clang_tidy_output.py`. The audit for exceptions that are no longer used (`clang_tidy_exceptions.py`) is not ported yet. |
 | Targets and sources | `cc_library`, `cc_binary`, `cc_test`; first-party, non-generated sources only. Generated files (moc output, `ui_*`, `rep_*_replica`) are excluded by path but stay visible as headers through `CcInfo`, which replaces `_prebuild`. `HeaderFilterRegex` and `ExcludeHeaderFilterRegex` in `.clang-tidy` still decide header diagnostics. |
-| Entry point | One target, `bazel run //:clang_tidy`, checks; `-- --fix` also fixes. No `_changed` variant. |
+| Entry point | One target, `bazel run //:clang_tidy_aspect` (renamed `//:clang_tidy` once it replaces the runner), checks; `-- --fix` also fixes. No `_changed` variant. |
 
 ## Config chain
 
@@ -44,7 +44,7 @@ which inherits.
 
 Stacked PRs (`gh stack`), each safe to merge alone, all additive:
 
-1. Pin LLVM in `MODULE.bazel`, add the `rules_lint` dependency and an empty patch.
+1. Add the `rules_lint` dependency.
 2. Patch for `plugins`; run the aspect on one package.
 3. Config-chain generator with its pre-push hook and CI check.
 4. Patch for `--export-fixes`.
