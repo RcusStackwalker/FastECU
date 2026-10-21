@@ -2,6 +2,18 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@rules_python//python:defs.bzl", "py_binary")
 load("//bazel:llvm_static_runtime.bzl", "llvm_static_binary")
 
+filegroup(
+    name = "sonar_scope_files",
+    srcs = [
+        "BUILD.bazel",
+        ":test_files",
+    ] + glob(
+        ["smoke/**"],
+        exclude = ["**/__pycache__/**"],
+    ),
+    visibility = ["//:__pkg__"],
+)
+
 genrule(
     name = "llvm_identity",
     srcs = ["@local_llvm//:llvm-identity.json"],

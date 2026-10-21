@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 SKIP_DIRS = {".claude", ".git", "bazel-bin", "bazel-out", "bazel-testlogs"}
 BARE_WIN32 = re.compile(r"^\s*#\s*(?:ifn?def|if|elif)\b.*\bWIN32\b")

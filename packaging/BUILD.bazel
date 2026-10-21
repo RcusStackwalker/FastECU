@@ -3,6 +3,15 @@ load("//bazel:qt_common.bzl", "qt_deploy_zip")
 
 package(default_visibility = ["//visibility:private"])
 
+filegroup(
+    name = "sonar_scope_files",
+    srcs = ["BUILD.bazel"] + glob(
+        ["**/*.py"],
+        exclude = ["**/__pycache__/**"],
+    ),
+    visibility = ["//:__pkg__"],
+)
+
 # Stages the app next to Qt's deploy tool output and zips it. Used only by the
 # qt_deploy_zip targets below.
 py_binary(
@@ -13,9 +22,9 @@ py_binary(
 
 py_test(
     name = "assemble_test",
-    srcs = ["assemble_test.py"],
+    srcs = ["tests/assemble_test.py"],
     imports = [".."],
-    main = "assemble_test.py",
+    main = "tests/assemble_test.py",
     deps = [":assemble"],
 )
 

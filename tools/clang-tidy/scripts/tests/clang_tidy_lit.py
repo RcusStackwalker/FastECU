@@ -20,7 +20,7 @@ def run() -> None:
     parser.add_argument("--gmock-header", required=True)
     args, lit_args = parser.parse_known_args()
     host = toolchain.runfiles_analysis_host(os.environ)
-    suite = Path(__file__).parent.parent / "plugin" / "test"
+    suite = Path(__file__).parents[2] / "plugin" / "test"
     with tempfile.TemporaryDirectory(prefix="fastecu-lit-") as directory:
         tools = Path(directory) / "bin"
         tools.mkdir()
