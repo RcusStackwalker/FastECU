@@ -116,7 +116,9 @@ def output_files(events_path: Path) -> OutputFiles:
                 json.dumps(child, sort_keys=True) for child in event.get("children", [])
             )
             if "buildFinished" in event["id"]:
-                finished = event.get("finished", {}).get("exitCode", {}).get("code") == 0
+                exit_code = event.get("finished", {}).get("exitCode")
+                # Protobuf JSON omits an integer field when its value is zero.
+                finished = isinstance(exit_code, dict) and exit_code.get("code", 0) == 0
             named = event.get("namedSetOfFiles")
             if named is not None:
                 sets[event["id"]["namedSet"]["id"]] = named

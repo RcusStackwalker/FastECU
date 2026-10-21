@@ -92,7 +92,11 @@ def bep(groups: dict[str, list[str]], directory: Path) -> Path:
         }
     )
     events.append(
-        {"id": {"buildFinished": {}}, "finished": {"exitCode": {"code": 0}}, "lastMessage": True}
+        {
+            "id": {"buildFinished": {}},
+            "finished": {"exitCode": {"name": "SUCCESS"}},
+            "lastMessage": True,
+        }
     )
     path = directory / "bep.json"
     path.write_text("".join(json.dumps(event) + "\n" for event in events))
