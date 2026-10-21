@@ -1,4 +1,4 @@
-"""The clang-tidy lint aspect (docs/superpowers/specs/2026-10-21-clang-tidy-aspect-spike.md)."""
+"""Cached clang-tidy analysis over the configured first-party C++ graph."""
 
 load("@aspect_rules_lint//lint:clang_tidy.bzl", "lint_clang_tidy_aspect")
 load("@local_llvm//:defs.bzl", "CLANG_TIDY_PLATFORM_ARGS")

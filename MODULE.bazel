@@ -24,13 +24,14 @@ bazel_dep(name = "zstd", version = "1.5.7.bcr.3", dev_dependency = True)
 bazel_dep(name = "gazelle", version = "0.54.0", dev_dependency = True)
 bazel_dep(name = "gazelle_cc", version = "0.6.0", dev_dependency = True)
 
-# Runs clang-tidy as an aspect; patched in later PRs of the spike.
+# Runs clang-tidy through the configured Bazel C++ graph.
 bazel_dep(name = "aspect_rules_lint", version = "2.9.1", dev_dependency = True)
 bazel_dep(name = "bazel_skylib", version = "1.9.2", dev_dependency = True)
 
 # Adds `plugins` (an action input and a -load= argument each) and `config_chains` (per-source
 # .clang-tidy inputs) to lint_clang_tidy_aspect, and a `rules_lint_fixes` output group of
-# --export-fixes files. Intended for upstreaming.
+# --export-fixes files, Windows execution and configured dependency traversal.
+# Intended for upstreaming.
 single_version_override(
     module_name = "aspect_rules_lint",
     patch_strip = 1,

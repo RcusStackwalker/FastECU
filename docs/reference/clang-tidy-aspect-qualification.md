@@ -1,8 +1,9 @@
 # clang-tidy aspect replacement qualification
 
-Status: qualified at `5e182e64`, with the gate cutover pending. Linux, Windows
-and local macOS evidence satisfies the
-[approved design](../superpowers/specs/2026-10-21-clang-tidy-replacement-design.md#qualification-and-ci-transition).
+Status: qualified at `5e182e64`. Linux, Windows and local macOS evidence supports
+the [aspect contract](../tooling.md#clang-tidy). See the
+[implementation PR checks](https://github.com/RcusStackwalker/FastECU/pull/807/checks)
+for public-command cutover validation in the existing blocking analysis jobs.
 
 ## Candidate and local evidence
 
@@ -123,7 +124,7 @@ arbitrary in-place modifications to an OS installation are tracked.
 The pinned LLVM's clang-cl `/std:c++latest` reports `__cplusplus=202700L`;
 its GNU driver rejects `-std=c++latest`. The aspect's Windows translation maps
 that option to `-std=c++2d`, which reports the same value. The actual Windows
-configured analysis still requires its host qualification run.
+configured analysis was verified by the Windows qualification below.
 
 The completed Windows job in
 [run 39662735307](https://github.com/RcusStackwalker/FastECU/actions/runs/39662735307)

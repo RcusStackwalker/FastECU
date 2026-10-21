@@ -132,11 +132,14 @@ stay stale, with or without `map_kind`. The beta was therefore not adopted.
 Re-check when gazelle_cc ships v2 support; until then the child-package split
 stays, and it is also a sound moc boundary.
 
-`hedron_compile_commands` stays pinned and patched. Upstream has not been pushed
-to since August 2025 and is not in the BCR. The one maintained alternative,
-`kiron1/bazel-compile-commands`, is a standalone CLI shipped as a release binary,
-not a Bazel-run target, so adopting it would add a CI binary download and rework
-`clang_tidy_runner`. Revisit if Hedron stops working on a newer Bazel.
+`hedron_compile_commands` stays pinned and patched for SonarCloud. The original
+dependency review recorded that upstream had not been pushed to since August
+2025 and was outside the BCR; the alternative `kiron1/bazel-compile-commands`
+was a standalone release CLI whose adoption would require a separate binary
+download and changes to the compilation-database consumer. clang-tidy has since
+moved to the configured Bazel aspect graph, while SonarCloud still consumes
+Hedron's database. Revisit the generator if compatibility with a newer Bazel
+requires it.
 
 Packages containing only moc libraries use `map_kind cc_library qt_cc_library`.
 Bench uses `map_kind cc_binary qt_cc_binary` for its existing binary and keeps

@@ -38,10 +38,6 @@ than copying its inventory.
 
 ## Active work
 
-The [clang-tidy replacement design](superpowers/specs/2026-10-21-clang-tidy-replacement-design.md)
-is under discussion. It covers retiring the compilation-database runner after
-qualifying the Bazel aspect across the supported analysis platforms.
-
 The [size-reduction strategy](superpowers/specs/2026-10-18-size-reduction-strategy.md)
 phases the reduction toward 100k NLOC: remote-mode deletion, tooling audit,
 transport-level cancellation, separately assessed test compression, and a later

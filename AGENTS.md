@@ -22,7 +22,7 @@ bazel build --config=release //:fastecu
 bazel test --config=release //...
 prek run --all-files
 python3 scripts/gazelle_check.py --fix
-bazel run //:clang_tidy_report_changed
+bazel run //:clang_tidy
 ```
 
 Use focused package tests during code changes; run the applicable full gates

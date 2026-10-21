@@ -2,9 +2,9 @@
 """Run the clang-tidy Bazel aspect, show its findings, and optionally apply its fixes.
 
 The aspect (//tools/clang-tidy/aspect) runs clang-tidy once per source as a cacheable action.
-This script builds with it, reads the outputs through a build event file, prints the findings the
-way the compile-database runner does, and with --fix applies the exported replacements with
-clang-apply-replacements and checks again.
+This script builds with it, reads the cached outputs through a build event file and prints the
+findings. With --fix it applies exported replacements, checks again and compiles the selected
+targets with the same configuration.
 """
 
 from __future__ import annotations

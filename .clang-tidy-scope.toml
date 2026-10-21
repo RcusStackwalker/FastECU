@@ -1,10 +1,10 @@
 # Which OS runs clang-tidy over platform-gated code. Linux's job analyzes every
-# translation unit in its own compile database; other OSes analyze only their
+# eligible configured source in its host graph; other OSes report only their
 # exclusive code. Prefixes are workspace-relative directories, forward slashes.
 #
 # Every BUILD.bazel that sets target_compatible_with (or select()s on an
 # @platforms//os: constraint) and has C/C++ sources must
-# fall under a prefix below, or the runner's guard fails. When it does, decide:
+# fall under a prefix below, or the scope guard fails. When it does, decide:
 # exclusive to one OS -> [os.<name>]; otherwise already built (and so analyzed)
 # on Linux -> [linux_covered].
 
@@ -24,9 +24,9 @@ prefixes = [
   "src/ui/desktop/widgets",
   "src/platform/desktop/unix/j2534",
   "src/platform/desktop/common/serial/direct/unix",
-  # Manual extension sources have no application compilation-database entries.
-  # Their reachable first-party headers use the common header filter; native
-  # extension compilation and real-dependency fixtures provide their gate.
+  # Manual analysis tooling stays outside the application analysis graph.
+  # Native compilation, real-dependency fixtures and the configured-graph test
+  # run explicitly in analysis CI; reachable headers use the common filter.
   "tools/clang-tidy/plugin",
   "tools/clang-tidy/aspect/tests",
 ]
