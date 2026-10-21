@@ -136,11 +136,11 @@ py_test(
     size = "small",
     srcs = [
         "scripts/gazelle_check.py",
-        "scripts/gazelle_check_test.py",
+        "scripts/tests/gazelle_check_test.py",
     ],
     data = ["BUILD.bazel"],
     imports = ["scripts"],
-    main = "scripts/gazelle_check_test.py",
+    main = "scripts/tests/gazelle_check_test.py",
 )
 
 py_test(
@@ -148,10 +148,10 @@ py_test(
     size = "small",
     srcs = [
         "scripts/mutation_test.py",
-        "scripts/mutation_test_test.py",
+        "scripts/tests/mutation_test_test.py",
     ],
     imports = ["scripts"],
-    main = "scripts/mutation_test_test.py",
+    main = "scripts/tests/mutation_test_test.py",
 )
 
 py_test(
@@ -160,10 +160,10 @@ py_test(
     srcs = [
         "scripts/mutation_test.py",
         "scripts/nloc_loop.py",
-        "scripts/nloc_loop_test.py",
+        "scripts/tests/nloc_loop_test.py",
     ],
     imports = ["scripts"],
-    main = "scripts/nloc_loop_test.py",
+    main = "scripts/tests/nloc_loop_test.py",
 )
 
 py_test(
@@ -171,20 +171,34 @@ py_test(
     size = "small",
     srcs = [
         "scripts/gazelle_check.py",
-        "scripts/test_ownership_test.py",
+        "scripts/tests/test_ownership_test.py",
     ],
     imports = ["scripts"],
-    main = "scripts/test_ownership_test.py",
+    main = "scripts/tests/test_ownership_test.py",
+)
+
+py_test(
+    name = "sonar_scope_test",
+    size = "small",
+    srcs = ["scripts/tests/sonar_scope_test.py"],
+    data = [
+        "BUILD.bazel",
+        "sonar-project.properties",
+        "//packaging:sonar_scope_files",
+        "//tools/clang-tidy/plugin:sonar_scope_files",
+        "//tools/clang-tidy/scripts:sonar_scope_files",
+    ] + glob(["scripts/**/*.py"]),
+    main = "scripts/tests/sonar_scope_test.py",
 )
 
 py_test(
     name = "windows_preprocessor_guards",
     size = "small",
-    srcs = ["scripts/check-windows-preprocessor-guards.py"],
+    srcs = ["scripts/tests/check-windows-preprocessor-guards.py"],
     data = [
         "//src/platform/desktop/common/serial/direct:serial_port_actions_direct.h",
     ],
-    main = "scripts/check-windows-preprocessor-guards.py",
+    main = "scripts/tests/check-windows-preprocessor-guards.py",
 )
 
 # Whole-tree and changed-files clang-tidy, each as a report or with fixes

@@ -96,7 +96,7 @@ class AnalysisHostTest(unittest.TestCase):
             toolchain.resolve_analysis_host(self.root, self.artifact)
 
     def test_pin_matches_ci(self):
-        workflow = Path(__file__).parents[3] / ".github/workflows/pr.yml"
+        workflow = Path(__file__).parents[4] / ".github/workflows/pr.yml"
         version = re.search(r"CLANG_TIDY_LLVM_VERSION: '([^']+)'", workflow.read_text())
         self.assertIsNotNone(version)
         self.assertEqual(version.group(1), toolchain.REQUIRED_LLVM_VERSION)

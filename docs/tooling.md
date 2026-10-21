@@ -192,6 +192,15 @@ arrays; custom projections and unrelated containers are permitted.
 
 ### SonarCloud
 
+Python tooling follows the [test directory convention](coding-style.md#python-tooling-tests).
+Sonar analyzes implementations as production sources and suites, test runners,
+and plugin fixtures as tests. `//:sonar_scope_test` checks the declared scope
+against package inventories and Python test entry points; run it with
+`bazel test --config=release //:sonar_scope_test` after changing directories or
+analysis settings. Python tooling coverage is not imported by the C++ coverage
+pipeline, so `scripts/`, `tools/`, and `packaging/` are excluded from coverage
+metrics while remaining in source analysis.
+
 The `sonarcloud` job ([sonar.yml](../.github/workflows/sonar.yml)) gates the PR
 against [sonar-project.properties](../sonar-project.properties). To reproduce
 it locally, install `sonar-scanner`, then mirror CI:

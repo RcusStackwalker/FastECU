@@ -2,6 +2,15 @@ load("@rules_python//python:defs.bzl", "py_test")
 
 package(default_visibility = ["//visibility:private"])
 
+filegroup(
+    name = "sonar_scope_files",
+    srcs = ["BUILD.bazel"] + glob(
+        ["**/*.py"],
+        exclude = ["**/__pycache__/**"],
+    ),
+    visibility = ["//:__pkg__"],
+)
+
 # The //:clang_tidy_* runner targets are declared in the root package by
 # //bazel:clang_tidy.bzl and take their sources from here.
 exports_files(
@@ -25,10 +34,10 @@ py_test(
     size = "small",
     srcs = [
         "clang_tidy_exceptions.py",
-        "clang_tidy_exceptions_test.py",
+        "tests/clang_tidy_exceptions_test.py",
     ],
     imports = ["."],
-    main = "clang_tidy_exceptions_test.py",
+    main = "tests/clang_tidy_exceptions_test.py",
     deps = ["@python_deps//pyyaml"],
 )
 
@@ -36,19 +45,19 @@ py_test(
     name = "clang_tidy_toolchain_test",
     srcs = [
         "clang_tidy_toolchain.py",
-        "clang_tidy_toolchain_test.py",
+        "tests/clang_tidy_toolchain_test.py",
     ],
     data = ["//:.github/workflows/pr.yml"],
     imports = ["."],
-    main = "clang_tidy_toolchain_test.py",
+    main = "tests/clang_tidy_toolchain_test.py",
 )
 
 py_test(
     name = "clang_tidy_check_fixtures",
     size = "medium",
     srcs = [
-        "clang_tidy_lit.py",
         "clang_tidy_toolchain.py",
+        "tests/clang_tidy_lit.py",
     ],
     args = [
         "--helper",
@@ -74,7 +83,7 @@ py_test(
         "//conditions:default": ["//tools/clang-tidy/plugin:fastecu_tidy"],
     }),
     imports = ["."],
-    main = "clang_tidy_lit.py",
+    main = "tests/clang_tidy_lit.py",
     tags = [
         "local",
         "manual",
@@ -88,16 +97,16 @@ py_test(
     size = "small",
     srcs = [
         "clang_tidy_benchmark.py",
-        "clang_tidy_benchmark_test.py",
         "clang_tidy_exceptions.py",
         "clang_tidy_output.py",
         "clang_tidy_profile.py",
         "clang_tidy_runner.py",
         "clang_tidy_scope.py",
         "clang_tidy_toolchain.py",
+        "tests/clang_tidy_benchmark_test.py",
     ],
     imports = ["."],
-    main = "clang_tidy_benchmark_test.py",
+    main = "tests/clang_tidy_benchmark_test.py",
     deps = ["@python_deps//pyyaml"],
 )
 
@@ -109,12 +118,12 @@ py_test(
         "clang_tidy_output.py",
         "clang_tidy_profile.py",
         "clang_tidy_runner.py",
-        "clang_tidy_runner_test.py",
         "clang_tidy_scope.py",
         "clang_tidy_toolchain.py",
+        "tests/clang_tidy_runner_test.py",
     ],
     imports = ["."],
-    main = "clang_tidy_runner_test.py",
+    main = "tests/clang_tidy_runner_test.py",
     deps = ["@python_deps//pyyaml"],
 )
 
@@ -123,10 +132,10 @@ py_test(
     size = "small",
     srcs = [
         "clang_tidy_output.py",
-        "clang_tidy_output_test.py",
+        "tests/clang_tidy_output_test.py",
     ],
     imports = ["."],
-    main = "clang_tidy_output_test.py",
+    main = "tests/clang_tidy_output_test.py",
 )
 
 py_test(
@@ -134,10 +143,10 @@ py_test(
     size = "small",
     srcs = [
         "clang_tidy_profile.py",
-        "clang_tidy_profile_test.py",
+        "tests/clang_tidy_profile_test.py",
     ],
     imports = ["."],
-    main = "clang_tidy_profile_test.py",
+    main = "tests/clang_tidy_profile_test.py",
 )
 
 py_test(
@@ -145,8 +154,8 @@ py_test(
     size = "small",
     srcs = [
         "clang_tidy_scope.py",
-        "clang_tidy_scope_test.py",
+        "tests/clang_tidy_scope_test.py",
     ],
     imports = ["."],
-    main = "clang_tidy_scope_test.py",
+    main = "tests/clang_tidy_scope_test.py",
 )

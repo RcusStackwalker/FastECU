@@ -258,6 +258,25 @@ sharding can distribute them, and mutation fail-fast can stop between cases.
 - **Comments explain why an input or failure mode matters**; delete ones that
   restate the test name.
 
+### Python tooling tests
+
+Keep Python tooling suites, test-only runners, and helpers in a `tests/`
+directory under the owning script directory. Implementations stay outside it,
+including production tools whose names end in `_test.py`, such as
+[`mutation_test.py`](../scripts/mutation_test.py). Existing clang-tidy plugin
+fixtures in `test/` and load checks in `smoke/` are also test-only directories.
+
+Directory separation does not require a new Bazel package: the existing owning
+BUILD file declares each `py_test` and its import roots. Run suites through
+Bazel; shared implementation modules remain production code even when listed
+in a test target's `srcs`.
+
+Keep [Sonar's analysis scope](../sonar-project.properties) aligned with this
+layout. The `//:sonar_scope_test` guard checks Python entry points, unittest
+placement, and source/test classification using package-owned filegroups.
+Include a new tooling package's Python files, BUILD file, and fixtures in its
+guard inputs. See [tooling](tooling.md#sonarcloud) for verification.
+
 ### Mutation
 
 **Prove a protocol correction with a mutation check:** without hardware

@@ -266,7 +266,7 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(gc.load_managed_roots(self.root), tuple(map(Path, _SCOPE)))
 
     def test_real_root_build_declares_scope(self):
-        roots = gc.load_managed_roots(Path(__file__).resolve().parents[1])
+        roots = gc.load_managed_roots(Path(__file__).resolve().parents[2])
         self.assertEqual(roots, tuple(map(Path, _SCOPE)))
 
     def test_fix_preserves_gazelle_failure(self):
