@@ -16,6 +16,13 @@ class TransitionOutputsTest(unittest.TestCase):
         statuses = [path for path in REPORTS if path.name.endswith(".out.exit_code")]
         self.assertTrue(statuses)
         for path in statuses:
+            self.assertTrue(
+                path.is_file(),
+                f"report is not a file: {path}; resolved={path.resolve()}; "
+                f"directory={path.is_dir()}; symlink={path.is_symlink()}; "
+                f"junction={path.is_junction()}; "
+                f"entries={list(path.iterdir()) if path.is_dir() else []}",
+            )
             self.assertEqual("0", path.read_text().strip(), path)
         human = [path for path in REPORTS if path.name == "probe.cpp.AspectRulesLintClangTidy.out"]
         self.assertEqual(1, len(human))
