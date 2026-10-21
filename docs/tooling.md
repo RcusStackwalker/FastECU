@@ -163,13 +163,10 @@ sum work across translation units; they are not elapsed time. Investigate
 reproducible runtime regressions above 10 percent on the same machine and scope;
 wall-clock timing is a review threshold, not a CI pass/fail gate.
 
-The [central exception policy](../.clang-tidy-exceptions.yaml) has schema
-`version: 1`, with `exceptions` entries containing exactly `check`, `file`,
-`symbol`, and `rationale`. Files are canonical repository-relative paths;
-identities are `Suite.Test` or a qualified helper signature. Wildcards and
-line-number identities are unsupported. Malformed and duplicate entries fail
-before analysis; a full-scope report also rejects unused entries. Changed-file
-runs do not reject entries outside their analyzed scope.
+The `fastecu-*` checks have no exception list of their own: suppress a finding
+with a `NOLINTBEGIN(check)`/`NOLINTEND(check)` block around the test, with the
+reason after the colon, like any other clang-tidy finding. Name the check; a
+bare `NOLINT` hides every check.
 
 Result access reasoning is intraprocedural and bounded to structured control
 flow, fatal state matchers, terminating guards, stable local/member identities,
@@ -183,7 +180,7 @@ captured-state and framework setup proofs are not imported across functions.
 At loop increments and do-while conditions, continue paths conservatively
 retain only mutation-free loop-entry proof, rather than assertions that a
 continue could bypass.
-Use a simpler local proof or a narrowly justified central exception where
+Use a simpler local proof or a `NOLINTBEGIN/NOLINTEND` block that says why where
 needed. Unknown aliases and complex matcher compositions remain review
 responsibilities. Single-use suggestions require an adjacent final block pair,
 a void Result, and a pure `IsOk()` matcher to preserve cleanup ordering.

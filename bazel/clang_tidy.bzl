@@ -34,7 +34,6 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
             "//tools/clang-tidy/scripts:clang_tidy_benchmark.py",
             "//tools/clang-tidy/scripts:clang_tidy_output.py",
             "//tools/clang-tidy/scripts:clang_tidy_profile.py",
-            "//tools/clang-tidy/scripts:clang_tidy_exceptions.py",
             "//tools/clang-tidy/scripts:clang_tidy_runner.py",
             "//tools/clang-tidy/scripts:clang_tidy_scope.py",
             "//tools/clang-tidy/scripts:clang_tidy_toolchain.py",
@@ -49,7 +48,6 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
         ],
         data = [
             "//:.clang-tidy",
-            "//:.clang-tidy-exceptions.yaml",
             "//bazel/compile_commands:refresh",
             "//tools/clang-tidy/plugin:llvm_identity",
         ] + select({

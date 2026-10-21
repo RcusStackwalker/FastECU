@@ -976,6 +976,8 @@ struct MitsuColtM32rCanWriteExecutor : ::testing::Test
     const fastecu::Result<fastecu::flash::FlashPlan> plan = WritePlan(rom);
 };
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
 {
     ScriptBootloadHandshake(transport);
@@ -1011,7 +1013,10 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffe
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Userspace flash written")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Userspace flash verified")));
 }
+// NOLINTEND(fastecu-result-access)
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteRefusesRedirectBootstrapWhenTheCarrierDoesNotMatchTheDesiredTopPayload)
 {
     ScriptBootloadHandshake(transport);
@@ -1032,7 +1037,10 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteRefusesRedirectBootstrapWhenTheCarrie
                 Not(Contains(Pair(LogLevel::kInfo, "Uploading erase redirect routine to RAM 0x805568..."))));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Carrier window erased"))));
 }
+// NOLINTEND(fastecu-result-access)
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, WritePropagatesACarrierReadFailureBeforeRedirectHelpers)
 {
     ScriptBootloadHandshake(transport);
@@ -1052,6 +1060,7 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WritePropagatesACarrierReadFailureBeforeRe
                 Not(Contains(Pair(LogLevel::kInfo, "Uploading erase redirect routine to RAM 0x805568..."))));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Carrier window erased"))));
 }
+// NOLINTEND(fastecu-result-access)
 
 TEST(MitsuColtM32rCanExecutor, WriteStopsReadingTheTopRegionAtTheFirstMismatchedChunk)
 {
@@ -1097,6 +1106,8 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsReadingTheTopRegionAtTheFirstMismatched
                 Contains(Pair(LogLevel::kInfo, "Top 128KB mismatch, bootstrapping via redirect routines...")));
 }
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheUserspaceVerifyMismatches)
 {
     ScriptWriteThroughRoutineUploads(transport);
@@ -1110,7 +1121,10 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheUserspaceVerifyMismatches
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Userspace verify failed after write")));
 }
+// NOLINTEND(fastecu-result-access)
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheTopRegionVerifyMismatches)
 {
     ScriptBootloadHandshake(transport);
@@ -1134,7 +1148,10 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheTopRegionVerifyMismatches
     // The main write never starts.
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Erase page uploaded"))));
 }
+// NOLINTEND(fastecu-result-access)
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
 {
     transport.WatchWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x31, 0xE0});
@@ -1149,7 +1166,10 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::kError, "the reflash unlock request rejected: Security access denied")));
 }
+// NOLINTEND(fastecu-result-access)
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
 {
     transport.WatchWrite(Request(mitsu_colt_can::BuildRequestDownload(0x8000, 0x58000)));
@@ -1165,6 +1185,7 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Erase trigger rejected: Conditions not correct")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Userspace flash erased"))));
 }
+// NOLINTEND(fastecu-result-access)
 
 TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZeroStatus)
 {
@@ -1592,6 +1613,8 @@ TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBefor
     EXPECT_FALSE(transport.ScriptConsumed()); // the reply was never read
 }
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteAbortsWhenTheEraseRoutineRequestDownloadIsRejected)
 {
     ScriptBootloadHandshake(transport);
@@ -1612,7 +1635,10 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteAbortsWhenTheEraseRoutineRequestDownl
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Erase-page routine upload failed")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Erase page uploaded"))));
 }
+// NOLINTEND(fastecu-result-access)
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteAbortsWhenTheWriteRoutineTransferDataIsRejected)
 {
     ScriptBootloadHandshake(transport);
@@ -1635,7 +1661,10 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteAbortsWhenTheWriteRoutineTransferData
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Write-page routine upload failed")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Userspace flash erased"))));
 }
+// NOLINTEND(fastecu-result-access)
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheUserspaceCrcCheckIsRejected)
 {
     ScriptWriteThroughRoutineUploads(transport);
@@ -1674,7 +1703,10 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteFailsWhenTheUserspaceCrcCheckIsReject
                                  &fastecu::RecordedPhaseProgress::phase_name),
               0);
 }
+// NOLINTEND(fastecu-result-access)
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRejected)
 {
     ScriptBootloadHandshake(transport);
@@ -1697,7 +1729,10 @@ TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumRequestDownl
                                                              "Conditions not correct")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Erase redirect routine upload failed")));
 }
+// NOLINTEND(fastecu-result-access)
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejected)
 {
     ScriptBootloadHandshake(transport);
@@ -1725,7 +1760,10 @@ TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumTransferData
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Write redirect routine upload failed")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Carrier window erased"))));
 }
+// NOLINTEND(fastecu-result-access)
 
+// NOLINTBEGIN(fastecu-result-access): GoogleTest skips the body after a fatal SetUp failure, and SetUp
+// proves the const plan succeeds; that lifetime proof crosses the analysis boundary.
 TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
 {
     ScriptBootloadHandshake(transport);
@@ -1750,6 +1788,7 @@ TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapReportsItsOwnReflashUnlockRejecti
                                                                  "Conditions not correct"))));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Carrier window erased"))));
 }
+// NOLINTEND(fastecu-result-access)
 
 TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
 {

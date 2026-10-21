@@ -575,7 +575,7 @@ class FunctionAnalysis
 } // namespace
 
 ResultAccessCheck::ResultAccessCheck(llvm::StringRef name, clang::tidy::ClangTidyContext *context)
-    : ClangTidyCheck(name, context), policy_(*context)
+    : ClangTidyCheck(name, context)
 {
 }
 
@@ -587,7 +587,6 @@ void ResultAccessCheck::registerMatchers(clang::ast_matchers::MatchFinder *finde
 
 void ResultAccessCheck::check(const clang::ast_matchers::MatchFinder::MatchResult& result)
 {
-    ast_ = result.Context;
     const auto *function = result.Nodes.getNodeAs<clang::FunctionDecl>("function");
     if (!function || !IsTestFunction(*function, *result.SourceManager))
         return;
@@ -599,8 +598,6 @@ void ResultAccessCheck::check(const clang::ast_matchers::MatchFinder::MatchResul
         *result.Context,
         [&](const clang::Expr& access, ResultState state)
         {
-            if (policy_.Allows("fastecu-result-access", access, *result.Context))
-                return;
             diag(access.getExprLoc(),
                  state == ResultState::kSuccess
                      ? "prove Result success with ASSERT_THAT(IsOk()) or a terminating guard before accessing its value"
@@ -610,19 +607,4 @@ void ResultAccessCheck::check(const clang::ast_matchers::MatchFinder::MatchResul
     analysis.AnalyzeFunction(function->getBody());
 }
 
-void ResultAccessCheck::storeOptions(clang::tidy::ClangTidyOptions::OptionMap& options)
-{
-    policy_.StoreOptions(options);
-}
-
-void ResultAccessCheck::onEndOfTranslationUnit()
-{
-    if (!ast_)
-        return;
-    const auto error = policy_.ConfigurationError().empty() ? policy_.FlushUsage() : policy_.ConfigurationError();
-    if (!error.empty())
-        diag(ast_->getSourceManager().getLocForStartOfFile(ast_->getSourceManager().getMainFileID()), "%0",
-             clang::DiagnosticIDs::Error)
-            << error;
-}
 } // namespace fastecu::tidy

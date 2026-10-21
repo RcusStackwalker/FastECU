@@ -61,7 +61,7 @@ bool IsPureStatusAssertion(const clang::CompoundStmt& selected, const clang::Var
 }
 } // namespace
 SingleUseResultCheck::SingleUseResultCheck(llvm::StringRef name, clang::tidy::ClangTidyContext *context)
-    : ClangTidyCheck(name, context), policy_(*context)
+    : ClangTidyCheck(name, context)
 {
 }
 void SingleUseResultCheck::registerMatchers(clang::ast_matchers::MatchFinder *finder)
@@ -71,7 +71,6 @@ void SingleUseResultCheck::registerMatchers(clang::ast_matchers::MatchFinder *fi
 }
 void SingleUseResultCheck::check(const clang::ast_matchers::MatchFinder::MatchResult& result)
 {
-    ast_ = result.Context;
     const auto *block = result.Nodes.getNodeAs<clang::CompoundStmt>("block");
     if (!block || block->size() < 2)
         return;
@@ -96,21 +95,6 @@ void SingleUseResultCheck::check(const clang::ast_matchers::MatchFinder::MatchRe
         return;
     if (!IsPureStatusAssertion(*block, variable, *result.Context))
         return;
-    if (!policy_.Allows("fastecu-single-use-result", *declaration, *result.Context))
-        diag(variable->getLocation(), "inline this single-use Status operation into its adjacent assertion");
-}
-void SingleUseResultCheck::storeOptions(clang::tidy::ClangTidyOptions::OptionMap& options)
-{
-    policy_.StoreOptions(options);
-}
-void SingleUseResultCheck::onEndOfTranslationUnit()
-{
-    if (!ast_)
-        return;
-    const auto error = policy_.ConfigurationError().empty() ? policy_.FlushUsage() : policy_.ConfigurationError();
-    if (!error.empty())
-        diag(ast_->getSourceManager().getLocForStartOfFile(ast_->getSourceManager().getMainFileID()), "%0",
-             clang::DiagnosticIDs::Error)
-            << error;
+    diag(variable->getLocation(), "inline this single-use Status operation into its adjacent assertion");
 }
 } // namespace fastecu::tidy

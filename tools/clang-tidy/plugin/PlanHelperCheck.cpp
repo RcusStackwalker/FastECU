@@ -64,7 +64,7 @@ class PlanBody : public clang::RecursiveASTVisitor<PlanBody>
 };
 } // namespace
 PlanHelperCheck::PlanHelperCheck(llvm::StringRef name, clang::tidy::ClangTidyContext *context)
-    : ClangTidyCheck(name, context), policy_(*context)
+    : ClangTidyCheck(name, context)
 {
 }
 void PlanHelperCheck::registerMatchers(clang::ast_matchers::MatchFinder *finder)
@@ -74,7 +74,6 @@ void PlanHelperCheck::registerMatchers(clang::ast_matchers::MatchFinder *finder)
 }
 void PlanHelperCheck::check(const clang::ast_matchers::MatchFinder::MatchResult& result)
 {
-    ast_ = result.Context;
     const auto *function = result.Nodes.getNodeAs<clang::FunctionDecl>("function");
     if (!function || !IsTestFunction(*function, *result.SourceManager))
         return;
@@ -86,22 +85,7 @@ void PlanHelperCheck::check(const clang::ast_matchers::MatchFinder::MatchResult&
     PlanBody body(*result.Context);
     body.TraverseStmt(function->getBody());
     if ((raw && body.fallible_return) || (!raw && body.fallible_call && body.aborts))
-        if (!policy_.Allows("fastecu-plan-helper", *function->getBody(), *result.Context))
-            diag(function->getLocation(), "propagate fallible plan construction as Result<FlashPlan>; assert in the "
-                                          "caller instead of unwrapping or throwing in a helper");
-}
-void PlanHelperCheck::storeOptions(clang::tidy::ClangTidyOptions::OptionMap& options)
-{
-    policy_.StoreOptions(options);
-}
-void PlanHelperCheck::onEndOfTranslationUnit()
-{
-    if (!ast_)
-        return;
-    const auto error = policy_.ConfigurationError().empty() ? policy_.FlushUsage() : policy_.ConfigurationError();
-    if (!error.empty())
-        diag(ast_->getSourceManager().getLocForStartOfFile(ast_->getSourceManager().getMainFileID()), "%0",
-             clang::DiagnosticIDs::Error)
-            << error;
+        diag(function->getLocation(), "propagate fallible plan construction as Result<FlashPlan>; assert in the "
+                                      "caller instead of unwrapping or throwing in a helper");
 }
 } // namespace fastecu::tidy

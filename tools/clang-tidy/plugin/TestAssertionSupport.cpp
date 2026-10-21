@@ -6,57 +6,11 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/JSON.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/YAMLTraits.h"
 
-#include <cstdlib>
 #include <cstdint>
 #include "llvm/ADT/StringExtras.h"
-#include <set>
-#include <tuple>
 #include <vector>
-
-namespace fastecu::tidy
-{
-struct ExceptionRecord
-{
-    std::string check;
-    std::string file;
-    std::string symbol;
-    std::string rationale;
-};
-struct ExceptionDocument
-{
-    int version = 0;
-    std::vector<ExceptionRecord> exceptions;
-};
-} // namespace fastecu::tidy
-
-LLVM_YAML_IS_SEQUENCE_VECTOR(fastecu::tidy::ExceptionRecord)
-namespace llvm::yaml
-{
-template <> struct MappingTraits<fastecu::tidy::ExceptionRecord>
-{
-    static void mapping(IO& io, fastecu::tidy::ExceptionRecord& record)
-    {
-        io.mapRequired("check", record.check);
-        io.mapRequired("file", record.file);
-        io.mapRequired("symbol", record.symbol);
-        io.mapRequired("rationale", record.rationale);
-    }
-};
-template <> struct MappingTraits<fastecu::tidy::ExceptionDocument>
-{
-    static void mapping(IO& io, fastecu::tidy::ExceptionDocument& document)
-    {
-        io.mapRequired("version", document.version);
-        io.mapRequired("exceptions", document.exceptions);
-    }
-};
-} // namespace llvm::yaml
 
 namespace fastecu::tidy
 {
@@ -115,49 +69,6 @@ class FormatterFinder : public clang::RecursiveASTVisitor<FormatterFinder>
         return true;
     }
 };
-
-std::string AbsolutePath(llvm::StringRef path, llvm::StringRef directory)
-{
-    llvm::SmallString<256> absolute(path);
-    llvm::sys::path::make_absolute(directory, absolute);
-    llvm::sys::path::remove_dots(absolute, true);
-    return llvm::sys::path::convert_to_slash(absolute);
-}
-
-std::string FunctionIdentity(const clang::FunctionDecl& function, clang::ASTContext& context)
-{
-    if (const auto *method = llvm::dyn_cast<clang::CXXMethodDecl>(&function);
-        method && method->getNameAsString() == "TestBody")
-    {
-        auto location = context.getSourceManager().getExpansionLoc(method->getParent()->getBeginLoc());
-        auto token = clang::Lexer::findNextToken(location, context.getSourceManager(), context.getLangOpts());
-        if (token && token->is(clang::tok::l_paren))
-        {
-            token =
-                clang::Lexer::findNextToken(token->getLocation(), context.getSourceManager(), context.getLangOpts());
-            if (token)
-            {
-                const auto suite = clang::Lexer::getSpelling(*token, context.getSourceManager(), context.getLangOpts());
-                token = clang::Lexer::findNextToken(token->getLocation(), context.getSourceManager(),
-                                                    context.getLangOpts());
-                if (token)
-                    token = clang::Lexer::findNextToken(token->getLocation(), context.getSourceManager(),
-                                                        context.getLangOpts());
-                if (token)
-                    return suite + "." +
-                           clang::Lexer::getSpelling(*token, context.getSourceManager(), context.getLangOpts());
-            }
-        }
-    }
-    std::string identity = function.getQualifiedNameAsString() + "(";
-    for (unsigned index = 0; index < function.getNumParams(); ++index)
-    {
-        if (index)
-            identity += ", ";
-        identity += function.getParamDecl(index)->getOriginalType().getAsString();
-    }
-    return identity + ")";
-}
 } // namespace
 
 bool IsResultType(clang::QualType type)
@@ -418,104 +329,5 @@ const clang::FunctionDecl *EnclosingFunction(const clang::Stmt& statement, clang
         node = parents[0];
     }
     return nullptr;
-}
-
-struct ExceptionPolicy::Impl
-{
-    clang::tidy::ClangTidyContext& context;
-    std::string option;
-    std::string root;
-    std::string error;
-    bool loaded = false;
-    ExceptionDocument document;
-    std::set<std::tuple<std::string, std::string, std::string>> used;
-
-    explicit Impl(clang::tidy::ClangTidyContext& selected) : context(selected)
-    {
-        const auto& options = context.getOptions().CheckOptions;
-        const auto found = options.find("fastecu.ExceptionsFile");
-        option = found == options.end() ? ".clang-tidy-exceptions.yaml" : found->second.Value;
-    }
-
-    void Load()
-    {
-        if (loaded)
-            return;
-        loaded = true;
-        const auto path = AbsolutePath(option, context.getCurrentBuildDirectory());
-        root = llvm::sys::path::parent_path(path).str();
-        const auto buffer = llvm::MemoryBuffer::getFile(path);
-        if (!buffer)
-        {
-            error = "cannot read central exception policy: " + path;
-            return;
-        }
-        llvm::yaml::Input input((*buffer)->getBuffer());
-        input >> document;
-        if (input.error() || document.version != 1)
-            error = "invalid central exception policy: " + path;
-    }
-};
-
-ExceptionPolicy::ExceptionPolicy(clang::tidy::ClangTidyContext& context) : impl_(std::make_unique<Impl>(context))
-{
-}
-ExceptionPolicy::~ExceptionPolicy() = default;
-
-bool ExceptionPolicy::Allows(llvm::StringRef check, const clang::Stmt& statement, clang::ASTContext& context)
-{
-    impl_->Load();
-    if (!impl_->error.empty())
-        return false;
-    const auto *function = EnclosingFunction(statement, context);
-    if (!function)
-        return false;
-    const auto& source = context.getSourceManager();
-    const auto absolute = AbsolutePath(source.getFilename(source.getExpansionLoc(statement.getBeginLoc())),
-                                       impl_->context.getCurrentBuildDirectory());
-    const auto prefix = impl_->root + "/";
-    if (!llvm::StringRef(absolute).starts_with(prefix))
-        return false;
-    const auto file = absolute.substr(prefix.size());
-    const auto symbol = FunctionIdentity(*function, context);
-    for (const auto& record : impl_->document.exceptions)
-    {
-        if (record.check == check && record.file == file && record.symbol == symbol && !record.rationale.empty())
-        {
-            impl_->used.emplace(record.check, file, symbol);
-            return true;
-        }
-    }
-    return false;
-}
-
-const std::string& ExceptionPolicy::ConfigurationError() const
-{
-    return impl_->error;
-}
-
-void ExceptionPolicy::StoreOptions(clang::tidy::ClangTidyOptions::OptionMap& options) const
-{
-    options["fastecu.ExceptionsFile"] = clang::tidy::ClangTidyOptions::ClangTidyValue(llvm::StringRef(impl_->option));
-}
-
-std::string ExceptionPolicy::FlushUsage()
-{
-    const char *directory = std::getenv("FASTECU_TIDY_EXCEPTION_USAGE_DIR");
-    if (!directory || impl_->used.empty())
-        return {};
-    llvm::SmallString<256> path(directory);
-    llvm::sys::path::append(path, "usage-%%%%%%.json");
-    int descriptor = -1;
-    llvm::SmallString<256> output;
-    if (const auto error = llvm::sys::fs::createUniqueFile(path, descriptor, output))
-        return error.message();
-    llvm::json::Array records;
-    for (const auto& [check, file, symbol] : impl_->used)
-        records.push_back(llvm::json::Object{{"check", check}, {"file", file}, {"symbol", symbol}});
-    llvm::raw_fd_ostream stream(descriptor, true);
-    stream << llvm::formatv("{0}", llvm::json::Value(std::move(records)));
-    stream.flush();
-    return stream.has_error() ? "cannot write central exception usage" : std::string{};
 }
 } // namespace fastecu::tidy

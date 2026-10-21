@@ -16,7 +16,6 @@ filegroup(
 exports_files(
     [
         "clang_tidy_benchmark.py",
-        "clang_tidy_exceptions.py",
         "clang_tidy_output.py",
         "clang_tidy_profile.py",
         "clang_tidy_runner.py",
@@ -27,18 +26,6 @@ exports_files(
         "//:__pkg__",
         "//bazel:__pkg__",
     ],
-)
-
-py_test(
-    name = "clang_tidy_exceptions_test",
-    size = "small",
-    srcs = [
-        "clang_tidy_exceptions.py",
-        "tests/clang_tidy_exceptions_test.py",
-    ],
-    imports = ["."],
-    main = "tests/clang_tidy_exceptions_test.py",
-    deps = ["@python_deps//pyyaml"],
 )
 
 py_test(
@@ -97,7 +84,6 @@ py_test(
     size = "small",
     srcs = [
         "clang_tidy_benchmark.py",
-        "clang_tidy_exceptions.py",
         "clang_tidy_output.py",
         "clang_tidy_profile.py",
         "clang_tidy_runner.py",
@@ -114,7 +100,6 @@ py_test(
     name = "clang_tidy_runner_test",
     size = "small",
     srcs = [
-        "clang_tidy_exceptions.py",
         "clang_tidy_output.py",
         "clang_tidy_profile.py",
         "clang_tidy_runner.py",

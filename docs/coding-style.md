@@ -212,8 +212,8 @@ EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
   accessing it.
 - **Pass the operation straight to the assertion** when its result is used
   once, unless a local is needed to preserve operation or cleanup order.
-- `Not(IsOk())` only when the contract permits any error, with an exact
-  rationale in [the central exception policy](../.clang-tidy-exceptions.yaml). Plain
+- `Not(IsOk())` only when the contract permits any error, inside a
+  `NOLINTBEGIN/NOLINTEND(fastecu-result-assertion)` block that says why. Plain
   `std::optional` checks and the low-level Result API tests use ordinary
   assertions.
 - Helpers that fallibly build plans return `Result<FlashPlan>` and propagate

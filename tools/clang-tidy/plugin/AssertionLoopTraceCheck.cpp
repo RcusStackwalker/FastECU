@@ -86,7 +86,7 @@ class TraceAnalysis
 };
 } // namespace
 AssertionLoopTraceCheck::AssertionLoopTraceCheck(llvm::StringRef name, clang::tidy::ClangTidyContext *context)
-    : ClangTidyCheck(name, context), policy_(*context)
+    : ClangTidyCheck(name, context)
 {
 }
 void AssertionLoopTraceCheck::registerMatchers(clang::ast_matchers::MatchFinder *finder)
@@ -96,7 +96,6 @@ void AssertionLoopTraceCheck::registerMatchers(clang::ast_matchers::MatchFinder 
 }
 void AssertionLoopTraceCheck::check(const clang::ast_matchers::MatchFinder::MatchResult& result)
 {
-    ast_ = result.Context;
     const auto *loop = result.Nodes.getNodeAs<clang::Stmt>("loop");
     const auto *function = EnclosingFunction(*loop, *result.Context);
     if (!function || !IsTestFunction(*function, *result.SourceManager))
@@ -107,22 +106,8 @@ void AssertionLoopTraceCheck::check(const clang::ast_matchers::MatchFinder::Matc
     if (IsElementAssertionLoop(*loop, *result.Context))
         return;
     TraceAnalysis analysis(*result.Context);
-    if (analysis.Missing(LoopBody(loop)) && !policy_.Allows("fastecu-assertion-loop-trace", *loop, *result.Context))
+    if (analysis.Missing(LoopBody(loop)))
         diag(loop->getBeginLoc(),
              "identify each assertion-loop iteration with an iteration-local SCOPED_TRACE or named parameterized case");
-}
-void AssertionLoopTraceCheck::storeOptions(clang::tidy::ClangTidyOptions::OptionMap& options)
-{
-    policy_.StoreOptions(options);
-}
-void AssertionLoopTraceCheck::onEndOfTranslationUnit()
-{
-    if (!ast_)
-        return;
-    const auto error = policy_.ConfigurationError().empty() ? policy_.FlushUsage() : policy_.ConfigurationError();
-    if (!error.empty())
-        diag(ast_->getSourceManager().getLocForStartOfFile(ast_->getSourceManager().getMainFileID()), "%0",
-             clang::DiagnosticIDs::Error)
-            << error;
 }
 } // namespace fastecu::tidy

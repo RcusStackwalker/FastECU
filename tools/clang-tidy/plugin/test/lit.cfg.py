@@ -1,6 +1,5 @@
 """LLVM-style check tests, using real FastECU and GoogleTest headers."""
 
-import json
 import os
 import shlex
 import subprocess
@@ -61,20 +60,5 @@ config.substitutions += [
     ("%clang_tidy", shlex.quote(str(Path(lit_config.params["tools"]) / "clang-tidy"))),
     ("%load", shlex.join(lit_config.params["load"])),
     ("%cxx_flags", shlex.join(flags)),
-    (
-        "%check_config",
-        shlex.quote(
-            "--config="
-            + json.dumps(
-                {
-                    "CheckOptions": {
-                        "fastecu.ExceptionsFile": str(
-                            Path(__file__).parent / "Inputs/empty-exceptions.yaml"
-                        )
-                    }
-                }
-            )
-        ),
-    ),
     ("%workspace", shlex.quote(lit_config.params["workspace"])),
 ]

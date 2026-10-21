@@ -16,6 +16,8 @@ using ::testing::HasSubstr;
 using ::testing::Not;
 using ::testing::StrEq;
 
+// NOLINTBEGIN(fastecu-result-assertion): these test the negation of IsOk itself, so IsErr would stop
+// exercising the matcher contract (for Status, independently of error classification).
 TEST(ResultMatchers, IsOkAcceptsAValueAndRejectsAnError)
 {
     const Result<int> good = 7;
@@ -33,6 +35,7 @@ TEST(ResultMatchers, IsOkAcceptsAStatus)
     EXPECT_THAT(good, IsOk());
     EXPECT_THAT(bad, Not(IsOk()));
 }
+// NOLINTEND(fastecu-result-assertion)
 
 TEST(ResultMatchers, IsOkAndInspectsTheValue)
 {
