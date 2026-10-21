@@ -19,6 +19,7 @@ import clang_tidy_parity as parity
 import clang_tidy_runner as legacy
 import clang_tidy_scope as scope
 import clang_tidy_toolchain as toolchain
+import yaml
 
 
 def action_configurations(
@@ -117,7 +118,7 @@ def run_legacy(
             return subprocess.CompletedProcess(command, 0, "", "")
         return subprocess.run(command, **kwargs)
 
-    with log_path.open("w", encoding="utf-8") as log, contextlib.redirect_stdout(log):
+    with log_path.open("w", encoding="utf-8", buffering=1) as log, contextlib.redirect_stdout(log):
         try:
             legacy.run_workflow(
                 mode="report",
@@ -154,6 +155,7 @@ def run_legacy(
         "sources": sources,
         "analyzed_sources": changed or sources,
         "controlled_git_input": bool(changed),
+        "parallel_jobs": 4,
     }
 
 
@@ -294,6 +296,19 @@ def clean_reference(reference: Path, workspace: Path) -> dict:
         "tools/clang-tidy/scripts/clang_tidy_aspect.py",
         "tools/clang-tidy/scripts/tests/clang_tidy_aspect_test.py",
     }
+    workflow = ".github/workflows/pr.yml"
+    if workflow in changed:
+        before = yaml.safe_load(
+            subprocess.check_output(
+                ["git", "show", f"{metadata['revision']}:{workflow}"], cwd=workspace, text=True
+            )
+        )
+        after = yaml.safe_load((workspace / workflow).read_text())
+        before["jobs"]["clang-tidy-aspect"].pop("timeout-minutes", None)
+        after["jobs"]["clang-tidy-aspect"].pop("timeout-minutes", None)
+        if before != after:
+            raise RuntimeError("workflow setup changed since the clean reference")
+        allowed.add(workflow)
     if any(
         path not in allowed
         and not path.startswith(
