@@ -26,6 +26,7 @@ import clang_tidy_output as output
 import clang_tidy_profile as profile
 import clang_tidy_scope as scope
 import clang_tidy_toolchain as analysis_toolchain
+import yaml
 
 ASPECT = "//tools/clang-tidy/aspect:linters.bzl%clang_tidy"
 GROUPS = "rules_lint_human,rules_lint_fixes"
@@ -38,7 +39,7 @@ HOMEBREW_BIN = (Path("/opt/homebrew/opt/llvm/bin"), Path("/usr/local/opt/llvm/bi
 
 # Bazel runs actions in <output base>/sandbox/<kind>/<n>/execroot/<workspace>/; clang-tidy and its
 # exported fixes name files by that path.
-_EXECROOT = re.compile(r"(?:[A-Za-z]:)?[^\s:'\"]*[\\/]execroot[\\/][^\\/\s'\"]+")
+_EXECROOT = re.compile(r"(?:[A-Za-z]:)?[\\/][^\n:'\"]*?[\\/]execroot[\\/][^\\/\s'\"]+")
 
 Run = Callable[..., "subprocess.CompletedProcess[str]"]
 
@@ -213,10 +214,10 @@ def apply_fixes(
         directory = Path(name)
         count = 0
         for index, path in enumerate(fixes):
-            text = path.read_text(encoding="utf-8")
-            if "Replacements:" not in text:
+            text = _normalized_fixes(_read_output(path), workspace)
+            if text is None:
                 continue
-            (directory / f"{index}.yaml").write_text(localize(text, workspace), encoding="utf-8")
+            (directory / f"{index}.yaml").write_text(text, encoding="utf-8")
             count += 1
         if not count:
             return 0
@@ -226,6 +227,48 @@ def apply_fixes(
         if result.returncode:
             raise AspectError(f"clang-apply-replacements failed: {result.stderr or result.stdout}")
         return count
+
+
+def _normalize_replacement(replacement: object, workspace: Path) -> None:
+    if not isinstance(replacement, dict) or not isinstance(replacement.get("FilePath"), str):
+        raise AspectError("invalid replacement: missing FilePath")
+    path = Path(localize(replacement["FilePath"], workspace))
+    if not path.is_absolute():
+        path = workspace / path
+    if not path.resolve().is_relative_to(workspace.resolve()):
+        raise AspectError(f"replacement is outside the workspace: {path}")
+    replacement["FilePath"] = str(path)
+
+
+def _normalize_paths(value: object, workspace: Path) -> int:
+    count = 0
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "Replacements":
+                if not isinstance(item, list):
+                    raise AspectError("invalid replacement list")
+                for replacement in item:
+                    _normalize_replacement(replacement, workspace)
+                    count += 1
+            elif key in ("FilePath", "MainSourceFile", "BuildDirectory") and isinstance(item, str):
+                value[key] = localize(item, workspace)
+            else:
+                count += _normalize_paths(item, workspace)
+    elif isinstance(value, list):
+        count = sum(_normalize_paths(item, workspace) for item in value)
+    return count
+
+
+def _normalized_fixes(text: str, workspace: Path) -> str | None:
+    try:
+        document = yaml.safe_load(text)
+    except yaml.YAMLError as error:
+        raise AspectError(f"invalid replacement report: {error}") from error
+    if not isinstance(document, dict) or not isinstance(document.get("Diagnostics"), list):
+        raise AspectError("invalid replacement report: missing Diagnostics list")
+    return (
+        yaml.safe_dump(document, sort_keys=False) if _normalize_paths(document, workspace) else None
+    )
 
 
 def build_command(targets: Sequence[str], events: Path, extra: Sequence[str] = ()) -> list[str]:
@@ -256,6 +299,7 @@ def find_apply_replacements(
         candidate = directory / name
         if candidate.is_file():
             return str(candidate)
+        raise AspectError(f"{name} is missing from the selected LLVM installation: {directory}")
     found = which(name)
     if found:
         return found
@@ -304,6 +348,43 @@ def effective_bazel_args(extra: Sequence[str]) -> list[str]:
     return [*default, *extra]
 
 
+def post_fix_build(
+    targets: Sequence[str],
+    extra: Sequence[str],
+    *,
+    workspace: Path,
+    run: Run,
+    environ: Mapping[str, str] | None = None,
+) -> None:
+    result = run(
+        ["bazel", "build", *effective_bazel_args(extra), *targets],
+        cwd=workspace,
+        check=False,
+        env=environ,
+    )
+    if result.returncode:
+        raise AspectError(f"post-fix Bazel build failed with exit code {result.returncode}")
+
+
+def run_analysis(args: argparse.Namespace, workspace: Path, run: Run) -> tuple[int, OutputFiles]:
+    findings, files = _build_and_report(args, workspace, run)
+    applied = False
+    for attempt in range(MAX_FIX_PASSES if args.fix else 0):
+        if not findings:
+            break
+        tool = find_apply_replacements(args.environ)
+        if not apply_fixes(files.fixes, workspace=workspace, tool=tool, run=run):
+            break
+        applied = True
+        print(f"clang-tidy: applied fixes (pass {attempt + 1}); checking again.")
+        findings, files = _build_and_report(args, workspace, run)
+    if applied:
+        post_fix_build(
+            args.targets, args.bazel_arg, workspace=workspace, run=run, environ=args.environ
+        )
+    return findings, files
+
+
 def emit_profile(files: OutputFiles, environ: Mapping[str, str]) -> None:
     """Render one aggregate table from recorded selected-source outputs."""
     checks: dict[str, float] = {}
@@ -335,6 +416,8 @@ def main(argv: Sequence[str] | None = None, run: Run = subprocess.run) -> int:
     args = parser.parse_args(argv)
     workspace = Path(os.environ.get("BUILD_WORKSPACE_DIRECTORY", Path.cwd()))
     try:
+        if args.fix and sys.platform not in ("darwin", "linux"):
+            raise AspectError("clang-tidy fixes are supported only on macOS and Linux")
         host = analysis_toolchain.runfiles_analysis_host(os.environ)
         args.environ = dict(os.environ)
         if host.llvm_root is not None:
@@ -342,20 +425,13 @@ def main(argv: Sequence[str] | None = None, run: Run = subprocess.run) -> int:
         args.prefixes = scope.scope_prefixes(workspace, args.scope_os)
         if args.prefixes and args.targets == ["//..."]:
             args.targets = scope.build_targets(args.prefixes)
-        for attempt in range(MAX_FIX_PASSES if args.fix else 1):
-            findings, files = _build_and_report(args, workspace, run)
-            if not args.fix or not findings:
-                break
-            tool = find_apply_replacements(os.environ)
-            if not apply_fixes(files.fixes, workspace=workspace, tool=tool, run=run):
-                break
-            print(f"clang-tidy: applied fixes (pass {attempt + 1}); checking again.")
+        findings, files = run_analysis(args, workspace, run)
         noun = "finding" if findings == 1 else "findings"
         print(f"clang-tidy: {source_count(files)} files, {findings} {noun}")
         if args.profile or os.environ.get("GITHUB_ACTIONS") == "true":
             emit_profile(files, os.environ)
         return 1 if findings else 0
-    except (AspectError, scope.ScopeError, analysis_toolchain.ToolchainError) as error:
+    except (AspectError, scope.ScopeError, analysis_toolchain.ToolchainError, OSError) as error:
         print(f"clang-tidy: {error}", file=sys.stderr)
         return 2
 

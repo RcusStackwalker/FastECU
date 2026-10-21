@@ -9,6 +9,7 @@ from subprocess import CompletedProcess
 from unittest import mock
 
 import clang_tidy_aspect as aspect
+import yaml
 
 _SANDBOX = "/cache/sandbox/darwin-sandbox/87/execroot/_main"
 _FINDING = (
@@ -35,6 +36,10 @@ _EMPTY_FIXES = '---\nMainSourceFile: ""\nDiagnostics: []\n...\n'
 
 
 class LocalizeTest(unittest.TestCase):
+    def test_sandbox_prefix_with_spaces_is_fully_replaced(self) -> None:
+        text = f"{_SANDBOX.replace('/cache', '/cache with spaces')}/src/a.cpp:3:9: error: x"
+        self.assertEqual("/ws/src/a.cpp:3:9: error: x", aspect.localize(text, Path("/ws")))
+
     def test_a_sandbox_path_becomes_a_workspace_path(self) -> None:
         self.assertEqual(
             "/ws/src/a.cpp:3:9: error: x",
@@ -386,6 +391,26 @@ class ReportTest(unittest.TestCase):
 
 
 class ApplyFixesTest(unittest.TestCase):
+    def test_paths_with_spaces_preserve_replacement_text(self) -> None:
+        workspace = self.directory / "checkout with spaces"
+        sandbox = _SANDBOX.replace("/cache", "/cache with spaces")
+        literal = sandbox + "/literal"
+        text = _FIXES.replace(_SANDBOX, sandbox).replace(
+            "ReplacementText: ' {'", f"ReplacementText: '{literal}'"
+        )
+        aspect.apply_fixes(self.fixes(text), workspace=workspace, tool="x", run=self.run_tool)
+        replacement = yaml.safe_load(self.applied[0])["Diagnostics"][0]["DiagnosticMessage"][
+            "Replacements"
+        ][0]
+        self.assertEqual(str(workspace / "src/a.cpp"), replacement["FilePath"])
+        self.assertEqual(literal, replacement["ReplacementText"])
+
+    def test_replacements_outside_workspace_are_rejected(self) -> None:
+        text = _FIXES.replace(_SANDBOX + "/src/a.cpp", "/external/file.cpp")
+        with self.assertRaisesRegex(aspect.AspectError, "outside"):
+            aspect.apply_fixes(self.fixes(text), workspace=Path("/ws"), tool="x", run=self.run_tool)
+        self.assertEqual([], self.calls)
+
     def setUp(self) -> None:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -439,6 +464,12 @@ class ApplyFixesTest(unittest.TestCase):
 
 
 class CommandTest(unittest.TestCase):
+    def test_selected_llvm_missing_replacements_does_not_fall_back(self) -> None:
+        with tempfile.TemporaryDirectory() as name, self.assertRaises(aspect.AspectError):
+            aspect.find_apply_replacements(
+                {"FASTECU_LLVM_ROOT": name}, which=lambda _: "/other/clang-apply-replacements"
+            )
+
     def test_the_build_command_requests_both_output_groups_and_the_event_file(self) -> None:
         command = aspect.build_command(["//src/..."], Path("/tmp/bep.json"), ["--config=release"])
         self.assertEqual(["bazel", "build"], command[:2])
@@ -490,6 +521,122 @@ class ProfileOutputTest(unittest.TestCase):
             with mock.patch("sys.stdout", StringIO()) as output:
                 aspect.emit_profile(aspect.OutputFiles(human=[out], sources={out: "a.cpp"}), {})
             self.assertIn("Missing profiles: 1", output.getvalue())
+
+
+class FixWorkflowTest(unittest.TestCase):
+    def workflow(
+        self,
+        steps: int = 1,
+        *,
+        residual: bool = False,
+        compile_fail: bool = False,
+        analysis_fail: bool = False,
+        windows: bool = False,
+    ) -> tuple[int, str, list[int], list[list[str]], str]:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        source = root / "src/a.cpp"
+        source.parent.mkdir()
+        source.write_text("stage=0")
+        (root / "bin").mkdir()
+        (root / "bin/clang-apply-replacements").touch()
+        stages: list[int] = []
+        builds: list[list[str]] = []
+        out_name = "target_rules_lint/src/a.cpp.AspectRulesLintClangTidy.out"
+        out = root / out_name
+        out.parent.mkdir(parents=True)
+        fixes_name = out_name.removesuffix("out") + "fixes.yaml"
+
+        def run(command: list[str], **kwargs: object) -> CompletedProcess[str]:
+            if Path(command[0]).name == "clang-apply-replacements":
+                for path in Path(command[1]).glob("*.yaml"):
+                    replacement = yaml.safe_load(path.read_text())["Diagnostics"][0][
+                        "DiagnosticMessage"
+                    ]["Replacements"][0]
+                    destination = Path(replacement["FilePath"])
+                    text = destination.read_text()
+                    offset, length = replacement["Offset"], replacement["Length"]
+                    destination.write_text(
+                        text[:offset] + replacement["ReplacementText"] + text[offset + length :]
+                    )
+                return CompletedProcess(command, 0)
+            flags = [arg for arg in command if arg.startswith("--build_event_json_file=")]
+            if not flags:
+                builds.append(command)
+                return CompletedProcess(command, int(compile_fail))
+            stage = int(source.read_text()[-1])
+            stages.append(stage)
+            finding = stage < steps or residual
+            out.write_text(_FINDING if finding else "")
+            Path(str(out) + ".exit_code").write_text("1" if finding else "0")
+            diagnostics = []
+            if stage < steps:
+                diagnostics = [
+                    {
+                        "DiagnosticMessage": {
+                            "Replacements": [
+                                {
+                                    "FilePath": str(source),
+                                    "Offset": 6,
+                                    "Length": 1,
+                                    "ReplacementText": str(stage + 1),
+                                }
+                            ]
+                        }
+                    }
+                ]
+            (root / fixes_name).write_text(json.dumps({"Diagnostics": diagnostics}))
+            groups = {
+                "rules_lint_human": [out_name, out_name + ".exit_code"],
+                "rules_lint_fixes": [fixes_name],
+            }
+            made = bep(groups, root)
+            Path(flags[0].split("=", 1)[1]).write_text(made.read_text())
+            return CompletedProcess(command, int(analysis_fail))
+
+        host = aspect.analysis_toolchain.AnalysisHost(root / "bin/clang-tidy", (), root)
+        err = StringIO()
+        with (
+            mock.patch.dict("os.environ", {"BUILD_WORKSPACE_DIRECTORY": str(root)}),
+            mock.patch.object(
+                aspect.analysis_toolchain, "runfiles_analysis_host", return_value=host
+            ),
+            mock.patch.object(aspect.sys, "platform", "win32" if windows else "darwin"),
+            mock.patch("sys.stdout", StringIO()),
+            mock.patch("sys.stderr", err),
+        ):
+            code = aspect.main(["//src:library", "--fix", "--bazel-arg=--config=custom"], run=run)
+        return code, source.read_text(), stages, builds, err.getvalue()
+
+    def test_last_fix_pass_is_rechecked(self) -> None:
+        code, text, stages, builds, _ = self.workflow(3)
+        self.assertEqual((0, "stage=3", [0, 1, 2, 3]), (code, text, stages))
+        self.assertEqual(1, len(builds))
+
+    def test_post_fix_build_uses_selected_targets_and_configuration(self) -> None:
+        code, text, _, builds, _ = self.workflow()
+        self.assertEqual((0, "stage=1"), (code, text))
+        self.assertEqual(
+            [["bazel", "build", "--config=release", "--config=custom", "//src:library"]], builds
+        )
+
+    def test_remaining_findings_still_compile_and_fail(self) -> None:
+        code, text, _, builds, _ = self.workflow(residual=True)
+        self.assertEqual((1, "stage=1", 1), (code, text, len(builds)))
+
+    def test_post_fix_compile_failure_fails(self) -> None:
+        code, text, _, _, error = self.workflow(compile_fail=True)
+        self.assertEqual((2, "stage=1"), (code, text))
+        self.assertIn("post-fix", error)
+
+    def test_failed_analysis_never_applies_fixes(self) -> None:
+        code, text, _, builds, _ = self.workflow(analysis_fail=True)
+        self.assertEqual((2, "stage=0", []), (code, text, builds))
+
+    def test_windows_fix_fails_before_mutation(self) -> None:
+        code, text, stages, builds, _ = self.workflow(windows=True)
+        self.assertEqual((2, "stage=0", [], []), (code, text, stages, builds))
 
 
 if __name__ == "__main__":

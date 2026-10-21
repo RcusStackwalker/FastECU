@@ -45,6 +45,7 @@ py_binary(
     imports = ["."],
     main = "clang_tidy_aspect.py",
     visibility = ["//:__pkg__"],
+    deps = ["@python_deps//pyyaml"],
 )
 
 py_test(
@@ -60,6 +61,7 @@ py_test(
     ],
     imports = ["."],
     main = "tests/clang_tidy_aspect_test.py",
+    deps = ["@python_deps//pyyaml"],
 )
 
 # Compares the findings of the compile-database runner and the aspect runner.
