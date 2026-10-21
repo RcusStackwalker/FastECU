@@ -1,6 +1,6 @@
 --- a/lint/clang_tidy.bzl
 +++ b/lint/clang_tidy.bzl
-@@ -331,13 +331,13 @@
+@@ -331,13 +331,16 @@
      args.extend(_prefixed(compilation_context.external_includes.to_list(), "-isystem"))
      return args
  
@@ -13,10 +13,13 @@
      """
 -    command = '"$BASH" "{}" "$@"'.format(executable._clang_tidy_wrapper.path)
 +    command = '"$BASH" "{}" "$@"'.format(wrapper.path)
++    # The C++ toolchain's Windows PATH can omit Git's POSIX utilities.
++    if wrapper.extension == "bash":
++        command = 'PATH="/usr/bin:$PATH"; export PATH; ' + command
      if not fixes:
          return command
      return command + "; status=$?; [ -e \"{fixes}\" ] || printf -- '---\\nMainSourceFile: \"\"\\nDiagnostics: []\\n...\\n' > \"{fixes}\"; exit $status".format(fixes = fixes.path)
-@@ -368,6 +368,11 @@
+@@ -368,6 +371,11 @@
      compiler_args = _get_compiler_args(ctx, compilation_context, srcs)
      env = _get_env(ctx, srcs)
      tools = [executable._clang_tidy_wrapper, executable._clang_tidy, find_cpp_toolchain(ctx).all_files]
@@ -28,7 +31,7 @@
  
      if patch != None:
          # Use run_patcher for fix mode
-@@ -409,7 +414,7 @@
+@@ -409,7 +417,7 @@
              inputs = inputs,
              outputs = outputs,
              tools = tools,
@@ -37,7 +40,7 @@
              arguments = [executable._clang_tidy.path] + clang_tidy_args + ["--", compiler_args_obj],
              env = env,
              mnemonic = _MNEMONIC,
-@@ -578,6 +583,11 @@
+@@ -578,6 +586,11 @@
                  executable = True,
                  cfg = "exec",
              ),

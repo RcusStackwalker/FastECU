@@ -69,6 +69,15 @@ diff; the successful full legacy baseline is retained while the current
 aspect and seed detection are rerun. The reference guard compares compiler
 setup and rejects build changes beyond the Windows-only wrapper patch.
 
+The corrected Linux qualification passed in
+[run 39657969954](https://github.com/RcusStackwalker/FastECU/actions/runs/39657969954)
+at merge revision `1bede808`: 546 matching clean sources/configuration tuples
+and no findings, then 547 matching seeded tuples and the same three seeded
+diagnostics as macOS. Its current full aspect report took 43.339s, including
+cached output retrieval; the seeded report took 6.610s. The macOS rerun at
+`67a9af0d` also passed both phases; its full cached report took 1.274s and
+executed no lint actions.
+
 At `5034313b`, the one-time warm comparison selected
 `//src/algorithms/expression:expression` on the same macOS arm64 host with LLVM
 23.1.2 and a local cache. The legacy changed-file selector received controlled
