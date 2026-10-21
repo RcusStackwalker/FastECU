@@ -1,7 +1,7 @@
 # Replace the compilation-database clang-tidy runner
 
-Status: proposed; interview decisions recorded, awaiting confirmation of the
-complete design. The [tooling guide](../../tooling.md#clang-tidy)
+Status: approved on 2026-10-21; native execution requested after planning.
+The [tooling guide](../../tooling.md#clang-tidy)
 describes the current gate; the [aspect spike](2026-10-21-clang-tidy-aspect-spike.md)
 records the original experiment.
 
@@ -214,8 +214,8 @@ contract:
 
 ## Review state
 
-All interview questions have answers. Confirm the complete contract above
-before implementation planning. Enduring usage and architecture knowledge will
+All interview questions have answers and the complete contract is approved.
+Enduring usage and architecture knowledge will
 move to their owning documents when the replacement is implemented. Preserve
 this proposal in delivered Git history before deleting it, following the
 [completed-work retention policy](../../README.md#recover-completed-work-and-deleted-source-citations).
