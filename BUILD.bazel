@@ -212,6 +212,14 @@ py_test(
     main = "scripts/tests/check-windows-preprocessor-guards.py",
 )
 
+# clang-tidy through the Bazel lint aspect (docs/superpowers/specs/2026-10-21-clang-tidy-aspect-spike.md):
+# `bazel run //:clang_tidy_aspect` checks, `-- --fix` also applies fixes.
+alias(
+    name = "clang_tidy_aspect",
+    actual = "//tools/clang-tidy/scripts:clang_tidy_aspect",
+    tags = ["manual"],
+)
+
 # Whole-tree and changed-files clang-tidy, each as a report or with fixes
 # applied. See bazel/clang_tidy.bzl for how they are run.
 clang_tidy_runner(
