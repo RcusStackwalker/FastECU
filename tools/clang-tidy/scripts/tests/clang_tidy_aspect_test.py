@@ -1,0 +1,306 @@
+#!/usr/bin/env python3
+
+import json
+import tempfile
+import unittest
+from io import StringIO
+from pathlib import Path
+from subprocess import CompletedProcess
+from unittest import mock
+
+import clang_tidy_aspect as aspect
+
+_SANDBOX = "/cache/sandbox/darwin-sandbox/87/execroot/_main"
+_FINDING = (
+    f"{_SANDBOX}/src/a.cpp:3:9: error: statement should be inside braces "
+    "[readability-braces-around-statements,-warnings-as-errors]\n"
+    "    3 |     if (x)\n"
+    "      |          ^\n"
+)
+_FIXES = (
+    "---\n"
+    f"MainSourceFile:  '{_SANDBOX}/src/a.cpp'\n"
+    "Diagnostics:\n"
+    "  - DiagnosticName:  readability-braces-around-statements\n"
+    "    DiagnosticMessage:\n"
+    f"      FilePath:        '{_SANDBOX}/src/a.cpp'\n"
+    "      Replacements:\n"
+    f"        - FilePath:        '{_SANDBOX}/src/a.cpp'\n"
+    "          Offset:          40\n"
+    "          Length:          0\n"
+    "          ReplacementText: ' {'\n"
+    "...\n"
+)
+_EMPTY_FIXES = '---\nMainSourceFile: ""\nDiagnostics: []\n...\n'
+
+
+class LocalizeTest(unittest.TestCase):
+    def test_a_sandbox_path_becomes_a_workspace_path(self) -> None:
+        self.assertEqual(
+            "/ws/src/a.cpp:3:9: error: x",
+            aspect.localize(f"{_SANDBOX}/src/a.cpp:3:9: error: x", Path("/ws")),
+        )
+
+    def test_an_unsandboxed_execroot_path_is_localized_too(self) -> None:
+        self.assertEqual(
+            "/ws/src/a.cpp",
+            aspect.localize("/home/u/.cache/bazel/x/execroot/_main/src/a.cpp", Path("/ws")),
+        )
+
+    def test_every_occurrence_on_a_line_is_localized(self) -> None:
+        line = f"FilePath: '{_SANDBOX}/a.cpp' dir '{_SANDBOX}'"
+        self.assertNotIn("execroot", aspect.localize(line, Path("/ws")))
+
+    def test_paths_outside_an_execroot_are_untouched(self) -> None:
+        self.assertEqual(
+            "/usr/include/c++/v1/vector:5:1: note: x",
+            aspect.localize("/usr/include/c++/v1/vector:5:1: note: x", Path("/ws")),
+        )
+
+
+def bep(groups: dict[str, list[str]], directory: Path) -> Path:
+    """A build event file whose output groups hold the given files, via nested file sets."""
+    events = []
+    group_sets = []
+    for index, (name, files) in enumerate(groups.items()):
+        leaf, parent = f"leaf{index}", f"parent{index}"
+        events.append(
+            {
+                "id": {"namedSet": {"id": leaf}},
+                "namedSetOfFiles": {
+                    "files": [{"name": f, "uri": (directory / f).as_uri()} for f in files]
+                },
+            }
+        )
+        events.append(
+            {
+                "id": {"namedSet": {"id": parent}},
+                "namedSetOfFiles": {"fileSets": [{"id": leaf}]},
+            }
+        )
+        group_sets.append({"name": name, "fileSets": [{"id": parent}]})
+    events.append(
+        {
+            "id": {"targetCompleted": {"label": "//src:a", "aspect": "x"}},
+            "completed": {"success": True, "outputGroup": group_sets},
+        }
+    )
+    path = directory / "bep.json"
+    path.write_text("".join(json.dumps(event) + "\n" for event in events))
+    return path
+
+
+class OutputFilesTest(unittest.TestCase):
+    def test_files_are_classified_by_suffix_through_nested_file_sets(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            path = bep(
+                {
+                    "rules_lint_human": [
+                        "a.AspectRulesLintClangTidy.out",
+                        "a.AspectRulesLintClangTidy.out.exit_code",
+                    ],
+                    "rules_lint_fixes": ["a.AspectRulesLintClangTidy.fixes.yaml"],
+                },
+                directory,
+            )
+            files = aspect.output_files(path)
+        self.assertEqual(["a.AspectRulesLintClangTidy.out"], [p.name for p in files.human])
+        self.assertEqual(
+            ["a.AspectRulesLintClangTidy.out.exit_code"], [p.name for p in files.exit_codes]
+        )
+        self.assertEqual(["a.AspectRulesLintClangTidy.fixes.yaml"], [p.name for p in files.fixes])
+
+    def test_other_output_groups_are_ignored(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            path = bep({"default": ["a.out"]}, Path(name))
+            files = aspect.output_files(path)
+        self.assertEqual(([], [], []), (files.human, files.exit_codes, files.fixes))
+
+    def test_classification_follows_the_output_name_not_the_uri(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            path = bep({"rules_lint_human": ["a.AspectRulesLintClangTidy.out"]}, directory)
+            events = [json.loads(line) for line in path.read_text().splitlines()]
+            for event in events:
+                for file in event.get("namedSetOfFiles", {}).get("files", []):
+                    file["uri"] = (directory / "digest-0123abcd").as_uri()
+            path.write_text("".join(json.dumps(event) + "\n" for event in events))
+            files = aspect.output_files(path)
+        self.assertEqual(["digest-0123abcd"], [p.name for p in files.human])
+
+    def test_an_output_left_in_the_remote_cache_is_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            path = bep({"rules_lint_human": ["a.AspectRulesLintClangTidy.out"]}, Path(name))
+            events = [json.loads(line) for line in path.read_text().splitlines()]
+            for event in events:
+                for file in event.get("namedSetOfFiles", {}).get("files", []):
+                    file["uri"] = "bytestream://remote.example/blobs/abc/12"
+            path.write_text("".join(json.dumps(event) + "\n" for event in events))
+            with self.assertRaisesRegex(aspect.AspectError, "not downloaded"):
+                aspect.output_files(path)
+
+
+class MainTest(unittest.TestCase):
+    def run_main(self, groups: dict[str, list[str]]) -> tuple[int, list[str], str]:
+        commands: list[str] = []
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+
+        def fake_run(command: list[str], **kwargs: object) -> CompletedProcess[str]:
+            commands.extend(command)
+            flag = next(c for c in command if c.startswith("--build_event_json_file="))
+            made = bep(groups, Path(directory.name))
+            Path(flag.split("=", 1)[1]).write_text(made.read_text())
+            return CompletedProcess(command, 0, "", "")
+
+        err = StringIO()
+        with (
+            mock.patch("sys.stderr", err),
+            mock.patch.dict("os.environ", {"BUILD_WORKSPACE_DIRECTORY": "/ws"}),
+        ):
+            code = aspect.main(["//src/..."], run=fake_run)
+        return code, commands, err.getvalue()
+
+    def test_a_build_that_linted_nothing_is_an_error_not_a_pass(self) -> None:
+        code, _, err = self.run_main({})
+        self.assertEqual(2, code)
+        self.assertIn("no lint output", err)
+
+    def test_lint_outputs_are_forced_to_download_from_a_remote_cache(self) -> None:
+        _, commands, _ = self.run_main({})
+        self.assertTrue(any(c.startswith("--remote_download_regex=") for c in commands))
+
+
+class ReportTest(unittest.TestCase):
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.directory = Path(directory.name)
+
+    def output(self, name: str, text: str, exit_code: str = "1") -> aspect.OutputFiles:
+        out = self.directory / name
+        out.write_text(text)
+        code = self.directory / (name + ".exit_code")
+        code.write_text(exit_code)
+        return aspect.OutputFiles(human=[out], exit_codes=[code], fixes=[])
+
+    def report(self, files: aspect.OutputFiles, *, annotate: bool = False) -> tuple[int, str]:
+        buffer = StringIO()
+        findings = aspect.report(
+            files, workspace=Path("/ws"), write=buffer.write, color=False, annotate=annotate
+        )
+        return findings, buffer.getvalue()
+
+    def test_findings_are_shown_with_workspace_paths(self) -> None:
+        findings, text = self.report(self.output("a.out", _FINDING))
+        self.assertEqual(1, findings)
+        self.assertIn("src/a.cpp:3:9", text)
+        self.assertNotIn("execroot", text)
+        self.assertIn("[readability-braces-around-statements]", text)
+
+    def test_the_same_finding_from_two_translation_units_counts_once(self) -> None:
+        first = self.output("a.out", _FINDING)
+        second = self.output("b.out", _FINDING)
+        both = aspect.OutputFiles(first.human + second.human, first.exit_codes, [])
+        self.assertEqual(1, self.report(both)[0])
+
+    def test_annotations_are_added_on_request(self) -> None:
+        _, text = self.report(self.output("a.out", _FINDING), annotate=True)
+        self.assertIn("::error file=src/a.cpp,line=3,col=9", text)
+
+    def test_only_linted_sources_are_counted_not_targets_without_sources(self) -> None:
+        linted = self.directory / "a_rules_lint" / "src" / "a.cpp.AspectRulesLintClangTidy.out"
+        noop = self.directory / "header_only.AspectRulesLintClangTidy.out"
+        files = aspect.OutputFiles(human=[linted, noop], exit_codes=[], fixes=[])
+        self.assertEqual(1, aspect.source_count(files))
+
+    def test_a_clean_file_has_no_findings(self) -> None:
+        self.assertEqual((0, ""), self.report(self.output("a.out", "", exit_code="0")))
+
+    def test_a_nonzero_exit_without_a_parsed_finding_is_still_a_failure(self) -> None:
+        findings = self.report(self.output("a.out", "clang-tidy crashed\n", exit_code="139"))[0]
+        self.assertEqual(1, findings)
+
+
+class ApplyFixesTest(unittest.TestCase):
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.directory = Path(directory.name)
+        self.calls: list[tuple[list[str], dict[str, object]]] = []
+
+    def run_tool(self, command: list[str], **kwargs: object) -> CompletedProcess[str]:
+        self.calls.append((command, kwargs))
+        directory = Path(command[-1])
+        self.applied = sorted(p.read_text() for p in directory.glob("*.yaml"))
+        return CompletedProcess(command, 0, "", "")
+
+    def fixes(self, *texts: str) -> list[Path]:
+        paths = []
+        for index, text in enumerate(texts):
+            path = self.directory / f"{index}.fixes.yaml"
+            path.write_text(text)
+            paths.append(path)
+        return paths
+
+    def test_reports_with_replacements_are_applied_with_workspace_paths(self) -> None:
+        applied = aspect.apply_fixes(
+            self.fixes(_FIXES, _EMPTY_FIXES),
+            workspace=Path("/ws"),
+            tool="clang-apply-replacements",
+            run=self.run_tool,
+        )
+        self.assertEqual(1, applied)
+        ((command, kwargs),) = self.calls
+        self.assertEqual("clang-apply-replacements", command[0])
+        self.assertEqual(Path("/ws"), kwargs["cwd"])
+        self.assertEqual(1, len(self.applied))
+        self.assertIn("/ws/src/a.cpp", self.applied[0])
+        self.assertNotIn("execroot", self.applied[0])
+
+    def test_nothing_runs_when_no_report_has_replacements(self) -> None:
+        applied = aspect.apply_fixes(
+            self.fixes(_EMPTY_FIXES),
+            workspace=Path("/ws"),
+            tool="clang-apply-replacements",
+            run=self.run_tool,
+        )
+        self.assertEqual((0, []), (applied, self.calls))
+
+    def test_a_failing_tool_is_an_error(self) -> None:
+        def failing(command: list[str], **kwargs: object) -> CompletedProcess[str]:
+            return CompletedProcess(command, 1, "", "boom")
+
+        with self.assertRaises(aspect.AspectError):
+            aspect.apply_fixes(self.fixes(_FIXES), workspace=Path("/ws"), tool="x", run=failing)
+
+
+class CommandTest(unittest.TestCase):
+    def test_the_build_command_requests_both_output_groups_and_the_event_file(self) -> None:
+        command = aspect.build_command(["//src/..."], Path("/tmp/bep.json"), ["--config=release"])
+        self.assertEqual(["bazel", "build"], command[:2])
+        self.assertIn("--aspects=//tools/clang-tidy/aspect:linters.bzl%clang_tidy", command)
+        self.assertIn("--output_groups=rules_lint_human,rules_lint_fixes", command)
+        self.assertIn(f"--build_event_json_file={Path('/tmp/bep.json')}", command)
+        self.assertIn("--nobuild_event_json_file_path_conversion", command)
+        self.assertIn("--keep_going", command)
+        self.assertEqual(["--config=release", "//src/..."], command[-2:])
+
+    def test_apply_replacements_is_found_next_to_the_selected_llvm(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            bin_directory = Path(name) / "bin"
+            bin_directory.mkdir()
+            (bin_directory / "clang-apply-replacements").write_text("")
+            found = aspect.find_apply_replacements(
+                {"FASTECU_LLVM_ROOT": name}, which=lambda _: None
+            )
+        self.assertEqual(str(bin_directory / "clang-apply-replacements"), found)
+
+    def test_a_missing_apply_replacements_is_an_error(self) -> None:
+        with self.assertRaises(aspect.AspectError):
+            aspect.find_apply_replacements({}, which=lambda _: None, homebrew=())
+
+
+if __name__ == "__main__":
+    unittest.main()
