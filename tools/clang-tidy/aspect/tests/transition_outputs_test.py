@@ -5,7 +5,10 @@ import sys
 import unittest
 from pathlib import Path
 
-REPORTS = [Path(argument) for argument in sys.argv[1:]]
+from python.runfiles import runfiles
+
+_RUNFILES = runfiles.Create()
+REPORTS = [Path(_RUNFILES.Rlocation(f"_main/{argument}")) for argument in sys.argv[1:]]
 
 
 class TransitionOutputsTest(unittest.TestCase):

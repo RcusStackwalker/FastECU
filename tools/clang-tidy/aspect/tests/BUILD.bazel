@@ -40,4 +40,5 @@ py_test(
     args = ["$(locations :reports)"],
     data = [":reports"],
     tags = ["manual"],
+    deps = ["@rules_python//python/runfiles"],
 )

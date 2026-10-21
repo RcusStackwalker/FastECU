@@ -65,7 +65,8 @@ class LocalizeTest(unittest.TestCase):
 
 def bep(groups: dict[str, list[str]], directory: Path) -> Path:
     """A build event file whose output groups hold the given files, via nested file sets."""
-    events = []
+    target = {"targetCompleted": {"label": "//src:a", "aspect": "x"}}
+    events = [{"id": {"started": {}}, "children": [target, {"buildFinished": {}}]}]
     group_sets = []
     for index, (name, files) in enumerate(groups.items()):
         leaf, parent = f"leaf{index}", f"parent{index}"
@@ -86,9 +87,12 @@ def bep(groups: dict[str, list[str]], directory: Path) -> Path:
         group_sets.append({"name": name, "fileSets": [{"id": parent}]})
     events.append(
         {
-            "id": {"targetCompleted": {"label": "//src:a", "aspect": "x"}},
+            "id": target,
             "completed": {"success": True, "outputGroup": group_sets},
         }
+    )
+    events.append(
+        {"id": {"buildFinished": {}}, "finished": {"exitCode": {"code": 0}}, "lastMessage": True}
     )
     path = directory / "bep.json"
     path.write_text("".join(json.dumps(event) + "\n" for event in events))
@@ -96,6 +100,27 @@ def bep(groups: dict[str, list[str]], directory: Path) -> Path:
 
 
 class OutputFilesTest(unittest.TestCase):
+    def test_incomplete_event_stream_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            directory = Path(name)
+            for missing in ("finish", "target", "last_message", "failed_finish"):
+                with self.subTest(missing=missing):
+                    path = bep({}, directory)
+                    events = [json.loads(line) for line in path.read_text().splitlines()]
+                    if missing == "finish":
+                        events.pop()
+                    elif missing == "target":
+                        events[0]["children"].append(
+                            {"targetCompleted": {"label": "//src:missing", "aspect": "x"}}
+                        )
+                    elif missing == "last_message":
+                        del events[-1]["lastMessage"]
+                    else:
+                        events[-1]["finished"]["exitCode"]["code"] = 1
+                    path.write_text("".join(json.dumps(event) + "\n" for event in events))
+                    with self.assertRaisesRegex(aspect.AspectError, "incomplete|unsuccessful"):
+                        aspect.output_files(path)
+
     def test_windows_file_uri(self) -> None:
         with mock.patch.object(aspect.os, "name", "nt"):
             self.assertEqual(
@@ -124,7 +149,7 @@ class OutputFilesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as name:
             path = bep({"rules_lint_human": ["a.out"]}, Path(name))
             events = [json.loads(line) for line in path.read_text().splitlines()]
-            path.write_text("".join(json.dumps(event) + "\n" for event in events[1:]))
+            path.write_text("".join(json.dumps(event) + "\n" for event in events[:1] + events[2:]))
             with self.assertRaisesRegex(aspect.AspectError, "missing.*file set"):
                 aspect.output_files(path)
 
@@ -533,6 +558,7 @@ class FixWorkflowTest(unittest.TestCase):
         analysis_fail: bool = False,
         analysis_status: int = 1,
         windows: bool = False,
+        incomplete_events: bool = False,
     ) -> tuple[int, str, list[int], list[list[str]], str]:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -593,6 +619,10 @@ class FixWorkflowTest(unittest.TestCase):
                 "rules_lint_fixes": [fixes_name],
             }
             made = bep(groups, root)
+            if incomplete_events:
+                events = [json.loads(line) for line in made.read_text().splitlines()]
+                events[0]["children"].append({"targetCompleted": {"label": "//src:missing"}})
+                made.write_text("".join(json.dumps(event) + "\n" for event in events))
             Path(flags[0].split("=", 1)[1]).write_text(made.read_text())
             return CompletedProcess(command, int(analysis_fail))
 
@@ -637,6 +667,16 @@ class FixWorkflowTest(unittest.TestCase):
     def test_failed_analysis_never_applies_fixes(self) -> None:
         code, text, _, builds, _ = self.workflow(analysis_fail=True)
         self.assertEqual((2, "stage=0", []), (code, text, builds))
+
+    def test_partial_clean_analysis_is_an_error(self) -> None:
+        code, text, _, builds, error = self.workflow(steps=0, incomplete_events=True)
+        self.assertEqual((2, "stage=0", []), (code, text, builds))
+        self.assertIn("incomplete", error)
+
+    def test_incomplete_analysis_never_applies_fixes(self) -> None:
+        code, text, _, builds, error = self.workflow(incomplete_events=True)
+        self.assertEqual((2, "stage=0", []), (code, text, builds))
+        self.assertIn("incomplete", error)
 
     def test_crashed_analysis_never_applies_fixes(self) -> None:
         code, text, _, builds, _ = self.workflow(analysis_status=139)

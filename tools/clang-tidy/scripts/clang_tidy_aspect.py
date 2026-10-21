@@ -104,14 +104,29 @@ def output_files(events_path: Path) -> OutputFiles:
     """The aspect outputs named by a build event file, classified by suffix."""
     sets: dict[str, dict[str, object]] = {}
     groups: list[dict[str, object]] = []
+    seen: set[str] = set()
+    announced: set[str] = set()
+    finished = False
+    event: dict = {}
     try:
         for line in _read_output(events_path).splitlines():
             event = json.loads(line)
+            seen.add(json.dumps(event["id"], sort_keys=True))
+            announced.update(
+                json.dumps(child, sort_keys=True) for child in event.get("children", [])
+            )
+            if "buildFinished" in event["id"]:
+                finished = event.get("finished", {}).get("exitCode", {}).get("code") == 0
             named = event.get("namedSetOfFiles")
             if named is not None:
                 sets[event["id"]["namedSet"]["id"]] = named
             groups.extend(event.get("completed", {}).get("outputGroup", []))
-        return _collect_outputs(sets, groups)
+        files = _collect_outputs(sets, groups)
+        if not finished:
+            raise AspectError("incomplete or unsuccessful build events: no successful build finish")
+        if not event.get("lastMessage") or announced - seen:
+            raise AspectError("incomplete build events: missing announced events or final message")
+        return files
     except (ValueError, KeyError, TypeError) as error:
         raise AspectError(f"invalid build events: {error}") from error
 
