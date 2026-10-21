@@ -1,0 +1,13 @@
+--- a/lint/clang_tidy.bzl
++++ b/lint/clang_tidy.bzl
+@@ -149,7 +149,9 @@
+     # remap MSVC flags to clang-style
+     if (flag.startswith("/std:")):
+         # remap c++ standard to clang
+-        flags = ["-std=" + flag.removeprefix("/std:")]
++        # LLVM 23's clang-cl /std:c++latest selects C++2d; its GNU driver
++        # rejects -std=c++latest. Preserve the pinned compiler's language mode.
++        flags = ["-std=c++2d" if flag == "/std:c++latest" else "-std=" + flag.removeprefix("/std:")]
+     elif (flag.startswith("/D")):
+         # remap defines
+         flags = ["-" + flag[1:]]

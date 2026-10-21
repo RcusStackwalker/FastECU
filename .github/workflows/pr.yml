@@ -110,11 +110,7 @@ jobs:
     name: Bazel (${{ matrix.os }})
     needs: pre-commit
     runs-on: ${{ matrix.os }}
-    # A wedged runner here would otherwise burn the full 6h GitHub default
-    # before failing -- the Windows job did exactly that for weeks, walking
-    # Bazel's output base in the clang-tidy step (fixed in
-    # tools/clang-tidy/scripts/clang_tidy_runner.py) and hanging so hard it stopped honouring
-    # step-level timeout-minutes. Same reasoning as sonar.yml's own 60.
+    # Bound a wedged runner before GitHub's six-hour default.
     timeout-minutes: 60
     defaults:
       run:
@@ -245,9 +241,7 @@ jobs:
     name: clang-tidy (${{ matrix.os }})
     needs: pre-commit
     runs-on: ${{ matrix.os }}
-    # 120, not 30: a .clang-tidy change makes the run whole-tree
-    # (tools/clang-tidy/scripts/clang_tidy_runner.py), whose analysis ran past 58 minutes on a
-    # 4-core runner and was cancelled at the earlier 60-minute limit (#480).
+    # A configuration/tool change can invalidate the complete analysis scope.
     timeout-minutes: 120
     defaults:
       run:
@@ -278,8 +272,7 @@ jobs:
       - uses: ./.github/actions/qt-runtime-linux
         if: runner.os == 'Linux'
 
-      # The tarball ships unversioned clang-tidy and run-clang-tidy, which is
-      # where the runner looks them up.
+      # The analysis executable and repository checks share this pinned install.
       - uses: ./.github/actions/llvm-release
         with:
           version: ${{ env.CLANG_TIDY_LLVM_VERSION }}
@@ -291,53 +284,12 @@ jobs:
           echo "CC=$FASTECU_LLVM_ROOT/bin/clang" >> "$GITHUB_ENV"
           echo "CXX=$FASTECU_LLVM_ROOT/bin/clang++" >> "$GITHUB_ENV"
 
+      - name: clang-tidy configured-graph regression
+        run: bazel test --config=release //tools/clang-tidy/aspect/tests:transition_outputs_test
+
       - name: clang-tidy module fixtures
         run: bazel run --config=release //:clang_tidy_check_fixtures
 
       - name: clang-tidy report
         run: |
-          bazel run --config=release //:clang_tidy_report_changed -- --profile --annotate ${{ matrix.scope }}
-
-  # The Bazel lint aspect (tools/clang-tidy/aspect), run beside the job above while the spike
-  # (docs/superpowers/specs/2026-10-21-clang-tidy-aspect-spike.md) proves it finds what that job
-  # finds. It checks the whole tree, but Bazel's action cache (BuildBuddy) re-runs clang-tidy only
-  # for sources whose inputs changed. Not a gate yet: continue-on-error keeps a failure from
-  # failing the PR.
-  clang-tidy-aspect:
-    name: clang-tidy aspect (ubuntu-26.04)
-    needs: pre-commit
-    runs-on: ubuntu-26.04
-    continue-on-error: true
-    timeout-minutes: 120
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
-        with:
-          bazelisk-cache: true
-          repository-cache: true
-          cache-save: false
-
-      - uses: ./.github/actions/buildbuddy
-        with:
-          api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
-
-      - uses: ./.github/actions/qt-runtime-linux
-
-      # @local_llvm builds the plugin against this install and the aspect runs its clang-tidy.
-      - uses: ./.github/actions/llvm-release
-        with:
-          version: ${{ env.CLANG_TIDY_LLVM_VERSION }}
-          sha256: ${{ env.CLANG_TIDY_LLVM_SHA256_LINUX }}
-
-      - name: Select LLVM compiler for the Linux analysis extension
-        run: |
-          echo "CC=$FASTECU_LLVM_ROOT/bin/clang" >> "$GITHUB_ENV"
-          echo "CXX=$FASTECU_LLVM_ROOT/bin/clang++" >> "$GITHUB_ENV"
-
-      - name: clang-tidy aspect
-        run: |
-          bazel run --config=release //:clang_tidy_aspect -- --annotate --bazel-arg=--config=release
+          bazel run --config=release //:clang_tidy -- --profile --annotate ${{ matrix.scope }}

@@ -1,10 +1,9 @@
-"""Turn `run-clang-tidy` output into readable findings and GitHub annotations."""
+"""Format clang-tidy findings and GitHub annotations from cached reports."""
 
 from __future__ import annotations
 
 import posixpath
 import re
-import shlex
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
@@ -17,12 +16,8 @@ _DIAGNOSTIC = re.compile(
     r"(?P<message>.*?)(?: \[(?P<check>[^\]]+)\])?$"
 )
 _WARNINGS_AS_ERRORS = ",-warnings-as-errors"
-# run-clang-tidy echoes `[<i>/<N>][<secs>s] <shlex.join(invocation)>` as each
-# translation unit finishes; the source file is the invocation's last argument.
-_PROGRESS = re.compile(r"^\[\s*(?P<index>\d+)/(?P<total>\d+)\]\[[\d.]+s\] (?P<command>.+)$")
 # clang's source snippet and caret lines: `   12 |   foo();`, `      |   ^~~`.
 _DETAIL = re.compile(r"^\s*(\d+\s*)?\|")
-_LISTED_CHECK = re.compile(r"^    [\w.\-]+$")
 _NOISE = tuple(
     re.compile(pattern)
     for pattern in (
@@ -31,10 +26,6 @@ _NOISE = tuple(
         r"^Suppressed \d+ warnings? ",
         r"^Use -header-filter=",
         r"^\d+ warnings? treated as errors?$",
-        r"^Running clang-tidy in \d+ threads ",
-        # run-clang-tidy's opening `clang-tidy -list-checks` call; the check
-        # names under it are dropped by OutputStream while it is listing.
-        r"^Enabled checks:$",
         # The -enable-check-profile report.
         r"^=+-+=+$",
         r"^\s*clang-tidy checks profiling$",
@@ -86,19 +77,6 @@ def parse_diagnostic(line: str) -> Diagnostic | None:
         match["message"],
         check,
     )
-
-
-def parse_progress(line: str) -> tuple[int, int, str] | None:
-    """(index, total, source file) from run-clang-tidy's per-unit echo."""
-    match = _PROGRESS.match(line)
-    if match is None:
-        return None
-    command = match["command"]
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        tokens = command.split()
-    return int(match["index"]), int(match["total"]), tokens[-1]
 
 
 def is_detail(line: str) -> bool:
@@ -212,7 +190,7 @@ class StreamCounts:
 
 
 class OutputStream:
-    """Formats run-clang-tidy output line by line as it arrives.
+    """Formats cached clang-tidy output line by line.
 
     A finding is written once the line after it shows it is complete, so its
     snippet and notes stay together; repeats of the same finding (a header
@@ -236,12 +214,8 @@ class OutputStream:
         self._diagnostic: Diagnostic | None = None
         self._detail: list[str] = []
         self._notes: list[tuple[Diagnostic, list[str]]] = []
-        self._listing_checks = False
 
     def feed(self, line: str) -> None:
-        if self._listing_checks and _LISTED_CHECK.match(line):
-            return
-        self._listing_checks = line == "Enabled checks:"
         diagnostic = parse_diagnostic(line)
         if diagnostic is not None and diagnostic.severity == "note" and self._diagnostic:
             self._notes.append((diagnostic, []))
@@ -254,11 +228,7 @@ class OutputStream:
             (self._notes[-1][1] if self._notes else self._detail).append(line)
             return
         self._flush()
-        progress = parse_progress(line)
-        if progress is not None:
-            index, total, source = progress
-            self._write(f"[{index}/{total}] {display_path(source, self._workspace)}")
-        elif not is_noise(line):
+        if not is_noise(line):
             self._write(line)
 
     def finish(self) -> StreamCounts:

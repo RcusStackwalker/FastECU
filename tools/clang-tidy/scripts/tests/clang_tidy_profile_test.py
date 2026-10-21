@@ -53,29 +53,24 @@ class ParseCheckProfileTest(unittest.TestCase):
         self.assertEqual({}, profile.parse_check_profile("warning: something\n"))
 
 
-class RenderMarkdownTest(unittest.TestCase):
-    def test_lists_phases_and_checks_slowest_first(self) -> None:
-        text = profile.render_markdown(
-            {"a-fast": 1.0, "b-slow": 9.0},
-            {"prebuild": 12.34, "analysis": 5.0},
-            translation_units=42,
-        )
-        self.assertIn("Translation units: 42", text)
-        self.assertIn("| prebuild | 12.3 |", text)
-        self.assertLess(text.index("b-slow"), text.index("a-fast"))
-        self.assertIn("| b-slow | 9.0 | 90.0% |", text)
+class RenderCheckTableTest(unittest.TestCase):
+    def test_one_table_includes_every_check(self) -> None:
+        text = profile.render_check_table({f"check-{i}": float(i + 1) for i in range(20)}, 2)
+        self.assertEqual(1, text.count("| Check |"))
+        for i in range(20):
+            self.assertIn(f"| check-{i} |", text)
+        self.assertLess(text.index("| check-19 |"), text.index("| check-0 |"))
 
-    def test_limits_the_check_table_to_top(self) -> None:
-        checks = {f"check-{index}": float(index + 1) for index in range(5)}
-        text = profile.render_markdown(checks, {}, translation_units=1, top=2)
-        self.assertIn("check-4", text)
-        self.assertIn("check-3", text)
-        self.assertNotIn("check-2", text)
+    def test_recorded_wall_time_label(self) -> None:
+        text = profile.render_check_table({"a": 0.03}, 2)
+        self.assertIn("recorded wall seconds summed across translation units", text)
+        self.assertIn("cached", text)
+        self.assertNotIn("| Phase |", text)
 
-    def test_says_so_when_there_is_no_profile_data(self) -> None:
-        text = profile.render_markdown({}, {"analysis": 1.0}, translation_units=3)
+    def test_missing_profile_is_explicit(self) -> None:
+        text = profile.render_check_table({}, 2, missing_profiles=1)
+        self.assertIn("Missing profiles: 1", text)
         self.assertIn("No check profile data", text)
-        self.assertIn("| analysis | 1.0 |", text)
 
 
 if __name__ == "__main__":

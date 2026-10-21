@@ -41,49 +41,70 @@ integer limits, so other metrics are set effectively unbounded.
 ### clang-tidy
 
 ```sh
-bazel run //:clang_tidy_report_changed            # the PR gate's changed-files scope
-bazel run //:clang_tidy_report_changed -- --profile  # phase timings, slowest checks
-bazel run //:clang_tidy_report_changed -- --annotate # also GitHub annotations
-bazel run //:clang_tidy_fix_changed               # apply fixes (macOS/Linux, system LLVM on PATH)
+bazel run //:clang_tidy                         # all host-eligible configured sources
+bazel run //:clang_tidy -- //src/algorithms/...  # selected Bazel targets and dependencies
+bazel run //:clang_tidy -- --profile             # one recorded per-check timing table
+bazel run //:clang_tidy -- --fix                 # apply and verify fixes (macOS/Linux)
 ```
 
-- **Output.** Findings print as each translation unit finishes, one block per
-  finding (`error: src/foo.cpp:12:5 [check]`, message, source snippet, notes),
-  each printed once even when several translation units report it. With
-  `--annotate`, which CI passes, each finding in a repository file is also a
-  GitHub annotation; GitHub shows at most 10 error annotations per step, so
-  past that the job log is the full list.
-- **Compilation commands.** Analysis keeps the first equivalent command from
-  the Bazel database, without rewriting that shared database. This removes the
-  Linux `.o`/`.pic.o` duplicate when both already compile with `-fPIC`. Distinct
-  compiler, directory, define, include, language and target settings retain
-  separate analyses. Unknown options, response files and forwarded arguments
-  are handled conservatively; shell command strings are compared literally.
-  The log reports retained command configurations and unique source files
-  separately.
-- **LLVM pin.** CI pins LLVM (`CLANG_TIDY_LLVM_*` in
-  [pr.yml](../.github/workflows/pr.yml)) on Linux and Windows. The supported
-  local analysis workflow requires that exact release.
-- **CI.** The `clang-tidy` job runs in parallel with the build and test job, on
-  Linux and, for Windows-exclusive code, on Windows. The Linux job uses the
-  shared [Qt runtime setup](../.github/actions/qt-runtime-linux/action.yml)
-  before its prebuild.
-- **Platform scope.** The [scope manifest](../.clang-tidy-scope.toml) lists
-  platform-gated code: Linux analyzes everything it can build, Windows only its
-  exclusive code (`-- --scope-os windows`). The runner fails when a
-  `BUILD.bazel` gates targets by platform and no manifest prefix covers it.
-- **Configuration changes.** Changing any `.clang-tidy` file widens the
-  changed-files run to every translation unit in scope. Before delivering a
-  check change, run the full report and fix everything it finds in the same
-  PR; passing fixtures alone do not show a clean production scope.
+The Bazel aspect runs built-in and repository checks together, once per
+configured source. Source files, transitive headers, the governing configuration
+chain, selected executable, repository-check artifact and LLVM resource headers
+are action inputs. Bazel reuses unchanged results; editing a child configuration
+invalidates only the sources that inherit it. Generated sources and external
+repositories are excluded, while generated headers remain available through the
+configured C++ graph. The aspect follows C++ dependencies and forwarding rules,
+including the Windows x86 transition, and preserves distinct configurations.
+
+The wrapper reads declared human reports, exit statuses and replacements from
+Bazel's build events, downloading those outputs when a remote cache is used.
+It deduplicates findings across translation units and prints their snippets and
+notes. `--annotate` adds GitHub annotations; CI enables it. GitHub displays at
+most ten error annotations per step, so the job log carries the full list.
+Findings, missing outputs, empty scope, failed tools and failed builds return
+nonzero status.
+
+`--profile` displays one table containing every recorded check, slowest first.
+CI always displays it and adds it to the job summary. Values are recorded wall
+seconds summed across the selected translation units, including cached results;
+samples can span runs and machines. They measure recorded check work, rather
+than the current invocation's elapsed time. Missing profiles are reported
+explicitly. Requesting the table does not force analysis to rerun.
+
+`--fix` applies at most three batches of exported replacements, reanalyzing
+after every batch, including the last. After successful applications, an ordinary
+build verifies the selected targets with the same configuration, even when
+findings remain. Residual findings and compilation failures fail the command.
+Replacement paths are localized to the checkout; replacement text is preserved.
+Windows fix mode is unsupported.
+
+Nested builds default to `--config=release`. Pass additional build flags with
+`--bazel-arg`, for example `--bazel-arg=--compilation_mode=dbg`; the same flags govern
+linting and post-fix compilation. Compilation-database generation remains an
+independent SonarCloud/editor workflow.
+
+The existing blocking `clang-tidy` CI jobs run on Linux and Windows, with the
+pinned LLVM installation and repository-check fixtures. Linux analyzes its
+host-eligible graph. Windows reports the source prefixes selected by
+`--scope-os windows` from the [scope manifest](../.clang-tidy-scope.toml).
+Every source-owning package with platform selection must be covered by that
+manifest. The scope scanner excludes hidden checkouts, symlinks and junctions.
+Local macOS is supported without a separate macOS analysis CI job.
+
+The [qualification record](reference/clang-tidy-aspect-qualification.md) owns
+source/configuration and seeded-finding parity, cache and fix evidence, and
+installation boundaries. Before delivering a check or configuration change,
+run the full analysis and fix its findings; fixtures alone do not establish a
+clean production scope. The default graph's fuzz-harness coverage gap remains
+[separate work](tech-debt.md#p2-analyze-fuzz-harnesses-with-clang-tidy).
 
 #### Repository checks
 
 Repository checks are compiled in
 [`tools/clang-tidy/plugin/`](../tools/clang-tidy/plugin/); the enabled
 `fastecu-*` names live in [`.clang-tidy`](../.clang-tidy). Bazel builds the
-analysis artifact automatically for the report, fix, benchmark and fixture
-commands. The runner validates the selected LLVM installation, release and
+analysis artifact automatically for analysis, fixes and fixture
+commands. The wrapper validates the selected LLVM installation, release and
 registered checks before analyzing code. Missing artifacts or required checks
 fail the run.
 
@@ -96,7 +117,7 @@ export FASTECU_LLVM_ROOT=/absolute/path/to/llvm
 # Linux analysis builds:
 export CC="$FASTECU_LLVM_ROOT/bin/clang"
 export CXX="$FASTECU_LLVM_ROOT/bin/clang++"
-bazel run --config=release //:clang_tidy_report_changed
+bazel run --config=release //:clang_tidy
 ```
 
 On Windows, also set `BAZEL_LLVM` to the same root and `USE_CLANG_CL=1`
@@ -111,12 +132,8 @@ checks that a host loads the extension. Ordinary application builds do not
 need LLVM development headers.
 
 Built-in and repository checks run together with the wider first-party header
-scope under `src/`, `apps/`, `tests/`, and `tools/`, including `.hpp`. Generated
-headers retain their exclusions; vendor headers stay outside the scope.
-Changing enforcement sources or configuration widens a changed-files run to
-all translation units in its platform scope. Before delivering an enabled
-check change, run the full report and fix its findings; fixtures alone do not
-establish a clean production scope.
+scope under `src/`, `apps/`, `tests/`, `scripts/` and `tools/`, including `.hpp`.
+Generated headers retain their exclusions; vendor headers stay outside the scope.
 
 ```sh
 # Required real-dependency positive and permitted-counterexample fixtures.
@@ -124,8 +141,6 @@ establish a clean production scope.
 bazel run --config=release //:clang_tidy_check_fixtures
 # Select individual fixtures with lit's filter (or list them with --show-tests).
 bazel run --config=release //:clang_tidy_check_fixtures -- --filter template-type
-# Compare built-ins alone with built-ins plus repository checks.
-bazel run --config=release //:clang_tidy_benchmark -- --jobs 4 --output reports/clang-tidy-custom
 ```
 
 The [module test suite](../tools/clang-tidy/plugin/test/) follows
@@ -156,12 +171,13 @@ including Git for Windows installations registered outside `PATH`.
 Fixtures require the registered checks and do not silently skip when an
 extension is missing. They are a manual, local Bazel test because they require
 the selected host LLVM installation; the analysis CI job runs them explicitly.
-The benchmark pins translation-unit scheduling and
-fingerprints check sources, configuration, host identity and compiled artifacts.
-It writes raw logs and JSON into a new output directory. Per-check CPU seconds
-sum work across translation units; they are not elapsed time. Investigate
-reproducible runtime regressions above 10 percent on the same machine and scope;
-wall-clock timing is a review threshold, not a CI pass/fail gate.
+The analysis job also runs
+`bazel test --config=release //tools/clang-tidy/aspect/tests:transition_outputs_test`.
+This manual regression executes linting through a configured forwarding rule
+and C++ dependency, reads its real status/profile/replacement outputs, and checks
+32-bit pointer width on Windows. It catches configured sources omitted by
+aspect traversal. Windows analysis uses Bazel's configured Git Bash and its
+Unix utilities.
 
 The `fastecu-*` checks have no exception list of their own: suppress a finding
 with a `NOLINTBEGIN(check)`/`NOLINTEND(check)` block around the test, with the

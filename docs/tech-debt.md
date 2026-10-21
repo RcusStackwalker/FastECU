@@ -199,9 +199,9 @@ checks and low-level Result API tests remain permitted.
 ### P2: Analyze fuzz harnesses with clang-tidy
 
 `*_fuzz_test.cpp` targets build only under `--config=asan` or
-`--config=fuzztest`, so the default compilation database the clang-tidy gate
-refreshes has no entry for them (a changed one is reported as a note, not
-analyzed). Give the refresh a fuzz-enabled pass (or a database merged from one).
+`--config=fuzztest`, so the default release graph used by the clang-tidy aspect
+does not analyze them. Qualify an analysis pass with a fuzz-enabled configuration
+and include that pass in the gate.
 
 ### P3: Flash protocol behaviors awaiting external evidence
 

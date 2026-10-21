@@ -2,6 +2,7 @@
 
 import tempfile
 import unittest
+from contextlib import suppress
 from pathlib import Path, PurePath
 
 import clang_tidy_scope as scope
@@ -33,7 +34,7 @@ class LoadManifestTest(unittest.TestCase):
         self.assertEqual((PurePath("src/unix"),), manifest.linux_covered)
 
     def test_rejects_absolute_and_parent_relative_prefixes(self) -> None:
-        for bad in ('"/etc"', '"../outside"', '"src/../x"', '"C:/x"'):
+        for bad in ('"/etc"', '"../outside"', '"src/../x"', '"C:/x"', "'..\\outside'"):
             with self.subTest(bad=bad), self.assertRaises(scope.ScopeError):
                 scope.load_manifest(self.write(f"[os.windows]\nprefixes = [{bad}]\n"))
 
@@ -49,6 +50,34 @@ class LoadManifestTest(unittest.TestCase):
 
 
 class ScopeQueriesTest(unittest.TestCase):
+    def test_package_scan_does_not_follow_bazel_or_hidden_worktrees(self) -> None:
+        with tempfile.TemporaryDirectory() as name, tempfile.TemporaryDirectory() as other:
+            root, external = Path(name), Path(other)
+            for directory in (root / "src/win", root / ".worktrees/other", external):
+                directory.mkdir(parents=True, exist_ok=True)
+                (directory / "BUILD.bazel").write_text("target_compatible_with = []\n")
+                (directory / "a.cpp").touch()
+            # Windows may disallow symlinks; hidden-tree exclusion still runs.
+            with suppress(OSError):
+                (root / "bazel-out").symlink_to(external, target_is_directory=True)
+            self.assertEqual([PurePath("src/win")], scope.gated_packages(root))
+
+    def test_scope_rejects_missing_prefix(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            (root / scope.MANIFEST_NAME).write_text('[os.windows]\nprefixes = ["missing"]\n')
+            with self.assertRaisesRegex(scope.ScopeError, "does not exist"):
+                scope.scope_prefixes(root, "windows")
+
+    def test_scope_rejects_uncovered_package(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            (root / scope.MANIFEST_NAME).write_text("[linux_covered]\nprefixes = []\n")
+            (root / "BUILD.bazel").write_text("target_compatible_with = []\n")
+            (root / "a.cpp").touch()
+            with self.assertRaisesRegex(scope.ScopeError, "not named"):
+                scope.scope_prefixes(root, None)
+
     def test_in_scope_matches_a_directory_and_its_descendants_only(self) -> None:
         prefixes = [PurePath("src/win")]
         self.assertTrue(scope.in_scope(PurePath("src/win/a.cpp"), prefixes))

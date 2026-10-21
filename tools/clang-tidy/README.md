@@ -5,8 +5,10 @@ application:
 
 - [`plugin/`](plugin/) holds the `fastecu-*` clang-tidy checks, their lit
   fixtures and a load smoke test.
-- [`scripts/`](scripts/) holds the runner that drives clang-tidy over the
-  repository, plus its tests.
+- [`aspect/`](aspect/) defines cached analysis over configured C++ sources and
+  its transitioned-graph regression.
+- [`scripts/`](scripts/) holds the report/fix wrapper and shared diagnostic,
+  profiling, platform-scope and toolchain support, plus their tests.
 
 Usage is documented in the [tooling guide](../../docs/tooling.md#clang-tidy).
 

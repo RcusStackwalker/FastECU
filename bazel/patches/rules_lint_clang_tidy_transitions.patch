@@ -1,0 +1,85 @@
+--- a/lint/clang_tidy.bzl
++++ b/lint/clang_tidy.bzl
+@@ -45,6 +45,7 @@
+ load("//lint/private:patcher_action.bzl", "patcher_attrs", "run_patcher")
+ 
+ _MNEMONIC = "AspectRulesLintClangTidy"
++_FORWARD_ATTRS = ["deps", "implementation_deps", "binary"]
+ _DISABLED_FEATURES = [
+     "layering_check",
+ ]
+@@ -329,6 +330,8 @@
+     args.extend(_prefixed(compilation_context.quote_includes.to_list(), "-iquote"))
+     args.extend(_prefixed(compilation_context.system_includes.to_list(), _angle_includes_option(ctx)))
+     args.extend(_prefixed(compilation_context.external_includes.to_list(), "-isystem"))
++    if ctx.target_platform_has_constraint(ctx.attr._target_x86_32[platform_common.ConstraintValueInfo]):
++        args.append("-m32")
+     return args
+ 
+ def _wrapper_command(wrapper, fixes):
+@@ -425,12 +428,27 @@
+         )
+ 
+ # buildifier: disable=function-docstring
++def _forwarded_outputs(ctx, own = None):
++    groups = [own] if own else []
++    for name in _FORWARD_ATTRS:
++        targets = getattr(ctx.rule.attr, name, [])
++        if type(targets) != "list":
++            targets = [targets]
++        for dependency in targets:
++            if OutputGroupInfo in dependency:
++                groups.append(dependency[OutputGroupInfo])
++    return OutputGroupInfo(**{
++        name: depset(transitive = [getattr(group, name, depset()) for group in groups])
++        for name in ["rules_lint_human", "rules_lint_machine", "rules_lint_fixes", "_validation"]
++    })
++
+ def _clang_tidy_aspect_impl(target, ctx):
+-    if not should_visit(ctx.rule, ctx.attr._rule_kinds):
++    # Configured forwarding dependencies can reach first-party sources that
++    # cannot be selected as ordinary host-platform top-level targets.
++    if target.label.workspace_root:
+         return []
+-
+-    if not CcInfo in target:
+-        return []
++    if not should_visit(ctx.rule, ctx.attr._rule_kinds) or not CcInfo in target:
++        return [_forwarded_outputs(ctx)]
+ 
+     files_to_lint = _filter_srcs(ctx.rule)
+     compilation_context = target[CcInfo].compilation_context
+@@ -443,7 +461,7 @@
+     if len(files_to_lint) == 0:
+         outputs, info = patch_and_output_files(_MNEMONIC, target, ctx)
+         noop_lint_action(ctx, outputs)
+-        return [info]
++        return [_forwarded_outputs(ctx, info)]
+ 
+     if ctx.attr._options[LintOptionsInfo].fix:
+         outputs, info = patch_and_output_files(_MNEMONIC, target, ctx, files_to_lint = files_to_lint)
+@@ -480,7 +498,7 @@
+             rules_lint_fixes = depset(fixes_files),
+             _validation = info._validation,
+         )
+-    return [info]
++    return [_forwarded_outputs(ctx, info)]
+ 
+ DEFAULT_RULE_KINDS = ["cc_binary", "cc_library"]
+ 
+@@ -541,6 +559,7 @@
+ 
+     return aspect(
+         implementation = _clang_tidy_aspect_impl,
++        attr_aspects = _FORWARD_ATTRS,
+         attrs = patcher_attrs | {
+             "_options": attr.label(
+                 default = "//lint:options",
+@@ -596,6 +615,7 @@
+                 executable = True,
+                 cfg = "exec",
+             ),
++            "_target_x86_32": attr.label(default = Label("@platforms//cpu:x86_32")),
+             "_cc_toolchain": attr.label(default = Label("@bazel_tools//tools/cpp:current_cc_toolchain")),
+             "_rule_kinds": attr.string_list(
+                 default = rule_kinds,

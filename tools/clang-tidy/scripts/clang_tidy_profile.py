@@ -1,4 +1,4 @@
-"""Summarize the report `run-clang-tidy -enable-check-profile` prints."""
+"""Parse recorded clang-tidy profiles and render one aggregate check table."""
 
 from __future__ import annotations
 
@@ -42,9 +42,7 @@ def _columns(line: str) -> list[str]:
 def parse_check_profile(text: str) -> dict[str, float]:
     """Wall seconds per check, summed over every table found in `text`.
 
-    run-clang-tidy aggregates one table on recent LLVM but may print one per
-    file on older releases; summing by name handles both. The `Total` row is
-    dropped.
+    Sum each check across the recorded tables and ignore their `Total` rows.
     """
     totals: dict[str, float] = {}
     for line in text.splitlines():
@@ -58,36 +56,26 @@ def parse_check_profile(text: str) -> dict[str, float]:
     return totals
 
 
-def render_markdown(
-    checks: Mapping[str, float],
-    phases: Mapping[str, float],
-    translation_units: int,
-    top: int = 15,
+def render_check_table(
+    checks: Mapping[str, float], translation_units: int, missing_profiles: int = 0
 ) -> str:
+    """Describe recorded check costs, including samples retrieved from the action cache."""
     lines = [
-        "### clang-tidy profile",
+        "### clang-tidy check timings",
         "",
         f"Translation units: {translation_units}",
+        "Metric: recorded wall seconds summed across translation units, including cached results.",
+        "Samples span runs and machines; these are not current-run elapsed times.",
         "",
-        "| Phase | Seconds |",
-        "|---|---:|",
     ]
-    lines.extend(f"| {name} | {seconds:.1f} |" for name, seconds in phases.items())
-    lines.append("")
+    if missing_profiles:
+        lines.extend([f"Missing profiles: {missing_profiles} translation units.", ""])
     if not checks:
         lines.append("No check profile data was found in the clang-tidy output.")
-        lines.append("")
-        return "\n".join(lines)
-    total = sum(checks.values())
-    lines.extend(
-        [
-            "| Check | Seconds (summed over files) | Share |",
-            "|---|---:|---:|",
-        ]
-    )
-    slowest = sorted(checks.items(), key=lambda item: item[1], reverse=True)[:top]
-    for name, seconds in slowest:
-        share = 100.0 * seconds / total if total else 0.0
-        lines.append(f"| {name} | {seconds:.1f} | {share:.1f}% |")
-    lines.append("")
-    return "\n".join(lines)
+    else:
+        lines.extend(["| Check | Recorded wall seconds | Share |", "|---|---:|---:|"])
+        total = sum(checks.values())
+        for name, seconds in sorted(checks.items(), key=lambda item: (-item[1], item[0])):
+            share = 100.0 * seconds / total if total else 0.0
+            lines.append(f"| {name} | {seconds:.6f} | {share:.1f}% |")
+    return "\n".join([*lines, ""])

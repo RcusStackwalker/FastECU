@@ -23,7 +23,8 @@ Update Bazel first, then update surrounding CI configuration to follow it.
 ## Consequences
 
 - Local, pull request, and release builds use the same Bazel targets.
-- SonarCloud and clang-tidy consume Bazel-derived compile commands.
+- SonarCloud consumes Bazel-derived compile commands; clang-tidy runs as an
+  aspect over configured C++ targets and dependencies.
 - Coverage enumerates Bazel test targets, and release packages are assembled
   from Bazel outputs.
 - Host-tool installation and packaging scripts remain outside Bazel actions;

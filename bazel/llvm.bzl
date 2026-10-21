@@ -8,14 +8,17 @@ def _write_platform_args(repository_ctx):
     then clash with the SDK's.
     """
     args = []
+    sdk_path = None
     if repository_ctx.os.name.startswith("mac"):
         sdk = repository_ctx.execute(["xcrun", "--show-sdk-path"])
         if not sdk.return_code and sdk.stdout.strip():
-            args = ["-extra-arg-before=-isysroot", "-extra-arg-before=" + sdk.stdout.strip()]
+            sdk_path = sdk.stdout.strip()
+            args = ["-extra-arg-before=-isysroot", "-extra-arg-before=" + sdk_path]
     repository_ctx.file("defs.bzl", "CLANG_TIDY_PLATFORM_ARGS = " + json.encode(args) + "\n")
+    return sdk_path
 
 def _local_llvm_impl(repository_ctx):
-    _write_platform_args(repository_ctx)
+    sdk_path = _write_platform_args(repository_ctx)
     selected_root = repository_ctx.getenv("FASTECU_LLVM_ROOT")
     llvm_config = repository_ctx.getenv("LLVM_CONFIG")
     if selected_root:
@@ -39,6 +42,10 @@ def _local_llvm_impl(repository_ctx):
         "root": root,
         "version": version.stdout.strip(),
     }
+    if sdk_path:
+        # SDK settings identify the installed SDK build even when its path stays
+        # stable across an Xcode update. read() also watches the selected file.
+        identity["sdk_settings"] = repository_ctx.read(sdk_path + "/SDKSettings.json")
     host = root + "/bin/clang-tidy" + (".exe" if repository_ctx.os.name.startswith("windows") else "")
     repository_ctx.watch(host)
     repository_ctx.watch(llvm_config)
@@ -69,6 +76,12 @@ def _local_llvm_impl(repository_ctx):
 load("{headers_rule}", "llvm_headers")
 
 exports_files(["defs.bzl", "llvm-identity.json", "lib/libLTO.dylib", "bin/clang-tidy"])
+
+filegroup(
+    name = "clang_resource_headers",
+    srcs = ["llvm-identity.json"] + glob(["lib/clang/*/include/**"]),
+    visibility = ["//visibility:public"],
+)
 
 llvm_headers(
     name = "clang_tidy_headers",

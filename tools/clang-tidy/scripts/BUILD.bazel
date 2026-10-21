@@ -11,33 +11,25 @@ filegroup(
     visibility = ["//:__pkg__"],
 )
 
-# The //:clang_tidy_* runner targets are declared in the root package by
-# //bazel:clang_tidy.bzl and take their sources from here.
-exports_files(
-    [
-        "clang_tidy_benchmark.py",
-        "clang_tidy_output.py",
-        "clang_tidy_profile.py",
-        "clang_tidy_runner.py",
-        "clang_tidy_scope.py",
-        "clang_tidy_toolchain.py",
-    ],
-    visibility = [
-        "//:__pkg__",
-        "//bazel:__pkg__",
-    ],
-)
-
-# Runs the Bazel lint aspect (//tools/clang-tidy/aspect); `bazel run //:clang_tidy_aspect`.
+# Runs the Bazel lint aspect (//tools/clang-tidy/aspect); `bazel run //:clang_tidy`.
 py_binary(
     name = "clang_tidy_aspect",
     srcs = [
         "clang_tidy_aspect.py",
         "clang_tidy_output.py",
+        "clang_tidy_profile.py",
+        "clang_tidy_scope.py",
+        "clang_tidy_toolchain.py",
     ],
+    data = ["//tools/clang-tidy/plugin:llvm_identity"] + select({
+        "@platforms//os:windows": ["//tools/clang-tidy/plugin:fastecu_clang_tidy"],
+        "//conditions:default": ["//tools/clang-tidy/plugin:fastecu_tidy"],
+    }),
     imports = ["."],
     main = "clang_tidy_aspect.py",
+    tags = ["manual"],
     visibility = ["//:__pkg__"],
+    deps = ["@python_deps//pyyaml"],
 )
 
 py_test(
@@ -46,28 +38,14 @@ py_test(
     srcs = [
         "clang_tidy_aspect.py",
         "clang_tidy_output.py",
+        "clang_tidy_profile.py",
+        "clang_tidy_scope.py",
+        "clang_tidy_toolchain.py",
         "tests/clang_tidy_aspect_test.py",
     ],
     imports = ["."],
     main = "tests/clang_tidy_aspect_test.py",
-)
-
-# Compares the findings of the compile-database runner and the aspect runner.
-py_binary(
-    name = "clang_tidy_parity",
-    srcs = ["clang_tidy_parity.py"],
-    main = "clang_tidy_parity.py",
-)
-
-py_test(
-    name = "clang_tidy_parity_test",
-    size = "small",
-    srcs = [
-        "clang_tidy_parity.py",
-        "tests/clang_tidy_parity_test.py",
-    ],
-    imports = ["."],
-    main = "tests/clang_tidy_parity_test.py",
+    deps = ["@python_deps//pyyaml"],
 )
 
 py_test(
@@ -119,39 +97,6 @@ py_test(
     ],
     visibility = ["//:__pkg__"],
     deps = ["@python_deps//lit"],
-)
-
-py_test(
-    name = "clang_tidy_benchmark_test",
-    size = "small",
-    srcs = [
-        "clang_tidy_benchmark.py",
-        "clang_tidy_output.py",
-        "clang_tidy_profile.py",
-        "clang_tidy_runner.py",
-        "clang_tidy_scope.py",
-        "clang_tidy_toolchain.py",
-        "tests/clang_tidy_benchmark_test.py",
-    ],
-    imports = ["."],
-    main = "tests/clang_tidy_benchmark_test.py",
-    deps = ["@python_deps//pyyaml"],
-)
-
-py_test(
-    name = "clang_tidy_runner_test",
-    size = "small",
-    srcs = [
-        "clang_tidy_output.py",
-        "clang_tidy_profile.py",
-        "clang_tidy_runner.py",
-        "clang_tidy_scope.py",
-        "clang_tidy_toolchain.py",
-        "tests/clang_tidy_runner_test.py",
-    ],
-    imports = ["."],
-    main = "tests/clang_tidy_runner_test.py",
-    deps = ["@python_deps//pyyaml"],
 )
 
 py_test(

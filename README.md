@@ -62,30 +62,18 @@ stamped into the macOS bundle is set with `--define=FASTECU_VERSION=<version>`.
 
 ### clang-tidy
 
-The Bazel clang-tidy targets require a system LLVM installation containing
-`clang-tidy` and `run-clang-tidy`. Autofix also requires
-`clang-apply-replacements`.
-
-For everyday local use before opening a PR, scope analysis to files changed
-relative to `origin/master` (fast, and matches what CI's PR gate checks):
+Use CI's pinned LLVM release with its development headers; setup and platform
+requirements are in the [tooling guide](docs/tooling.md#clang-tidy).
 
 ```sh
-bazel run //:clang_tidy_report_changed   # report only
-bazel run //:clang_tidy_fix_changed      # apply available fixes (macOS/Linux only)
+bazel run //:clang_tidy              # cached analysis of all eligible sources
+bazel run //:clang_tidy -- --profile # one table of recorded check timings
+bazel run //:clang_tidy -- --fix     # apply, recheck and compile (macOS/Linux)
 ```
 
-For an occasional full-repo sweep, the unscoped targets analyze every
-translation unit buildable for the current platform:
-
-```sh
-bazel run //:clang_tidy_report
-bazel run //:clang_tidy_fix              # macOS/Linux only
-```
-
-CI's PR checks run `clang_tidy_report_changed` and block the PR on any
-finding in the changed files. The full-repo targets are manual/local only —
-findings there remain advisory. Missing tools, invalid compilation commands,
-and execution failures return a nonzero status in every mode.
+Optional Bazel target patterns select a smaller graph. Bazel's action cache
+tracks changed analysis inputs. Findings and tooling/build failures fail the
+command. The blocking Linux and Windows CI jobs use the same interface.
 
 ### Flashing with OBD
 - **Supported ECU models**

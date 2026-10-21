@@ -43,23 +43,6 @@ class ParseDiagnosticTest(unittest.TestCase):
         self.assertIsNone(out.parse_diagnostic("main.cpp:1: warning: use Result matcher"))
 
 
-class ParseProgressTest(unittest.TestCase):
-    def test_parses_progress_echo(self) -> None:
-        line = (
-            "[ 3/12][0.4s] /llvm/bin/clang-tidy -checks=-* -export-fixes /tmp/f/x.yaml "
-            "-p=/tmp/db /ws/src/a.cpp"
-        )
-        self.assertEqual((3, 12, "/ws/src/a.cpp"), out.parse_progress(line))
-
-    def test_parses_progress_echo_with_quoted_windows_path(self) -> None:
-        progress = out.parse_progress("[1/1][0.1s] clang-tidy.exe 'C:\\ws\\a.cpp'")
-        assert progress is not None
-        self.assertEqual("C:\\ws\\a.cpp", progress[2])
-
-    def test_other_bracketed_lines_are_not_progress(self) -> None:
-        self.assertIsNone(out.parse_progress("[1/2] something else"))
-
-
 class ClassifyLineTest(unittest.TestCase):
     def test_detail_lines(self) -> None:
         self.assertTrue(out.is_detail("   12 |   foo();"))
@@ -76,7 +59,6 @@ class ClassifyLineTest(unittest.TestCase):
             "Use -system-headers to display errors from system headers as well.",
             "1 warning treated as error",
             "2 warnings treated as errors",
-            "Running clang-tidy in 8 threads for 3 files out of 9 in compilation database ...",
             "===-------------------------------------------------------------------------===",
             "                          clang-tidy checks profiling",
             "  Total Execution Time: 1.2000 seconds (1.2100 wall clock)",
@@ -89,9 +71,6 @@ class ClassifyLineTest(unittest.TestCase):
             self.assertTrue(out.is_noise(line), line)
         self.assertFalse(out.is_noise("/ws/a.cpp:1:1: error: x [y]"))
         self.assertFalse(out.is_noise("Stack dump:"))
-
-    def test_enabled_checks_header_is_noise(self) -> None:
-        self.assertTrue(out.is_noise("Enabled checks:"))
 
 
 class PathTest(unittest.TestCase):
@@ -134,8 +113,6 @@ _FINDING = out.Finding(
     detail=("   12 |   int x = f();", "      |   ^"),
     notes=(_NOTE,),
 )
-_PROGRESS_A = "[1/2][0.3s] clang-tidy -p=/db /ws/src/a.cpp"
-_PROGRESS_B = "[2/2][0.4s] clang-tidy -p=/db /ws/src/b.cpp"
 _FINDING_LINE = "/ws/src/a.cpp:12:5: error: use auto [modernize-use-auto,-warnings-as-errors]"
 _HEADER_LINE = "/ws/src/a.h:3:1: warning: shared [c]"
 
@@ -218,10 +195,9 @@ class OutputStreamTest(unittest.TestCase):
         )
         return lines, stream
 
-    def test_stream_prints_progress_finding_and_drops_noise(self) -> None:
+    def test_stream_prints_finding_and_drops_noise(self) -> None:
         lines, stream = self.stream()
         for line in [
-            _PROGRESS_A,
             _FINDING_LINE,
             "   12 |   int x = f();",
             "      |   ^",
@@ -230,27 +206,15 @@ class OutputStreamTest(unittest.TestCase):
         ]:
             stream.feed(line)
         self.assertEqual(out.StreamCounts(unique=1, raw=1), stream.finish())
-        self.assertEqual("[1/2] src/a.cpp", lines[0])
-        self.assertTrue(lines[1].startswith("error: src/a.cpp:12:5 [modernize-use-auto]"))
-        self.assertIn("|   ^", lines[1])
-        self.assertEqual(2, len(lines))
-
-    def test_finding_is_written_when_the_next_line_arrives_not_at_finish(self) -> None:
-        lines, stream = self.stream()
-        stream.feed(_PROGRESS_A)
-        stream.feed(_FINDING_LINE)
-        stream.feed(_PROGRESS_B)
-        self.assertEqual(3, len(lines))
-        self.assertTrue(lines[1].startswith("error: src/a.cpp:12:5"))
-        self.assertEqual("[2/2] src/b.cpp", lines[2])
+        self.assertTrue(lines[0].startswith("error: src/a.cpp:12:5 [modernize-use-auto]"))
+        self.assertIn("|   ^", lines[0])
+        self.assertEqual(1, len(lines))
 
     def test_header_finding_from_two_units_prints_once(self) -> None:
         lines, stream = self.stream(annotate=True)
         for line in [
-            _PROGRESS_A,
             _HEADER_LINE,
             "/ws/src/a.cpp:1:1: note: included from here",
-            _PROGRESS_B,
             _HEADER_LINE,
             "/ws/src/b.cpp:1:1: note: included from here",
         ]:
@@ -288,24 +252,11 @@ class OutputStreamTest(unittest.TestCase):
             ["Stack dump:", "0.  Program arguments: clang-tidy /ws/src/a.cpp"], lines[1:]
         )
 
-    def test_enabled_checks_listing_is_dropped(self) -> None:
-        # run-clang-tidy's opening `clang-tidy -list-checks` call.
+    def test_indented_text_passes_through(self) -> None:
         lines, stream = self.stream()
-        for line in [
-            "Enabled checks:",
-            "    bugprone-argument-comment",
-            "    clang-analyzer-unix.cstring.NullArg",
-            "",
-            _PROGRESS_A,
-        ]:
+        for line in ["Traceback:", "    raise"]:
             stream.feed(line)
-        self.assertEqual(["[1/2] src/a.cpp"], lines)
-
-    def test_indented_word_outside_the_check_listing_passes_through(self) -> None:
-        lines, stream = self.stream()
-        for line in ["Enabled checks:", "    bugprone-x", _PROGRESS_A, "Traceback:", "    raise"]:
-            stream.feed(line)
-        self.assertEqual(["[1/2] src/a.cpp", "Traceback:", "    raise"], lines)
+        self.assertEqual(["Traceback:", "    raise"], lines)
 
     def test_orphan_note_passes_through_verbatim(self) -> None:
         lines, stream = self.stream()

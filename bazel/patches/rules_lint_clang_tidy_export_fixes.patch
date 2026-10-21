@@ -6,15 +6,15 @@
  
 -def clang_tidy_action(ctx, compilation_context, executable, srcs, stdout, exit_code, patch = None, args = []):
 +def _wrapper_command(executable, fixes):
-+    """The shell command running the wrapper.
++    """Use the current Bash; Windows PATH can resolve bash.exe to WSL.
 +
 +    clang-tidy writes the --export-fixes file only when it has diagnostics, but a declared
 +    output must exist, so an empty report is written in its place.
 +    """
-+    command = executable._clang_tidy_wrapper.path + " $@"
++    command = '"$BASH" "{}" "$@"'.format(executable._clang_tidy_wrapper.path)
 +    if not fixes:
 +        return command
-+    return command + "; status=$?; [ -e {fixes} ] || printf -- '---\\nMainSourceFile: \"\"\\nDiagnostics: []\\n...\\n' > {fixes}; exit $status".format(fixes = fixes.path)
++    return command + "; status=$?; [ -e \"{fixes}\" ] || printf -- '---\\nMainSourceFile: \"\"\\nDiagnostics: []\\n...\\n' > \"{fixes}\"; exit $status".format(fixes = fixes.path)
 +
 +def clang_tidy_action(ctx, compilation_context, executable, srcs, stdout, exit_code, patch = None, args = [], fixes = None):
      """Create a Bazel Action that spawns a clang-tidy process.
@@ -39,6 +39,11 @@
  
          if exit_code:
              env["CLANG_TIDY__EXIT_CODE_OUTPUT_FILE"] = exit_code.path
+@@ -385,3 +401,3 @@
+         compiler_args_obj = ctx.actions.args()
+         compiler_args_obj.add_all(compiler_args)
+-        compiler_args_obj.use_param_file("--config %s", use_always = True)
++        compiler_args_obj.use_param_file("--config=%s", use_always = True)
 @@ -391,7 +407,7 @@
              inputs = inputs,
              outputs = outputs,

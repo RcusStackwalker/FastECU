@@ -2,12 +2,29 @@ load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
 
 package(default_visibility = ["//visibility:public"])
 
-# The machine's clang-tidy, the one the fastecu_tidy plugin is built against
-# (//bazel:llvm.bzl). The pinned Linux LLVM replaces it once CI runs the aspect.
+# The selected install is shared with the repository-check build and validation.
 native_binary(
-    name = "clang_tidy",
+    name = "system_clang_tidy",
     src = "@local_llvm//:bin/clang-tidy",
     out = "clang_tidy",
+    tags = ["manual"],
+)
+
+alias(
+    name = "clang_tidy",
+    actual = select({
+        "@platforms//os:windows": "//tools/clang-tidy/plugin:fastecu_clang_tidy",
+        "//conditions:default": ":system_clang_tidy",
+    }),
+    tags = ["manual"],
+)
+
+filegroup(
+    name = "plugins",
+    srcs = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["//tools/clang-tidy/plugin:fastecu_tidy"],
+    }),
     tags = ["manual"],
 )
 

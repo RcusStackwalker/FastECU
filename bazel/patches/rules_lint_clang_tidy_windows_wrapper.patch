@@ -1,0 +1,54 @@
+--- a/lint/clang_tidy.bzl
++++ b/lint/clang_tidy.bzl
+@@ -331,13 +331,16 @@
+     args.extend(_prefixed(compilation_context.external_includes.to_list(), "-isystem"))
+     return args
+ 
+-def _wrapper_command(executable, fixes):
++def _wrapper_command(wrapper, fixes):
+     """Use the current Bash; Windows PATH can resolve bash.exe to WSL.
+ 
+     clang-tidy writes the --export-fixes file only when it has diagnostics, but a declared
+     output must exist, so an empty report is written in its place.
+     """
+-    command = '"$BASH" "{}" "$@"'.format(executable._clang_tidy_wrapper.path)
++    command = '"$BASH" "{}" "$@"'.format(wrapper.path)
++    # The C++ toolchain's Windows PATH can omit Git's POSIX utilities.
++    if wrapper.extension == "bash":
++        command = 'PATH="/usr/bin:$PATH"; export PATH; ' + command
+     if not fixes:
+         return command
+     return command + "; status=$?; [ -e \"{fixes}\" ] || printf -- '---\\nMainSourceFile: \"\"\\nDiagnostics: []\\n...\\n' > \"{fixes}\"; exit $status".format(fixes = fixes.path)
+@@ -368,6 +371,11 @@
+     compiler_args = _get_compiler_args(ctx, compilation_context, srcs)
+     env = _get_env(ctx, srcs)
+     tools = [executable._clang_tidy_wrapper, executable._clang_tidy, find_cpp_toolchain(ctx).all_files]
++    wrapper = executable._clang_tidy_wrapper
++    if wrapper.extension == "exe":
++        # sh_binary is a PE launcher on Windows, not a script Bash can read.
++        wrapper = ctx.file._clang_tidy_wrapper_script
++        tools.append(wrapper)
+ 
+     if patch != None:
+         # Use run_patcher for fix mode
+@@ -409,7 +417,7 @@
+             inputs = inputs,
+             outputs = outputs,
+             tools = tools,
+-            command = _wrapper_command(executable, fixes),
++            command = _wrapper_command(wrapper, fixes),
+             arguments = [executable._clang_tidy.path] + clang_tidy_args + ["--", compiler_args_obj],
+             env = env,
+             mnemonic = _MNEMONIC,
+@@ -578,6 +586,11 @@
+                 executable = True,
+                 cfg = "exec",
+             ),
++            "_clang_tidy_wrapper_script": attr.label(
++                default = Label("@aspect_rules_lint//lint:clang_tidy_wrapper.bash"),
++                allow_single_file = True,
++                cfg = "exec",
++            ),
+             "_clang_tidy_wrapper": attr.label(
+                 default = Label("@aspect_rules_lint//lint:clang_tidy_wrapper"),
+                 executable = True,
