@@ -408,7 +408,12 @@ def emit_profile(files: OutputFiles, environ: Mapping[str, str]) -> None:
             raise AspectError(f"cannot write check timing summary: {error}") from error
 
 
-def main(argv: Sequence[str] | None = None, run: Run = subprocess.run) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    run: Run = subprocess.run,
+    *,
+    platform_name: str | None = None,
+) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("targets", nargs="*", default=["//..."])
     parser.add_argument("--fix", action="store_true", help="apply suggested fixes, then re-check")
@@ -419,7 +424,7 @@ def main(argv: Sequence[str] | None = None, run: Run = subprocess.run) -> int:
     args = parser.parse_args(argv)
     workspace = Path(os.environ.get("BUILD_WORKSPACE_DIRECTORY", Path.cwd()))
     try:
-        if args.fix and sys.platform not in ("darwin", "linux"):
+        if args.fix and (platform_name or sys.platform) not in ("darwin", "linux"):
             raise AspectError("clang-tidy fixes are supported only on macOS and Linux")
         host = analysis_toolchain.runfiles_analysis_host(os.environ)
         args.environ = dict(os.environ)

@@ -603,11 +603,14 @@ class FixWorkflowTest(unittest.TestCase):
             mock.patch.object(
                 aspect.analysis_toolchain, "runfiles_analysis_host", return_value=host
             ),
-            mock.patch.object(aspect.sys, "platform", "win32" if windows else "darwin"),
             mock.patch("sys.stdout", StringIO()),
             mock.patch("sys.stderr", err),
         ):
-            code = aspect.main(["//src:library", "--fix", "--bazel-arg=--config=custom"], run=run)
+            code = aspect.main(
+                ["//src:library", "--fix", "--bazel-arg=--config=custom"],
+                run=run,
+                platform_name="win32" if windows else "linux",
+            )
         return code, source.read_text(), stages, builds, err.getvalue()
 
     def test_last_fix_pass_is_rechecked(self) -> None:
