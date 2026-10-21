@@ -7,6 +7,7 @@ import argparse
 import contextlib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -112,6 +113,8 @@ def run_legacy(
     def commands(command: list[str], **kwargs) -> subprocess.CompletedProcess:
         # Supply the actual seed edits as a controlled Git input. The migration's
         # committed enforcement diff must not widen this focused detection probe.
+        if changed and command[:2] == ["git", "merge-base"]:
+            return subprocess.CompletedProcess(command, 0, "HEAD\n", "")
         if changed and command[:2] == ["git", "diff"]:
             return subprocess.CompletedProcess(command, 0, "\n".join(changed) + "\n", "")
         if changed and command[:2] == ["git", "ls-files"]:
@@ -288,6 +291,14 @@ inline void HeaderProbe(int& value)
 def clean_reference(reference: Path, workspace: Path) -> dict:
     """Reuse a legacy baseline only when its source and build inputs are unchanged."""
     metadata = json.loads((reference.parent / "metadata.json").read_text())
+    revision = metadata["revision"]
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise RuntimeError("invalid clean reference revision")
+    known = subprocess.run(
+        ["git", "cat-file", "-e", revision], cwd=workspace, capture_output=True, check=False
+    )
+    if known.returncode:
+        subprocess.run(["git", "fetch", "origin", revision], cwd=workspace, check=True)
     changed = subprocess.check_output(
         ["git", "diff", "--name-only", metadata["revision"], "HEAD"], cwd=workspace, text=True
     ).splitlines()
@@ -296,6 +307,22 @@ def clean_reference(reference: Path, workspace: Path) -> dict:
         "tools/clang-tidy/scripts/clang_tidy_aspect.py",
         "tools/clang-tidy/scripts/tests/clang_tidy_aspect_test.py",
     }
+    for build_file in ("MODULE.bazel", "bazel/patches/BUILD.bazel"):
+        if build_file not in changed:
+            continue
+        original = subprocess.check_output(
+            ["git", "show", f"{revision}:{build_file}"], cwd=workspace, text=True
+        )
+        current = (workspace / build_file).read_text()
+        without_wrapper_patch = "".join(
+            line
+            for line in current.splitlines(keepends=True)
+            if '"rules_lint_clang_tidy_windows_wrapper.patch"' not in line
+            and '"//bazel/patches:rules_lint_clang_tidy_windows_wrapper.patch"' not in line
+        )
+        if without_wrapper_patch != original:
+            raise RuntimeError("build inputs changed beyond the Windows wrapper patch")
+        allowed.add(build_file)
     workflow = ".github/workflows/pr.yml"
     if workflow in changed:
         before = yaml.safe_load(
@@ -304,8 +331,19 @@ def clean_reference(reference: Path, workspace: Path) -> dict:
             )
         )
         after = yaml.safe_load((workspace / workflow).read_text())
-        before["jobs"]["clang-tidy-aspect"].pop("timeout-minutes", None)
-        after["jobs"]["clang-tidy-aspect"].pop("timeout-minutes", None)
+        for value in (before, after):
+            value["permissions"].pop("actions", None)
+            job = value["jobs"]["clang-tidy-aspect"]
+            job.pop("timeout-minutes", None)
+            job["steps"] = [
+                step
+                for step in job["steps"]
+                if step.get("name")
+                not in (
+                    "Download completed Linux legacy baseline",
+                    "Compare clean and seeded clang-tidy scopes",
+                )
+            ]
         if before != after:
             raise RuntimeError("workflow setup changed since the clean reference")
         allowed.add(workflow)

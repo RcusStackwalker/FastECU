@@ -46,6 +46,52 @@ These scoped measurements do not establish full-tree or Windows qualification.
 The full source/configuration and clean/seeded finding comparisons will be
 recorded from the candidate's qualification jobs and local macOS run.
 
+The full macOS clean comparison at `cbebc3fa` matched all 546 eligible sources
+and all 546 source/owner-target/configuration-checksum tuples, with zero
+findings and zero differences. It used
+`bazel run --config=release //tools/clang-tidy/scripts:clang_tidy_qualify -- --output <new-directory>`.
+The compilation database contained 596 raw entries before first-party,
+generated-source and equivalent-command filtering. This completed legacy
+baseline is retained while the current aspect is rerun at `5034313b`; the
+guarded reference reuse verifies unchanged compiled tuples and rejects changed
+production inputs, compiler setup, platform or LLVM release. The current run
+passed at `5034313b`: 546 matching source/configuration tuples, no clean
+findings, and the same three seeded source/header findings in both paths.
+The injected files were removed and the qualification worktree was clean.
+
+The Linux clean comparison in
+[run 39642511626](https://github.com/RcusStackwalker/FastECU/actions/runs/39642511626)
+also matched 546 sources and configuration tuples with zero findings or
+differences, at merge revision `bd6198d4`. The seeded collector then failed
+because it attempted a real merge-base lookup in a shallow checkout. Its
+controlled Git boundary now supplies that lookup along with the controlled
+diff; the successful full legacy baseline is retained while the current
+aspect and seed detection are rerun. The reference guard compares compiler
+setup and rejects build changes beyond the Windows-only wrapper patch.
+
+At `5034313b`, the one-time warm comparison selected
+`//src/algorithms/expression:expression` on the same macOS arm64 host with LLVM
+23.1.2 and a local cache. The legacy changed-file selector received controlled
+empty or one-source Git input; its measured workflow included the ordinary
+selected-target build and release compilation-database refresh. The unchanged
+legacy run took 3.122s and analyzed no translation units; the aspect took
+0.637s, reported its cached translation unit and executed zero lint actions.
+Appending a harmless comment to `expression.cpp` took 8.457s for the legacy
+workflow and 5.072s for the aspect, each analyzing one translation unit; the
+aspect executed one lint action. Both returned zero findings and the original
+source bytes were restored. The full qualification was running concurrently,
+so these single samples establish behavior and observed timing, rather than a
+performance threshold.
+
+Downloaded-output coverage used a disposable loopback-only HTTP/1.1 cache
+and two fresh `--batch --output_base=<temporary-directory>` builds of the
+expression target, with `--remote_download_minimal` and the wrapper's output
+download regex. The second build reported 29 remote-cache actions and 12
+internal actions, with 51 successful cache GETs and no uploads. Human output,
+exit status and replacement YAML were all materialized; the cached human
+output retained its check profile and exit status was zero. The cache and
+output bases used no external credentials and no source changes.
+
 Configured identities are source/owner-target/configuration-checksum tuples
 collected from Bazel's compile and aspect action graphs. Full clean parity
 precedes the seeded detection phase. The latter supplies the legacy changed-file
