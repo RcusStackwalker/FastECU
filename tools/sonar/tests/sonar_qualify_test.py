@@ -50,11 +50,11 @@ class QualifyTest(unittest.TestCase):
                 },
             ],
         }
-        records = [{"inputs": ["bazel-out/linux-dbg/bin/generated.h"]}]
+        inputs = ["/new/bazel-out/linux-dbg/bin/generated.h"]
         with self.assertRaisesRegex(ValueError, "compile"):
-            qualify.verify_input_closure(query, records)
+            qualify.verify_input_closure(query, inputs, Path("/new"))
         query["configuration"][0]["isTool"] = True
-        report = qualify.verify_input_closure(query, records)
+        report = qualify.verify_input_closure(query, inputs, Path("/new"))
         self.assertEqual(report["tool_compiles"], ["//src:probe"])
 
     def test_main_repository_label_spellings_are_equivalent(self):
@@ -70,8 +70,17 @@ class QualifyTest(unittest.TestCase):
             baseline, candidate = root / "before", root / "after"
             baseline.mkdir()
             candidate.mkdir()
-            for directory in (baseline, candidate):
-                (directory / "records.json").write_text(json.dumps([record()]))
+            (baseline / "records.json").write_text(json.dumps([record()]))
+            (candidate / "records.json").write_text(
+                json.dumps(
+                    {
+                        "version": 2,
+                        "directory": "/old",
+                        "commands": [record()],
+                        "inputs": ["/old/src/probe.cpp"],
+                    }
+                )
+            )
             before = {
                 "directory": "/old",
                 "file": "src/probe.cpp",

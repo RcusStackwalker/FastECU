@@ -10,7 +10,7 @@ import sonar_commands as commands
 
 def fragment(configuration="bazel-out/first/bin", source="src/probe.cpp"):
     return {
-        "version": 1,
+        "version": 2,
         "owner": "//src:probe",
         "configuration": configuration,
         "commands": [
@@ -25,7 +25,6 @@ def fragment(configuration="bazel-out/first/bin", source="src/probe.cpp"):
                     "-o",
                     "probe.o",
                 ],
-                "inputs": [source, "include/generated.h"],
                 "outputs": ["probe.o", "probe.d"],
             }
         ],
@@ -84,7 +83,7 @@ class CommandsTest(unittest.TestCase):
             self.load(value)
 
     def test_rejects_invalid_and_empty_commands(self):
-        for mutation in ({"version": 2}, {"owner": ""}, {"commands": []}):
+        for mutation in ({"version": 1}, {"owner": ""}, {"commands": []}):
             value = fragment() | mutation
             with self.subTest(mutation=mutation), self.assertRaises(commands.CommandError):
                 self.load(value)
@@ -101,9 +100,9 @@ class CommandsTest(unittest.TestCase):
         target = self.root / "generated.h"
         (self.root / "include/generated.h").symlink_to(target)
         with self.assertRaisesRegex(commands.CommandError, "generated.h"):
-            commands.validate_inputs(records, self.root)
+            commands.validate_inputs(records, self.root, [self.root / "include/generated.h"])
         target.write_text("#pragma once\n")
-        commands.validate_inputs(records, self.root)
+        commands.validate_inputs(records, self.root, [self.root / "include/generated.h"])
 
 
 if __name__ == "__main__":

@@ -31,7 +31,7 @@ The user accepted these boundaries on 2026-10-22:
 - Use two jobs within the existing reusable workflow: coverage first, then
   input preparation and scanning. A third parallel preparation job is deferred
   unless measurements justify its extra runner and output handoff.
-- Provide `bazel run //:sonar_inputs` for the full host-compatible graph, using
+- Provide `bazel run --config=sonar_inputs //:sonar_inputs` for the full host-compatible graph, using
   the coverage configuration and a separate Sonar database. Support Linux and
   local macOS input preparation; Windows remains outside this migration.
 - Require configured-command parity, generated-input and remote-cache checks,
@@ -205,7 +205,7 @@ or host installations become hermetic.
 
 ## Local command and failures
 
-`bazel run //:sonar_inputs` prepares and validates the full host-compatible
+`bazel run --config=sonar_inputs //:sonar_inputs` prepares and validates the full host-compatible
 first-party C++ graph under `--config=coverage`. Its output is
 `sonar-inputs/compile_commands.json`, separate from the editor's root
 `compile_commands.json`. The output directory is ignored by Git. The command
@@ -215,6 +215,18 @@ and scanning remain explicit steps documented in the tooling guide.
 Linux is the CI qualification platform. Local macOS input preparation also
 receives a smoke check against its host-selected graph and SDK. No new macOS
 analysis CI job or Windows Sonar support is added.
+
+The performance follow-up interview chose this explicit configuration as the
+canonical entry point. It aligns outer launcher and nested extraction options
+so repeated invocations retain Bazel analysis. The unconfigured command remains
+functional. Normal application build features remain unchanged.
+
+Keep command metadata separate from the complete requested input set. Version 2
+fragments contain configured commands without repeating transitive header lists
+in each action. The declared `sonar_inputs` output group remains the authority
+for materialization and full local availability checks. Export a unique input
+set and configured records only when `--qualification-records` is requested;
+the qualification audit must walk that full set, including deferred headers.
 
 Fail the command on build failures, missing declared outputs, invalid command
 fragments, an empty eligible graph, missing referenced source/generated inputs,
@@ -249,6 +261,15 @@ conditions comparable, and report variability rather than relying on one
 sample. Record input preparation separately from instrumented tests, scanner
 execution and cloud processing. Splitting jobs is not itself evidence of a
 speedup.
+
+The follow-up interview prioritizes CI and measures local invocation separately.
+Acceptance compares actual scanner-ready preparation under comparable cache
+conditions, with command extraction, input generation/download and validation
+reported separately. Continue reporting Hedron's narrower extraction timing;
+do not inflate the baseline with work its production path does not perform.
+Keep repeatable warm improvement and the whole-workflow regression gate. First
+remove demonstrated configuration churn and redundant metadata/validation;
+consider cacheable aggregation only after remeasurement shows it is necessary.
 
 Retain the existing blocking path during qualification. A temporary comparison
 is acceptable; do not leave a permanent duplicate advisory job. After the

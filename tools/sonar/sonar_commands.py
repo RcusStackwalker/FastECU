@@ -4,13 +4,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-EXTRACTION_FLAGS = (
-    "--config=coverage",
-    "--features=-compiler_param_file",
-    "--features=-layering_check",
-    "--host_features=-compiler_param_file",
-    "--host_features=-layering_check",
-)
+EXTRACTION_FLAGS = ("--config=sonar_inputs",)
 
 
 class CommandError(ValueError):
@@ -35,7 +29,6 @@ def _command_record(command, fragment, path):
     argv = _strings(command.get("arguments"), "arguments")
     if any(argument.startswith("@") for argument in argv):
         raise CommandError(f"unexpanded compiler response file: {path}")
-    _strings(command.get("inputs"), "inputs")
     _strings(command.get("outputs"), "outputs")
     return command | {"owner": fragment["owner"], "configuration": fragment["configuration"]}
 
@@ -43,7 +36,7 @@ def _command_record(command, fragment, path):
 def _fragment_records(fragment, path):
     if not isinstance(fragment, dict) or type(fragment.get("version")) is not int:
         raise CommandError(f"invalid fragment version: {path}")
-    if fragment["version"] != 1:
+    if fragment["version"] != 2:
         raise CommandError(f"unsupported fragment version: {path}")
     for field in ("owner", "configuration"):
         if not isinstance(fragment.get(field), str) or not fragment[field]:
@@ -95,10 +88,9 @@ def database_entries(records: Sequence[dict], execroot: Path) -> list[dict]:
     return entries
 
 
-def validate_inputs(records: Sequence[dict], execroot: Path) -> None:
+def validate_inputs(records: Sequence[dict], execroot: Path, inputs: Sequence[Path] = ()) -> None:
     """Reject absent inputs and broken generated/virtual-include symlinks."""
-    inputs = {record["file"] for record in records}
-    inputs.update(path for record in records for path in record["inputs"])
-    missing = sorted(path for path in inputs if not (execroot / path).exists())
+    paths = {execroot / record["file"] for record in records} | set(inputs)
+    missing = sorted(str(path) for path in paths if not path.exists())
     if missing:
         raise CommandError(f"missing compiler inputs ({len(missing)}): {', '.join(missing[:10])}")

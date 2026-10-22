@@ -67,7 +67,7 @@ Gazelle produced no changes, and the pinned LLVM 23.1.2 clang-tidy gate reported
 zero findings across 546 files. These checks establish local correctness gates,
 not SonarCloud import or Quality Gate acceptance.
 
-## Local preparation timings
+## Original candidate timings
 
 On macOS arm64 at implementation revision `bb5aa53d` with the input-audit and
 parser-refactoring changes, repeated public commands used the same checkout,
@@ -113,6 +113,75 @@ the candidate revision before accepting a timing result. Candidate comparison
 must include both jobs, their dependency wait and artifact transfer, and exclude
 temporary legacy-comparison work. No whole-workflow candidate measurement exists
 yet.
+
+## Performance follow-up
+
+The follow-up interview accepted one canonical command:
+`bazel run --config=sonar_inputs //:sonar_inputs`. The config keeps the launcher
+and nested extraction options consistent without changing normal application
+build features. Both original entry points discarded analysis on every call
+because their outer and inner feature options differed. Neither a warm server
+nor action-cache hits prevented that analysis cost.
+
+Hedron's configured `exclude_headers="all"` bypasses header discovery and its
+compiler/preprocessor calls. Its query also sets `--include_artifacts=false`.
+It queries and rewrites the database each time; a persistent database cache is
+not the explanation for its latency here. A fresh-output-base baseline even
+warned that a generated Qt source was missing, then succeeded. Extraction-only
+timings must not be presented as proof of scanner-ready inputs.
+
+Version 2 fragments retain every configured command and ordered argument but
+leave the complete input closure in the declared `sonar_inputs` output group.
+The wrapper checks the group's unique local paths, including symlink targets,
+and independently checks source references. It deduplicates URI references
+before filesystem checks and obtains the execution root from the actual BEP
+workspace event. Missing root metadata, empty groups and incomplete event
+streams fail. The Qt guard stops after finding a resolvable marker; full input
+validation always runs before it.
+
+`--qualification-records` exports configured commands and the unique requested
+input set for the dependency audit. This opt-in file is 2,684,427 bytes for 596
+commands and 5,548 inputs, compared with the original 74,077,638-byte file's
+622,416 repeated input references. Ordinary preparation does not emit it, and
+invalidates an older export before work begins.
+
+Nine alternating-order pairs on the same macOS host, after seeding both paths,
+used consistently configured launchers and retained analysis. No remote cache
+was enabled, and generated inputs were already materialized by the candidate.
+
+| Warm path | Median, seconds | Range, seconds |
+| --- | --- | --- |
+| Hedron command extraction | 0.732 | 0.700–0.767 |
+| Hedron extraction plus its existing Qt check | 0.781 | 0.748–0.815 |
+| Candidate complete preparation and validation | 0.758 | 0.736–1.515 |
+
+The candidate median is about 46% lower than its original 1.405-second result.
+Its approximately 3% advantage over aligned Hedron plus the Qt check is inside
+the overlapping distributions; one unexplained candidate outlier is retained.
+This does not establish repeatable warm improvement over a comparable complete
+production preparation path. The interview retained that acceptance requirement,
+prioritized CI, and required extraction, materialization and validation costs
+to be reported separately. No baseline is inflated with hypothetical work.
+
+Low-overhead stage instrumentation used Bazel's actual Python 3.14.4, unlike the
+earlier Homebrew Python 3.15 profile. A separate direct-wrapper sample took
+0.463 seconds: nested Bazel input build 0.309, BEP collection/local-output
+validation 0.108, fragment loading 0.014, source validation 0.003, argument
+localization 0.017 and Qt marker lookup below 0.001. Apple tool lookups are
+included in localization. These stage measurements omit the outer launcher and
+come from a different invocation than the public-command median.
+
+After this representation change, all 596 configured commands and normalized
+scanner entries still match Hedron. The full 5,548-input producer audit still
+visits 2,616 actions with no compile/link requirements. The repeated fresh-base
+HTTP-cache fixture again served nine downloads on its second run and retained
+the generated header and both configurations. All seven focused suites and the
+full release suite pass (299 passed, 20 incompatible suites skipped).
+
+The bounded pass stops here. Cached command aggregation would not remove the
+remaining Bazel invocation or full local-availability checks by itself. Full
+Linux x86, SonarCloud, scanner-ready CI timing and whole-workflow evidence remain
+required before production cutover.
 
 Before cutover, record full Linux parity, a fresh scanner's requested action
 closure, downloaded generated/virtual headers from a remote cache, real coverage

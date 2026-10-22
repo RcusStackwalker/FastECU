@@ -22,7 +22,7 @@ LLVM coverage text, existing pinned GitHub Actions.
 - Preserve Linux CI scope and other-language classification; support local
   macOS input preparation. Windows Sonar analysis remains separate work.
 - Keep Hedron and its compatibility patch for editor integration.
-- Public command: `bazel run //:sonar_inputs`; output:
+- Public command: `bazel run --config=sonar_inputs //:sonar_inputs`; output:
   `sonar-inputs/compile_commands.json`.
 - Keep scanning and its blocking Quality Gate outside cacheable Bazel actions.
 - Preserve generated first-party compile entries, argument order and distinct
@@ -275,6 +275,35 @@ contract test. Remove the temporary candidate workflow after qualification.
 **Interfaces:** Consume Tasks 1–4 without a second command/schema. Final CI uses
 two jobs inside the existing reusable workflow; caller inputs, scanner check
 name and blocking Quality Gate remain stable.
+
+**Performance follow-up, approved during Task 5:** supersede the original
+per-command input serialization with version 2 command-only fragments. Preserve
+full input materialization/validation through the unique declared output group.
+Use `--config=sonar_inputs` consistently for launcher and extraction. This is a
+bounded optimization pass; cached aggregation remains deferred.
+
+- [x] **Performance 1: Pin failure behavior before changing the representation.**
+  Update package tests to consume version 2 commands without input arrays; keep
+  owner/configuration/output identity and exact ordered arguments. Wrapper tests
+  must reject a missing non-Qt input or broken symlink in the declared group,
+  missing execution-root metadata and empty groups. Verify normal preparation
+  omits qualification records and opt-in export retains every unique input.
+  Run the focused suites and observe failures from absent new behavior.
+- [x] **Performance 2: Implement the bounded changes.** Add the named config;
+  retain input depsets without flattening them into every command. Resolve the
+  execution root from the actual BEP workspace event, deduplicate URI references
+  before checking files, validate every declared input plus command source, and
+  keep atomic publication/stale-output invalidation. Export schema 2 records
+  and a unique input set with `--qualification-records`. Adapt the qualification
+  audit and temporary workflow to consume that exact set. Run all seven Sonar
+  suites including the uncompilable graph fixture; expect all to pass.
+- [ ] **Performance 3: Remeasure before further architectural work.** Run the
+  real canonical command, configured/database parity and dependency audit.
+  Record interleaved repeated baseline/candidate timings, cache conditions and
+  separate extraction/materialization/validation costs using Bazel's Python.
+  Report narrower Hedron timings without presenting them as scanner readiness.
+  Keep Linux/cloud/whole-workflow qualification outstanding without CI evidence;
+  commit named files after Gazelle and applicable format/link/test gates.
 
 - [ ] **Step 1: Establish baseline timing and budgets before candidate acceptance.**
   Record repeated cold, unchanged-warm and one-source-change input preparation

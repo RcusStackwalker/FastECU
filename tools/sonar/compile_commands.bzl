@@ -40,14 +40,13 @@ def _sonar_impl(target, ctx):
         commands.append({
             "file": argv[argv.index("-c") + 1],
             "arguments": argv,
-            "inputs": sorted([file.path for file in command_inputs.to_list()]),
             "outputs": sorted([file.path for file in action.outputs.to_list()]),
         })
         inputs.append(command_inputs)
     if commands:
         fragment = ctx.actions.declare_file(ctx.label.name + ".sonar.json")
         ctx.actions.write(fragment, json.encode({
-            "version": 1,
+            "version": 2,
             "owner": str(target.label),
             "configuration": ctx.bin_dir.path,
             "commands": commands,

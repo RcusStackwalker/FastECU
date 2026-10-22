@@ -107,15 +107,14 @@ def records_from_aquery(query: dict, execroot: Path) -> list[dict]:
     return records
 
 
-def _requested_inputs(records, by_path):
+def _requested_inputs(inputs, directory, by_path):
     pending = []
-    for record in records:
-        for original in record["inputs"]:
-            path = _relative(original, record.get("directory", ""))
-            if path in by_path:
-                pending.append(by_path[path])
-            elif path.startswith("bazel-out/"):
-                raise ValueError(f"missing generated input in action graph: {path}")
+    for original in inputs:
+        path = _relative(original, str(directory))
+        if path in by_path:
+            pending.append(by_path[path])
+        elif path.startswith("bazel-out/"):
+            raise ValueError(f"missing generated input in action graph: {path}")
     return pending
 
 
@@ -141,7 +140,7 @@ def _compile_tool(action, owner, configuration):
     return owner
 
 
-def verify_input_closure(query: dict, records: list[dict]) -> dict:
+def verify_input_closure(query: dict, inputs: list[str], directory: Path) -> dict:
     """Audit producer dependencies independent of whether actions hit a cache."""
     artifacts = _artifact_paths(query)
     by_path = {path: identifier for identifier, path in artifacts.items()}
@@ -153,7 +152,9 @@ def verify_input_closure(query: dict, records: list[dict]) -> dict:
     owners = {target["id"]: target["label"] for target in query["targets"]}
     configurations = {value["id"]: value for value in query.get("configuration", [])}
     sets = {value["id"]: value for value in query.get("depSetOfFiles", [])}
-    pending = _requested_inputs(records, by_path)
+    if not inputs:
+        raise ValueError("empty requested input closure")
+    pending = _requested_inputs(inputs, directory, by_path)
     visited_files, visited_actions, visited_sets = set(), set(), set()
     tools = set()
     while pending:
@@ -205,7 +206,7 @@ def collect_baseline(destination: Path) -> None:
         [
             "bazel",
             "run",
-            "--config=coverage",
+            *commands.EXTRACTION_FLAGS,
             "//bazel/compile_commands:refresh",
             "--",
             "--config=coverage",
@@ -273,7 +274,14 @@ def main(argv=None) -> int:
         if args.baseline is None or args.candidate is None:
             parser.error("comparison requires --baseline and --candidate")
         before = json.loads((args.baseline / "records.json").read_text())
-        after = json.loads((args.candidate / "records.json").read_text())
+        metadata = json.loads((args.candidate / "records.json").read_text())
+        if (
+            not isinstance(metadata, dict)
+            or type(metadata.get("version")) is not int
+            or metadata["version"] != 2
+        ):
+            raise ValueError("unsupported qualification records version")
+        after = metadata["commands"]
         difference = compare_commands(before, after)
         before_db = _database_index(
             json.loads((args.baseline / "compile_commands.json").read_text())
@@ -323,7 +331,9 @@ def main(argv=None) -> int:
                 text=True,
                 check=True,
             )
-            report["input_closure"] = verify_input_closure(json.loads(query.stdout), after)
+            report["input_closure"] = verify_input_closure(
+                json.loads(query.stdout), metadata["inputs"], Path(metadata["directory"])
+            )
         (args.output / "comparison.json").write_text(json.dumps(report, indent=2) + "\n")
         passed = not any(difference.values()) and not any(database.values())
         print(

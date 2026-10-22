@@ -32,3 +32,12 @@ build:coverage --dynamic_mode=off
 # resolves the source against the script's CWD (the repo root), and the rewrite
 # has one well-defined input to turn absolute.
 build:coverage --copt=-ffile-compilation-dir=.
+
+# Keep the launcher and nested extraction in the same configuration. These are
+# the existing Hedron extraction overrides; application builds retain their
+# normal parameter-file and layering-check features.
+build:sonar_inputs --config=coverage
+build:sonar_inputs --features=-compiler_param_file
+build:sonar_inputs --features=-layering_check
+build:sonar_inputs --host_features=-compiler_param_file
+build:sonar_inputs --host_features=-layering_check

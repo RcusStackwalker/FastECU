@@ -13,6 +13,7 @@ import sonar_inputs as inputs
 def build_events(path, fragment, source):
     events = [
         {"id": {"started": {}}, "children": [{"buildFinished": {}}]},
+        {"id": {"workspace": {}}, "workspaceInfo": {"localExecRoot": str(source.parent)}},
         {
             "id": {"namedSet": {"id": "inner"}},
             "namedSetOfFiles": {"files": [{"name": "probe.sonar.json", "uri": fragment.as_uri()}]},
@@ -20,7 +21,16 @@ def build_events(path, fragment, source):
         {"id": {"namedSet": {"id": "outer"}}, "namedSetOfFiles": {"fileSets": [{"id": "inner"}]}},
         {
             "id": {"namedSet": {"id": "inputs"}},
-            "namedSetOfFiles": {"files": [{"name": "probe.cpp", "uri": source.as_uri()}]},
+            "namedSetOfFiles": {
+                "files": [
+                    {"name": "probe.cpp", "uri": source.as_uri()},
+                    {"name": "header.h", "uri": (source.parent / "header.h").as_uri()},
+                    {
+                        "name": "qobjectdefs.h",
+                        "uri": (source.parent / "include/QtCore/qobjectdefs.h").as_uri(),
+                    },
+                ]
+            },
         },
         {
             "id": {"targetCompleted": {"label": "//fixture:probe"}},
@@ -44,11 +54,12 @@ class InputsTest(unittest.TestCase):
         self.root = Path(self.temporary.name).resolve()
         self.source = self.root / "probe.cpp"
         self.source.write_text("int probe;\n")
+        (self.root / "header.h").write_text("#pragma once\n")
         self.fragment = self.root / ("a" * 64)
         self.fragment.write_text(
             json.dumps(
                 {
-                    "version": 1,
+                    "version": 2,
                     "owner": "//fixture:probe",
                     "configuration": "bazel-out/test/bin",
                     "commands": [
@@ -62,7 +73,6 @@ class InputsTest(unittest.TestCase):
                                 "-o",
                                 "probe.o",
                             ],
-                            "inputs": ["probe.cpp", "include/QtCore/qobjectdefs.h"],
                             "outputs": ["probe.o"],
                         }
                     ],
@@ -77,8 +87,28 @@ class InputsTest(unittest.TestCase):
 
     def test_nested_sets_keep_cache_filenames_and_paths_with_spaces(self):
         outputs = inputs.read_outputs(self.events)
-        self.assertEqual(outputs["sonar_commands"], [self.fragment])
-        self.assertEqual(outputs["sonar_inputs"], [self.source])
+        self.assertEqual(outputs.execroot, self.root)
+        self.assertEqual(outputs.groups["sonar_commands"], [self.fragment])
+        self.assertEqual(
+            set(outputs.groups["sonar_inputs"]),
+            {self.source, self.root / "header.h", self.root / "include/QtCore/qobjectdefs.h"},
+        )
+
+    def test_rejects_missing_execution_root_and_empty_input_group(self):
+        original = build_events(self.events, self.fragment, self.source)
+        mutations = [
+            [event for event in original if "workspaceInfo" not in event],
+            [
+                event | {"namedSetOfFiles": {"files": []}}
+                if event["id"] == {"namedSet": {"id": "inputs"}}
+                else event
+                for event in original
+            ],
+        ]
+        for events in mutations:
+            self.events.write_text("\n".join(json.dumps(event) for event in events))
+            with self.assertRaises(inputs.InputsError):
+                inputs.read_outputs(self.events)
 
     def test_rejects_incomplete_or_failed_event_streams(self):
         original = self.events.read_text()
@@ -124,16 +154,36 @@ class InputsTest(unittest.TestCase):
         result = inputs.prepare(self.root, destination, run=self.runner())
         self.assertEqual(result, destination / "compile_commands.json")
         self.assertEqual(json.loads(result.read_text())[0]["file"], "probe.cpp")
-        self.assertIn("--config=coverage", self.builds[0])
-        for flag in (
-            "--features=-compiler_param_file",
-            "--features=-layering_check",
-            "--host_features=-compiler_param_file",
-            "--host_features=-layering_check",
-        ):
-            self.assertIn(flag, self.builds[0])
+        self.assertIn("--config=sonar_inputs", self.builds[0])
         self.assertIn("--output_groups=sonar_commands,sonar_inputs", self.builds[0])
         self.assertNotIn("--output_groups=+sonar_commands,sonar_inputs", self.builds[0])
+
+    def test_qualification_export_is_opt_in_and_keeps_the_complete_unique_input_set(self):
+        destination = self.root / "prepared"
+        inputs.prepare(self.root, destination, run=self.runner(), qualification_records=True)
+        value = json.loads((destination / "records.json").read_text())
+        self.assertEqual(value["version"], 2)
+        self.assertEqual(value["commands"][0]["owner"], "//fixture:probe")
+        self.assertEqual(
+            set(value["inputs"]),
+            {
+                str(self.source),
+                str(self.root / "header.h"),
+                str(self.root / "include/QtCore/qobjectdefs.h"),
+            },
+        )
+        inputs.prepare(self.root, destination, run=self.runner())
+        self.assertFalse((destination / "records.json").exists())
+
+    def test_missing_non_qt_header_or_broken_symlink_prevents_publication(self):
+        header = self.root / "header.h"
+        header.unlink()
+        for broken_symlink in (False, True):
+            if broken_symlink:
+                header.symlink_to(self.root / "absent.h")
+            with self.assertRaisesRegex(inputs.InputsError, "missing"):
+                inputs.prepare(self.root, self.root / "prepared", run=self.runner())
+            self.assertFalse((self.root / "prepared/compile_commands.json").exists())
 
     def test_failed_build_invalidates_previous_database(self):
         destination = self.root / "prepared"
@@ -168,6 +218,14 @@ class InputsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             inputs.prepare(self.root, destination, run=self.runner())
         self.assertFalse((destination / "compile_commands.json").exists())
+
+    def test_qt_marker_must_resolve_through_a_compiler_include(self):
+        fragment = json.loads(self.fragment.read_text())
+        fragment["commands"][0]["arguments"][1] = "-Iabsent"
+        self.fragment.write_text(json.dumps(fragment))
+        with self.assertRaisesRegex(inputs.InputsError, "QtCore"):
+            inputs.prepare(self.root, self.root / "prepared", run=self.runner())
+        self.assertFalse((self.root / "prepared/compile_commands.json").exists())
 
     def test_unsupported_host_returns_failure(self):
         with mock.patch.object(inputs.sys, "platform", "win32"):

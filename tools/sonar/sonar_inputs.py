@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -19,6 +20,12 @@ ASPECT = "//tools/sonar:compile_commands.bzl%sonar_compile_commands"
 
 class InputsError(ValueError):
     """Failed or incomplete preparation; no database may be consumed."""
+
+
+@dataclass(frozen=True)
+class BuildOutputs:
+    execroot: Path
+    groups: dict[str, list[Path]]
 
 
 def _file_path(uri: str) -> Path:
@@ -38,6 +45,7 @@ def _event_groups(events: Path):
     announced = set()
     finished = False
     final = {}
+    execroot = None
     for line in events.read_text().splitlines():
         final = json.loads(line)
         seen.add(json.dumps(final["id"], sort_keys=True))
@@ -47,10 +55,17 @@ def _event_groups(events: Path):
             finished = isinstance(status, dict) and status.get("code", 0) == 0
         if "namedSetOfFiles" in final:
             sets[final["id"]["namedSet"]["id"]] = final["namedSetOfFiles"]
+        if "workspaceInfo" in final:
+            root = Path(final["workspaceInfo"]["localExecRoot"])
+            if not root.is_absolute() or not root.is_dir() or execroot not in (None, root):
+                raise InputsError("invalid or conflicting execution root in build events")
+            execroot = root
         groups.extend(final.get("completed", {}).get("outputGroup", []))
     if not finished or not final.get("lastMessage") or announced - seen:
         raise InputsError("incomplete or unsuccessful build events: missing finish/events")
-    return sets, groups
+    if execroot is None:
+        raise InputsError("missing execution root in build events")
+    return execroot, sets, groups
 
 
 def _group_paths(sets, groups, name):
@@ -59,7 +74,7 @@ def _group_paths(sets, groups, name):
         raise InputsError(f"missing or incomplete output group: {name}")
     pending = [ref["id"] for group in selected for ref in group.get("fileSets", [])]
     visited = set()
-    paths = []
+    uris = set()
     while pending:
         identifier = pending.pop()
         if identifier in visited:
@@ -68,16 +83,18 @@ def _group_paths(sets, groups, name):
         if identifier not in sets:
             raise InputsError(f"missing build event file set: {identifier}")
         value = sets[identifier]
-        paths.extend(_file_path(file["uri"]) for file in value.get("files", []))
+        uris.update(file["uri"] for file in value.get("files", []))
         pending.extend(ref["id"] for ref in value.get("fileSets", []))
-    return sorted(set(paths))
+    if not uris:
+        raise InputsError(f"empty output group: {name}")
+    return sorted({_file_path(uri) for uri in uris})
 
 
-def read_outputs(events: Path) -> dict[str, list[Path]]:
+def read_outputs(events: Path) -> BuildOutputs:
     """Resolve complete output groups by BEP identity, retaining configurations."""
     try:
-        sets, groups = _event_groups(events)
-        return {name: _group_paths(sets, groups, name) for name in GROUPS}
+        execroot, sets, groups = _event_groups(events)
+        return BuildOutputs(execroot, {name: _group_paths(sets, groups, name) for name in GROUPS})
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
         raise InputsError(f"invalid build events: {error}") from error
 
@@ -107,7 +124,21 @@ def apple_arguments(arguments: Sequence[str], *, run: Callable) -> list[str]:
     return [compiler, *replaced[1:]]
 
 
-def prepare(workspace: Path, destination: Path, *, run: Callable) -> Path:
+def _qt_header_resolves(entries):
+    seen = set()
+    for entry in entries:
+        for include in sonar_compdb_check.include_dirs(entry["arguments"]):
+            directory = sonar_compdb_check.resolve(entry["directory"], include)
+            if directory not in seen:
+                seen.add(directory)
+                if (directory / "QtCore" / sonar_compdb_check.QT_MARKER).is_file():
+                    return True
+    return False
+
+
+def prepare(
+    workspace: Path, destination: Path, *, run: Callable, qualification_records: bool = False
+) -> Path:
     """Request metadata/input outputs, validate all of them, then publish once."""
     destination.mkdir(parents=True, exist_ok=True)
     database = destination / "compile_commands.json"
@@ -131,17 +162,11 @@ def prepare(workspace: Path, destination: Path, *, run: Callable) -> Path:
         if result.returncode:
             raise InputsError(f"Sonar input build failed (exit {result.returncode})")
         outputs = read_outputs(events)
-        info = run(
-            ["bazel", "info", "execution_root"],
-            cwd=workspace,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        execroot = Path(info.stdout.strip())
-        if not execroot.is_dir():
-            raise InputsError(f"invalid execution root: {execroot}")
-        records = commands.load_fragments(outputs["sonar_commands"])
+        execroot = outputs.execroot
+        records = commands.load_fragments(outputs.groups["sonar_commands"])
+        # Every declared input was checked by read_outputs, including symlink
+        # targets. Check source references too, even for a malformed fragment
+        # that names a source outside the declared input set.
         commands.validate_inputs(records, execroot)
         entries = commands.database_entries(records, execroot)
         apple_results = {}
@@ -154,15 +179,22 @@ def prepare(workspace: Path, destination: Path, *, run: Callable) -> Path:
 
         for entry in entries:
             entry["arguments"] = apple_arguments(entry["arguments"], run=apple_run)
-        _, _, qt_hits, _ = sonar_compdb_check.inspect(entries)
-        if not qt_hits:
+        if not _qt_header_resolves(entries):
             raise InputsError("QtCore/qobjectdefs.h does not resolve through the database")
         pending = Path(temporary) / "compile_commands.json"
         pending.write_text(json.dumps(entries, indent=2) + "\n")
-        records_path.write_text(
-            json.dumps([record | {"directory": str(execroot)} for record in records], indent=2)
-            + "\n"
-        )
+        if qualification_records:
+            records_path.write_text(
+                json.dumps(
+                    {
+                        "version": 2,
+                        "directory": str(execroot),
+                        "commands": [record | {"directory": str(execroot)} for record in records],
+                        "inputs": [str(path) for path in outputs.groups["sonar_inputs"]],
+                    }
+                )
+                + "\n"
+            )
         pending.replace(database)
     print(f"Sonar inputs: {len(entries)} configured commands; {database}")
     return database
@@ -171,6 +203,7 @@ def prepare(workspace: Path, destination: Path, *, run: Callable) -> Path:
 def main(argv: Sequence[str] | None = None, run: Callable = subprocess.run) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=Path("sonar-inputs"))
+    parser.add_argument("--qualification-records", action="store_true")
     args = parser.parse_args(argv)
     try:
         if sys.platform not in ("linux", "darwin"):
@@ -179,7 +212,7 @@ def main(argv: Sequence[str] | None = None, run: Callable = subprocess.run) -> i
         destination = (
             args.output_dir if args.output_dir.is_absolute() else workspace / args.output_dir
         )
-        prepare(workspace, destination, run=run)
+        prepare(workspace, destination, run=run, qualification_records=args.qualification_records)
         return 0
     except (InputsError, commands.CommandError, OSError, subprocess.SubprocessError) as error:
         print(f"Sonar inputs: {error}", file=sys.stderr)

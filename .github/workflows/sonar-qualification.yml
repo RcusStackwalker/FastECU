@@ -153,7 +153,7 @@ jobs:
         run: bazel test --config=coverage //tools/sonar:graph_outputs_test
 
       - name: Prepare configured inputs on this fresh runner
-        run: /usr/bin/time -p bazel run --config=coverage //:sonar_inputs
+        run: /usr/bin/time -p bazel run --config=sonar_inputs //:sonar_inputs -- --qualification-records
 
       - id: coverage_import
         name: Validate and localize coverage
