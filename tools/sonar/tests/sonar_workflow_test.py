@@ -14,31 +14,39 @@ class SonarWorkflowTest(unittest.TestCase):
         self.assertIn("//tools/sonar:graph_outputs_test", commands)
 
     def setUp(self):
-        self.jobs = yaml.safe_load(
-            (ROOT / ".github/workflows/sonar-qualification.yml").read_text()
-        )["jobs"]
+        workflow = yaml.safe_load((ROOT / ".github/workflows/sonar-qualification.yml").read_text())
+        self.jobs = workflow["jobs"]
+        self.permissions = workflow["permissions"]
 
-    def test_scanner_uses_the_successful_producer_commit_and_artifact(self):
+    def test_scanner_prepares_in_parallel_then_waits_for_the_successful_producer(self):
         producer = self.jobs["coverage"]
         scanner = self.jobs["sonarcloud"]
-        self.assertEqual(scanner["needs"], "coverage")
+        self.assertNotIn("needs", scanner)
+        identifiers = [step.get("id") for step in scanner["steps"]]
+        names = [step.get("name", "") for step in scanner["steps"]]
+        prepare = next(i for i, name in enumerate(names) if name.startswith("Prepare configured"))
+        wait = identifiers.index("producer")
+        self.assertLess(prepare, wait)
+        self.assertLess(wait, identifiers.index("coverage_download"))
+        run = scanner["steps"][wait]["run"]
+        self.assertIn("success", run)
+        for failed in ("failure", "cancelled", "timed_out"):
+            self.assertIn(failed, run)
+        download = next(step for step in scanner["steps"] if step.get("id") == "coverage_download")
+        self.assertEqual(
+            download["with"]["artifact-ids"], "${{ steps.producer.outputs.coverage_id }}"
+        )
         checkout = next(
             step
             for step in scanner["steps"]
             if step.get("uses", "").startswith("actions/checkout@")
         )
-        self.assertEqual(checkout["with"]["ref"], "${{ needs.coverage.outputs.commit }}")
-        download = next(step for step in scanner["steps"] if step.get("id") == "coverage_download")
-        self.assertEqual(
-            download["with"]["artifact-ids"], "${{ needs.coverage.outputs.artifact_id }}"
-        )
-        self.assertEqual(
-            producer["outputs"]["artifact_id"], "${{ steps.coverage_upload.outputs.artifact-id }}"
-        )
+        self.assertEqual(checkout["with"]["ref"], "${{ inputs.ref || github.sha }}")
         upload = next(step for step in producer["steps"] if step.get("id") == "coverage_upload")
         self.assertEqual(upload["with"]["if-no-files-found"], "error")
         self.assertIn("github.run_id", upload["with"]["name"])
         self.assertIn("github.run_attempt", upload["with"]["name"])
+        self.assertIn("actions: read", yaml.dump(self.permissions))
 
     def test_scan_waits_for_import_and_does_not_reexecute_coverage(self):
         steps = self.jobs["sonarcloud"]["steps"]
@@ -50,6 +58,7 @@ class SonarWorkflowTest(unittest.TestCase):
             if step.get("id") == "coverage_import":
                 self.assertNotIn("--attempt", run)
                 self.assertIn('"$GITHUB_RUN_ID"', run)
+                self.assertIn("git rev-parse HEAD", run)
         gate = next(
             step for step in steps if "sonarqube-quality-gate-action@" in step.get("uses", "")
         )
