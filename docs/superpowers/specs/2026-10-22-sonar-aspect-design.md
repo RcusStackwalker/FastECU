@@ -1,7 +1,7 @@
 # Sonar C++ input generation through Bazel aspects
 
-Status: proposed; interview decisions settled on 2026-10-22. The consolidated
-design awaits final review. Implementation and qualification have not begun.
+Status: approved on 2026-10-22. Implementation and qualification follow the
+[implementation plan](../plans/2026-10-22-sonar-aspect-migration.md).
 
 ## Intent and agreed scope
 
@@ -261,6 +261,6 @@ Git history before removing it according to the documentation index.
 
 The interview frontier is empty: scope, extraction, configuration, editor
 retention, job layout, local command, artifact behavior and acceptance evidence
-have been agreed. Final review of this consolidated document is still required
-before implementation planning. Baseline measurements and qualification results
-are future evidence, not claims established by this design.
+have been agreed. The user approved the consolidated design and selected native
+execution after plan preparation. Baseline measurements and qualification
+results are future evidence, not claims established by this design.
