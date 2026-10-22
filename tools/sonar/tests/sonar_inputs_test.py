@@ -158,6 +158,20 @@ class InputsTest(unittest.TestCase):
         self.assertIn("--output_groups=sonar_commands,sonar_inputs", self.builds[0])
         self.assertNotIn("--output_groups=+sonar_commands,sonar_inputs", self.builds[0])
 
+    def test_database_is_rooted_in_the_checkout_and_links_the_execution_root(self):
+        generated = self.root / "bazel-out/bin"
+        generated.mkdir(parents=True)
+        (generated / "include").symlink_to(self.root / "include")
+        fragment = json.loads(self.fragment.read_text())
+        fragment["commands"][0]["arguments"][1] = "-Ibazel-out/bin/include"
+        self.fragment.write_text(json.dumps(fragment))
+        with tempfile.TemporaryDirectory(prefix="sonar checkout ") as checkout:
+            workspace = Path(checkout).resolve()
+            result = inputs.prepare(workspace, workspace / "prepared", run=self.runner())
+            entry = json.loads(result.read_text())[0]
+            self.assertEqual(entry["directory"], str(workspace))
+            self.assertEqual((workspace / "bazel-out").resolve(), self.root / "bazel-out")
+
     def test_qualification_export_is_opt_in_and_keeps_the_complete_unique_input_set(self):
         destination = self.root / "prepared"
         inputs.prepare(self.root, destination, run=self.runner(), qualification_records=True)

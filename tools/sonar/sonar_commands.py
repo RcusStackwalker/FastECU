@@ -64,7 +64,7 @@ def command_identity(record: dict) -> tuple:
     return record["owner"], record["configuration"], record["file"], tuple(record["outputs"])
 
 
-def database_entries(records: Sequence[dict], execroot: Path) -> list[dict]:
+def database_entries(records: Sequence[dict], directory: Path) -> list[dict]:
     """Merge identical actions, preserving distinct owners and configurations."""
     unique = {}
     for record in records:
@@ -76,7 +76,7 @@ def database_entries(records: Sequence[dict], execroot: Path) -> list[dict]:
     for identity in sorted(unique):
         record = unique[identity]
         argv = record["arguments"]
-        entry = {"directory": str(execroot), "file": record["file"], "arguments": argv}
+        entry = {"directory": str(directory), "file": record["file"], "arguments": argv}
         if "-o" in argv:
             position = argv.index("-o")
             if position + 1 >= len(argv):

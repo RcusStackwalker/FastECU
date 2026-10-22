@@ -136,6 +136,28 @@ def _qt_header_resolves(entries):
     return False
 
 
+def _link_execroot(workspace: Path, execroot: Path) -> None:
+    """Resolve execroot-relative arguments from the checkout, as Hedron's refresh does.
+
+    The scanner keys its cache by the paths it analyzes; rooting the database in the
+    checkout keeps sources at their repository paths instead of under the execroot.
+    """
+    if workspace.resolve() == execroot.resolve():
+        return
+    for name, target in (
+        ("external", execroot.parent.parent / "external"),
+        ("bazel-out", execroot / "bazel-out"),
+    ):
+        if not target.is_dir():
+            continue
+        link = workspace / name
+        if link.is_symlink():
+            link.unlink()
+        elif link.exists():
+            raise InputsError(f"cannot link {name}: {link} exists and is not a symlink")
+        link.symlink_to(target)
+
+
 def prepare(
     workspace: Path, destination: Path, *, run: Callable, qualification_records: bool = False
 ) -> Path:
@@ -168,7 +190,8 @@ def prepare(
         # targets. Check source references too, even for a malformed fragment
         # that names a source outside the declared input set.
         commands.validate_inputs(records, execroot)
-        entries = commands.database_entries(records, execroot)
+        _link_execroot(workspace, execroot)
+        entries = commands.database_entries(records, workspace)
         apple_results = {}
 
         def apple_run(command, **kwargs):
