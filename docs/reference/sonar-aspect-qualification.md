@@ -200,3 +200,26 @@ guide is reconciled at cutover, not here. Database membership of a test source i
 not evidence of analysis. The scanner's own sensor cache was not disabled by
 `sonar.cfamily.cache.enabled=false`, so no per-file analyzed list was produced; the
 exclusion log is the evidence.
+
+## Current-code macOS re-run and like-for-like timing
+
+On the current code (checkout-rooted database, dependency headers) the macOS run
+passes: 596 baseline and 596 candidate configured commands with no missing, extra or
+argument differences and no database differences; the producer-closure audit visits
+2,628 actions with no application compile or link; cold preparation took about 37
+seconds. The earlier macOS figures are superseded by this run.
+
+Whole-workflow timing, excluding qualification-only steps (baseline collection,
+configured-graph regression, comparison, identity retention) from the candidate:
+the candidate's producer plus scanner jobs took 329 and 453 seconds on two
+same-revision pairs, against 289 and 279 seconds for the existing job. A third pair
+is discarded because its existing job was a rerun after a SonarCloud HTTP 502. The
+candidate is slower in both valid pairs and exceeds the 314 second provisional
+ceiling in one; this is two samples on shared runners and not a settled
+distribution, but it does not support a performance claim. The split's measured
+benefit remains the scanner-only retry boundary (3 minutes 29 seconds).
+
+Acceptance status: parity, scope, findings, coverage and retry evidence pass; the
+timing requirement is not met. Per the design, no requirement is waived, so the
+production cutover, guide reconciliation and the merge-time restriction of the
+qualification workflow are not performed.
