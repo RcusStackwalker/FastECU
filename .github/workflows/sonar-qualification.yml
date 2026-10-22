@@ -155,6 +155,24 @@ jobs:
       - name: Prepare configured inputs on this fresh runner
         run: /usr/bin/time -p bazel run --config=sonar_inputs //:sonar_inputs -- --qualification-records
 
+      - name: Diagnose translation units the scanner failed to parse
+        if: always()
+        run: |
+          python3 -I - <<'PY'
+          import json, subprocess
+          entries = json.load(open("sonar-inputs/compile_commands.json"))
+          for suffix in ("serial_byte_buffer.cpp", "mainwindow.cpp", "J2534_unix.cpp"):
+              entry = next(e for e in entries if e["file"].endswith("/" + suffix))
+              arguments = [a for a in entry["arguments"] if a not in ("-c",)]
+              arguments = [a for i, a in enumerate(arguments)
+                           if a != "-o" and (i == 0 or arguments[i - 1] != "-o")]
+              result = subprocess.run(arguments + ["-fsyntax-only"], cwd=entry["directory"],
+                                      capture_output=True, text=True)
+              print("::group::" + suffix, "rc", result.returncode)
+              print(result.stderr[:3000])
+              print("::endgroup::")
+          PY
+
       - id: coverage_import
         name: Validate and localize coverage
         env:
