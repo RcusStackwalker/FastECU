@@ -190,51 +190,13 @@ scanner-only retry, repeated cold/warm/source-change timings and whole-workflow
 timings against baseline budgets. Record source revision, compiler versions,
 cache conditions and analyzer/profile identity with the evidence.
 
-The tooling guide's C++ test-analysis description remains disputed by Sonar's
-documented CFamily handling of `sonar.tests`; the real scan must settle effective
-scope before documentation is reconciled. Neither database membership nor a
-passing Python scope guard proves that CFamily analyzes a test source.
-
-## Linux x86 CI evidence
-
-Candidate runs on `ubuntu-26.04` x86 with Clang/LLVM 22 and a BuildBuddy remote
-cache. Configured-command parity passed (596 baseline and 596 candidate commands,
-no missing, extra or argument differences), the 664-action requested-input audit
-found no application compile or link, and preparation succeeded on a fresh runner
-(31.6 seconds cold, 28.4 to 9.1 seconds with a warm Bazel cache). Hedron's own
-extraction timing on the baseline runner is not reported separately.
-
-Two defects surfaced only on the scanner and are fixed:
-
-- Entries used the Bazel execution root as their directory, so the scanner analyzed
-  `.bazel/execroot/_main/...` paths and missed its sensor cache (C++ sensor 307
-  seconds). Entries now use the checkout as `directory`, with `external` and
-  `bazel-out` linked into it as Hedron's refresh does (48 seconds).
-- A target's `CcInfo` omits `implementation_deps`, so generated `ui_*.h` headers
-  reached only through them were never materialized. Twelve UI translation units
-  failed to parse (98.25% statements parsed, 401 errors). The aspect now also
-  requests every dependency's headers; a fixture covers the case.
-
-On the same revision (`d38ec3d4`) both pipelines report C/C++ analysis quality
-100/100 with 0 parse errors, the same 8 violations, 84.1% coverage, 45,002 lines
-to cover and 7,144 uncovered lines, and both pass the Quality Gate. C++ sensor time
-was 6.1 seconds for the existing job and about 11 seconds for the candidate (single
-samples; not repeatable timing evidence). Both pipelines upload to the same PR
-analysis, so the later upload replaces the earlier one; the comparison above uses
-the analysis history and scanner logs.
-
-The macOS parity and 2,616-action audit figures above predate the checkout-rooted
-database and the `implementation_deps` header request; macOS has not been re-run on
-the current code. The Linux audit visited 664 actions.
-
-Whole-workflow timing is not yet an improvement and fails the recorded 314 second
-provisional ceiling (the candidate's figure also includes qualification-only
-baseline collection and comparison that the production path would omit, so it
-overstates the proposed path; a like-for-like measurement is still required): the existing job took 289 seconds
-and the candidate's producer plus scanner jobs took 197 plus 211 seconds in series,
-because the split repeats runner and toolchain setup. The benefit claimed is the
-scanner-only retry boundary. Re-running only the scanner job of run 39785871718
-(attempt 2) left the producer at its attempt-1 timestamps, downloaded the same
-coverage and baseline artifact IDs, passed provenance validation and the Quality
-Gate, and took 3 minutes 29 seconds. The test-classification question above,
-repeated timings and the independent final review remain outstanding.
+Effective C++ test scope (verbose candidate scan on `a6646857`): 266 C++ files
+matching the test patterns (`*_test.cpp`, `testing/`, `*_main.cpp`) were logged as
+`excluded by project exclusion pattern`, and no such file was analyzed as a source.
+This agrees with Sonar's CFamily documentation that `sonar.tests` does not make a
+file analyzable, and it disagrees with the tooling guide's description of C++
+suites and fixtures as analyzed tests. The migration preserves this scope; the
+guide is reconciled at cutover, not here. Database membership of a test source is
+not evidence of analysis. The scanner's own sensor cache was not disabled by
+`sonar.cfamily.cache.enabled=false`, so no per-file analyzed list was produced; the
+exclusion log is the evidence.
