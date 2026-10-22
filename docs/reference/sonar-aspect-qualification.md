@@ -226,6 +226,8 @@ the analysis history and scanner logs.
 Whole-workflow timing is not yet an improvement: the existing job took 289 seconds
 and the candidate's producer plus scanner jobs took 197 plus 211 seconds in series,
 because the split repeats runner and toolchain setup. The benefit claimed is the
-scanner-only retry boundary, which is still unexercised. Scanner-only retry, the
-test-classification question above, repeated timings and the independent final
-review remain outstanding.
+scanner-only retry boundary. Re-running only the scanner job of run 39785871718
+(attempt 2) left the producer at its attempt-1 timestamps, downloaded the same
+coverage and baseline artifact IDs, passed provenance validation and the Quality
+Gate, and took 3 minutes 29 seconds. The test-classification question above,
+repeated timings and the independent final review remain outstanding.
