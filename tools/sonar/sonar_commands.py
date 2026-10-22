@@ -25,38 +25,41 @@ def _strings(value: object, field: str, *, nonempty: bool = True) -> list[str]:
     return value
 
 
+def _command_record(command, fragment, path):
+    if (
+        not isinstance(command, dict)
+        or not isinstance(command.get("file"), str)
+        or not command["file"]
+    ):
+        raise CommandError(f"invalid source file: {path}")
+    argv = _strings(command.get("arguments"), "arguments")
+    if any(argument.startswith("@") for argument in argv):
+        raise CommandError(f"unexpanded compiler response file: {path}")
+    _strings(command.get("inputs"), "inputs")
+    _strings(command.get("outputs"), "outputs")
+    return command | {"owner": fragment["owner"], "configuration": fragment["configuration"]}
+
+
+def _fragment_records(fragment, path):
+    if not isinstance(fragment, dict) or type(fragment.get("version")) is not int:
+        raise CommandError(f"invalid fragment version: {path}")
+    if fragment["version"] != 1:
+        raise CommandError(f"unsupported fragment version: {path}")
+    for field in ("owner", "configuration"):
+        if not isinstance(fragment.get(field), str) or not fragment[field]:
+            raise CommandError(f"invalid {field}: {path}")
+    values = fragment.get("commands")
+    if not isinstance(values, list) or not values:
+        raise CommandError(f"empty or invalid commands: {path}")
+    return [_command_record(command, fragment, path) for command in values]
+
+
 def load_fragments(paths: Sequence[Path]) -> list[dict]:
     """Read versioned owner/configuration fragments; retain each compile action."""
     records = []
     for path in paths:
         try:
-            fragment = json.loads(path.read_text())
-            if not isinstance(fragment, dict) or type(fragment.get("version")) is not int:
-                raise CommandError(f"invalid fragment version: {path}")
-            if fragment["version"] != 1:
-                raise CommandError(f"unsupported fragment version: {path}")
-            for field in ("owner", "configuration"):
-                if not isinstance(fragment.get(field), str) or not fragment[field]:
-                    raise CommandError(f"invalid {field}: {path}")
-            commands = fragment.get("commands")
-            if not isinstance(commands, list) or not commands:
-                raise CommandError(f"empty or invalid commands: {path}")
-            for command in commands:
-                if (
-                    not isinstance(command, dict)
-                    or not isinstance(command.get("file"), str)
-                    or not command["file"]
-                ):
-                    raise CommandError(f"invalid source file: {path}")
-                argv = _strings(command.get("arguments"), "arguments")
-                if any(argument.startswith("@") for argument in argv):
-                    raise CommandError(f"unexpanded compiler response file: {path}")
-                _strings(command.get("inputs"), "inputs")
-                _strings(command.get("outputs"), "outputs")
-                records.append(
-                    command
-                    | {"owner": fragment["owner"], "configuration": fragment["configuration"]}
-                )
+            records.extend(_fragment_records(json.loads(path.read_text()), path))
         except (OSError, json.JSONDecodeError) as error:
             raise CommandError(f"cannot read command fragment {path}: {error}") from error
     if not records:

@@ -149,6 +149,9 @@ jobs:
           path: ${{ runner.temp }}/sonar-baseline
           merge-multiple: true
 
+      - name: Sonar configured-graph regression
+        run: bazel test --config=coverage //tools/sonar:graph_outputs_test
+
       - name: Prepare configured inputs on this fresh runner
         run: /usr/bin/time -p bazel run --config=coverage //:sonar_inputs
 
@@ -166,6 +169,7 @@ jobs:
       - name: Compare configured commands and scanner databases
         run: |
           bazel run --config=coverage //tools/sonar:sonar_qualify -- \
+            --check-input-closure \
             --baseline "$RUNNER_TEMP/sonar-baseline" \
             --candidate "$GITHUB_WORKSPACE/sonar-inputs" \
             --output "$RUNNER_TEMP/sonar-comparison"

@@ -20,6 +20,43 @@ def record(configuration="bazel-out/linux-dbg/bin", source="src/probe.cpp", root
 
 
 class QualifyTest(unittest.TestCase):
+    def test_input_dependency_audit_rejects_application_compiles_even_if_cached(self):
+        query = {
+            "targets": [{"id": 1, "label": "//src:probe"}, {"id": 2, "label": "//src:header"}],
+            "configuration": [{"id": 1, "isTool": False}],
+            "pathFragments": [
+                {"id": 1, "label": "bazel-out"},
+                {"id": 2, "parentId": 1, "label": "linux-dbg"},
+                {"id": 3, "parentId": 2, "label": "bin"},
+                {"id": 4, "parentId": 3, "label": "generated.h"},
+                {"id": 5, "parentId": 3, "label": "probe.o"},
+            ],
+            "artifacts": [{"id": 9, "pathFragmentId": 4}, {"id": 10, "pathFragmentId": 5}],
+            "depSetOfFiles": [{"id": 5, "directArtifactIds": [10]}],
+            "actions": [
+                {
+                    "mnemonic": "CppCompile",
+                    "targetId": 1,
+                    "configurationId": 1,
+                    "outputIds": [10],
+                    "actionKey": "cached-compile",
+                },
+                {
+                    "mnemonic": "Genrule",
+                    "targetId": 2,
+                    "configurationId": 1,
+                    "outputIds": [9],
+                    "inputDepSetIds": [5],
+                },
+            ],
+        }
+        records = [{"inputs": ["bazel-out/linux-dbg/bin/generated.h"]}]
+        with self.assertRaisesRegex(ValueError, "compile"):
+            qualify.verify_input_closure(query, records)
+        query["configuration"][0]["isTool"] = True
+        report = qualify.verify_input_closure(query, records)
+        self.assertEqual(report["tool_compiles"], ["//src:probe"])
+
     def test_main_repository_label_spellings_are_equivalent(self):
         candidate = record() | {"owner": "@@//src:probe"}
         self.assertEqual(

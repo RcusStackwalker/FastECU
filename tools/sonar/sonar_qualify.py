@@ -58,9 +58,7 @@ def compare_commands(baseline, candidate) -> dict:
     }
 
 
-def records_from_aquery(query: dict, execroot: Path) -> list[dict]:
-    """Recover configured identities from the reference action graph, not filenames."""
-    targets = {target["id"]: target["label"] for target in query["targets"]}
+def _artifact_paths(query: dict) -> dict:
     fragments = {fragment["id"]: fragment for fragment in query["pathFragments"]}
 
     def path(identifier):
@@ -75,9 +73,13 @@ def records_from_aquery(query: dict, execroot: Path) -> list[dict]:
             identifier = fragment.get("parentId")
         return "/".join(reversed(parts))
 
-    artifacts = {
-        artifact["id"]: path(artifact["pathFragmentId"]) for artifact in query["artifacts"]
-    }
+    return {artifact["id"]: path(artifact["pathFragmentId"]) for artifact in query["artifacts"]}
+
+
+def records_from_aquery(query: dict, execroot: Path) -> list[dict]:
+    """Recover configured identities from the reference action graph, not filenames."""
+    targets = {target["id"]: target["label"] for target in query["targets"]}
+    artifacts = _artifact_paths(query)
     records = []
     for action in query["actions"]:
         owner = targets[action["targetId"]]
@@ -103,6 +105,77 @@ def records_from_aquery(query: dict, execroot: Path) -> list[dict]:
     if not records:
         raise ValueError("empty baseline compile graph")
     return records
+
+
+def _requested_inputs(records, by_path):
+    pending = []
+    for record in records:
+        for original in record["inputs"]:
+            path = _relative(original, record.get("directory", ""))
+            if path in by_path:
+                pending.append(by_path[path])
+            elif path.startswith("bazel-out/"):
+                raise ValueError(f"missing generated input in action graph: {path}")
+    return pending
+
+
+def _dependency_artifacts(action, sets, visited):
+    pending = list(action.get("inputDepSetIds", []))
+    artifacts = []
+    while pending:
+        dependency = pending.pop()
+        if dependency in visited:
+            continue
+        visited.add(dependency)
+        value = sets[dependency]
+        artifacts.extend(value.get("directArtifactIds", []))
+        pending.extend(value.get("transitiveDepSetIds", []))
+    return artifacts
+
+
+def _compile_tool(action, owner, configuration):
+    if action["mnemonic"] not in ("CppCompile", "CppLink"):
+        return None
+    if owner.startswith(("//", "@//", "@@//")) and not configuration.get("isTool", False):
+        raise ValueError(f"application compile/link required by Sonar inputs: {owner}")
+    return owner
+
+
+def verify_input_closure(query: dict, records: list[dict]) -> dict:
+    """Audit producer dependencies independent of whether actions hit a cache."""
+    artifacts = _artifact_paths(query)
+    by_path = {path: identifier for identifier, path in artifacts.items()}
+    producers = {
+        output: index
+        for index, action in enumerate(query["actions"])
+        for output in action.get("outputIds", [])
+    }
+    owners = {target["id"]: target["label"] for target in query["targets"]}
+    configurations = {value["id"]: value for value in query.get("configuration", [])}
+    sets = {value["id"]: value for value in query.get("depSetOfFiles", [])}
+    pending = _requested_inputs(records, by_path)
+    visited_files, visited_actions, visited_sets = set(), set(), set()
+    tools = set()
+    while pending:
+        identifier = pending.pop()
+        if identifier in visited_files:
+            continue
+        visited_files.add(identifier)
+        index = producers.get(identifier)
+        if index is None:
+            if artifacts[identifier].startswith("bazel-out/"):
+                raise ValueError(f"missing producer for generated input: {artifacts[identifier]}")
+            continue
+        if index in visited_actions:
+            continue
+        visited_actions.add(index)
+        action = query["actions"][index]
+        owner = owners[action["targetId"]]
+        tool = _compile_tool(action, owner, configurations.get(action.get("configurationId"), {}))
+        if tool:
+            tools.add(tool)
+        pending.extend(_dependency_artifacts(action, sets, visited_sets))
+    return {"visited_actions": len(visited_actions), "tool_compiles": sorted(tools)}
 
 
 def _database_index(entries):
@@ -183,6 +256,7 @@ def collect_baseline(destination: Path) -> None:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--collect-baseline", action="store_true")
+    parser.add_argument("--check-input-closure", action="store_true")
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--output", type=Path, required=True)
@@ -225,6 +299,31 @@ def main(argv=None) -> int:
                 "debug-only prefix maps omitted by Hedron",
             ],
         }
+        if args.check_input_closure:
+            context = json.loads((args.baseline / "context.json").read_text())
+            revision = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            if context["commit"] != revision.stdout.strip():
+                raise ValueError("baseline and candidate source revisions differ")
+            query = subprocess.run(
+                [
+                    "bazel",
+                    "aquery",
+                    *commands.EXTRACTION_FLAGS,
+                    "--output=jsonproto",
+                    "deps(//...)",
+                ],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            report["input_closure"] = verify_input_closure(json.loads(query.stdout), after)
         (args.output / "comparison.json").write_text(json.dumps(report, indent=2) + "\n")
         passed = not any(difference.values()) and not any(database.values())
         print(

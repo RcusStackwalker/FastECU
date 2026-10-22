@@ -31,49 +31,53 @@ def _file_path(uri: str) -> Path:
     return path
 
 
-def read_outputs(events: Path) -> dict[str, list[Path]]:
-    """Resolve complete output groups by BEP identity, retaining configurations."""
+def _event_groups(events: Path):
     sets = {}
     groups = []
     seen = set()
     announced = set()
     finished = False
     final = {}
+    for line in events.read_text().splitlines():
+        final = json.loads(line)
+        seen.add(json.dumps(final["id"], sort_keys=True))
+        announced.update(json.dumps(child, sort_keys=True) for child in final.get("children", []))
+        if "buildFinished" in final["id"]:
+            status = final.get("finished", {}).get("exitCode")
+            finished = isinstance(status, dict) and status.get("code", 0) == 0
+        if "namedSetOfFiles" in final:
+            sets[final["id"]["namedSet"]["id"]] = final["namedSetOfFiles"]
+        groups.extend(final.get("completed", {}).get("outputGroup", []))
+    if not finished or not final.get("lastMessage") or announced - seen:
+        raise InputsError("incomplete or unsuccessful build events: missing finish/events")
+    return sets, groups
+
+
+def _group_paths(sets, groups, name):
+    selected = [group for group in groups if group["name"] == name]
+    if not selected or any(group.get("incomplete") for group in selected):
+        raise InputsError(f"missing or incomplete output group: {name}")
+    pending = [ref["id"] for group in selected for ref in group.get("fileSets", [])]
+    visited = set()
+    paths = []
+    while pending:
+        identifier = pending.pop()
+        if identifier in visited:
+            continue
+        visited.add(identifier)
+        if identifier not in sets:
+            raise InputsError(f"missing build event file set: {identifier}")
+        value = sets[identifier]
+        paths.extend(_file_path(file["uri"]) for file in value.get("files", []))
+        pending.extend(ref["id"] for ref in value.get("fileSets", []))
+    return sorted(set(paths))
+
+
+def read_outputs(events: Path) -> dict[str, list[Path]]:
+    """Resolve complete output groups by BEP identity, retaining configurations."""
     try:
-        for line in events.read_text().splitlines():
-            final = json.loads(line)
-            seen.add(json.dumps(final["id"], sort_keys=True))
-            announced.update(
-                json.dumps(child, sort_keys=True) for child in final.get("children", [])
-            )
-            if "buildFinished" in final["id"]:
-                status = final.get("finished", {}).get("exitCode")
-                finished = isinstance(status, dict) and status.get("code", 0) == 0
-            if "namedSetOfFiles" in final:
-                sets[final["id"]["namedSet"]["id"]] = final["namedSetOfFiles"]
-            groups.extend(final.get("completed", {}).get("outputGroup", []))
-        if not finished or not final.get("lastMessage") or announced - seen:
-            raise InputsError("incomplete or unsuccessful build events: missing finish/events")
-        result = {}
-        for name in GROUPS:
-            selected = [group for group in groups if group["name"] == name]
-            if not selected or any(group.get("incomplete") for group in selected):
-                raise InputsError(f"missing or incomplete output group: {name}")
-            pending = [ref["id"] for group in selected for ref in group.get("fileSets", [])]
-            visited = set()
-            paths = []
-            while pending:
-                identifier = pending.pop()
-                if identifier in visited:
-                    continue
-                visited.add(identifier)
-                if identifier not in sets:
-                    raise InputsError(f"missing build event file set: {identifier}")
-                value = sets[identifier]
-                paths.extend(_file_path(file["uri"]) for file in value.get("files", []))
-                pending.extend(ref["id"] for ref in value.get("fileSets", []))
-            result[name] = sorted(set(paths))
-        return result
+        sets, groups = _event_groups(events)
+        return {name: _group_paths(sets, groups, name) for name in GROUPS}
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
         raise InputsError(f"invalid build events: {error}") from error
 

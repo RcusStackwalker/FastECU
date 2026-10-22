@@ -9,6 +9,10 @@ ROOT = Path(__file__).parents[3]
 
 
 class SonarWorkflowTest(unittest.TestCase):
+    def test_metadata_graph_regression_runs_on_the_scanner_host(self):
+        commands = "\n".join(step.get("run", "") for step in self.jobs["sonarcloud"]["steps"])
+        self.assertIn("//tools/sonar:graph_outputs_test", commands)
+
     def setUp(self):
         self.jobs = yaml.safe_load(
             (ROOT / ".github/workflows/sonar-qualification.yml").read_text()

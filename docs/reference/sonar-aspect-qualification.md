@@ -50,6 +50,49 @@ differences, and no normalized scanner-database differences. No source,
 configuration or semantic flag was discarded to obtain this result. This
 establishes local parity only; it does not establish Linux or cloud behavior.
 
+The full requested-input producer dependency audit visited 2,616 actions on
+macOS and found no compile/link dependency, including tool compilation. The
+audit follows the configured producer graph independently of cache hits. A
+separate fixture probe used two fresh output bases against a disposable local
+HTTP remote cache: the second run served nine successful downloads, retained
+both configured commands and materialized the generated header. This proves
+fixture cache behavior; full Linux Qt inputs still require CI qualification.
+
+Local release verification built the application and passed 299 test suites;
+20 incompatible suites were skipped. All seven focused Sonar suites passed,
+Gazelle produced no changes, and the pinned LLVM 23.1.2 clang-tidy gate reported
+zero findings across 546 files. These checks establish local correctness gates,
+not SonarCloud import or Quality Gate acceptance.
+
+## Local preparation timings
+
+On macOS arm64 at implementation revision `bb5aa53d` with the input-audit and
+parser-refactoring changes, repeated public commands used the same checkout,
+coverage configuration and selected Apple compiler. No remote cache was
+configured. Warm runs reused a live Bazel server and its populated output base;
+cold runs used three distinct fresh output bases with the host repository cache
+retained. Source-change runs appended a unique comment to
+`src/backend/logging/logging_session.cpp`, then restored the original bytes.
+Each path had one unmeasured seeding run before its five warm samples.
+
+| Preparation | Hedron median (range), seconds | Candidate median (range), seconds |
+| --- | --- | --- |
+| Cold, three runs | 5.263 (5.194–6.213) | 3.457 (3.455–6.115) |
+| Unchanged warm, five runs | 0.982 (0.976–1.004) | 1.405 (1.384–1.470) |
+| One source changed, three runs | 0.922 (0.918–0.965) | 1.428 (1.397–1.444) |
+
+Before candidate timing, the local warm budget was fixed at at least 10%
+improvement, or the baseline's relative range if larger. That requires a warm
+median at or below 0.884 seconds. **The candidate fails this local budget**:
+its warm median is about 43% slower. The cold median improves, but does not
+satisfy the agreed warm-improvement requirement. Profiling identifies repeated
+input/BEP validation and command-fragment processing as preparation costs;
+those checks cannot simply be removed to claim a speedup. The legacy workflow's
+separate Qt database check is excluded from these command-only baseline samples.
+
+Linux and whole-workflow timing budgets remain unestablished. Local timings do
+not authorize cutover, and the warm criterion has not been waived.
+
 Before cutover, record full Linux parity, a fresh scanner's requested action
 closure, downloaded generated/virtual headers from a remote cache, real coverage
 import, actual effective C++ scope/findings and Quality Gate outcome, successful
