@@ -30,6 +30,7 @@ Makefile*
 *build-*
 build/*
 coverage/*
+/sonar-inputs/
 #*.qm
 *.prl
 

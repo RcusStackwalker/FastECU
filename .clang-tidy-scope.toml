@@ -29,4 +29,7 @@ prefixes = [
   # run explicitly in analysis CI; reachable headers use the common filter.
   "tools/clang-tidy/plugin",
   "tools/clang-tidy/aspect/tests",
+  # The C++ probe is intentionally uncompilable: the Sonar metadata regression
+  # validates configured commands without compiling or linting that fixture.
+  "tools/sonar",
 ]

@@ -1,0 +1,188 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("tests/graph.bzl", "graph_forward", "graph_outputs")
+
+package(default_visibility = ["//visibility:private"])
+
+py_test(
+    name = "sonar_workflow_test",
+    size = "small",
+    srcs = ["tests/sonar_workflow_test.py"],
+    data = ["//:.github/workflows/sonar-qualification.yml"],
+    main = "tests/sonar_workflow_test.py",
+    deps = ["@python_deps//pyyaml"],
+)
+
+py_binary(
+    name = "sonar_qualify",
+    srcs = ["sonar_qualify.py"],
+    main = "sonar_qualify.py",
+    tags = ["manual"],
+    deps = [":commands"],
+)
+
+py_test(
+    name = "sonar_qualify_test",
+    size = "small",
+    srcs = [
+        "sonar_qualify.py",
+        "tests/sonar_qualify_test.py",
+    ],
+    imports = ["."],
+    main = "tests/sonar_qualify_test.py",
+    deps = [":commands"],
+)
+
+py_binary(
+    name = "coverage_artifact",
+    srcs = ["coverage_artifact.py"],
+    main = "coverage_artifact.py",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "coverage_artifact_test",
+    size = "small",
+    srcs = [
+        "coverage_artifact.py",
+        "tests/coverage_artifact_test.py",
+    ],
+    imports = ["."],
+    main = "tests/coverage_artifact_test.py",
+    # The producer consumes the POSIX coverage-local.sh report contract.
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)
+
+py_library(
+    name = "commands",
+    srcs = ["sonar_commands.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "sonar_inputs",
+    srcs = ["sonar_inputs.py"],
+    main = "sonar_inputs.py",
+    tags = ["manual"],
+    visibility = ["//:__pkg__"],
+    deps = [
+        ":commands",
+        "//:sonar_compdb_check_lib",
+    ],
+)
+
+py_test(
+    name = "sonar_inputs_test",
+    size = "small",
+    srcs = [
+        "sonar_inputs.py",
+        "tests/sonar_inputs_test.py",
+    ],
+    imports = ["."],
+    main = "tests/sonar_inputs_test.py",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":commands",
+        "//:sonar_compdb_check_lib",
+    ],
+)
+
+filegroup(
+    name = "sonar_scope_files",
+    srcs = ["BUILD.bazel"] + glob(
+        ["**/*.py"],
+        exclude = ["**/__pycache__/**"],
+    ),
+    visibility = ["//:__pkg__"],
+)
+
+py_test(
+    name = "sonar_commands_test",
+    size = "small",
+    srcs = [
+        "sonar_commands.py",
+        "tests/sonar_commands_test.py",
+    ],
+    imports = ["."],
+    main = "tests/sonar_commands_test.py",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)
+
+genrule(
+    name = "graph_generated_files",
+    outs = [
+        "tests/generated.cpp",
+        "tests/generated.h",
+    ],
+    cmd = "echo '#include \"generated.h\"' > $(location tests/generated.cpp); echo '#pragma once' > $(location tests/generated.h)",
+    tags = ["manual"],
+)
+
+cc_library(
+    name = "graph_generated",
+    srcs = [":tests/generated.cpp"],
+    hdrs = [":tests/generated.h"],
+    tags = ["manual"],
+)
+
+genrule(
+    name = "graph_implementation_files",
+    outs = ["tests/implementation.h"],
+    cmd = "echo '#pragma once' > $@",
+    tags = ["manual"],
+)
+
+# A target's own CcInfo omits implementation_deps headers; the scanner still needs them.
+cc_library(
+    name = "graph_implementation",
+    hdrs = [":tests/implementation.h"],
+    tags = ["manual"],
+)
+
+cc_library(
+    name = "graph_leaf",
+    srcs = ["tests/probe.cpp"],
+    copts = ["'-DFASTECU_NAME=two words'"],
+    implementation_deps = [":graph_implementation"],
+    tags = ["manual"],
+    deps = [":graph_generated"],
+)
+
+graph_forward(
+    name = "graph_forward",
+    binary = ":graph_leaf",
+    tags = ["manual"],
+)
+
+graph_outputs(
+    name = "graph_reports",
+    tags = ["manual"],
+    targets = [
+        ":graph_leaf",
+        ":graph_forward",
+    ],
+)
+
+py_test(
+    name = "graph_outputs_test",
+    size = "small",
+    srcs = ["tests/graph_outputs_test.py"],
+    args = ["$(locations :graph_reports)"],
+    data = [":graph_reports"],
+    main = "tests/graph_outputs_test.py",
+    tags = ["manual"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = ["@rules_python//python/runfiles"],
+)

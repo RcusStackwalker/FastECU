@@ -5,7 +5,13 @@ import unittest
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).parents[2]
-OWNERS = ("scripts", "tools/clang-tidy/scripts", "tools/clang-tidy/plugin", "packaging")
+OWNERS = (
+    "scripts",
+    "tools/clang-tidy/scripts",
+    "tools/clang-tidy/plugin",
+    "tools/sonar",
+    "packaging",
+)
 FIXTURES = ("tools/clang-tidy/plugin/test", "tools/clang-tidy/plugin/smoke")
 
 
@@ -65,7 +71,13 @@ class SonarScopeTest(unittest.TestCase):
                     )
 
     def test_python_test_entry_points_are_in_test_directories(self):
-        for package in ("", "tools/clang-tidy/scripts", "tools/clang-tidy/plugin", "packaging"):
+        for package in (
+            "",
+            "tools/clang-tidy/scripts",
+            "tools/clang-tidy/plugin",
+            "tools/sonar",
+            "packaging",
+        ):
             build = ROOT / package / "BUILD.bazel"
             for node in ast.walk(ast.parse(build.read_text())):
                 if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):

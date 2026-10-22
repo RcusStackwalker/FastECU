@@ -53,6 +53,11 @@ the implemented boundaries and prerequisites for expansion. Separate compression
 assessment and a recorded Colt bench run remain outstanding.
 
 Task-specific specs and plans exist only while their work is proposed or unfinished.
+The [Sonar aspect design](superpowers/specs/2026-10-22-sonar-aspect-design.md)
+records the proposed migration of Linux C++ input generation and validation
+into Bazel, with separate coverage production and the existing scanner and
+Quality Gate preserved. The [qualification record](reference/sonar-aspect-qualification.md)
+tracks measured evidence and outstanding acceptance gates.
 Find them, when present, with:
 
 ```sh
