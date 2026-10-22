@@ -1,8 +1,41 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("tests/graph.bzl", "graph_forward", "graph_outputs")
 
 package(default_visibility = ["//visibility:private"])
+
+py_library(
+    name = "commands",
+    srcs = ["sonar_commands.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "sonar_inputs",
+    srcs = ["sonar_inputs.py"],
+    main = "sonar_inputs.py",
+    tags = ["manual"],
+    visibility = ["//:__pkg__"],
+    deps = [
+        ":commands",
+        "//:sonar_compdb_check_lib",
+    ],
+)
+
+py_test(
+    name = "sonar_inputs_test",
+    size = "small",
+    srcs = [
+        "sonar_inputs.py",
+        "tests/sonar_inputs_test.py",
+    ],
+    imports = ["."],
+    main = "tests/sonar_inputs_test.py",
+    deps = [
+        ":commands",
+        "//:sonar_compdb_check_lib",
+    ],
+)
 
 filegroup(
     name = "sonar_scope_files",
