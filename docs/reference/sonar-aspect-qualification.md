@@ -16,6 +16,9 @@ fixture retains both configurations through a forwarding edge and materializes
 generated sources/headers while its deliberately uncompilable C++ probe remains
 uncompiled. Inspection showed that action inputs omit headers deferred to
 include discovery; the aspect explicitly requests the compilation header closure.
+All seven focused suites subsequently passed on Ubuntu 26.04 aarch64 with
+Clang/LLVM 22, including the real configured-graph regression. This narrow
+Linux result does not resolve the full Qt graph limitation below.
 
 The initial full macOS command emitted 596 configured entries, including 50
 generated implementation files. All Apple SDK placeholders resolved. An
@@ -90,8 +93,26 @@ input/BEP validation and command-fragment processing as preparation costs;
 those checks cannot simply be removed to claim a speedup. The legacy workflow's
 separate Qt database check is excluded from these command-only baseline samples.
 
-Linux and whole-workflow timing budgets remain unestablished. Local timings do
-not authorize cutover, and the warm criterion has not been waived.
+Same-revision Linux and whole-workflow measurements remain outstanding. Local
+timings do not authorize cutover, and the warm criterion has not been waived.
+
+Three recent successful production Sonar jobs provide historical CI context:
+
+| Run | Input preparation including Qt check, seconds | Whole Sonar job, seconds |
+| --- | --- | --- |
+| [39607665936](https://github.com/RcusStackwalker/FastECU/actions/runs/39607665936/job/119248192123) | 7 | 283 |
+| [39633388753](https://github.com/RcusStackwalker/FastECU/actions/runs/39633388753/job/119337484472) | 7 | 304 |
+| [39670980244](https://github.com/RcusStackwalker/FastECU/actions/runs/39670980244/job/119469317158) | 6 | 273 |
+
+GitHub's step timestamps have one-second resolution. These runs use different
+source revisions and cannot establish same-revision candidate parity or warm
+performance. Before candidate execution, use their 283-second median and
+31-second range to set a provisional whole-workflow ceiling of 314 seconds
+(median plus the greater of 10% or the observed range). Confirm the baseline on
+the candidate revision before accepting a timing result. Candidate comparison
+must include both jobs, their dependency wait and artifact transfer, and exclude
+temporary legacy-comparison work. No whole-workflow candidate measurement exists
+yet.
 
 Before cutover, record full Linux parity, a fresh scanner's requested action
 closure, downloaded generated/virtual headers from a remote cache, real coverage
