@@ -197,6 +197,7 @@ py_test(
         "//packaging:sonar_scope_files",
         "//tools/clang-tidy/plugin:sonar_scope_files",
         "//tools/clang-tidy/scripts:sonar_scope_files",
+        "//tools/sonar:sonar_scope_files",
     ] + glob(["scripts/**/*.py"]),
     main = "scripts/tests/sonar_scope_test.py",
 )

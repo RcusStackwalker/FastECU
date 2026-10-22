@@ -1,0 +1,76 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:defs.bzl", "py_test")
+load("tests/graph.bzl", "graph_forward", "graph_outputs")
+
+package(default_visibility = ["//visibility:private"])
+
+filegroup(
+    name = "sonar_scope_files",
+    srcs = ["BUILD.bazel"] + glob(
+        ["**/*.py"],
+        exclude = ["**/__pycache__/**"],
+    ),
+    visibility = ["//:__pkg__"],
+)
+
+py_test(
+    name = "sonar_commands_test",
+    size = "small",
+    srcs = [
+        "sonar_commands.py",
+        "tests/sonar_commands_test.py",
+    ],
+    imports = ["."],
+    main = "tests/sonar_commands_test.py",
+)
+
+genrule(
+    name = "graph_generated_files",
+    outs = [
+        "tests/generated.cpp",
+        "tests/generated.h",
+    ],
+    cmd = "echo '#include \"generated.h\"' > $(location tests/generated.cpp); echo '#pragma once' > $(location tests/generated.h)",
+    tags = ["manual"],
+)
+
+cc_library(
+    name = "graph_generated",
+    srcs = [":tests/generated.cpp"],
+    hdrs = [":tests/generated.h"],
+    tags = ["manual"],
+)
+
+cc_library(
+    name = "graph_leaf",
+    srcs = ["tests/probe.cpp"],
+    copts = ["'-DFASTECU_NAME=two words'"],
+    tags = ["manual"],
+    deps = [":graph_generated"],
+)
+
+graph_forward(
+    name = "graph_forward",
+    binary = ":graph_leaf",
+    tags = ["manual"],
+)
+
+graph_outputs(
+    name = "graph_reports",
+    tags = ["manual"],
+    targets = [
+        ":graph_leaf",
+        ":graph_forward",
+    ],
+)
+
+py_test(
+    name = "graph_outputs_test",
+    size = "small",
+    srcs = ["tests/graph_outputs_test.py"],
+    args = ["$(locations :graph_reports)"],
+    data = [":graph_reports"],
+    main = "tests/graph_outputs_test.py",
+    tags = ["manual"],
+    deps = ["@rules_python//python/runfiles"],
+)
