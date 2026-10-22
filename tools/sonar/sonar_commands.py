@@ -4,6 +4,14 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+EXTRACTION_FLAGS = (
+    "--config=coverage",
+    "--features=-compiler_param_file",
+    "--features=-layering_check",
+    "--host_features=-compiler_param_file",
+    "--host_features=-layering_check",
+)
+
 
 class CommandError(ValueError):
     """Incomplete or unsupported Sonar compiler input."""

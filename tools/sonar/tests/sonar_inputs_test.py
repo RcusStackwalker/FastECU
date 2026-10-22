@@ -125,6 +125,13 @@ class InputsTest(unittest.TestCase):
         self.assertEqual(result, destination / "compile_commands.json")
         self.assertEqual(json.loads(result.read_text())[0]["file"], "probe.cpp")
         self.assertIn("--config=coverage", self.builds[0])
+        for flag in (
+            "--features=-compiler_param_file",
+            "--features=-layering_check",
+            "--host_features=-compiler_param_file",
+            "--host_features=-layering_check",
+        ):
+            self.assertIn(flag, self.builds[0])
         self.assertIn("--output_groups=sonar_commands,sonar_inputs", self.builds[0])
         self.assertNotIn("--output_groups=+sonar_commands,sonar_inputs", self.builds[0])
 

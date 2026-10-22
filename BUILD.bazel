@@ -123,6 +123,7 @@ gazelle(
 exports_files([
     ".clang-tidy",
     ".github/workflows/pr.yml",
+    ".github/workflows/sonar-qualification.yml",
 ])
 
 # Kept so CI and the tooling guide can still run `bazel run //:clang_tidy_check_fixtures`.

@@ -115,7 +115,7 @@ def prepare(workspace: Path, destination: Path, *, run: Callable) -> Path:
         command = [
             "bazel",
             "build",
-            "--config=coverage",
+            *commands.EXTRACTION_FLAGS,
             f"--aspects={ASPECT}",
             "--output_groups=sonar_commands,sonar_inputs",
             "--remote_download_toplevel",
@@ -155,7 +155,10 @@ def prepare(workspace: Path, destination: Path, *, run: Callable) -> Path:
             raise InputsError("QtCore/qobjectdefs.h does not resolve through the database")
         pending = Path(temporary) / "compile_commands.json"
         pending.write_text(json.dumps(entries, indent=2) + "\n")
-        records_path.write_text(json.dumps(records, indent=2) + "\n")
+        records_path.write_text(
+            json.dumps([record | {"directory": str(execroot)} for record in records], indent=2)
+            + "\n"
+        )
         pending.replace(database)
     print(f"Sonar inputs: {len(entries)} configured commands; {database}")
     return database

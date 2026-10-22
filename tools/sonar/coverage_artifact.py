@@ -180,7 +180,11 @@ def toolchain_identity() -> dict[str, str]:
             default = "xcrun " + tool if sys.platform == "darwin" else tool
             command = shlex.split(os.environ.get(tool.upper().replace("-", "_"), default))
         result = subprocess.run([*command, "--version"], capture_output=True, text=True, check=True)
-        versions[tool] = result.stdout.strip()
+        versions[tool] = "\n".join(
+            line
+            for line in result.stdout.strip().splitlines()
+            if not line.strip().startswith("Host CPU:")
+        )
         if not versions[tool]:
             raise ArtifactError(f"cannot identify coverage tool: {tool}")
     return versions

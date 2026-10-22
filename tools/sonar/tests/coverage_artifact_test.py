@@ -15,6 +15,18 @@ TOOLCHAIN = {"clang": "clang 22", "llvm-cov": "LLVM 22", "llvm-profdata": "LLVM 
 
 
 class CoverageArtifactTest(unittest.TestCase):
+    def test_tool_identity_ignores_the_runner_cpu_report(self):
+        cpu = "first-cpu"
+
+        def run(command, **_kwargs):
+            return subprocess.CompletedProcess(command, 0, "LLVM 22\n  Host CPU: " + cpu, "")
+
+        with mock.patch.object(artifact.subprocess, "run", side_effect=run):
+            before = artifact.toolchain_identity()
+            cpu = "second-cpu"
+            after = artifact.toolchain_identity()
+        self.assertEqual(before, after)
+
     def test_tool_versions_follow_the_coverage_script_overrides(self):
         def run(command, **_kwargs):
             return subprocess.CompletedProcess(command, 0, command[0] + " version", "")

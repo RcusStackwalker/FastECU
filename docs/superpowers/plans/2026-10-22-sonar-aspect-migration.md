@@ -1,6 +1,6 @@
 # Sonar Aspect Migration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Prepare Sonar C++ inputs through Bazel aspects without an application
 prebuild, and transfer coverage from a separate job using a validated artifact.
@@ -101,35 +101,35 @@ LLVM coverage text, existing pinned GitHub Actions.
 - `validate_inputs(records: Sequence[dict], execroot: Path) -> None` checks
   referenced sources and declared inputs, including generated symlink targets.
 
-- [ ] **Step 1: Add meaningful failing command-model tests.** Assert generated
+- [x] **Step 1: Add meaningful failing command-model tests.** Assert generated
   sources remain, source/owner/configuration variants remain distinct, compiler
   arguments including `-DNAME=two words` preserve order, malformed records fail,
   and unresolved `@response` arguments fail rather than disappearing.
-- [ ] **Step 2: Run `bazel test --config=release //tools/sonar:sonar_commands_test`**
+- [x] **Step 2: Run `bazel test --config=release //tools/sonar:sonar_commands_test`**
   and confirm failure from the absent implementation, then implement the
   schema and merge/validation functions to make those assertions pass.
-- [ ] **Step 3: Add the manual real-graph regression.** An owner-local
+- [x] **Step 3: Add the manual real-graph regression.** An owner-local
   `graph_outputs` collector applies the aspect to a generated-source library,
   a generated header dependency, and a forwarding rule's `binary` edge under
   a copt transition. Assert two configurations of the probe, the transition
   define, generated entries and materialized headers. A deliberate compile
   failure in the probe proves the metadata target never compiles it.
-- [ ] **Step 4: Run the graph test before implementing the aspect** and confirm
+- [x] **Step 4: Run the graph test before implementing the aspect** and confirm
   missing command/input outputs. Implement extraction from `target.actions`
   for main-repository `CppCompile` actions. Traverse `deps`,
   `implementation_deps` and forwarding `binary` edges; preserve source/output
   identity and forward both output groups through non-C++ owners. Add other
   real graph edges only when parity evidence requires them.
-- [ ] **Step 5: Verify actual action arguments under `compiler_param_file`.**
+- [x] **Step 5: Verify actual action arguments under `compiler_param_file`.**
   Inspect the fixture's emitted arguments, not reconstructed `CcInfo` flags.
   If analysis-time arguments omit execution-time expansion, use the accurate
   `Action.args` through a declared serialization action and test that path.
   Unsupported forms fail explicitly; do not silently fall back to aquery.
-- [ ] **Step 6: Wire package-owned Bazel tests and scope inventory.** Mark real
+- [x] **Step 6: Wire package-owned Bazel tests and scope inventory.** Mark real
   graph fixtures/test `manual`; normal Python suites remain in `//...`.
   Add `//tools/sonar:sonar_scope_files` to the existing scope guard's data and
   register `tools/sonar` in its owner and BUILD lists. Use no new layer groups.
-- [ ] **Step 7: Verify** with
+- [x] **Step 7: Verify** with
   `bazel test --config=release //tools/sonar:sonar_commands_test //tools/sonar:graph_outputs_test //:sonar_scope_test`.
   Expect all suites to pass while the intentionally uncompilable fixture
   remains uncompiled. Commit named Task 1 files.
@@ -154,28 +154,28 @@ refactor that independent workflow.
   nonzero with an actionable error for unsupported hosts or failed preparation.
 - Root `//:sonar_inputs` aliases the package's manual Python binary.
 
-- [ ] **Step 1: Add failing BEP/CLI tests.** Test missing named sets, missing
+- [x] **Step 1: Add failing BEP/CLI tests.** Test missing named sets, missing
   final events, unsuccessful builds with existing partial output, nonlocal
   bytestream URIs, digest-shaped cache filenames and paths with spaces. Assert
   no default compile outputs are requested and coverage configuration is used.
-- [ ] **Step 2: Run `bazel test --config=release //tools/sonar:sonar_inputs_test`**
+- [x] **Step 2: Run `bazel test --config=release //tools/sonar:sonar_inputs_test`**
   and observe the expected missing implementation failure.
-- [ ] **Step 3: Implement strict BEP collection and Bazel invocation.** Require
+- [x] **Step 3: Implement strict BEP collection and Bazel invocation.** Require
   successful build completion, final message, all announced events and complete
   named sets. Request only `sonar_commands,sonar_inputs`; materialize these
   requested top-level output groups even when the runner otherwise downloads
   minimally. Disable BEP URI rewriting so downloaded files have usable paths.
-- [ ] **Step 4: Implement publication and validation.** Resolve the actual
+- [x] **Step 4: Implement publication and validation.** Resolve the actual
   execution root, use Task 1's model, and reuse the Qt-resolution logic in
   `scripts/sonar_compdb_check.py` through an explicit package-owned dependency
   or equivalent extracted reusable function. Keep the legacy script callable.
   Remove/invalidate the old final database before starting, publish with a
   temporary sibling plus atomic replace only after every check succeeds.
-- [ ] **Step 5: Add failure regression assertions.** A failed run leaves no old
+- [x] **Step 5: Add failure regression assertions.** A failed run leaves no old
   database current; a missing generated-header target fails; no fragments
   fails; local macOS uses its actual SDK; Windows receives an explicit
   unsupported-host error. Then run the Task 2 suite and scope guard to PASS.
-- [ ] **Step 6: Run the real command on local macOS**, verify the ignored
+- [x] **Step 6: Run the real command on local macOS**, verify the ignored
   `sonar-inputs/compile_commands.json` and generated Qt inputs, and record
   requested actions separately from compiler-action metadata. Commit named
   Task 2 files. This smoke check does not qualify Linux or cloud analysis.
@@ -203,18 +203,18 @@ Retain `scripts/coverage-local.sh` generation and uncached test execution.
   llvm-cov and llvm-profdata version identities from the configured installation;
   do not record credentials or unrelated environment variables.
 
-- [ ] **Step 1: Add failing tests using temporary checkout roots.** Assert
+- [x] **Step 1: Add failing tests using temporary checkout roots.** Assert
   producer-root headers relocate while a source line containing that same
   string stays byte-identical, external headers stay unchanged, and 99
   resolvable first-party sections fail while 100 pass.
-- [ ] **Step 2: Run `bazel test --config=release //tools/sonar:coverage_artifact_test`**
+- [x] **Step 2: Run `bazel test --config=release //tools/sonar:coverage_artifact_test`**
   and confirm the missing implementation failure; implement export/import.
-- [ ] **Step 3: Add and pass identity/rerun regressions.** Wrong commit/run,
+- [x] **Step 3: Add and pass identity/rerun regressions.** Wrong commit/run,
   configuration/toolchain mismatch, missing files, altered bytes and malformed
   manifests fail. A successful producer attempt remains usable on a later
   scanner attempt; a new producer gets another immutable artifact identity.
   Resolve a release-tag checkout SHA rather than trusting the event SHA.
-- [ ] **Step 4: Verify the package tests and `//:sonar_scope_test`**, then commit
+- [x] **Step 4: Verify the package tests and `//:sonar_scope_test`**, then commit
   named Task 3 files. Do not enable test-result caching: current raw profiles
   live outside declared test outputs and would not be restored with a hit.
 
@@ -242,27 +242,27 @@ Keep `.github/workflows/sonar.yml` and production Sonar properties unchanged.
   job uses `needs: coverage`, checks out that commit and imports that artifact.
   Preserve reusable `ref` and `cache-save` semantics in the candidate shape.
 
-- [ ] **Step 1: Add failing comparison tests.** Missing generated entries,
+- [x] **Step 1: Add failing comparison tests.** Missing generated entries,
   collapsed configurations, argument reordering or a changed define must
   produce differences; execution-root relocation alone must not. Implement
   the comparison collector and run its Bazel suite to PASS.
-- [ ] **Step 2: Add workflow contract tests using the existing PyYAML dependency.**
+- [x] **Step 2: Add workflow contract tests using the existing PyYAML dependency.**
   Assert the scanner needs coverage, checks out its resolved SHA, selects the
   producer artifact identity, validates coverage before scanning and never
   runs coverage-local.sh. Assert both producer attempts have distinct names
   and scanner-only retries do not require equal attempt numbers.
-- [ ] **Step 3: Add the temporary candidate workflow.** Reuse already pinned
+- [x] **Step 3: Add the temporary candidate workflow.** Reuse already pinned
   checkout/setup-Bazel/upload/download/scan/Quality-Gate actions. Coverage runs
   the unchanged script, exports the artifact with `if-no-files-found: error`.
   Scanner installs its compiler/runtime prerequisites, runs `//:sonar_inputs`,
   imports coverage, and overrides only the CFamily database path for its scan.
   Keep scanner and gate failures fatal and record scan identity/logs.
-- [ ] **Step 4: Add qualification evidence collection.** Record baseline and
+- [x] **Step 4: Add qualification evidence collection.** Record baseline and
   candidate commit, graph, compiler/LLVM versions, analyzer/profile identity,
   cache conditions, command differences, action execution and scan/coverage
   results. Mark the new reference explicitly unqualified until real evidence
   is available; do not fill results from expectations.
-- [ ] **Step 5: Run package suites and scope guard**, inspect workflow diff,
+- [x] **Step 5: Run package suites and scope guard**, inspect workflow diff,
   and commit named Task 4 files. The original blocking workflow remains intact.
 
 ### Task 5: Qualify and cut over the reusable workflow

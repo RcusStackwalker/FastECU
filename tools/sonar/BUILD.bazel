@@ -4,6 +4,35 @@ load("tests/graph.bzl", "graph_forward", "graph_outputs")
 
 package(default_visibility = ["//visibility:private"])
 
+py_test(
+    name = "sonar_workflow_test",
+    size = "small",
+    srcs = ["tests/sonar_workflow_test.py"],
+    data = ["//:.github/workflows/sonar-qualification.yml"],
+    main = "tests/sonar_workflow_test.py",
+    deps = ["@python_deps//pyyaml"],
+)
+
+py_binary(
+    name = "sonar_qualify",
+    srcs = ["sonar_qualify.py"],
+    main = "sonar_qualify.py",
+    tags = ["manual"],
+    deps = [":commands"],
+)
+
+py_test(
+    name = "sonar_qualify_test",
+    size = "small",
+    srcs = [
+        "sonar_qualify.py",
+        "tests/sonar_qualify_test.py",
+    ],
+    imports = ["."],
+    main = "tests/sonar_qualify_test.py",
+    deps = [":commands"],
+)
+
 py_binary(
     name = "coverage_artifact",
     srcs = ["coverage_artifact.py"],
@@ -54,6 +83,10 @@ py_test(
     ],
     imports = ["."],
     main = "tests/sonar_inputs_test.py",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":commands",
         "//:sonar_compdb_check_lib",
@@ -78,6 +111,10 @@ py_test(
     ],
     imports = ["."],
     main = "tests/sonar_commands_test.py",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
 )
 
 genrule(
@@ -128,5 +165,9 @@ py_test(
     data = [":graph_reports"],
     main = "tests/graph_outputs_test.py",
     tags = ["manual"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     deps = ["@rules_python//python/runfiles"],
 )

@@ -51,6 +51,12 @@ The pinned Hedron implementation extracts configured compiler actions using
 `bazel aquery`; it does not use an aspect. It also serves editors independently
 of Sonar.
 
+Implementation inspection additionally established that Hedron disables
+`compiler_param_file` and `layering_check` for both target and host extraction.
+Retain those explicit overrides alongside `--config=coverage` in the Sonar
+wrapper and qualification baseline to preserve current scanner inputs. The
+aspect itself is tested with globally enabled compiler parameter files.
+
 Sonar documents a [compilation-database input followed by a scanner invocation](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/languages/c-family/running-the-analysis),
 including [third-party database generators](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/languages/c-family/prerequisites).
 The reviewed documentation does not establish a standalone per-source analyzer
