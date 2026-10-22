@@ -110,7 +110,7 @@ def records_from_aquery(query: dict, execroot: Path) -> list[dict]:
 def _requested_inputs(inputs, directory, by_path):
     pending = []
     for original in inputs:
-        path = _relative(original, str(directory))
+        path = _relative(original, directory.as_posix())
         if path in by_path:
             pending.append(by_path[path])
         elif path.startswith("bazel-out/"):
