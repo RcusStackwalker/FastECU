@@ -167,10 +167,37 @@ class InputsTest(unittest.TestCase):
         self.fragment.write_text(json.dumps(fragment))
         with tempfile.TemporaryDirectory(prefix="sonar checkout ") as checkout:
             workspace = Path(checkout).resolve()
+            (workspace / "probe.cpp").write_text("int probe;\n")
             result = inputs.prepare(workspace, workspace / "prepared", run=self.runner())
             entry = json.loads(result.read_text())[0]
             self.assertEqual(entry["directory"], str(workspace))
             self.assertEqual((workspace / "bazel-out").resolve(), self.root / "bazel-out")
+
+    def test_checkout_links_replace_stale_links_and_reject_real_directories(self):
+        (self.root / "bazel-out/bin").mkdir(parents=True)
+        with tempfile.TemporaryDirectory(prefix="sonar checkout ") as checkout:
+            workspace = Path(checkout).resolve()
+            (workspace / "bazel-out").symlink_to(workspace / "absent")
+            inputs._link_execroot(workspace, self.root)
+            self.assertEqual((workspace / "bazel-out").resolve(), self.root / "bazel-out")
+            (workspace / "bazel-out").unlink()
+            (workspace / "bazel-out").mkdir()
+            with self.assertRaisesRegex(inputs.InputsError, "not a symlink"):
+                inputs._link_execroot(workspace, self.root)
+
+    def test_missing_execroot_output_tree_or_checkout_source_prevents_publication(self):
+        with tempfile.TemporaryDirectory(prefix="sonar checkout ") as checkout:
+            workspace = Path(checkout).resolve()
+            with self.assertRaisesRegex(inputs.InputsError, "bazel-out"):
+                inputs.prepare(workspace, workspace / "prepared", run=self.runner())
+            generated = self.root / "bazel-out/bin"
+            generated.mkdir(parents=True)
+            (generated / "include").symlink_to(self.root / "include")
+            fragment = json.loads(self.fragment.read_text())
+            fragment["commands"][0]["arguments"][1] = "-Ibazel-out/bin/include"
+            self.fragment.write_text(json.dumps(fragment))
+            with self.assertRaisesRegex(inputs.InputsError, "source"):
+                inputs.prepare(workspace, workspace / "prepared", run=self.runner())
 
     def test_qualification_export_is_opt_in_and_keeps_the_complete_unique_input_set(self):
         destination = self.root / "prepared"

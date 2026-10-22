@@ -197,7 +197,7 @@ passing Python scope guard proves that CFamily analyzes a test source.
 
 ## Linux x86 CI evidence
 
-Candidate runs on `ubuntu-latest` x86 with Clang/LLVM 22 and a BuildBuddy remote
+Candidate runs on `ubuntu-26.04` x86 with Clang/LLVM 22 and a BuildBuddy remote
 cache. Configured-command parity passed (596 baseline and 596 candidate commands,
 no missing, extra or argument differences), the 664-action requested-input audit
 found no application compile or link, and preparation succeeded on a fresh runner
@@ -223,7 +223,14 @@ samples; not repeatable timing evidence). Both pipelines upload to the same PR
 analysis, so the later upload replaces the earlier one; the comparison above uses
 the analysis history and scanner logs.
 
-Whole-workflow timing is not yet an improvement: the existing job took 289 seconds
+The macOS parity and 2,616-action audit figures above predate the checkout-rooted
+database and the `implementation_deps` header request; macOS has not been re-run on
+the current code. The Linux audit visited 664 actions.
+
+Whole-workflow timing is not yet an improvement and fails the recorded 314 second
+provisional ceiling (the candidate's figure also includes qualification-only
+baseline collection and comparison that the production path would omit, so it
+overstates the proposed path; a like-for-like measurement is still required): the existing job took 289 seconds
 and the candidate's producer plus scanner jobs took 197 plus 211 seconds in series,
 because the split repeats runner and toolchain setup. The benefit claimed is the
 scanner-only retry boundary. Re-running only the scanner job of run 39785871718

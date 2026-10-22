@@ -115,6 +115,10 @@ def _requested_inputs(inputs, directory, by_path):
             pending.append(by_path[path])
         elif path.startswith("bazel-out/"):
             raise ValueError(f"missing generated input in action graph: {path}")
+        elif "/bazel-out/" in path:
+            raise ValueError(f"generated input outside the execution root: {path}")
+    if not pending:
+        raise ValueError("no requested input matched the action graph")
     return pending
 
 

@@ -148,14 +148,15 @@ def _link_execroot(workspace: Path, execroot: Path) -> None:
         ("external", execroot.parent.parent / "external"),
         ("bazel-out", execroot / "bazel-out"),
     ):
-        if not target.is_dir():
-            continue
         link = workspace / name
         if link.is_symlink():
             link.unlink()
         elif link.exists():
             raise InputsError(f"cannot link {name}: {link} exists and is not a symlink")
-        link.symlink_to(target)
+        if target.is_dir():
+            link.symlink_to(target)
+        elif name == "bazel-out":
+            raise InputsError(f"execution root has no bazel-out tree: {target}")
 
 
 def prepare(
@@ -192,6 +193,12 @@ def prepare(
         commands.validate_inputs(records, execroot)
         _link_execroot(workspace, execroot)
         entries = commands.database_entries(records, workspace)
+        unresolved = sorted(e["file"] for e in entries if not (workspace / e["file"]).exists())
+        if unresolved:
+            raise InputsError(
+                f"source files missing from the checkout view ({len(unresolved)}): "
+                + ", ".join(unresolved[:10])
+            )
         apple_results = {}
 
         def apple_run(command, **kwargs):

@@ -57,6 +57,27 @@ class QualifyTest(unittest.TestCase):
         report = qualify.verify_input_closure(query, inputs, Path("/new"))
         self.assertEqual(report["tool_compiles"], ["//src:probe"])
 
+    def test_input_audit_cannot_pass_by_skipping_unmatched_generated_inputs(self):
+        query = {
+            "targets": [{"id": 1, "label": "//src:header"}],
+            "configuration": [{"id": 1, "isTool": False}],
+            "pathFragments": [
+                {"id": 1, "label": "bazel-out"},
+                {"id": 2, "parentId": 1, "label": "bin"},
+                {"id": 3, "parentId": 2, "label": "generated.h"},
+            ],
+            "artifacts": [{"id": 9, "pathFragmentId": 3}],
+            "actions": [
+                {"mnemonic": "Genrule", "targetId": 1, "configurationId": 1, "outputIds": [9]}
+            ],
+        }
+        with self.assertRaisesRegex(ValueError, "outside"):
+            qualify.verify_input_closure(
+                query, ["/private/elsewhere/bazel-out/bin/generated.h"], Path("/new")
+            )
+        with self.assertRaisesRegex(ValueError, "no requested input"):
+            qualify.verify_input_closure(query, ["/new/src/plain.cpp"], Path("/new"))
+
     def test_main_repository_label_spellings_are_equivalent(self):
         candidate = record() | {"owner": "@@//src:probe"}
         self.assertEqual(
