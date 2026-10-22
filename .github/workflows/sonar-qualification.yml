@@ -163,9 +163,15 @@ jobs:
           entries = json.load(open("sonar-inputs/compile_commands.json"))
           for suffix in ("serial_byte_buffer.cpp", "mainwindow.cpp", "J2534_unix.cpp"):
               entry = next(e for e in entries if e["file"].endswith("/" + suffix))
-              arguments = [a for a in entry["arguments"] if a not in ("-c",)]
-              arguments = [a for i, a in enumerate(arguments)
-                           if a != "-o" and (i == 0 or arguments[i - 1] != "-o")]
+              drop, arguments = {"-c", "-MD", "-MMD", "-o", "-MF", "-MT"}, []
+              skip = False
+              for a in entry["arguments"]:
+                  if skip:
+                      skip = False
+                  elif a in ("-o", "-MF", "-MT"):
+                      skip = True
+                  elif a not in drop:
+                      arguments.append(a)
               result = subprocess.run(arguments + ["-fsyntax-only"], cwd=entry["directory"],
                                       capture_output=True, text=True)
               print("::group::" + suffix, "rc", result.returncode)
