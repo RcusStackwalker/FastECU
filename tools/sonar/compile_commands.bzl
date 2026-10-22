@@ -4,7 +4,7 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 
 _EDGES = ["deps", "implementation_deps", "binary", "actual"]
 
-def _dependencies(ctx):
+def _dependency_targets(ctx):
     targets = []
     for edge in _EDGES:
         value = getattr(ctx.rule.attr, edge, [])
@@ -15,19 +15,27 @@ def _dependencies(ctx):
         elif type(value) == "dict":
             for split in value.values():
                 targets.extend(split if type(split) == "list" else [split])
-    return [target[OutputGroupInfo] for target in targets if OutputGroupInfo in target]
+    return targets
 
 def _sonar_impl(target, ctx):
     if target.label.workspace_name:
         return [OutputGroupInfo(sonar_commands = depset(), sonar_inputs = depset())]
-    dependencies = _dependencies(ctx)
+    dependency_targets = _dependency_targets(ctx)
+    dependencies = [dep[OutputGroupInfo] for dep in dependency_targets if OutputGroupInfo in dep]
     fragments = []
     inputs = []
     commands = []
 
     # CppCompile inputs omit headers deferred to include discovery. The scanner
     # never runs that compile, so request the declared compilation header closure.
-    headers = target[CcInfo].compilation_context.headers if CcInfo in target else depset()
+    # CcInfo omits implementation_deps, so add every dependency's headers as well.
+    headers = depset(
+        transitive = [
+            value[CcInfo].compilation_context.headers
+            for value in [target] + dependency_targets
+            if CcInfo in value
+        ],
+    )
     for action in target.actions:
         if action.mnemonic != "CppCompile":
             continue

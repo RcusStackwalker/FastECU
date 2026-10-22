@@ -18,6 +18,11 @@ HEADERS = [
     for path in sys.argv[1:]
     if path.endswith("/generated.h")
 ]
+IMPLEMENTATION_HEADERS = [
+    Path(RUNFILES.Rlocation("_main/" + path))
+    for path in sys.argv[1:]
+    if path.endswith("/implementation.h")
+]
 
 
 class GraphOutputsTest(unittest.TestCase):
@@ -46,6 +51,8 @@ class GraphOutputsTest(unittest.TestCase):
         self.assertEqual(len(generated), 2)
         self.assertEqual(len(HEADERS), 2)
         self.assertTrue(all(header.is_file() for header in HEADERS))
+        self.assertEqual(len(IMPLEMENTATION_HEADERS), 2)
+        self.assertTrue(all(header.is_file() for header in IMPLEMENTATION_HEADERS))
 
 
 if __name__ == "__main__":

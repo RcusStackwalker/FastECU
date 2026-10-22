@@ -134,10 +134,25 @@ cc_library(
     tags = ["manual"],
 )
 
+genrule(
+    name = "graph_implementation_files",
+    outs = ["tests/implementation.h"],
+    cmd = "echo '#pragma once' > $@",
+    tags = ["manual"],
+)
+
+# A target's own CcInfo omits implementation_deps headers; the scanner still needs them.
+cc_library(
+    name = "graph_implementation",
+    hdrs = [":tests/implementation.h"],
+    tags = ["manual"],
+)
+
 cc_library(
     name = "graph_leaf",
     srcs = ["tests/probe.cpp"],
     copts = ["'-DFASTECU_NAME=two words'"],
+    implementation_deps = [":graph_implementation"],
     tags = ["manual"],
     deps = [":graph_generated"],
 )

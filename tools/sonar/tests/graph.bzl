@@ -29,7 +29,7 @@ def _outputs_impl(ctx):
     outputs = []
 
     # Runfiles otherwise collapse the same label's different configurations.
-    for index, file in enumerate(fragments + [file for file in inputs.to_list() if file.basename == "generated.h"]):
+    for index, file in enumerate(fragments + [file for file in inputs.to_list() if file.basename in ("generated.h", "implementation.h")]):
         output = ctx.actions.declare_file("graph/%s/%s" % (index, file.basename))
         ctx.actions.symlink(output = output, target_file = file)
         outputs.append(output)
