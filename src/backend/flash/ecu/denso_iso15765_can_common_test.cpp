@@ -1116,14 +1116,10 @@ TEST(DensoIso15765CanCommonTest, ConnectBenchFatalArmMatchesBoolOverload)
             f->transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x44}));
         }
 
-        const Status bool_result = DensoIso15765ConnectBench(by_bool.ctx, discard);
-        const Status arm_result = DensoIso15765ConnectBench(by_arm.ctx, arm);
-
-        for (const Status *result : {&bool_result, &arm_result})
-        {
-            EXPECT_THAT(*result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
-                                                             ::testing::Eq("bench diagnostic session rejected")));
-        }
+        const auto rejected =
+            fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("bench diagnostic session rejected"));
+        EXPECT_THAT(DensoIso15765ConnectBench(by_bool.ctx, discard), rejected);
+        EXPECT_THAT(DensoIso15765ConnectBench(by_arm.ctx, arm), rejected);
         EXPECT_EQ(by_arm.transport.write_attempts, by_bool.transport.write_attempts);
         EXPECT_EQ(by_arm.transport.ReadTimeouts(), by_bool.transport.ReadTimeouts());
         EXPECT_EQ(by_arm.clock.sleep_calls, by_bool.clock.sleep_calls);
