@@ -38,6 +38,7 @@ is an ADR.
 | [0024](0024-wire-transcripts-and-goldens-are-the-test-contract.md) | Wire transcripts and plan goldens are the test contract |
 | [0025](0025-enforce-cancellation-in-a-guarded-transport.md) | Cancellation refusal moves to a guarded transport; errors and family continuation policies keep their owners |
 | [0026](0026-extend-fuzzing-to-backend-parsers-and-persist-the-corpus.md) | Fuzzing extends to backend parsers and the scheduled corpus is persisted |
+| [0027](0027-use-native-bazel-coverage-for-sonar.md) | Sonar coverage comes from native `bazel coverage`, with a Bazel-pinned scanner |
 
 ## Retired numbers
 
@@ -54,4 +55,4 @@ and the numbers are not reused. Their rationale is in Git history.
 | 0013 | `bytes::composeBe` for wire frames | Bytes and wire frames |
 | 0014 | `.has_value()` over implicit `operator bool` | Error handling |
 
-The next new ADR is 0027.
+The next new ADR is 0028.
