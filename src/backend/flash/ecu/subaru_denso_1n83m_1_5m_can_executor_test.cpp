@@ -542,6 +542,49 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIs
     }
 }
 
+// Cancels the moment the read logs its stop request.
+class CancelAtReadStopSink final : public RecordingEventSink
+{
+  public:
+    explicit CancelAtReadStopSink(fastecu::ManualCancellationToken& token) : token_(token)
+    {
+    }
+    void Log(fastecu::LogLevel level, std::string_view text) override
+    {
+        RecordingEventSink::Log(level, text);
+        if (text == "Sending stop command")
+        {
+            token_.Cancel();
+        }
+    }
+
+  private:
+    fastecu::ManualCancellationToken& token_;
+};
+
+// Every page is read when the stop is sent, so a cancellation there is
+// swallowed and the read returns its image. One case for the dialect.
+TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationAtTheReadStopIsSwallowed)
+{
+    ScriptedCanFlashTransport transport;
+    transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
+    ScriptReadSetup(transport);
+    ScriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0xA5);
+    fastecu::ManualCancellationToken cancellation;
+    CancelAtReadStopSink events(cancellation);
+    RecordingClock clock;
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const auto result = SubaruDenso1n83m_1_5mCanExecutor{}.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_EQ(result->read_bytes->size(), kImageSize);
+    EXPECT_TRUE(cancellation.Cancelled());
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
 // No acknowledgement is required after the bounded bench wait. A matching
 // first frame is deliberately discarded in the two-read families.
 TEST(SubaruDenso1n83m_1_5mCanExecutor, BenchJumpExhaustionPreservesReadCountAndTiming)
