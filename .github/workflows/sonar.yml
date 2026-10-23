@@ -93,14 +93,14 @@ jobs:
       - name: SonarCloud scan
         id: sonarcloud
         continue-on-error: true
-        run: bazel run //tools/sonar:scan
+        run: bazel run --config=coverage //tools/sonar:scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: SonarCloud scan (one retry)
         id: sonarcloud_retry
         if: steps.sonarcloud.outcome == 'failure'
-        run: bazel run //tools/sonar:scan
+        run: bazel run --config=coverage //tools/sonar:scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 

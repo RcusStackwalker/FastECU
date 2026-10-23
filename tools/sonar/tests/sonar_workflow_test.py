@@ -89,7 +89,7 @@ class SonarWorkflowTest(unittest.TestCase):
         first = self.steps[self.index("sonarcloud")]
         retry = self.steps[self.index("sonarcloud_retry")]
         for step in (first, retry):
-            self.assertEqual(step["run"], "bazel run //tools/sonar:scan")
+            self.assertEqual(step["run"], "bazel run --config=coverage //tools/sonar:scan")
             self.assertEqual(step["env"], {"SONAR_TOKEN": "${{ secrets.SONAR_TOKEN }}"})
             self.assertNotIn("uses", step)
 
