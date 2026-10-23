@@ -80,11 +80,42 @@ class SonarWorkflowTest(unittest.TestCase):
         self.assertTrue(first["continue-on-error"])
         self.assertEqual(retry["if"], "steps.sonarcloud.outcome == 'failure'")
         self.assertFalse(retry.get("continue-on-error", False))
-        self.assertEqual(first["uses"], retry["uses"])
+        self.assertEqual(first["run"], retry["run"])
         self.assertEqual(first["env"], retry["env"])
-        self.assertEqual(first.get("with"), retry.get("with"))
         gate = self.steps[self.named("Check SonarCloud Quality Gate")]
         self.assertFalse(gate.get("continue-on-error", False))
+
+    def test_scan_is_a_bazel_launcher(self):
+        first = self.steps[self.index("sonarcloud")]
+        retry = self.steps[self.index("sonarcloud_retry")]
+        for step in (first, retry):
+            self.assertEqual(step["run"], "bazel run //tools/sonar:scan")
+            self.assertEqual(step["env"], {"SONAR_TOKEN": "${{ secrets.SONAR_TOKEN }}"})
+            self.assertNotIn("uses", step)
+
+    def test_plugins_are_cached_weekly(self):
+        week = self.index("week")
+        restores = [
+            i
+            for i, s in enumerate(self.steps)
+            if s.get("uses", "").startswith("actions/cache/restore")
+            and s["with"]["path"] == "~/.sonar/cache"
+        ]
+        saves = [
+            i
+            for i, s in enumerate(self.steps)
+            if s.get("uses", "").startswith("actions/cache/save")
+            and s["with"]["path"] == "~/.sonar/cache"
+        ]
+        self.assertEqual(len(restores), 1)
+        self.assertEqual(len(saves), 1)
+        restore, save = self.steps[restores[0]], self.steps[saves[0]]
+        self.assertIn("steps.week.outputs.week", restore["with"]["key"])
+        self.assertEqual(restore["with"]["key"], save["with"]["key"])
+        self.assertIn("inputs.cache-save", save["if"])
+        self.assertLess(week, restores[0])
+        self.assertLess(restores[0], self.index("sonarcloud"))
+        self.assertGreater(saves[0], self.index("sonarcloud_retry"))
 
 
 if __name__ == "__main__":

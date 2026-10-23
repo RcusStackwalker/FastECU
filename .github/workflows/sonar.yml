@@ -77,21 +77,39 @@ jobs:
       - name: Prepare configured scanner inputs
         run: bazel run --config=sonar_inputs //:sonar_inputs
 
+      # Plugins rotate weekly with the scanner's own release cadence; a stale
+      # restore-key still saves a re-download of most of them.
+      - id: week
+        name: Compute plugin cache week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Sonar plugin cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.sonar/cache
+          key: sonar-plugins-${{ runner.os }}-${{ steps.week.outputs.week }}
+          restore-keys: sonar-plugins-${{ runner.os }}-
+
       - name: SonarCloud scan
         id: sonarcloud
         continue-on-error: true
-        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
+        run: bazel run //tools/sonar:scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          GITHUB_TOKEN: ${{ github.token }}
 
       - name: SonarCloud scan (one retry)
         id: sonarcloud_retry
         if: steps.sonarcloud.outcome == 'failure'
-        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
+        run: bazel run //tools/sonar:scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Save Sonar plugin cache
+        if: inputs.cache-save && always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.sonar/cache
+          key: sonar-plugins-${{ runner.os }}-${{ steps.week.outputs.week }}
 
       - name: Check SonarCloud Quality Gate
         uses: SonarSource/sonarqube-quality-gate-action@cf038b0e0cdecfa9e56c198bbb7d21d751d62c3b # v1.2.0
