@@ -157,3 +157,22 @@ http_file(
     sha256 = "3c6568b68c5c6d6ec8b9a2acb378a6949c9f5004ae009d2597b7f760f944f320",
     urls = ["https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-23.1.2/llvm/utils/FileCheck/FileCheck.cpp"],
 )
+
+# The SonarCloud scanner, with its bundled JRE, run by //tools/sonar:scan.
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "sonar_scanner_cli",
+    build_file_content = """
+exports_files(["bin/sonar-scanner"])
+
+filegroup(
+    name = "files",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "bb8f709f9cb73352f8d1260a3b3c506c0f41146754bc630762c126d795499d0b",
+    strip_prefix = "sonar-scanner-8.1.0.6389-linux-x64",
+    urls = ["https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-8.1.0.6389-linux-x64.zip"],
+)

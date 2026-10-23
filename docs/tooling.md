@@ -216,7 +216,10 @@ metrics while remaining in source analysis.
 
 The `sonarcloud` job ([sonar.yml](../.github/workflows/sonar.yml)) gates the PR
 against [sonar-project.properties](../sonar-project.properties). To reproduce
-it locally, install `sonar-scanner`, then mirror CI:
+it locally, mirror CI. CI runs the scanner pinned in `MODULE.bazel` through Bazel
+(`bazel run --config=coverage //tools/sonar:scan`), but that fetches the linux-x64
+scanner and works on Linux only; on macOS use a locally installed `sonar-scanner`
+for the last step:
 
 ```sh
 # macOS only: Xcode's LLVM tools are not on PATH.
@@ -224,6 +227,9 @@ MAC="--repo_env=GCOV=$(xcrun -f llvm-profdata) --repo_env=BAZEL_LLVM_COV=$(xcrun
 bazel coverage --config=coverage $MAC //...
 bazel run //tools/sonar:coverage_report -- --lcov "$(bazel info --config=coverage $MAC output_path)/_coverage/_coverage_report.dat" --root "$PWD" --output-dir coverage
 bazel run --config=sonar_inputs //:sonar_inputs
+# Linux:
+bazel run --config=coverage //tools/sonar:scan -- -Dsonar.token=$SONAR_TOKEN
+# macOS:
 sonar-scanner -Dsonar.token=$SONAR_TOKEN
 ```
 

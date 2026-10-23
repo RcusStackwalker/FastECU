@@ -37,6 +37,31 @@ py_test(
 )
 
 py_binary(
+    name = "scan",
+    srcs = ["sonar_scan.py"],
+    data = ["@sonar_scanner_cli//:files"],
+    main = "sonar_scan.py",
+    tags = ["manual"],
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "sonar_scan_test",
+    size = "small",
+    srcs = [
+        "sonar_scan.py",
+        "tests/sonar_scan_test.py",
+    ],
+    imports = ["."],
+    main = "tests/sonar_scan_test.py",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_binary(
     name = "coverage_report",
     srcs = ["coverage_report.py"],
     main = "coverage_report.py",
