@@ -636,17 +636,20 @@ Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTranspo
 }
 
 // Legacy bench arms: N83M 1.5M 657-803, N83M 4M 663-808, SH72531 657-805.
-Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, bool discard_first_reply)
+Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBenchArm& arm)
 {
-    constexpr std::chrono::milliseconds kBenchTimeout{200};
     LogInfo(ctx, "Bench programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.Sleep(arm.settle, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }
+    const bytes::Bytes session_pdu{uds::kSidDiagnosticSessionControl, kSessionBench};
     if (Result<bytes::Bytes> session =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench}, bytes::Bytes{kSessionBench},
-                       {.read_timeout = kBenchTimeout}, "bench diagnostic session");
+            arm.session_reply == DensoReplyKind::kTolerantProbe
+                ? TolerantProbe(ctx, session_pdu, kSessionControlReply, kSessionBench, arm.session_timeout,
+                                kDensoIso15765RejectionPrefix, "bench diagnostic session")
+                : FatalQuery(ctx, session_pdu, bytes::Bytes{kSessionBench}, {.read_timeout = arm.session_timeout},
+                             "bench diagnostic session");
         !session.has_value())
     {
         return std::unexpected(session.error());
@@ -655,7 +658,21 @@ Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, bool discard_fir
     {
         return unlocked;
     }
-    return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, kBenchTimeout, kBenchTimeout, discard_first_reply);
+    return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, arm.jump_first_read, arm.jump_loop_read,
+                                     arm.discard_first_reply);
+}
+
+Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, bool discard_first_reply)
+{
+    constexpr std::chrono::milliseconds kBenchTimeout{200};
+    return DensoIso15765ConnectBench(ctx, DensoBenchArm{
+                                              .settle = std::chrono::milliseconds{500},
+                                              .session_reply = DensoReplyKind::kFatal,
+                                              .session_timeout = kBenchTimeout,
+                                              .jump_first_read = kBenchTimeout,
+                                              .jump_loop_read = kBenchTimeout,
+                                              .discard_first_reply = discard_first_reply,
+                                          });
 }
 
 } // namespace fastecu::flash

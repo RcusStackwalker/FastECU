@@ -9,6 +9,7 @@
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/flash/ecu/denso_iso15765_bootloader_profile.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/flash/flash_executor.h"
@@ -277,13 +278,6 @@ Status N83mInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport&
 Status ShInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can,
                             std::chrono::milliseconds primary_timeout);
 
-// Which fire-and-forget run an in-car arm sends.
-enum class DensoInCarRun
-{
-    kN83m,
-    kSh,
-};
-
 // connect_bootloader's in-car programming arm: a 500 ms wait, the tolerant
 // access-method probe (10 5F, expecting 50 01), the family's fire-and-forget
 // run, seed/key, the fatal session confirmation (10 5F, expecting 50 63) and
@@ -294,11 +288,15 @@ enum class DensoInCarRun
 Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTransport& can, DensoInCarRun run,
                                  std::chrono::milliseconds read_timeout);
 
-// connect_bootloader's bench programming arm on N83M 1.5M, N83M 4M and
-// SH72531: a 500 ms wait, the fatal bench session (10 43, expecting 50 43) at
-// 200 ms, seed/key, then the bench kernel jump (10 42, at most 50 tries, all
-// reads at 200 ms); N83M 4M and SH72531 set `discard_first_reply`. SH72543
-// diesel keeps its own bench arm: a 50 ms wait and a tolerant session probe.
+// connect_bootloader's bench programming arm: the arm's settle, the bench
+// session (10 43, expecting 50 43) read at `session_timeout` -- fatal, or a
+// tolerant probe on SH72543 diesel -- seed/key, then the bench kernel jump
+// (10 42, at most 50 tries) read at the arm's jump timeouts.
+Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBenchArm& arm);
+
+// The arm N83M 1.5M, N83M 4M and SH72531 share: a 500 ms wait, the fatal
+// bench session and every jump read at 200 ms; N83M 4M and SH72531 set
+// `discard_first_reply`.
 Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, bool discard_first_reply);
 
 // write_memory's body: each family erases and reflashes exactly one block
