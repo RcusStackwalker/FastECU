@@ -143,8 +143,8 @@ name the files in the PR body (so far
 `mitsu_colt_can_cdbg_driver.cpp:149-151`).
 <!-- TODO(nloc-skill): triage rule pending the flake investigation: compare
 which test binaries wrote profiles in two coverage runs of one commit
-(coverage-local.sh runs bazel test //... with --nocache_test_results; a test
-that crashes or is killed loses its profile). Seen on #699 and #706 at
+(guards snapshot runs bazel coverage; test results are cached, so a
+profile-losing crash now shows as a failed test, not a missing profile). Seen on #699 and #706 at
 portable_cdbg_logging_protocol.cpp:72-74 and mitsu_colt_can_cdbg_driver.cpp:149-151. -->
 
 ## 6. Open the loop PR

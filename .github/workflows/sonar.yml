@@ -28,8 +28,8 @@ env:
 jobs:
   # One job: a second runner's setup, cold Bazel start and artifact transfer cost
   # more than a separate scanner job's retry boundary was worth. A manual rerun
-  # restores the earlier attempt's exported coverage product instead of rebuilding
-  # it, and a transient scanner failure is retried once in place.
+  # is a BuildBuddy cache hit for the coverage run, and a transient scanner
+  # failure is retried once in place.
   sonarcloud:
     name: SonarCloud
     runs-on: ubuntu-26.04
@@ -59,52 +59,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang llvm
 
-      # A rerun is the same run id, so the earlier attempt's exported product is a
-      # cache hit. The import below revalidates its commit and run id either way.
-      - id: coverage_cache
-        if: github.run_attempt > 1
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          key: sonar-coverage-${{ github.run_id }}
-          path: ${{ runner.temp }}/sonar-coverage
+      - id: coverage
+        name: Build and run tests with coverage
+        run: bazel coverage --config=coverage //...
 
-      # The Qt headers Sonar parses live under bazel-out/.../_virtual_includes.
-      # A build served from the remote cache would not download them, and
-      # without qobjectdefs.h Sonar misreads Qt's `emit` as a declaration.
-      - name: Build and run tests with coverage
-        if: steps.coverage_cache.outputs.cache-hit != 'true'
-        run: scripts/coverage-local.sh
-        env:
-          EXTRA_BAZEL_ARGS: --remote_download_regex=.*/_virtual_includes/.*
-
-      - id: coverage_export
-        name: Export the completed coverage product
-        if: steps.coverage_cache.outputs.cache-hit != 'true'
+      - id: coverage_report
+        name: Convert coverage to Sonar generic format
         run: |
-          bazel run --config=coverage //tools/sonar:coverage_artifact -- export \
-            --coverage-dir "$GITHUB_WORKSPACE/coverage" \
-            --output "$RUNNER_TEMP/sonar-coverage" \
-            --commit "$(git rev-parse HEAD)" --run-id "$GITHUB_RUN_ID" \
-            --attempt "$GITHUB_RUN_ATTEMPT" --producer-root "$GITHUB_WORKSPACE"
+          bazel run --config=coverage //tools/sonar:coverage_report -- \
+            --lcov "$(bazel info --config=coverage output_path)/_coverage/_coverage_report.dat" \
+            --root "$GITHUB_WORKSPACE" \
+            --output-dir "$GITHUB_WORKSPACE/coverage"
 
-      - id: coverage_save
-        if: steps.coverage_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          key: sonar-coverage-${{ github.run_id }}
-          path: ${{ runner.temp }}/sonar-coverage
-
+      # The Qt headers Sonar parses live under bazel-out/.../_virtual_includes;
+      # build:sonar_inputs (bazel/coverage.bazelrc) downloads them even when
+      # the build is a cache hit.
       - name: Prepare configured scanner inputs
         run: bazel run --config=sonar_inputs //:sonar_inputs
-
-      - id: coverage_import
-        name: Validate and localize coverage
-        run: |
-          bazel run --config=coverage //tools/sonar:coverage_artifact -- import \
-            --artifact-dir "$RUNNER_TEMP/sonar-coverage" \
-            --output "$GITHUB_WORKSPACE/coverage" \
-            --commit "$(git rev-parse HEAD)" --run-id "$GITHUB_RUN_ID" \
-            --consumer-root "$GITHUB_WORKSPACE"
 
       - name: SonarCloud scan
         id: sonarcloud

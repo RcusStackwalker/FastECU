@@ -219,7 +219,10 @@ against [sonar-project.properties](../sonar-project.properties). To reproduce
 it locally, install `sonar-scanner`, then mirror CI:
 
 ```sh
-scripts/coverage-local.sh
+# macOS only: Xcode's LLVM tools are not on PATH.
+MAC="--repo_env=GCOV=$(xcrun -f llvm-profdata) --repo_env=BAZEL_LLVM_COV=$(xcrun -f llvm-cov)"
+bazel coverage --config=coverage $MAC //...
+bazel run //tools/sonar:coverage_report -- --lcov "$(bazel info --config=coverage $MAC output_path)/_coverage/_coverage_report.dat" --root "$PWD" --output-dir coverage
 bazel run --config=sonar_inputs //:sonar_inputs
 sonar-scanner -Dsonar.token=$SONAR_TOKEN
 ```
@@ -392,11 +395,15 @@ neither counts nor breaks the streak.
 `trend` measures the working tree and appends a row to
 `docs/reference/nloc-trend.csv`; run it on the loop PR's branch before merge.
 
-`guards snapshot` runs `scripts/coverage-local.sh` into `.nloc-loop/coverage`
-and records the clean HEAD's executed test cases (from the `test.xml` files
-that run wrote; skipped and disabled cases excluded) and per-file covered
-lines in `.nloc-loop/snapshots/<commit>.json`. A failing test fails the
-snapshot. Take one on the base (the merge-base with `origin/master`) before
+`guards snapshot` runs `bazel coverage --config=coverage //...` and records the
+clean HEAD's executed test cases (from each test's `test.xml`, found through the
+build event file `.nloc-loop/coverage/bep.json`; skipped and disabled cases
+excluded) and per-file covered lines from the combined lcov report in
+`.nloc-loop/snapshots/<commit>.json`. Test results are cached, so a retake only
+reruns the tests the commit affects. A failing test fails the snapshot.
+Snapshots taken before the move to `bazel coverage` record `llvm-cov show`
+lines, which do not compare with lcov ones: `guards check` refuses to mix the
+two, so retake the base snapshot. Take one on the base (the merge-base with `origin/master`) before
 branching and one on the loop PR's HEAD; `guards check` compares them and
 exits 1 when a guard fails:
 

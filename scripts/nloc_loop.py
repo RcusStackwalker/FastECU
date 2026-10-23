@@ -14,16 +14,16 @@ import csv
 import datetime
 import hashlib
 import json
-import os
+import platform
 import re
 import shutil
 import subprocess
 import sys
-import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import TextIO
+from urllib.parse import unquote, urlparse
 from xml.etree import ElementTree
 
 import mutation_test
@@ -41,6 +41,11 @@ FAILED = ("rejected", "failed")
 MIN_SAVINGS = 50
 JSCPD_REPORT = Path(".nloc-loop/jscpd/jscpd-report.json")
 SNAPSHOTS = Path(".nloc-loop/snapshots")
+BEP_JSON = Path(".nloc-loop/coverage/bep.json")
+# The coverage report a snapshot was parsed from. Snapshots saved before the key
+# existed came from `llvm-cov show`; the line sets of the two are not comparable.
+COVERAGE_FORMAT = "lcov"
+LEGACY_COVERAGE_FORMAT = "llvm-cov-show"
 RunHook = Callable[[Path], str]
 RunJscpd = Callable[[Path], Mapping]
 HostFiles = Callable[[Path], set[str]]
@@ -55,7 +60,6 @@ _FILE_ROW = re.compile(r"^\s*(\d+)\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+\d+\s+(?:\./)?(\
 _TOTAL_HEADER = re.compile(r"^\s*Total nloc\s")
 _TOTAL_ROW = re.compile(r"^\s*(\d+)\s")
 _TEST_NAME = re.compile(r"_test[._]")
-_COVERAGE_ROW = re.compile(r"^\s*(\d+)\|\s*([0-9.]+[kMGTPE]?)?\s*\|")
 
 
 class NlocLoopError(RuntimeError):
@@ -331,26 +335,54 @@ class FileCoverage:
     uncovered: frozenset[int] | None = None
 
 
-def parse_coverage(report: str, root: Path) -> dict[str, FileCoverage]:
-    """Per-file covered lines from `llvm-cov show`; instantiation sub-views are skipped."""
-    sections: dict[str, tuple[set[int], list[int], set[int]]] = {}
+def parse_coverage(lcov: str, root: Path) -> dict[str, FileCoverage]:
+    """Per-file covered lines from an lcov report's `SF:` records and `DA:` hit counts."""
+    hits: dict[str, dict[int, int]] = {}
     current = None
-    for line in report.splitlines():
-        if line.endswith(":") and not line[:1].isspace():
-            current = sections.setdefault(_relative(root, line[:-1]), (set(), [0], set()))
-            continue
-        row = _COVERAGE_ROW.match(line)
-        if current is None or row is None or row.group(2) is None:
-            continue
-        current[1][0] += 1
-        if row.group(2) != "0":
-            current[0].add(int(row.group(1)))
-        else:
-            current[2].add(int(row.group(1)))
+    for line in lcov.splitlines():
+        if line.startswith("SF:"):
+            name = line[3:]
+            path = _relative(root, name) if _is_absolute(name) else name
+            current = hits.setdefault(path, {})
+        elif line.startswith("DA:") and current is not None:
+            number, count = line[3:].split(",")[:2]
+            current[int(number)] = max(current.get(int(number), 0), int(count))
+        elif line == "end_of_record":
+            current = None
     return {
-        path: FileCoverage(frozenset(covered), executable[0], frozenset(uncovered))
-        for path, (covered, executable, uncovered) in sections.items()
+        path: FileCoverage(
+            frozenset(n for n, c in lines.items() if c > 0),
+            len(lines),
+            frozenset(n for n, c in lines.items() if c == 0),
+        )
+        for path, lines in hits.items()
     }
+
+
+def _is_absolute(name: str) -> bool:
+    """Rooted on any host: "/x", "\\x", "C:\\x" or a UNC path (Windows reads "/" as "\\")."""
+    return bool(PureWindowsPath(name).root)
+
+
+def test_xml_paths(bep_json: str) -> list[Path]:
+    """Each test's test.xml, from the `testResult` events of a --build_event_json_file."""
+    paths = []
+    for line in bep_json.splitlines():
+        event = json.loads(line) if line.strip() else {}
+        if "testResult" not in event:
+            continue
+        label = event["id"]["testResult"]["label"]
+        for output in event["testResult"].get("testActionOutput", ()):
+            if output["name"] != "test.xml":
+                continue
+            uri = urlparse(output["uri"])
+            if uri.scheme != "file":
+                raise NlocLoopError(
+                    f"{label}'s test.xml is at {output['uri']}, not a local file; "
+                    "it must be downloaded to count test cases"
+                )
+            paths.append(Path(unquote(uri.path)))
+    return paths
 
 
 def count_test_cases(xmls: Sequence[str]) -> int:
@@ -375,6 +407,7 @@ class Snapshot:
     commit: str
     test_cases: int
     coverage: Mapping[str, FileCoverage]
+    format: str = COVERAGE_FORMAT
 
     @classmethod
     def load(cls, path: Path) -> Snapshot:
@@ -390,6 +423,7 @@ class Snapshot:
                 )
                 for p, c in data["coverage"].items()
             },
+            data.get("format", LEGACY_COVERAGE_FORMAT),
         )
 
     def save(self, path: Path) -> None:
@@ -399,7 +433,12 @@ class Snapshot:
             | ({} if c.uncovered is None else {"uncovered": sorted(c.uncovered)})
             for p, c in sorted(self.coverage.items())
         }
-        payload = {"commit": self.commit, "test_cases": self.test_cases, "coverage": coverage}
+        payload = {
+            "commit": self.commit,
+            "test_cases": self.test_cases,
+            "format": self.format,
+            "coverage": coverage,
+        }
         path.write_text(json.dumps(payload) + "\n")
 
 
@@ -515,6 +554,11 @@ def check_guards(
     hunks: Mapping[str, Sequence[Hunk]] | None = None,
 ) -> list[GuardResult]:
     """The local guards for a loop PR of `kind` (docs/tooling.md#nloc-hill-climbing-loop)."""
+    if base.format != head.format:
+        raise NlocLoopError(
+            f"the base snapshot is {base.format} coverage and the head's is {head.format}; "
+            "retake the base snapshot: check out the base commit and run `guards snapshot`"
+        )
     results = [
         GuardResult(
             "test cases",
@@ -549,27 +593,42 @@ def check_guards(
     return results
 
 
-def run_coverage_local(root: Path) -> tuple[str, list[str]]:
-    """Run scripts/coverage-local.sh into .nloc-loop/coverage; return its report and test.xmls."""
-    started = time.time()
-    output = root / SNAPSHOTS.parent / "coverage"
+def run_bazel_coverage(root: Path) -> tuple[str, list[str]]:
+    """Run `bazel coverage --config=coverage //...`; return its lcov report and test.xmls."""
+    bep = root / BEP_JSON
+    bep.parent.mkdir(parents=True, exist_ok=True)
+    config = ["--config=coverage"]
+    if platform.system() == "Darwin":
+        # Xcode's LLVM tools are not on PATH; see docs/tooling.md.
+        config += [
+            f"--repo_env=GCOV={_xcrun_path(root, 'llvm-profdata')}",
+            f"--repo_env=BAZEL_LLVM_COV={_xcrun_path(root, 'llvm-cov')}",
+        ]
     result = subprocess.run(
-        [str(root / "scripts" / "coverage-local.sh")],
+        [
+            "bazel",
+            "coverage",
+            *config,
+            r"--remote_download_regex=.*/test\.xml$",
+            f"--build_event_json_file={bep}",
+            "//...",
+        ],
         cwd=root,
-        env={**os.environ, "COVERAGE_DIR": str(output)},
         capture_output=True,
         text=True,
         check=False,
     )
     if result.returncode != 0:
         tail = "\n".join((result.stdout + result.stderr).splitlines()[-40:])
-        raise NlocLoopError(f"coverage-local.sh failed:\n{tail}")
-    xmls = [
-        p.read_text()
-        for p in (root / "bazel-testlogs").resolve().rglob("test.xml")
-        if p.stat().st_mtime >= started
-    ]
-    return (output / "llvm-cov.report").read_text(), xmls
+        raise NlocLoopError(f"bazel coverage failed:\n{tail}")
+    output_path = _run_tool(root, ["bazel", "info", *config, "output_path"]).strip()
+    report = Path(output_path) / "_coverage" / "_coverage_report.dat"
+    xmls = [p.read_text() for p in test_xml_paths(bep.read_text())]
+    return report.read_text(), xmls
+
+
+def _xcrun_path(root: Path, tool: str) -> str:
+    return _run_tool(root, ["xcrun", "-f", tool]).strip()
 
 
 def run_git(root: Path, args: Sequence[str]) -> str:
@@ -600,7 +659,7 @@ def _guards(args: argparse.Namespace, run_coverage: RunCoverage, git: RunGit, ou
                 "a snapshot describes a commit; commit or stash uncommitted changes"
             )
         report, xmls = run_coverage(root)
-        snap = Snapshot(head, count_test_cases(xmls), parse_coverage(report, root))
+        snap = Snapshot(head, count_test_cases(xmls), parse_coverage(report, root), COVERAGE_FORMAT)
         snap.save(_snapshot_path(root, head))
         out.write(f"snapshot {head}: {snap.test_cases} test cases, {len(snap.coverage)} files\n")
         return 0
@@ -807,7 +866,7 @@ def main(
     run_hook: RunHook = run_nloc_hook,
     run_jscpd: RunJscpd = run_jscpd_hook,
     host_files: HostFiles = query_host_files,
-    run_coverage: RunCoverage = run_coverage_local,
+    run_coverage: RunCoverage = run_bazel_coverage,
     run_git: RunGit = run_git,
     query_tests: QueryTests = query_portable_tests,
     out: TextIO = sys.stdout,
