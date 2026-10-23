@@ -5,7 +5,7 @@ description: >-
   on PATH. On Windows it also points Bazel at the install and selects clang-cl.
 inputs:
   version:
-    description: LLVM release version, for example 23.1.2.
+    description: LLVM release version, for example 23.1.4.
     required: true
   sha256:
     description: >-

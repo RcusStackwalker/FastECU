@@ -148,14 +148,14 @@ http_file(
     name = "llvm_check_clang_tidy",
     downloaded_file_path = "check_clang_tidy.py",
     sha256 = "600ef62079184920c07f52a7fd564d361ba2fdc414bb69a2490658abf519ff69",
-    urls = ["https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-23.1.2/clang-tools-extra/test/clang-tidy/check_clang_tidy.py"],
+    urls = ["https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-23.1.4/clang-tools-extra/test/clang-tidy/check_clang_tidy.py"],
 )
 
 http_file(
     name = "llvm_filecheck_driver",
     downloaded_file_path = "FileCheck.cpp",
     sha256 = "3c6568b68c5c6d6ec8b9a2acb378a6949c9f5004ae009d2597b7f760f944f320",
-    urls = ["https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-23.1.2/llvm/utils/FileCheck/FileCheck.cpp"],
+    urls = ["https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-23.1.4/llvm/utils/FileCheck/FileCheck.cpp"],
 )
 
 # The SonarCloud scanner, with its bundled JRE, run by //tools/sonar:scan.

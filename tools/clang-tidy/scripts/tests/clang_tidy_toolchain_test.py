@@ -26,7 +26,7 @@ class AnalysisHostTest(unittest.TestCase):
         self.artifact.touch()
         self.identity = {
             "root": str(self.root.resolve()),
-            "version": "23.1.2",
+            "version": "23.1.4",
             "clang_tidy_sha256": hashlib.sha256(b"").hexdigest(),
         }
         self.save_identity()
@@ -38,7 +38,7 @@ class AnalysisHostTest(unittest.TestCase):
         self.identity["version"] = "23.1.3"
         self.save_identity()
         with patch.object(toolchain.subprocess, "check_output") as launch:
-            with self.assertRaisesRegex(toolchain.ToolchainError, "23.1.2"):
+            with self.assertRaisesRegex(toolchain.ToolchainError, "23.1.4"):
                 toolchain.resolve_analysis_host(self.root, self.artifact)
             launch.assert_not_called()
 
@@ -60,7 +60,7 @@ class AnalysisHostTest(unittest.TestCase):
             patch.object(
                 toolchain.subprocess,
                 "check_output",
-                side_effect=["LLVM version 23.1.2", "fastecu-template-typename"],
+                side_effect=["LLVM version 23.1.4", "fastecu-template-typename"],
             ),
             self.assertRaisesRegex(toolchain.ToolchainError, "register"),
         ):
@@ -69,7 +69,7 @@ class AnalysisHostTest(unittest.TestCase):
     def test_paths_with_spaces(self):
         def output(command, **kwargs):
             if command[-1] == "--version":
-                return "LLVM version 23.1.2\n"
+                return "LLVM version 23.1.4\n"
             return "\n".join(sorted(toolchain.REQUIRED_CHECKS))
 
         with patch.object(toolchain.subprocess, "check_output", side_effect=output):
@@ -89,7 +89,7 @@ class AnalysisHostTest(unittest.TestCase):
             patch.object(
                 toolchain.subprocess,
                 "check_output",
-                side_effect=["LLVM version 23.1.2", "bugprone-test"],
+                side_effect=["LLVM version 23.1.4", "bugprone-test"],
             ),
             self.assertRaisesRegex(toolchain.ToolchainError, "register"),
         ):
@@ -108,7 +108,7 @@ class AnalysisHostTest(unittest.TestCase):
         with patch.object(
             toolchain.subprocess,
             "check_output",
-            side_effect=["LLVM version 23.1.2", "\n".join(sorted(toolchain.REQUIRED_CHECKS))],
+            side_effect=["LLVM version 23.1.4", "\n".join(sorted(toolchain.REQUIRED_CHECKS))],
         ):
             host = toolchain.resolve_analysis_host(self.root, executable)
         self.assertEqual(executable.resolve(), host.executable)
@@ -120,7 +120,7 @@ class AnalysisHostTest(unittest.TestCase):
         with patch.object(
             toolchain.subprocess,
             "check_output",
-            side_effect=["LLVM version 23.1.2", "\n".join(sorted(toolchain.REQUIRED_CHECKS))],
+            side_effect=["LLVM version 23.1.4", "\n".join(sorted(toolchain.REQUIRED_CHECKS))],
         ):
             host = toolchain.resolve_analysis_host(self.root, self.artifact)
         self.assertEqual(self.root.resolve(), host.llvm_root)
