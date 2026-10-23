@@ -37,29 +37,6 @@ py_test(
 )
 
 py_binary(
-    name = "coverage_artifact",
-    srcs = ["coverage_artifact.py"],
-    main = "coverage_artifact.py",
-    tags = ["manual"],
-)
-
-py_test(
-    name = "coverage_artifact_test",
-    size = "small",
-    srcs = [
-        "coverage_artifact.py",
-        "tests/coverage_artifact_test.py",
-    ],
-    imports = ["."],
-    main = "tests/coverage_artifact_test.py",
-    # The producer consumes the POSIX coverage-local.sh report contract.
-    target_compatible_with = select({
-        "@platforms//os:windows": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
-)
-
-py_binary(
     name = "coverage_report",
     srcs = ["coverage_report.py"],
     main = "coverage_report.py",
