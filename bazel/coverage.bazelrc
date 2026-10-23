@@ -7,6 +7,7 @@
 # SonarCloud (via //tools/sonar:coverage_report) and the nloc-loop coverage
 # guards (scripts/nloc_loop.py) both read that report. Test results stay
 # cacheable, so unchanged tests are not rerun.
+# See docs/adr/0027-use-native-bazel-coverage-for-sonar.md.
 build:coverage --compilation_mode=dbg
 build:coverage --repo_env=BAZEL_USE_LLVM_NATIVE_COVERAGE=1
 build:coverage --repo_env=GCOV=llvm-profdata
