@@ -59,6 +59,28 @@ py_test(
     }),
 )
 
+py_binary(
+    name = "coverage_report",
+    srcs = ["coverage_report.py"],
+    main = "coverage_report.py",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "coverage_report_test",
+    size = "small",
+    srcs = [
+        "coverage_report.py",
+        "tests/coverage_report_test.py",
+    ],
+    imports = ["."],
+    main = "tests/coverage_report_test.py",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)
+
 py_library(
     name = "commands",
     srcs = ["sonar_commands.py"],
