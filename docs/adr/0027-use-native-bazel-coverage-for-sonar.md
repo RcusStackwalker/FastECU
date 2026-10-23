@@ -36,7 +36,8 @@ SonarCloud chooses their versions per project, so they cannot be pinned.
   input to another build action. It keeps the existing ignore list and the
   resolvable-file floor.
 - Bazel owns the scanner: a pinned `http_archive` of sonar-scanner-cli, whose
-  bundled JRE is used (`sonar.scanner.skipJreProvisioning=true`), launched by
+  bundled JRE is used (`sonar.scanner.skipJreProvisioning=true`, so there is no `rules_java`
+  dependency), launched by
   `bazel run //tools/sonar:scan`. The scan itself is never cached.
 - Analyzer plugins stay on `actions/cache` for `~/.sonar/cache` with a
   weekly-rotating key, because their versions are server-chosen.
@@ -45,6 +46,14 @@ SonarCloud chooses their versions per project, so they cannot be pinned.
 
 This supersedes the rationale in the old `coverage.bazelrc` header for hand-set
 profile flags and uncached tests. It does not supersede another ADR.
+
+## Alternatives
+
+- Keep `scripts/coverage-local.sh` and add an `actions/cache` keyed on source
+  hashes. Rejected: it keeps coverage outside Bazel, needs a hand-built key that
+  must track every input, and still reruns all tests on a miss.
+- Provision the scanner JRE with `rules_java` `remotejdk`. Rejected: the
+  scanner archive already bundles a JRE, so this adds a dependency for nothing.
 
 ## Consequences
 
@@ -55,9 +64,14 @@ profile flags and uncached tests. It does not supersede another ADR.
   comparable and must be retaken.
 - Cached test results now apply to coverage: a flaky test's cached pass, and
   its coverage, persists until its inputs change.
-- On macOS the `coverage` config needs `--experimental_use_llvm_covmap` and
-  `--experimental_generate_llvm_lcov`, and local commands must pass the
-  `xcrun -f` paths of `llvm-profdata` and `llvm-cov` as `--repo_env`.
+- `--experimental_generate_llvm_lcov` is needed on every host. Only
+  `--experimental_use_llvm_covmap` and the `xcrun -f` paths of `llvm-profdata`
+  and `llvm-cov` (passed as `--repo_env`) are macOS-specific.
+- SonarCloud's overall and new-code `coverage` now include branch conditions
+  (from lcov `BRDA`), which makes the new-code gate stricter for branchy code.
+  On PR #811 overall `coverage` went from 84.1 (lines only) to 83.1 (lines plus
+  14500 conditions at 79.2%) while `line_coverage` went from 84.1 to 84.3.
+  Dropping the branch attributes in `generic_xml` is the one-line way back.
 - The scan step no longer receives `GITHUB_TOKEN`.
 - Plugins are still downloaded after a cache miss, at most weekly.
 - The apt installs (`clang`, `llvm`, Qt runtime libraries, about 11 seconds)
