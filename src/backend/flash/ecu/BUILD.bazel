@@ -2014,3 +2014,22 @@ cc_library(
     hdrs = ["denso_iso15765_bootloader_profile.h"],
     deps = ["//src/backend/protocol/uds:uds_client"],
 )
+
+fastecu_portable_gtest(
+    name = "denso_iso15765_bootloader_executor_test",
+    srcs = ["denso_iso15765_bootloader_executor_test.cpp"],
+    deps = [
+        ":subaru_denso_1n83m_1_5m_can_executor",
+        ":subaru_denso_1n83m_1_5m_can_plan",
+        ":subaru_denso_1n83m_4m_can_executor",
+        ":subaru_denso_1n83m_4m_can_plan",
+        ":subaru_denso_sh72531_can_executor",
+        ":subaru_denso_sh72531_can_plan",
+        ":subaru_denso_sh72543_can_diesel_executor",
+        ":subaru_denso_sh72543_can_diesel_plan",
+        "//src/backend/flash/ecu/testing:can_executor_conformance",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
