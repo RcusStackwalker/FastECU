@@ -13,6 +13,10 @@ IGNORE = re.compile(
 )
 
 
+class LcovError(ValueError):
+    """The lcov report has a record this converter cannot read."""
+
+
 @dataclass(frozen=True)
 class FileCoverage:
     lines: dict[int, int]  # line -> hits
@@ -31,13 +35,18 @@ def parse_lcov(text: str) -> dict[str, FileCoverage]:
             taken.setdefault(current, {})
         elif current is None:
             continue
-        elif tag == "DA":
-            number, hits, *_ = value.split(",")
-            lines[current][int(number)] = lines[current].get(int(number), 0) + int(hits)
-        elif tag == "BRDA":
-            number, block, branch, count = value.split(",")
-            key = (int(number), block, branch)
-            taken[current][key] = taken[current].get(key, 0) + (0 if count == "-" else int(count))
+        elif tag in ("DA", "BRDA"):
+            try:
+                if tag == "DA":
+                    number, hits, *_ = value.split(",")
+                    lines[current][int(number)] = lines[current].get(int(number), 0) + int(hits)
+                else:
+                    number, block, branch, count = value.split(",")
+                    key = (int(number), block, branch)
+                    hit = 0 if count == "-" else int(count)
+                    taken[current][key] = taken[current].get(key, 0) + hit
+            except ValueError as error:
+                raise LcovError(f"malformed lcov record in {current}: {raw.strip()!r}") from error
         elif tag == "end_of_record":
             current = None
     records = {}
@@ -108,7 +117,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--min-files", type=int, default=100)
     args = parser.parse_args(argv)
 
-    records = parse_lcov(args.lcov.read_text(errors="replace"))
+    try:
+        records = parse_lcov(args.lcov.read_text(errors="replace"))
+    except LcovError as error:
+        print(error, file=sys.stderr)
+        return 1
     kept = select_files(records, args.root, IGNORE)
     if len(kept) < args.min_files:
         dropped = sorted(set(records) - set(kept))[:5]

@@ -164,8 +164,6 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 http_archive(
     name = "sonar_scanner_cli",
     build_file_content = """
-exports_files(["bin/sonar-scanner"])
-
 filegroup(
     name = "files",
     srcs = glob(["**"]),

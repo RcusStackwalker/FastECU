@@ -26,6 +26,17 @@ class SonarScanTest(unittest.TestCase):
             self.assertEqual(sonar_scan.main([]), 2)
         self.assertIn("BUILD_WORKSPACE_DIRECTORY", stderr.getvalue())
 
+    def test_main_requires_the_scanner_in_the_runfiles(self):
+        stderr = io.StringIO()
+        with (
+            mock.patch.dict(os.environ, {"BUILD_WORKSPACE_DIRECTORY": "/w"}, clear=True),
+            mock.patch.object(sonar_scan.runfiles, "Create") as create,
+            contextlib.redirect_stderr(stderr),
+        ):
+            create.return_value.Rlocation.return_value = None
+            self.assertEqual(sonar_scan.main([]), 2)
+        self.assertIn(sonar_scan.SCANNER, stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

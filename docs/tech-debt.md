@@ -203,6 +203,21 @@ checks and low-level Result API tests remain permitted.
 does not analyze them. Qualify an analysis pass with a fuzz-enabled configuration
 and include that pass in the gate.
 
+### P3: Hermetic C++ toolchain for CI
+
+Every Linux CI leg installs `clang`/`llvm` and the Qt runtime libraries with
+`apt-get` (about 11 s per job, from Ubuntu mirrors), and the coverage config
+finds `llvm-cov`/`llvm-profdata` on `PATH`. A Bazel-registered LLVM toolchain
+and sysroot would remove those downloads and pin the tools; it changes every
+leg, so it was left out of [ADR 0027](adr/0027-use-native-bazel-coverage-for-sonar.md).
+
+### P3: Gazelle and the hand-written `tools/sonar` graph targets
+
+Running Gazelle on `tools/sonar` deletes the manual `graph_*` `cc_library` and
+`graph_leaf` targets that `graph_outputs_test` exercises, and a stray
+`tools/sonar/tests/BUILD.bazel` it can generate breaks loading of the package.
+Mark them with `# keep` or move the fixtures into a Gazelle-excluded package.
+
 ### P3: Flash protocol behaviors awaiting external evidence
 
 Characterization preserves these behaviors; none is a demonstrated defect.

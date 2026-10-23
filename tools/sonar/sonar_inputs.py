@@ -159,15 +159,11 @@ def _link_execroot(workspace: Path, execroot: Path) -> None:
             raise InputsError(f"execution root has no bazel-out tree: {target}")
 
 
-def prepare(
-    workspace: Path, destination: Path, *, run: Callable, qualification_records: bool = False
-) -> Path:
+def prepare(workspace: Path, destination: Path, *, run: Callable) -> Path:
     """Request metadata/input outputs, validate all of them, then publish once."""
     destination.mkdir(parents=True, exist_ok=True)
     database = destination / "compile_commands.json"
-    records_path = destination / "records.json"
     database.unlink(missing_ok=True)
-    records_path.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix=".prepare-", dir=destination) as temporary:
         events = Path(temporary) / "events.json"
         command = [
@@ -213,18 +209,6 @@ def prepare(
             raise InputsError("QtCore/qobjectdefs.h does not resolve through the database")
         pending = Path(temporary) / "compile_commands.json"
         pending.write_text(json.dumps(entries, indent=2) + "\n")
-        if qualification_records:
-            records_path.write_text(
-                json.dumps(
-                    {
-                        "version": 2,
-                        "directory": str(execroot),
-                        "commands": [record | {"directory": str(execroot)} for record in records],
-                        "inputs": [str(path) for path in outputs.groups["sonar_inputs"]],
-                    }
-                )
-                + "\n"
-            )
         pending.replace(database)
     print(f"Sonar inputs: {len(entries)} configured commands; {database}")
     return database
@@ -233,7 +217,6 @@ def prepare(
 def main(argv: Sequence[str] | None = None, run: Callable = subprocess.run) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=Path("sonar-inputs"))
-    parser.add_argument("--qualification-records", action="store_true")
     args = parser.parse_args(argv)
     try:
         if sys.platform not in ("linux", "darwin"):
@@ -242,7 +225,7 @@ def main(argv: Sequence[str] | None = None, run: Callable = subprocess.run) -> i
         destination = (
             args.output_dir if args.output_dir.is_absolute() else workspace / args.output_dir
         )
-        prepare(workspace, destination, run=run, qualification_records=args.qualification_records)
+        prepare(workspace, destination, run=run)
         return 0
     except (InputsError, commands.CommandError, OSError, subprocess.SubprocessError) as error:
         print(f"Sonar inputs: {error}", file=sys.stderr)

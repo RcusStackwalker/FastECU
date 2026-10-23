@@ -17,26 +17,6 @@ py_test(
 )
 
 py_binary(
-    name = "sonar_qualify",
-    srcs = ["sonar_qualify.py"],
-    main = "sonar_qualify.py",
-    tags = ["manual"],
-    deps = [":commands"],
-)
-
-py_test(
-    name = "sonar_qualify_test",
-    size = "small",
-    srcs = [
-        "sonar_qualify.py",
-        "tests/sonar_qualify_test.py",
-    ],
-    imports = ["."],
-    main = "tests/sonar_qualify_test.py",
-    deps = [":commands"],
-)
-
-py_binary(
     name = "scan",
     srcs = ["sonar_scan.py"],
     data = ["@sonar_scanner_cli//:files"],
