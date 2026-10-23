@@ -8,7 +8,10 @@ py_test(
     name = "sonar_workflow_test",
     size = "small",
     srcs = ["tests/sonar_workflow_test.py"],
-    data = ["//:.github/workflows/sonar-qualification.yml"],
+    data = [
+        "//:.github/workflows/sonar.yml",
+        "//:sonar-project.properties",
+    ],
     main = "tests/sonar_workflow_test.py",
     deps = ["@python_deps//pyyaml"],
 )
@@ -179,7 +182,6 @@ py_test(
     args = ["$(locations :graph_reports)"],
     data = [":graph_reports"],
     main = "tests/graph_outputs_test.py",
-    tags = ["manual"],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
