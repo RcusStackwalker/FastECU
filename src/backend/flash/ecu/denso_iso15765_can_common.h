@@ -23,10 +23,9 @@ namespace fastecu::flash
 inline constexpr std::string_view kDensoIso15765RejectionPrefix = "Wrong response from ECU: ";
 
 // The SSM seed/key and payload crypto constants shared by the Denso
-// ISO-15765 CAN executors. The bootloader-dialect consumers are
-// SubaruDenso1n83m_1_5mCanExecutor, SubaruDensoSh72531CanExecutor,
-// SubaruDensoSh72543CanDieselExecutor and SubaruDenso1n83m_4mCanExecutor.
-// The BEEF-dialect consumers are SubaruTcuDensoSh705xCanExecutor,
+// ISO-15765 CAN executors. The bootloader-dialect consumer is
+// DensoIso15765BootloaderExecutor, for the N83M 1.5M, N83M 4M, SH72531 and
+// SH72543 diesel families. The BEEF-dialect consumers are SubaruTcuDensoSh705xCanExecutor,
 // SubaruDensoSh7058CanExecutor and SubaruDensoSh7058CanDieselExecutor.
 //
 // Each cluster was ported standalone, with duplication tolerated, so that
@@ -39,8 +38,8 @@ inline constexpr std::string_view kDensoIso15765RejectionPrefix = "Wrong respons
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// Beyond these tables, the common module shares eleven operations, across all
-// four bootloader-dialect executors unless noted:
+// Beyond these tables, the common module shares eleven operations across the
+// four bootloader-dialect families:
 // - setup-PDU encoding;
 // - the SecurityAccess seed/key exchange;
 // - the erase flow;
@@ -52,15 +51,15 @@ inline constexpr std::string_view kDensoIso15765RejectionPrefix = "Wrong respons
 //   probe and branch selector;
 // - the in-car arm, with one fire-and-forget run for the N83M families and one
 //   for the SH families;
-// - the bench arm (not SH72543 diesel, which keeps its own);
+// - the bench arm;
 // - the kernel jump with its continuation wait.
 // Each declaration below names the family differences it takes as parameters.
 // Direct comparison of the legacy sources proved everything else identical.
-// What still differs -- read setup, the diesel bench arm and family response
-// policy -- stays in the executors: read timeouts, retry counts and, above
-// all, how strictly a bad response is treated are the safety-relevant part of
-// each family, and a parameterized common routine would make a future reader
-// believe they are the same protocol when they are not.
+// What still differs -- read timeouts, retry counts and, above all, how
+// strictly a bad response is treated -- is the safety-relevant part of each
+// family. DensoIso15765BootloaderExecutor reads it from the family's dialect
+// profile (denso_iso15765_bootloader_profile.h), where each value carries its
+// legacy citation.
 //
 // Most exchanges go through UdsClient over CanFlashUdsChannel. The
 // exceptions here are the probes and fire-and-forget writes whose reply legacy
@@ -144,8 +143,9 @@ Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx, std::
 // `region`, cancellation checked before each, progress after each; then up to
 // six best-effort 37 stop requests at 500 ms, whose outcome is never checked;
 // then the dump between `lead_pad_len` and `tail_pad_len` bytes of 0xFF. Only
-// the SH families pace each page by 1 ms (`pace_pages`). Setup stays local:
-// its policy and tolerance differ per family.
+// the SH families pace each page by 1 ms (`pace_pages`). The setup exchanges
+// before it are the dialect executor's: their policy and tolerance differ per
+// family.
 Result<bytes::Bytes> DensoIso15765ReadDump(const CanExecutorContext& ctx, const MemoryRegion& region,
                                            std::size_t lead_pad_len, std::size_t tail_pad_len, PhaseReporter& progress,
                                            bool pace_pages);
@@ -299,7 +299,8 @@ Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBench
 // a three-block table on the N83M and SH72531 families, 0 of SH72543 diesel's
 // one-block table -- erases `block` with DensoIso15765Erase, then runs the
 // family's `reflash(PhaseReporter&)` under a "Write ROM" phase sized to the
-// block. Each family's reflash logs its own header line around the shared write and close.
+// block. The dialect executor's reflash logs the family's header line around
+// the shared write and close.
 template <typename Reflash>
 Status DensoIso15765WriteBlock(const CanExecutorContext& ctx, const MemoryRegion& block, int block_index,
                                PhaseSequence& phases, Reflash&& reflash)

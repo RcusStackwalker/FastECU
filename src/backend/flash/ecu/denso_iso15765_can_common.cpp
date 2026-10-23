@@ -635,7 +635,8 @@ Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTranspo
                                      /*discard_first_reply=*/false);
 }
 
-// Legacy bench arms: N83M 1.5M 657-803, N83M 4M 663-808, SH72531 657-805.
+// Legacy bench arms: N83M 1.5M 657-803, N83M 4M 663-808, SH72531 657-805,
+// SH72543 diesel 649-791.
 Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBenchArm& arm)
 {
     LogInfo(ctx, "Bench programming: accessing, please wait...");

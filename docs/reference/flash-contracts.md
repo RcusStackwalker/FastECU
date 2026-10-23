@@ -92,19 +92,21 @@ built on it (whole-image encryption, image-base indexing, whole chunks only),
 best-effort transfer exit with the settle-and-checksum close (the
 checksum read timeouts are a parameter), the in-car arm with its opening runs (an N83M
 run and an SH run; one read timeout, 2000 ms on the diesel, covers the probe,
-the confirmations, the run's 0x7E0 reply and the jump), the bench arm on
-every family but the diesel, the
+the confirmations, the run's 0x7E0 reply and the jump), the bench arm (its
+settle, session strictness and jump timeouts are parameters), the
 kernel jump with its continuation wait (first and loop read timeouts and the
 N83M 4M/SH72531 bench discard are parameters), and the connect prelude (OBK probe,
 identity queries, access-method probe and branch selector), and the
 single-block `write_memory` body (block-count log, erase, then the family's
 own reflash under the write phase), plus the dialect's `FatalQuery` prefix. Its header
-documents each operation and why everything else stays local. Each family's
-own deviations, with legacy citations, are listed side by side in
-[Denso ISO-15765 family deviations](denso-iso15765-families.md).
+documents each operation.
 
-Kept local in each executor: read setup, the reflash header log line,
-the SH72543 diesel bench arm and family response policy. In particular:
+One [dialect executor](../../src/backend/flash/ecu/denso_iso15765_bootloader_executor.h)
+runs all four families in the same order. It owns read setup, the identity
+query, the region log lines and the reflash. Every way a family deviates is a
+field of its dialect profile, next to its plan type; the fields, with legacy
+citations, are listed side by side in
+[Denso ISO-15765 family deviations](denso-iso15765-families.md). In particular:
 
 - Setup PDUs accept only a region, so callers cannot select another SID. Read
   setup failure is tolerated on N83M 4M and fatal on the other three.
