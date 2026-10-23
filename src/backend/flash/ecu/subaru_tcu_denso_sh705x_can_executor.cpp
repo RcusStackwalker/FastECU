@@ -17,7 +17,7 @@
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
-#include "src/backend/flash/ecu/denso_iso15765_can_common.h"
+#include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"

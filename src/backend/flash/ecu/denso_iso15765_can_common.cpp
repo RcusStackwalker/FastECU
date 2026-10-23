@@ -10,6 +10,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 
 namespace fastecu::flash
 {
@@ -81,6 +82,28 @@ constexpr std::array<InCarExchange, 10> kShInCarSequence{{
     {0x7DF, {kSidControlDtcSetting, 0x02, 0}, 2},
     {0x7DF, {kSidCommunicationControl, 0x03, 0x01}, 3},
 }};
+
+// Sends `pdu` to `request_id` and reads one reply only to discard it: the
+// in-car arm's opening run of session/DTC/communication-control exchanges
+// whose answers legacy never inspects. The reply is read from `can` directly,
+// so the channel's response id is never consulted.
+Status FireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can, std::uint32_t request_id,
+                     bytes::ByteView pdu, std::chrono::milliseconds timeout)
+{
+    // The reply is read from `can` below, never through this channel, so the
+    // response-id slot is filled with the request id and never consulted.
+    CanFlashUdsChannel channel(can, request_id, request_id);
+    if (const Status sent = channel.Send(pdu, ctx.cancellation); !sent.has_value())
+    {
+        return sent;
+    }
+    Result<std::optional<bytes::Bytes>> ignored = can.Read(timeout, ctx.cancellation);
+    if (!ignored.has_value())
+    {
+        return std::unexpected(ignored.error());
+    }
+    return {};
+}
 
 // Every reply is read at 200 ms except the primary ECU's (0x7E0) session-open
 // reply, which reads at `primary_timeout`.
@@ -377,6 +400,22 @@ Result<bytes::Bytes> FatalQuery(const CanExecutorContext& ctx, bytes::ByteView p
                       min_payload_size);
 }
 
+namespace
+{
+
+// Sends `pdu`, reads one reply, and compares its first two bytes. A mismatch
+// is LOGGED AND TOLERATED -- the frame is still returned and the caller
+// decides -- which is what legacy does at these sites; only an absent or
+// too-short reply is fatal. Callers that read further into the returned frame
+// must length-check it themselves: this only guarantees two bytes.
+//
+// `timeout` is a parameter, not a cluster constant: three members probe with
+// their short timeout and subaru_denso_sh72543_can_diesel probes with its long
+// one. Collapsing that difference is exactly what this file's header comment
+// warns against.
+//
+// Not specific to this cluster in principle, but shared here because these
+// four are the families that provably share it.
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
                                    std::string_view rejection_prefix, std::string_view subject)
@@ -405,6 +444,8 @@ Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteVie
     }
     return frame;
 }
+
+} // namespace
 
 Result<bool> DensoObkIsActive(const CanExecutorContext& ctx, std::string_view active_log)
 {
@@ -476,24 +517,6 @@ Result<bool> DensoProgrammingBranchIsInCar(const CanExecutorContext& ctx, std::c
         return Fail(ErrorKind::kBadResponse, "programming-branch selector reply is too short");
     }
     return (*selector)[3] != 0xFF;
-}
-
-Status FireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can, std::uint32_t request_id,
-                     bytes::ByteView pdu, std::chrono::milliseconds timeout)
-{
-    // The reply is read from `can` below, never through this channel, so the
-    // response-id slot is filled with the request id and never consulted.
-    CanFlashUdsChannel channel(can, request_id, request_id);
-    if (const Status sent = channel.Send(pdu, ctx.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> ignored = can.Read(timeout, ctx.cancellation);
-    if (!ignored.has_value())
-    {
-        return std::unexpected(ignored.error());
-    }
-    return {};
 }
 
 Status DensoSecurityAccess(const CanExecutorContext& ctx)

@@ -235,7 +235,7 @@ cc_library(
     hdrs = ["subaru_denso_sh7058_can_diesel_executor.h"],
     implementation_deps = [
         ":denso_beef_can_common",
-        ":denso_iso15765_can_common",
+        ":denso_iso15765_crypto",
         ":flash_phase_progress",
         ":subaru_denso_sh7058_can_diesel_plan",
         ":uds_client_exchange_common",
@@ -433,7 +433,7 @@ cc_library(
     hdrs = ["subaru_tcu_denso_sh705x_can_executor.h"],
     implementation_deps = [
         ":denso_beef_can_common",
-        ":denso_iso15765_can_common",
+        ":denso_iso15765_crypto",
         ":flash_phase_progress",
         ":subaru_tcu_denso_sh705x_can_plan",
         ":uds_client_exchange_common",
@@ -454,7 +454,7 @@ cc_library(
     hdrs = ["subaru_denso_sh7058_can_executor.h"],
     implementation_deps = [
         ":denso_beef_can_common",
-        ":denso_iso15765_can_common",
+        ":denso_iso15765_crypto",
         ":flash_phase_progress",
         ":subaru_denso_sh7058_can_plan",
         ":uds_client_exchange_common",
@@ -1624,8 +1624,9 @@ cc_library(
     name = "denso_beef_can_common",
     hdrs = ["denso_beef_can_common.h"],
     deps = [
-        ":denso_iso15765_can_common",
+        ":denso_iso15765_crypto",
         ":flash_phase_progress",
+        ":uds_client_exchange_common",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_types",
@@ -1653,16 +1654,19 @@ cc_library(
     srcs = ["denso_iso15765_can_common.cpp"],
     hdrs = ["denso_iso15765_can_common.h"],
     implementation_deps = [
+        ":denso_iso15765_crypto",
         "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",
     ],
+    # The dialect operations serve only the bootloader executor and its tests;
+    # other families use the shared tables in :denso_iso15765_crypto.
+    visibility = ["//visibility:private"],
     deps = [
         ":denso_iso15765_bootloader_profile",
         ":flash_phase_progress",
         ":uds_client_exchange_common",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_types",
         "//src/backend/ports",
@@ -1674,8 +1678,8 @@ fastecu_portable_gtest(
     srcs = ["denso_iso15765_can_common_test.cpp"],
     deps = [
         ":denso_iso15765_can_common",
+        ":denso_iso15765_crypto",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:can_flash_uds_channel",
         "//src/backend/flash:flash_types",
@@ -2005,4 +2009,25 @@ cc_library(
         "//src/backend/protocol/uds:uds_client",
     ],
     deps = ["//src/backend/flash:flash_executor"],
+)
+
+cc_library(
+    name = "denso_iso15765_crypto",
+    hdrs = ["denso_iso15765_crypto.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "denso_iso15765_crypto_test",
+    srcs = ["denso_iso15765_crypto_test.cpp"],
+    deps = [
+        ":denso_iso15765_crypto",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/testing:byte_matchers",
+        "@googletest//:gtest",
+    ],
 )
