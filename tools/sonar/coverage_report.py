@@ -59,6 +59,7 @@ def select_files(
         if not ignore.search(path)
         and not path.startswith("/")
         and not Path(path).is_absolute()
+        and ".." not in Path(path).parts
         and (root / path).is_file()
     }
 

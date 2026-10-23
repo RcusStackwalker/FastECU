@@ -599,7 +599,7 @@ def run_bazel_coverage(root: Path) -> tuple[str, list[str]]:
     bep.parent.mkdir(parents=True, exist_ok=True)
     config = ["--config=coverage"]
     if platform.system() == "Darwin":
-        # Xcode's LLVM tools are not on PATH; see bazel/coverage.bazelrc.
+        # Xcode's LLVM tools are not on PATH; see docs/tooling.md.
         config += [
             f"--repo_env=GCOV={_xcrun_path(root, 'llvm-profdata')}",
             f"--repo_env=BAZEL_LLVM_COV={_xcrun_path(root, 'llvm-cov')}",

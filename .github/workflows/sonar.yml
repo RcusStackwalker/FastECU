@@ -59,8 +59,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang llvm
 
-      # The Qt headers Sonar parses live under bazel-out/.../_virtual_includes;
-      # the coverage config downloads them even when the build is a cache hit.
       - id: coverage
         name: Build and run tests with coverage
         run: bazel coverage --config=coverage //...
@@ -73,6 +71,9 @@ jobs:
             --root "$GITHUB_WORKSPACE" \
             --output-dir "$GITHUB_WORKSPACE/coverage"
 
+      # The Qt headers Sonar parses live under bazel-out/.../_virtual_includes;
+      # build:sonar_inputs (bazel/coverage.bazelrc) downloads them even when
+      # the build is a cache hit.
       - name: Prepare configured scanner inputs
         run: bazel run --config=sonar_inputs //:sonar_inputs
 

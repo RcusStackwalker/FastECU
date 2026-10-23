@@ -219,8 +219,10 @@ against [sonar-project.properties](../sonar-project.properties). To reproduce
 it locally, install `sonar-scanner`, then mirror CI:
 
 ```sh
-bazel coverage --config=coverage //...
-bazel run //tools/sonar:coverage_report -- --lcov "$(bazel info --config=coverage output_path)/_coverage/_coverage_report.dat" --root "$PWD" --output-dir coverage
+# macOS only: Xcode's LLVM tools are not on PATH.
+MAC="--repo_env=GCOV=$(xcrun -f llvm-profdata) --repo_env=BAZEL_LLVM_COV=$(xcrun -f llvm-cov)"
+bazel coverage --config=coverage $MAC //...
+bazel run //tools/sonar:coverage_report -- --lcov "$(bazel info --config=coverage $MAC output_path)/_coverage/_coverage_report.dat" --root "$PWD" --output-dir coverage
 bazel run --config=sonar_inputs //:sonar_inputs
 sonar-scanner -Dsonar.token=$SONAR_TOKEN
 ```

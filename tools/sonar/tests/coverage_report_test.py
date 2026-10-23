@@ -40,6 +40,19 @@ class CoverageReportTest(unittest.TestCase):
             records = {path: report.FileCoverage({1: 1}, {}) for path in paths}
             self.assertEqual(list(report.select_files(records, root, report.IGNORE)), ["src/a.cpp"])
 
+    def test_drops_paths_escaping_the_checkout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "checkout"
+            root.mkdir()
+            (root / "src").mkdir()
+            (root / "src/a.cpp").write_text("")
+            (Path(tmp) / "outside").mkdir()
+            (Path(tmp) / "outside/x.cpp").write_text("")
+            records = {
+                path: report.FileCoverage({1: 1}, {}) for path in ["src/a.cpp", "../outside/x.cpp"]
+            }
+            self.assertEqual(list(report.select_files(records, root, report.IGNORE)), ["src/a.cpp"])
+
     def test_generic_xml_is_exact(self):
         records = {"src/a.cpp": report.FileCoverage({1: 3, 2: 0}, {1: (2, 1)})}
         self.assertEqual(
