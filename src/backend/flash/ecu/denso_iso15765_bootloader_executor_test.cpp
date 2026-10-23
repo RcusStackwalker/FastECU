@@ -108,7 +108,8 @@ TEST(DensoIso15765BootloaderDialect, DumpAndBlockWriteLogsBlockOneAndItsAddress)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     const auto run = ExecutorRun<SubaruDensoSh72531CanExecutor>(*plan, transport);
 
-    EXPECT_FALSE(run.result.has_value());
+    // The first unscripted 0xB6 chunk write is the scripted transport's kInternal.
+    EXPECT_THAT(run.result, fastecu::testing::IsErr(ErrorKind::kInternal));
     EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "Blocks to flash: 1,  (total: 1)")));
     EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "Flash block addr: 0x00008000 len: 0x00137F00")));
 }
@@ -156,7 +157,8 @@ TEST(DensoIso15765BootloaderDialect, StartAndLengthWriteLogsBlockZeroAndItsRegio
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     const auto run = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
 
-    EXPECT_FALSE(run.result.has_value());
+    // The first unscripted 0xB6 chunk write is the scripted transport's kInternal.
+    EXPECT_THAT(run.result, fastecu::testing::IsErr(ErrorKind::kInternal));
     EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "Blocks to flash: 0,  (total: 1)")));
     EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "Setting flash start: 0x8000 and length: 0x1f7f00")));
     EXPECT_THAT(run.events.logs,

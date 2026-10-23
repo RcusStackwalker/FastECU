@@ -193,8 +193,8 @@ Status TolerantSetup(const Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expect
         LogError(ctx, "No valid response from ECU");
         return {};
     }
-    const bytes::Bytes& frame = **received;
-    if (!std::equal(expected_prefix.begin(), expected_prefix.end(), frame.begin()))
+    if (const bytes::Bytes& frame = **received;
+        !std::equal(expected_prefix.begin(), expected_prefix.end(), frame.begin()))
     {
         LogError(ctx, std::format("{}{}", kDensoIso15765RejectionPrefix, bytes::ToHex(frame)));
     }
@@ -265,7 +265,8 @@ Status ReflashBlock(const Ctx& ctx, const Profile& profile, bytes::ByteView imag
 Status WriteMemory(const Ctx& ctx, const Profile& profile, bytes::ByteView image, const MemoryRegion& block,
                    PhaseSequence& phases)
 {
-    return DensoIso15765WriteBlock(ctx, block, profile.write_block_index, phases, [&](PhaseReporter& write)
+    return DensoIso15765WriteBlock(ctx, block, profile.write_block_index, phases,
+                                   [&ctx, &profile, image, &block](PhaseReporter& write)
                                    { return ReflashBlock(ctx, profile, image, block, write); });
 }
 
