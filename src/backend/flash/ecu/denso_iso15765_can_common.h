@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <chrono>
 #include <cstdint>
 #include <format>
@@ -8,7 +7,6 @@
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/denso_iso15765_bootloader_profile.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
@@ -22,24 +20,9 @@ namespace fastecu::flash
 // The dialect's rejection log prefix, legacy's "Wrong response from ECU: ".
 inline constexpr std::string_view kDensoIso15765RejectionPrefix = "Wrong response from ECU: ";
 
-// The SSM seed/key and payload crypto constants shared by the Denso
-// ISO-15765 CAN executors. The bootloader-dialect consumer is
-// DensoIso15765BootloaderExecutor, for the N83M 1.5M, N83M 4M, SH72531 and
-// SH72543 diesel families. The BEEF-dialect consumers are SubaruTcuDensoSh705xCanExecutor,
-// SubaruDensoSh7058CanExecutor and SubaruDensoSh7058CanDieselExecutor.
-//
-// Each cluster was ported standalone, with duplication tolerated, so that
-// factoring happened only after the finished executors and their independent
-// characterization tests were visible. Direct comparison proved that the
-// seed/key table, encrypt table and index transformation are byte-identical
-// across all seven consumers. The three BEEF-dialect consumers use those shared
-// values for the stock security flow and kernel upload; their normal-ROM
-// BEEF payloads remain raw, so none consumes the decrypt table for ROM reads.
-// The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
-// DensoCAN is not a consumer of this data-only cluster.
-//
-// Beyond these tables, the common module shares eleven operations across the
-// four bootloader-dialect families:
+// The common module shares eleven operations across the four
+// bootloader-dialect families (the seed/key and payload tables they use are
+// in denso_iso15765_crypto.h):
 // - setup-PDU encoding;
 // - the SecurityAccess seed/key exchange;
 // - the erase flow;
@@ -71,62 +54,6 @@ inline constexpr std::string_view kDensoIso15765RejectionPrefix = "Wrong respons
 //
 // Executors that log their own rejections use kDensoIso15765RejectionPrefix.
 //
-// Scope note: the index transformation these tables are paired with is NOT
-// here. It is not specific to this cluster -- it was spelled out at fourteen
-// production call sites across this package and src/backend/flash/eeprom --
-// and now lives in src/algorithms/protocol/ssm as
-// SsmProtocol::kIndexTransformationStock, next to the ECUTEK variant it is
-// nearly identical to. Only the key-to-generate-index tables below, which
-// are genuinely per-family protocol data, remain here.
-//
-// The executor test suites do NOT read these constants back: each carries
-// literal wire expectations transcribed independently from its legacy oracle,
-// so a wrong entry here fails those suites rather than passing silently. Keep
-// it that way.
-
-// generate_can_seed_key's key-to-generate-index table (legacy
-// flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp lines 1474-1479 and the
-// corresponding lines of the SH72531, SH72543 diesel and 1N83M 4M sources),
-// confirmed byte-identical across all seven consumers by direct comparison.
-inline constexpr std::array<std::uint16_t, 16> kDensoIso15765SeedKeyTable{
-    0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4, 0xFD21, 0x5E71,
-    0xB046, 0x7F4A, 0x4B75, 0x93F9, 0x1895, 0x8961, 0x3ECC, 0x862B};
-
-// encrypt_payload's key-to-generate-index table, used for padded kernel-upload
-// payloads (and the applicable existing bootloader-dialect paths). Byte-identical across
-// all seven consumers.
-inline constexpr std::array<std::uint16_t, 4> kDensoIso15765EncryptTable{0xC85B, 0x32C0, 0xE282, 0x92A0};
-
-// decrypt_payload's key-to-generate-index table, used by the applicable bootloader-dialect
-// normal-ROM dump paths. It is kDensoIso15765EncryptTable exactly reversed --
-// calculatePayload's Feistel structure inverts by reversing key order -- but
-// it is spelled out rather than derived, because that is how the applicable
-// legacy sources spell it and a derived table would hide a future divergence.
-// No BEEF-dialect normal-ROM BEEF path consumes this table.
-inline constexpr std::array<std::uint16_t, 4> kDensoIso15765DecryptTable{0x92A0, 0xE282, 0x32C0, 0xC85B};
-
-// The three SsmProtocol calls that bind the tables above. All four cluster
-// members and the applicable BEEF-dialect families carried these byte-for-byte;
-// they are pure table-to-algorithm adapters with no protocol sequence in them.
-
-// generate_can_seed_key().
-inline bytes::Bytes DensoSeedKey(bytes::ByteView seed)
-{
-    return ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, ssm_protocol::kStockPairTable);
-}
-
-// encrypt_payload(), run once over the whole image before a flash write.
-inline bytes::Bytes DensoEncryptRom(bytes::ByteView image)
-{
-    return ssm_protocol::CalculatePayload(image, kDensoIso15765EncryptTable, ssm_protocol::kStockPairTable);
-}
-
-// decrypt_payload(), run per 256-byte page as a dump arrives.
-inline bytes::Bytes DensoDecryptPage(bytes::ByteView page)
-{
-    return ssm_protocol::CalculatePayload(page, kDensoIso15765DecryptTable, ssm_protocol::kStockPairTable);
-}
-
 // Pure setup encoding shared by the N83M 1.5M/4M, SH72531 and SH72543 diesel
 // bootloader executors: RequestDownload (34) or RequestUpload (35), 04 44,
 // then four-byte big-endian start and length. Region fields pass through
@@ -203,23 +130,6 @@ Status DensoIso15765JumpToKernel(const CanExecutorContext& ctx, bytes::Byte sess
                                  std::chrono::milliseconds first_read_timeout,
                                  std::chrono::milliseconds loop_read_timeout, bool discard_first_reply);
 
-// Sends `pdu`, reads one reply, and compares its first two bytes. A mismatch
-// is LOGGED AND TOLERATED -- the frame is still returned and the caller
-// decides -- which is what legacy does at these sites; only an absent or
-// too-short reply is fatal. Callers that read further into the returned frame
-// must length-check it themselves: this only guarantees two bytes.
-//
-// `timeout` is a parameter, not a cluster constant: three members probe with
-// their short timeout and subaru_denso_sh72543_can_diesel probes with its long
-// one. Collapsing that difference is exactly what this file's header comment
-// warns against.
-//
-// Not specific to this cluster in principle, but shared here because these
-// four are the families that provably share it.
-Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
-                                   bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
-                                   std::string_view rejection_prefix, std::string_view subject);
-
 // connect_bootloader's OBK-already-active probe: 10 5F through the channel,
 // one read at 200 ms. True when the reply starts 50 5F, after logging
 // `active_log` (the families differ only in that wording). A mismatch, an
@@ -241,13 +151,6 @@ void DensoVehicleInfoQueries(const CanExecutorContext& ctx);
 // 0xFF. A selector reply shorter than four bytes fails rather than reading out
 // of bounds, which legacy would do.
 Result<bool> DensoProgrammingBranchIsInCar(const CanExecutorContext& ctx, std::chrono::milliseconds probe_timeout);
-
-// Sends `pdu` to `request_id` and reads one reply only to discard it: the
-// in-car arm's opening run of session/DTC/communication-control exchanges
-// whose answers legacy never inspects. The reply is read from `can` directly,
-// so the channel's response id is never consulted.
-Status FireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can, std::uint32_t request_id,
-                     bytes::ByteView pdu, std::chrono::milliseconds timeout);
 
 // The bootloader dialect's SecurityAccess exchange: request the level-0x61 seed, derive the
 // key from its four payload bytes with denso_seed_key, send it at level 0x62.

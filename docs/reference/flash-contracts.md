@@ -100,6 +100,9 @@ identity queries, access-method probe and branch selector), and the
 single-block `write_memory` body (block-count log, erase, then the family's
 own reflash under the write phase), plus the dialect's `FatalQuery` prefix. Its header
 documents each operation.
+The seed/key and payload tables it uses, which the BEEF CAN dialect uses too,
+are [shared protocol data](../../src/backend/flash/ecu/denso_iso15765_crypto.h)
+in a library of their own.
 
 One [dialect executor](../../src/backend/flash/ecu/denso_iso15765_bootloader_executor.h)
 runs all four families in the same order. It owns read setup, the identity

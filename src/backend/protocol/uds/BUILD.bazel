@@ -15,6 +15,7 @@ cc_library(
     ],
     implementation_deps = ["//src/algorithms/protocol/uds"],
     deps = [
+        ":exchange_policy",
         "//src/algorithms/protocol",
         "//src/backend/ports",
     ],
@@ -33,4 +34,9 @@ fastecu_portable_gtest(
         "//src/backend/protocol/uds/testing:scripted_uds_channel",
         "@googletest//:gtest",
     ],
+)
+
+cc_library(
+    name = "exchange_policy",
+    hdrs = ["exchange_policy.h"],
 )
