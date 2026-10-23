@@ -13,9 +13,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <array>
 #include <cstdint>
-#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -23,9 +21,7 @@
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_plan.h"
-#include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
@@ -39,7 +35,6 @@ namespace
 {
 using namespace std::chrono_literals;
 using fastecu::ErrorKind;
-using fastecu::FakeClock;
 using fastecu::LogLevel;
 using fastecu::RecordingClock;
 using fastecu::RecordingEventSink;
@@ -57,12 +52,6 @@ using testing::Contains;
 using testing::Each;
 using testing::IsEmpty;
 using testing::Pair;
-
-// Records every ctx.clock.sleep() argument so the executor's inter-exchange
-// settles can be asserted as a sequence. Same shape as the recording clocks in
-// subaru_denso_sh7055_02_executor_test.cpp and
-// subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp: a
-// FakeClock with one extra hook, so no fake or port changes shape.
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_sh72531_can";
 constexpr std::string_view kMcu = "SH72531";
