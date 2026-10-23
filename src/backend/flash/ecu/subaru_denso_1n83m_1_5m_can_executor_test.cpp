@@ -8,7 +8,6 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
-#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -22,7 +21,6 @@
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
-#include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
@@ -74,16 +72,11 @@ fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operatio
         SubaruDenso1n83m_1_5mCanPlan{0x7e0, 0x7e8, 500000, false, 0x10000, 0x100});
 }
 
-void ScriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte, int probe_case = 0)
-{
-    fastecu::flash::testing::ScriptDensoPreliminaries(t, branch_byte, probe_case);
-}
-
 // The bench arm.
 void ScriptBenchConnect(ScriptedCanFlashTransport& t, int probe_case = 0)
 {
     const auto section = t.Section("bench connect");
-    ScriptPreliminaries(t, 0xFF, probe_case);
+    ScriptDensoPreliminaries(t, 0xFF, probe_case);
     t.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
     t.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
     t.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
@@ -120,7 +113,7 @@ void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
 void ScriptInCarConnect(ScriptedCanFlashTransport& t, int jump_outcome = 0)
 {
     const auto section = t.Section("in-car connect");
-    ScriptPreliminaries(t, 0x00);
+    ScriptDensoPreliminaries(t, 0x00);
 
     t.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01})); // mismatch logs only
 
@@ -381,7 +374,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, NegativeResponseDuringConnectFails)
     // must abort rather than be logged and stepped over. The bench connect is
     // the dialect's, so this case stands for all four families.
     ScriptedCanFlashTransport transport;
-    ScriptPreliminaries(transport, 0xFF);
+    ScriptDensoPreliminaries(transport, 0xFF);
     transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
     transport.Exchange(Request({0x27, 0x61}), Response({0x7F, 0x27, 0x35}));
 
@@ -554,7 +547,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIs
 TEST(SubaruDenso1n83m_1_5mCanExecutor, BenchJumpExhaustionPreservesReadCountAndTiming)
 {
     ScriptedCanFlashTransport transport;
-    ScriptPreliminaries(transport, 0xFF);
+    ScriptDensoPreliminaries(transport, 0xFF);
     transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
     transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
     transport.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
@@ -614,32 +607,8 @@ INSTANTIATE_TEST_SUITE_P(ChecksumOutcomes, SubaruDenso1n83m_1_5mCanExecutorWrite
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, IdentityExchangeFailuresIncludingCancellationAreNonFatal)
 {
-    for (const auto error : {ErrorKind::kDisconnected, ErrorKind::kCancelled})
-    {
-        SCOPED_TRACE(::testing::PrintToString(error));
-        ScriptedCanFlashTransport transport;
-        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
-        transport.Exchange(Request({0xAA}));
-        transport.QueueError(error, "identity failure");
-        for (const bytes::Byte subfunction : {0x02, 0x04, 0x06})
-        {
-            transport.Exchange(Request({0x09, subfunction}));
-            transport.QueueError(error, "identity failure");
-        }
-        transport.Exchange(Request({0x10, 0x5F}));
-        transport.QueueError(ErrorKind::kTimeout, "stop after identities");
-        RecordingClock clock;
-        RecordingEventSink events;
-        fastecu::ManualCancellationToken cancellation;
-        SubaruDenso1n83m_1_5mCanExecutor executor;
-        const auto plan = ReadPlan();
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                    fastecu::testing::IsErr(ErrorKind::kTimeout));
-        EXPECT_TRUE(transport.ScriptConsumed());
-        EXPECT_EQ(transport.ReadTimeouts(),
-                  (std::vector<std::chrono::milliseconds>{200ms, 2000ms, 2000ms, 2000ms, 2000ms, 200ms}));
-    }
+    fastecu::flash::testing::ExpectIdentityFailuresAreNonFatal<SubaruDenso1n83m_1_5mCanExecutor>(
+        &ReadPlan, {0xAA}, {200ms, 2000ms, 2000ms, 2000ms, 2000ms, 200ms});
 }
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy)

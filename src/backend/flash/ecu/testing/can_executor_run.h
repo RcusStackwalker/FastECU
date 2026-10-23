@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -337,6 +338,37 @@ inline bytes::Bytes PatternedRom(std::size_t size)
         rom[i] = static_cast<bytes::Byte>((i ^ (i >> 8) ^ (i >> 16)) & 0xFF);
     }
     return rom;
+}
+
+// A failed identity exchange, even a cancelled one, is logged and stepped over:
+// the run goes on to the access-method probe, here scripted to time out.
+// `ecu_id_request` is the family's ECU id query and `timeouts` the read
+// timeouts it expects, from the OBK probe to the access-method probe.
+template <typename Executor, typename MakePlan>
+void ExpectIdentityFailuresAreNonFatal(MakePlan make_plan, std::initializer_list<bytes::Byte> ecu_id_request,
+                                       const std::vector<std::chrono::milliseconds>& timeouts)
+{
+    for (const auto error : {ErrorKind::kDisconnected, ErrorKind::kCancelled})
+    {
+        SCOPED_TRACE(::testing::PrintToString(error));
+        ScriptedCanFlashTransport transport;
+        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
+        transport.Exchange(Request(ecu_id_request));
+        transport.QueueError(error, "identity failure");
+        for (const bytes::Byte subfunction : {0x02, 0x04, 0x06})
+        {
+            transport.Exchange(Request({0x09, subfunction}));
+            transport.QueueError(error, "identity failure");
+        }
+        transport.Exchange(Request({0x10, 0x5F}));
+        transport.QueueError(ErrorKind::kTimeout, "stop after identities");
+        const auto plan = make_plan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        auto [clock, events, cancellation, result] = ExecutorRun<Executor>(*plan, transport);
+        EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_EQ(transport.ReadTimeouts(), timeouts);
+    }
 }
 
 // The scripting members CanExecutorConformance expects of a family's Traits,

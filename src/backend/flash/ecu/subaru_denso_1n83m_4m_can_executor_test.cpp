@@ -29,7 +29,6 @@
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
-#include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
@@ -84,11 +83,6 @@ fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operatio
         SubaruDenso1n83m_4mCanPlan{0x7e0, 0x7e8, 500000, false, 0x10000, 0x100});
 }
 
-void ScriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte, int probe_case = 0)
-{
-    fastecu::flash::testing::ScriptDensoPreliminaries(t, branch_byte, probe_case);
-}
-
 // The same preliminaries with every reply the family tolerates made bad: the
 // four identity queries answered with NRCs, then the two checks whose `return
 // STATUS_ERROR` is commented out -- the access-method probe and the branch
@@ -122,10 +116,10 @@ void ScriptBenchConnectTail(ScriptedCanFlashTransport& t)
 }
 
 // The bench arm.
-void ScriptBenchConnect(ScriptedCanFlashTransport& t, int probe_case = 0)
+void ScriptBenchConnect(ScriptedCanFlashTransport& t)
 {
     const auto section = t.Section("bench connect");
-    ScriptPreliminaries(t, 0xFF, probe_case);
+    ScriptDensoPreliminaries(t, 0xFF);
     ScriptBenchConnectTail(t);
 }
 
@@ -181,7 +175,7 @@ void ScriptReadSetupWithMissingThenWrongReply(ScriptedCanFlashTransport& t)
 // where this family's copy of the shared conformance script stops instead.
 void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
 {
-    ScriptPreliminaries(t, 0xFF);
+    ScriptDensoPreliminaries(t, 0xFF);
     const auto section = t.Section("bench connect tail (first fatal request only)");
     t.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
     t.Exchange(Request({0x27, 0x61}));
@@ -241,7 +235,7 @@ void ScriptInCarConnectTail(ScriptedCanFlashTransport& t, bytes::Byte probe_serv
 void ScriptInCarConnect(ScriptedCanFlashTransport& t, int jump_outcome = 0)
 {
     const auto section = t.Section("in-car connect");
-    ScriptPreliminaries(t, 0x00);
+    ScriptDensoPreliminaries(t, 0x00);
     ScriptInCarConnectTail(t, 0x50, 0x01, jump_outcome);
 }
 
@@ -376,7 +370,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedInCarProbeAndDumpSetup
     // cut short with a transport error, so reaching the 0xB7 sweep at all is
     // the proof the setup checks did not abort.
     ScriptedCanFlashTransport transport;
-    ScriptPreliminaries(transport, 0x00);
+    ScriptDensoPreliminaries(transport, 0x00);
     ScriptInCarConnectTail(transport, 0x50, 0x02); // wrong subfunction, tolerated
     ScriptReadSetupWithMissingThenWrongReply(transport);
     transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
@@ -529,7 +523,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIsBe
 TEST(SubaruDenso1n83m_4mCanExecutor, BenchJumpExhaustionPreservesReadCountAndTiming)
 {
     ScriptedCanFlashTransport transport;
-    ScriptPreliminaries(transport, 0xFF);
+    ScriptDensoPreliminaries(transport, 0xFF);
     transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
     transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
     transport.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
@@ -591,32 +585,8 @@ INSTANTIATE_TEST_SUITE_P(ChecksumOutcomes, SubaruDenso1n83m_4mCanExecutorWrite, 
 
 TEST(SubaruDenso1n83m_4mCanExecutor, IdentityExchangeFailuresIncludingCancellationAreNonFatal)
 {
-    for (const auto error : {ErrorKind::kDisconnected, ErrorKind::kCancelled})
-    {
-        SCOPED_TRACE(::testing::PrintToString(error));
-        ScriptedCanFlashTransport transport;
-        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
-        transport.Exchange(Request({0xAA}));
-        transport.QueueError(error, "identity failure");
-        for (const bytes::Byte subfunction : {0x02, 0x04, 0x06})
-        {
-            transport.Exchange(Request({0x09, subfunction}));
-            transport.QueueError(error, "identity failure");
-        }
-        transport.Exchange(Request({0x10, 0x5F}));
-        transport.QueueError(ErrorKind::kTimeout, "stop after identities");
-        RecordingClock clock;
-        RecordingEventSink events;
-        fastecu::ManualCancellationToken cancellation;
-        SubaruDenso1n83m_4mCanExecutor executor;
-        const auto plan = ReadPlan();
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                    fastecu::testing::IsErr(ErrorKind::kTimeout));
-        EXPECT_TRUE(transport.ScriptConsumed());
-        EXPECT_EQ(transport.ReadTimeouts(),
-                  (std::vector<std::chrono::milliseconds>{200ms, 2000ms, 2000ms, 2000ms, 2000ms, 200ms}));
-    }
+    fastecu::flash::testing::ExpectIdentityFailuresAreNonFatal<SubaruDenso1n83m_4mCanExecutor>(
+        &ReadPlan, {0xAA}, {200ms, 2000ms, 2000ms, 2000ms, 2000ms, 200ms});
 }
 
 TEST(SubaruDenso1n83m_4mCanExecutor, InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy)

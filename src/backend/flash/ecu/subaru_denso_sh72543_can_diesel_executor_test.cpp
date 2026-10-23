@@ -87,17 +87,18 @@ fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operatio
         SubaruDensoSh72543CanDieselPlan{0x7e0, 0x7e8, 500000, false, 0x8000, 0x100});
 }
 
-void ScriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte, int probe_case = 0)
+// This family asks for its ECU id with ReadDataByIdentifier 0xF182.
+void ScriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branch_byte)
 {
-    fastecu::flash::testing::ScriptDensoPreliminaries(t, branch_byte, probe_case, true);
+    ScriptDensoPreliminaries(t, branch_byte, 0, true);
 }
 
 // The bench arm. Its kernel jump reads once before the loop, where the SH72531
 // sibling reads twice.
-void ScriptBenchConnect(ScriptedCanFlashTransport& t, int probe_case = 0)
+void ScriptBenchConnect(ScriptedCanFlashTransport& t)
 {
     const auto section = t.Section("bench connect");
-    ScriptPreliminaries(t, 0xFF, probe_case);
+    ScriptPreliminaries(t, 0xFF);
     t.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
     t.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
     t.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
@@ -630,32 +631,8 @@ INSTANTIATE_TEST_SUITE_P(ChecksumOutcomes, SubaruDensoSh72543CanDieselExecutorWr
 
 TEST(SubaruDensoSh72543CanDieselExecutor, IdentityExchangeFailuresIncludingCancellationAreNonFatal)
 {
-    for (const auto error : {ErrorKind::kDisconnected, ErrorKind::kCancelled})
-    {
-        SCOPED_TRACE(::testing::PrintToString(error));
-        ScriptedCanFlashTransport transport;
-        transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
-        transport.Exchange(Request({0x22, 0xF1, 0x82}));
-        transport.QueueError(error, "identity failure");
-        for (const bytes::Byte subfunction : {0x02, 0x04, 0x06})
-        {
-            transport.Exchange(Request({0x09, subfunction}));
-            transport.QueueError(error, "identity failure");
-        }
-        transport.Exchange(Request({0x10, 0x5F}));
-        transport.QueueError(ErrorKind::kTimeout, "stop after identities");
-        RecordingClock clock;
-        RecordingEventSink events;
-        fastecu::ManualCancellationToken cancellation;
-        SubaruDensoSh72543CanDieselExecutor executor;
-        const auto plan = ReadPlan();
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                    fastecu::testing::IsErr(ErrorKind::kTimeout));
-        EXPECT_TRUE(transport.ScriptConsumed());
-        EXPECT_EQ(transport.ReadTimeouts(),
-                  (std::vector<std::chrono::milliseconds>{200ms, 2000ms, 2000ms, 2000ms, 2000ms, 2000ms}));
-    }
+    fastecu::flash::testing::ExpectIdentityFailuresAreNonFatal<SubaruDensoSh72543CanDieselExecutor>(
+        &ReadPlan, {0x22, 0xF1, 0x82}, {200ms, 2000ms, 2000ms, 2000ms, 2000ms, 2000ms});
 }
 
 TEST(SubaruDensoSh72543CanDieselExecutor, InCarJumpExhaustionAndCancellationPreserveTimeoutPolicy)
