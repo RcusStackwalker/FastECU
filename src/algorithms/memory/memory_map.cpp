@@ -131,7 +131,8 @@ AddressRange<FlashSpace> MemoryMap::Span() const
 
 ByteCount MemoryMap::FileSize() const
 {
-    return file_size_;
+    const ByteCount size = file_size_;
+    return size;
 }
 
 FlashAddress MemoryMap::DefinitionBase() const
