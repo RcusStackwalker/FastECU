@@ -16,8 +16,9 @@ constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_sh72531_can"}};
 // arguments (lines 828-830) and the 0x34/0x35 setup PDUs spell out literally
 // (lines 844-854, 881-891).
 constexpr MemoryRegion kMainBlock{0x00008000, 0x00137F00};
-constexpr std::uint32_t kImageStart = 0x00000000; // fblocks[0].start
-constexpr std::uint32_t kImageSize = 0x140000;    // fblocks[0..2] summed, and SH72531's own romsize
+constexpr std::uint32_t kImageStart =
+    DensoIso15765BootloaderProfileOf<SubaruDensoSh72531CanPlan>::kValue.image_start; // fblocks[0].start
+constexpr std::uint32_t kImageSize = 0x140000; // fblocks[0..2] summed, and SH72531's own romsize
 constexpr std::uint32_t kLeadPad = 0x8000;
 constexpr std::uint32_t kTailPad = 0x100;
 

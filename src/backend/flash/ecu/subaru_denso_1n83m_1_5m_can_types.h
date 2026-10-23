@@ -1,5 +1,8 @@
 #pragma once
+#include <chrono>
 #include <cstdint>
+
+#include "src/backend/flash/ecu/denso_iso15765_bootloader_profile.h"
 
 namespace fastecu::flash
 {
@@ -16,6 +19,50 @@ struct SubaruDenso1n83m_1_5mCanPlan
     bool extended_id;           // false
     std::uint32_t lead_pad_len; // 0x10000, prepended to a read image as 0xFF
     std::uint32_t tail_pad_len; // 0x100, appended to a read image as 0xFF
+};
+
+// The family's dialect profile. Citations are lines of
+// flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp as of 20892df.
+template <> struct DensoIso15765BootloaderProfileOf<SubaruDenso1n83m_1_5mCanPlan>
+{
+    static constexpr DensoIso15765BootloaderProfile kValue{
+        .log_name = "Denso 1N83M 1.5MB",
+        .family_name = "Subaru Denso 1N83M 1.5M CAN",
+        .obk_active_log = "OBK is active", // OBK probe, lines 105-127
+        .identity_query = DensoIdentityQuery::kEcuIdService,
+        // The tolerant probes in connect_bootloader (lines 283-341) read with
+        // serial_read_short_timeout (header lines 44-47).
+        .probe_timeout = std::chrono::milliseconds{200},
+        .in_car_run = DensoInCarRun::kN83m,
+        .in_car_timeout = std::chrono::milliseconds{200},
+        // The bench arm reads once after the kernel jump: no discarded reply.
+        .bench = {.settle = std::chrono::milliseconds{500},
+                  .session_reply = DensoReplyKind::kFatal,
+                  .session_timeout = std::chrono::milliseconds{200},
+                  .jump_first_read = std::chrono::milliseconds{200},
+                  .jump_loop_read = std::chrono::milliseconds{200},
+                  .discard_first_reply = false},
+        // Lines 835-917: both dump-setup exchanges are fatal on a mismatch and
+        // on an absent reply, read at serial_read_short_timeout.
+        .read_setup_reply = DensoReplyKind::kFatal,
+        .read_setup_policy = {.read_timeout = std::chrono::milliseconds{200}},
+        .pace_pages = false,
+        .region_log = DensoRegionLog::kDumpAndBlock,
+        // write_memory (lines 1082-1160): block_modified is {0, 1, 0} over
+        // numblocks == 3, so fblocks[1] -- the plan's transfer region -- is the
+        // one block erased and reflashed.
+        .write_block_index = 1,
+        // Checksum verify reads twice with receive_timeout: the first read at
+        // line 1308 and, after the ECU's 7F 31 78 pending answer, the re-read
+        // at line 1329. UdsClient's 3000 ms pending default is not this
+        // family's number, so the policy pins it to 500 as well.
+        .checksum_policy = {.read_timeout = std::chrono::milliseconds{500},
+                            .pending_timeout = std::chrono::milliseconds{500}},
+        // kFlashBlocksN83M_1_5MB[0].start -- reflash_block indexes the image as
+        // newdata[i + blockaddr - fdt->fblocks[0].start] (line 1225), so byte 0
+        // of the plan image is this address.
+        .image_start = 0x08F9C000,
+    };
 };
 
 } // namespace fastecu::flash
