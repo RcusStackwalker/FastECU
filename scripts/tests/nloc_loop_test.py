@@ -277,13 +277,13 @@ class HostFilesTest(unittest.TestCase):
         )
 
 
-def coverage_report(root: Path, files: dict[str, dict[int, str]]) -> str:
-    """`llvm-cov show` output after coverage-local.sh rewrote headers to absolute paths."""
-    sections = []
+def lcov_report(files: dict[str, dict[int, int]]) -> str:
+    """The combined lcov report `bazel coverage --config=coverage` writes."""
+    records = []
     for path, lines in files.items():
-        body = "".join(f"{n:>5}|{count:>7}|  code\n" for n, count in sorted(lines.items()))
-        sections.append(f"{root / path}:\n{body}")
-    return "\n".join(sections)
+        hits = "".join(f"DA:{n},{count}\n" for n, count in sorted(lines.items()))
+        records.append(f"SF:{path}\nFNF:0\nFNH:0\n{hits}LH:0\nLF:0\nend_of_record\n")
+    return "".join(records)
 
 
 def gtest_xml(*cases: str) -> str:
@@ -302,26 +302,60 @@ _BAZEL = '<testcase name="//:py_test" status="run" duration="1" time="1"></testc
 
 class CoverageParseTest(unittest.TestCase):
     def test_covered_and_executable_lines(self) -> None:
-        report = coverage_report(_ROOT, {_PROD: {1: "", 2: "3", 3: "0", 4: "10.2k", 5: "1.5M"}})
+        report = lcov_report({_PROD: {1: 3, 2: 0, 3: 10}})
         self.assertEqual(
             nl.parse_coverage(report, _ROOT),
             {
                 _PROD: nl.FileCoverage(
-                    covered=frozenset({2, 4, 5}), executable=4, uncovered=frozenset({3})
+                    covered=frozenset({1, 3}), executable=3, uncovered=frozenset({2})
                 )
             },
         )
 
-    def test_ignores_instantiation_subviews(self) -> None:
-        report = (
-            coverage_report(_ROOT, {_PROD: {1: "2"}})
-            + "  ------------------\n  | f.cpp:_Z1fv:\n  |    7|      0|  code\n"
-        )
-        self.assertEqual(nl.parse_coverage(report, _ROOT)[_PROD].executable, 1)
+    def test_accepts_absolute_paths_inside_the_root(self) -> None:
+        report = lcov_report({str(_ROOT / _PROD): {1: 1}})
+        self.assertEqual(list(nl.parse_coverage(report, _ROOT)), [_PROD])
 
     def test_rejects_sections_outside_the_root(self) -> None:
         with self.assertRaisesRegex(nl.NlocLoopError, "outside"):
-            nl.parse_coverage("/elsewhere/a.cpp:\n    1|      1|  code\n", _ROOT)
+            nl.parse_coverage(lcov_report({"/elsewhere/a.cpp": {1: 1}}), _ROOT)
+
+
+def bep_test_result(label: str, xml_uri: str) -> str:
+    """One `testResult` event of a --build_event_json_file."""
+    event = {
+        "id": {"testResult": {"label": label, "run": 1, "shard": 1, "attempt": 1}},
+        "testResult": {
+            "testActionOutput": [
+                {"name": "test.log", "uri": xml_uri.replace("test.xml", "test.log")},
+                {"name": "test.xml", "uri": xml_uri},
+            ],
+            "status": "PASSED",
+        },
+    }
+    return json.dumps(event) + "\n"
+
+
+class BuildEventTest(unittest.TestCase):
+    def test_test_xml_paths_from_bep(self) -> None:
+        bep = (
+            json.dumps({"id": {"started": {}}, "started": {}})
+            + "\n"
+            + bep_test_result("//src/a:a_test", "file:///out/testlogs/src/a/a_test/test.xml")
+            + bep_test_result("//src/b:b_test", "file:///out/testlogs/src/b/b%20test/test.xml")
+        )
+        self.assertEqual(
+            nl.test_xml_paths(bep),
+            [
+                Path("/out/testlogs/src/a/a_test/test.xml"),
+                Path("/out/testlogs/src/b/b test/test.xml"),
+            ],
+        )
+
+    def test_test_xml_paths_rejects_remote_uri(self) -> None:
+        bep = bep_test_result("//src/a:a_test", "bytestream://cache/blobs/abc/1")
+        with self.assertRaisesRegex(nl.NlocLoopError, "//src/a:a_test"):
+            nl.test_xml_paths(bep)
 
 
 class TestCaseCountTest(unittest.TestCase):
@@ -413,6 +447,16 @@ class GuardsTest(unittest.TestCase):
         [lost] = [r for r in nl.check_guards(base, head, "production", [_PROD], hunks) if not r.ok]
         self.assertEqual((lost.name, lost.detail), ("unchanged lines stay covered", f"{_PROD}:4"))
 
+    def test_guards_refuse_mixed_formats(self) -> None:
+        head = snapshot(10, {_PROD: ({1}, 2, {2})})
+        base = nl.Snapshot(head.commit, head.test_cases, head.coverage, "llvm-cov-show")
+        for kind in nl.KINDS:
+            with (
+                self.subTest(kind=kind),
+                self.assertRaisesRegex(nl.NlocLoopError, "retake the base snapshot"),
+            ):
+                nl.check_guards(base, head, kind, [_A])
+
     def test_production_needs_line_tracking_in_both_snapshots(self) -> None:
         old = snapshot(10, {_PROD: ({1}, 4)})
         with self.assertRaisesRegex(nl.NlocLoopError, "re-run `guards snapshot`"):
@@ -473,6 +517,19 @@ class SnapshotTest(unittest.TestCase):
             ):
                 original.save(path)
                 self.assertEqual(nl.Snapshot.load(path), original)
+
+    def test_round_trips_lcov_format(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "s.json"
+            snapshot(10, {_PROD: ({1}, 2, {2})}).save(path)
+            self.assertEqual(json.loads(path.read_text())["format"], "lcov")
+            self.assertEqual(nl.Snapshot.load(path).format, nl.COVERAGE_FORMAT)
+
+    def test_snapshot_without_format_loads_as_llvm_cov_show(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "s.json"
+            path.write_text(json.dumps({"commit": "c0ffee", "test_cases": 1, "coverage": {}}))
+            self.assertEqual(nl.Snapshot.load(path).format, "llvm-cov-show")
 
 
 class PrKindTest(unittest.TestCase):
@@ -601,7 +658,7 @@ class MainTest(unittest.TestCase):
 
     def run_guards(self, *argv: str, coverage=None, git=None) -> tuple[int, str]:
         out = StringIO()
-        report = coverage_report(self.root.resolve(), coverage or {_PROD: {1: "1", 2: "0"}})
+        report = lcov_report(coverage or {_PROD: {1: 1, 2: 0}})
         code = nl.main(
             ["--root", str(self.root), "guards", *argv],
             run_coverage=lambda _root: (report, [gtest_xml(_RUN, _RUN)]),
@@ -634,7 +691,7 @@ class MainTest(unittest.TestCase):
         self.run_guards("snapshot")
         snapshots = self.root / ".nloc-loop" / "snapshots"
         (snapshots / "head.json").rename(snapshots / "base.json")
-        self.run_guards("snapshot", coverage={_PROD: {1: "0", 2: "0"}})
+        self.run_guards("snapshot", coverage={_PROD: {1: 0, 2: 0}})
         code, text = self.run_guards("check", "--kind", "test-only")
         self.assertEqual(code, 1)
         self.assertIn("FAIL covered lines", text)

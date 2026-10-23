@@ -1,37 +1,50 @@
 # The `coverage` and `sonar` configs. Imported by the root .bazelrc.
 
-# Source-based coverage instrumentation for the local llvm-cov pipeline
-# (scripts/coverage-local.sh). Kept separate from `bazel coverage` so the
-# existing llvm-profdata/llvm-cov report format is preserved for SonarCloud
-# and the coverage ratchet.
+# Native `bazel coverage` with LLVM source-based coverage. Bazel's coverage
+# collector merges each test's profile and exports it with llvm-cov, and
+# --combined_report=lcov folds them into one lcov report at
+# $(bazel info --config=coverage output_path)/_coverage/_coverage_report.dat.
+# SonarCloud (via //tools/sonar:coverage_report) and the nloc-loop coverage
+# guards (scripts/nloc_loop.py) both read that report. Test results stay
+# cacheable, so unchanged tests are not rerun.
 build:coverage --compilation_mode=dbg
-build:coverage --copt=-fprofile-instr-generate
-build:coverage --copt=-fcoverage-mapping
-build:coverage --linkopt=-fprofile-instr-generate
-build:coverage --linkopt=-fcoverage-mapping
-# -fprofile-instr-generate/-fcoverage-mapping are LLVM's source-based coverage
-# flags; GCC doesn't understand them. macOS's default `cc` is already Clang,
-# but Linux's default `cc` is GCC, so force Clang explicitly for this config.
+build:coverage --repo_env=BAZEL_USE_LLVM_NATIVE_COVERAGE=1
+build:coverage --repo_env=GCOV=llvm-profdata
+build:coverage --repo_env=BAZEL_LLVM_COV=llvm-cov
+# LLVM source-based coverage (-fprofile-instr-generate/-fcoverage-mapping, which
+# Bazel adds under BAZEL_USE_LLVM_NATIVE_COVERAGE) is Clang-only; GCC doesn't
+# understand those flags. macOS's default `cc` is already Clang, but Linux's
+# default `cc` is GCC, so force Clang explicitly for this config.
 build:coverage --repo_env=CC=clang
 build:coverage --repo_env=CXX=clang++
-# Static linking, because scripts/coverage-local.sh hands llvm-cov the cc_test
-# executables and skips shared libraries. --compilation_mode=dbg above makes
-# Bazel link cc_library targets as .so on Linux (dynamic_mode=default applies
-# to fastbuild and dbg), which put every library's coverage mapping in an
-# object llvm-cov never saw: SonarCloud's report held only headers and test
+# Static linking, so each cc_test executable carries its libraries' coverage
+# mapping when Bazel's collector hands it to llvm-cov. --compilation_mode=dbg
+# above makes Bazel link cc_library targets as .so on Linux (dynamic_mode=default
+# applies to fastbuild and dbg), which put every library's coverage mapping in
+# an object llvm-cov never saw: SonarCloud's report held only headers and test
 # translation units, so new_coverage read 0.0% on any PR that touched a .cpp.
 # macOS links statically already, which is why local reports looked complete.
 build:coverage --dynamic_mode=off
 # Record a relative compilation directory in the coverage mapping. Without it
 # clang records the compiler's CWD -- Bazel's execroot -- and `llvm-cov show`
 # prints each file's section header as <execroot>/src/foo.cpp, an absolute path
-# that is outside sonar.projectBaseDir and that the header rewrite in
-# scripts/coverage-local.sh then prefixes a second time. (`llvm-cov report`
-# prints the mapping name unjoined, so its table stays relative and hides the
-# difference.) With "." the header is workspace-relative on every host, llvm-cov
-# resolves the source against the script's CWD (the repo root), and the rewrite
-# has one well-defined input to turn absolute.
+# that is outside sonar.projectBaseDir. The lcov export inherits the same names,
+# so its SF: records would be execroot-absolute too. With "." every SF: path is
+# workspace-relative on every host, which is what //tools/sonar:coverage_report
+# and scripts/nloc_loop.py resolve against the repo root.
 build:coverage --copt=-ffile-compilation-dir=.
+coverage:coverage --combined_report=lcov
+coverage:coverage --experimental_fetch_all_coverage_outputs
+coverage:coverage --instrumentation_filter=^//(src|apps|resources/shared)[/:]
+coverage:coverage --noinstrument_test_targets
+# Without these, each test's coverage.dat is not lcov. --experimental_use_llvm_covmap
+# requests the toolchain's llvm_coverage_map_format feature: apple_support's
+# macOS toolchain otherwise instruments with gcov (.gcda), which the collector
+# cannot read for Clang. --experimental_generate_llvm_lcov makes the collector
+# run `llvm-cov export -format=lcov` instead of leaving a binary .profdata that
+# --combined_report=lcov silently drops, so every SF: record has no DA: lines.
+coverage:coverage --experimental_use_llvm_covmap
+coverage:coverage --experimental_generate_llvm_lcov
 
 # Keep the launcher and nested extraction in the same configuration. These are
 # the existing Hedron extraction overrides; application builds retain their
@@ -41,3 +54,4 @@ build:sonar_inputs --features=-compiler_param_file
 build:sonar_inputs --features=-layering_check
 build:sonar_inputs --host_features=-compiler_param_file
 build:sonar_inputs --host_features=-layering_check
+build:sonar_inputs --remote_download_regex=.*/_virtual_includes/.*
