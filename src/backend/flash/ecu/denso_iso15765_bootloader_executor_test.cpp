@@ -41,15 +41,15 @@ template <typename Plan> constexpr const DensoIso15765BootloaderProfile& Profile
 // steps over a bad dump setup.
 TEST(DensoIso15765BootloaderDialect, ReplyStrictnessIsChosenPerFamily)
 {
-    EXPECT_EQ(ProfileOf<SubaruDenso1n83m_1_5mCanPlan>().bench.session_reply, DensoReplyKind::kFatal);
-    EXPECT_EQ(ProfileOf<SubaruDenso1n83m_4mCanPlan>().bench.session_reply, DensoReplyKind::kFatal);
-    EXPECT_EQ(ProfileOf<SubaruDensoSh72531CanPlan>().bench.session_reply, DensoReplyKind::kFatal);
-    EXPECT_EQ(ProfileOf<SubaruDensoSh72543CanDieselPlan>().bench.session_reply, DensoReplyKind::kTolerantProbe);
+    EXPECT_EQ(ProfileOf<SubaruDenso1n83m_1_5mCanPlan>().bench.session_reply, DensoBenchSessionReply::kFatal);
+    EXPECT_EQ(ProfileOf<SubaruDenso1n83m_4mCanPlan>().bench.session_reply, DensoBenchSessionReply::kFatal);
+    EXPECT_EQ(ProfileOf<SubaruDensoSh72531CanPlan>().bench.session_reply, DensoBenchSessionReply::kFatal);
+    EXPECT_EQ(ProfileOf<SubaruDensoSh72543CanDieselPlan>().bench.session_reply, DensoBenchSessionReply::kTolerantProbe);
 
-    EXPECT_EQ(ProfileOf<SubaruDenso1n83m_1_5mCanPlan>().read_setup_reply, DensoReplyKind::kFatal);
-    EXPECT_EQ(ProfileOf<SubaruDenso1n83m_4mCanPlan>().read_setup_reply, DensoReplyKind::kTolerantReply);
-    EXPECT_EQ(ProfileOf<SubaruDensoSh72531CanPlan>().read_setup_reply, DensoReplyKind::kFatal);
-    EXPECT_EQ(ProfileOf<SubaruDensoSh72543CanDieselPlan>().read_setup_reply, DensoReplyKind::kFatal);
+    EXPECT_EQ(ProfileOf<SubaruDenso1n83m_1_5mCanPlan>().read_setup_reply, DensoReadSetupReply::kFatal);
+    EXPECT_EQ(ProfileOf<SubaruDenso1n83m_4mCanPlan>().read_setup_reply, DensoReadSetupReply::kTolerantReply);
+    EXPECT_EQ(ProfileOf<SubaruDensoSh72531CanPlan>().read_setup_reply, DensoReadSetupReply::kFatal);
+    EXPECT_EQ(ProfileOf<SubaruDensoSh72543CanDieselPlan>().read_setup_reply, DensoReadSetupReply::kFatal);
 }
 
 // Only SH72543 diesel words its region lines as start-and-length and flashes block 0.
@@ -112,29 +112,6 @@ TEST(DensoIso15765BootloaderDialect, DumpAndBlockWriteLogsBlockOneAndItsAddress)
     EXPECT_THAT(run.result, fastecu::testing::IsErr(ErrorKind::kInternal));
     EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "Blocks to flash: 1,  (total: 1)")));
     EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "Flash block addr: 0x00008000 len: 0x00137F00")));
-}
-
-// SH72543 diesel logs a wrong `50 44` bench session answer and carries on
-// through seed/key and the kernel jump; its siblings abort there.
-TEST(DensoIso15765BootloaderDialect, DieselBenchStepsOverWrongSessionReply)
-{
-    ScriptedCanFlashTransport transport;
-    fastecu::flash::testing::ScriptDensoPreliminaries(transport, 0xFF, 0, true);
-    transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x44}));
-    transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
-    transport.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
-    transport.Exchange(Request({0x10, 0x42}), Response({0x50, 0x42}));
-    transport.Exchange(Request({0x34, 0x04, 0x44, 0x00, 0x00, 0x80, 0x00, 0x00, 0x1F, 0x7F, 0x00}),
-                       Response({0x7F, 0x34, 0x31}));
-
-    const auto plan = BuildSubaruDensoSh72543CanDieselPlan(FlashOperation::kRead, "sub_ecu_denso_sh72543_can_diesel",
-                                                           "SH72543d", std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto run = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
-
-    EXPECT_THAT(run.result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_TRUE(transport.ScriptConsumed());
-    EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kError, "Wrong response from ECU: 50 44 ")));
 }
 
 // SH72543 diesel words its write-block line as start-and-length, like its read

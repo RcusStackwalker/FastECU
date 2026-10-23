@@ -645,7 +645,7 @@ Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBench
     }
     const bytes::Bytes session_pdu{uds::kSidDiagnosticSessionControl, kSessionBench};
     if (Result<bytes::Bytes> session =
-            arm.session_reply == DensoReplyKind::kTolerantProbe
+            arm.session_reply == DensoBenchSessionReply::kTolerantProbe
                 ? TolerantProbe(ctx, session_pdu, kSessionControlReply, kSessionBench, arm.session_timeout,
                                 kDensoIso15765RejectionPrefix, "bench diagnostic session")
                 : FatalQuery(ctx, session_pdu, bytes::Bytes{kSessionBench}, {.read_timeout = arm.session_timeout},
@@ -660,19 +660,6 @@ Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBench
     }
     return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, arm.jump_first_read, arm.jump_loop_read,
                                      arm.discard_first_reply);
-}
-
-Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, bool discard_first_reply)
-{
-    constexpr std::chrono::milliseconds kBenchTimeout{200};
-    return DensoIso15765ConnectBench(ctx, DensoBenchArm{
-                                              .settle = std::chrono::milliseconds{500},
-                                              .session_reply = DensoReplyKind::kFatal,
-                                              .session_timeout = kBenchTimeout,
-                                              .jump_first_read = kBenchTimeout,
-                                              .jump_loop_read = kBenchTimeout,
-                                              .discard_first_reply = discard_first_reply,
-                                          });
 }
 
 } // namespace fastecu::flash

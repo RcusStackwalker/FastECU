@@ -294,11 +294,6 @@ Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTranspo
 // (10 42, at most 50 tries) read at the arm's jump timeouts.
 Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBenchArm& arm);
 
-// The arm N83M 1.5M, N83M 4M and SH72531 share: a 500 ms wait, the fatal
-// bench session and every jump read at 200 ms; N83M 4M and SH72531 set
-// `discard_first_reply`.
-Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, bool discard_first_reply);
-
 // write_memory's body: each family erases and reflashes exactly one block
 // (legacy block_modified marks one entry), so this logs `block_index` -- 1 of
 // a three-block table on the N83M and SH72531 families, 0 of SH72543 diesel's

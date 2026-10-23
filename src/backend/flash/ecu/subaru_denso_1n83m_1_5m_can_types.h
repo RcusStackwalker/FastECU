@@ -44,14 +44,14 @@ template <> struct DensoIso15765BootloaderProfileOf<SubaruDenso1n83m_1_5mCanPlan
         .in_car_timeout = std::chrono::milliseconds{200},
         // The bench arm reads once after the kernel jump: no discarded reply.
         .bench = {.settle = std::chrono::milliseconds{500},
-                  .session_reply = DensoReplyKind::kFatal,
+                  .session_reply = DensoBenchSessionReply::kFatal,
                   .session_timeout = std::chrono::milliseconds{200},
                   .jump_first_read = std::chrono::milliseconds{200},
                   .jump_loop_read = std::chrono::milliseconds{200},
                   .discard_first_reply = false},
         // Lines 835-917: both dump-setup exchanges are fatal on a mismatch and
         // on an absent reply, read at serial_read_short_timeout.
-        .read_setup_reply = DensoReplyKind::kFatal,
+        .read_setup_reply = DensoReadSetupReply::kFatal,
         .read_setup_policy = {.read_timeout = std::chrono::milliseconds{200}},
         .pace_pages = false,
         .region_log = DensoRegionLog::kDumpAndBlock,
