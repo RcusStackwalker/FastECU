@@ -1013,6 +1013,17 @@ TEST(DensoIso15765CanCommonTest, ConnectInCarStopsOnCancelledWaitOrAbsentProbe)
     }
 }
 
+// N83M 1.5M's bench arm: a 500 ms settle, a fatal session read at 200 ms,
+// then seed/key and every kernel-jump read at 200 ms.
+constexpr DensoBenchArm kFatalBenchArm{
+    .settle = 500ms,
+    .session_reply = DensoBenchSessionReply::kFatal,
+    .session_timeout = 200ms,
+    .jump_first_read = 200ms,
+    .jump_loop_read = 200ms,
+    .discard_first_reply = false,
+};
+
 // A cancelled opening wait sends nothing; a wrong bench session reply is fatal before seed/key.
 TEST(DensoIso15765CanCommonTest, ConnectBenchStopsOnCancelledWaitOrWrongSession)
 {
@@ -1029,7 +1040,7 @@ TEST(DensoIso15765CanCommonTest, ConnectBenchStopsOnCancelledWaitOrWrongSession)
             f.transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x44}));
         }
 
-        EXPECT_THAT(DensoIso15765ConnectBench(f.ctx, /*discard_first_reply=*/false),
+        EXPECT_THAT(DensoIso15765ConnectBench(f.ctx, kFatalBenchArm),
                     fastecu::testing::IsErr(cancelled ? ErrorKind::kCancelled : ErrorKind::kBadResponse));
 
         EXPECT_TRUE(f.transport.ScriptConsumed());
@@ -1046,7 +1057,7 @@ TEST(DensoIso15765CanCommonTest, ConnectBenchStopsOnCancelledWaitOrWrongSession)
 // 2000 ms, then seed/key and a kernel jump read at 2000/200 ms.
 constexpr DensoBenchArm kTolerantBenchArm{
     .settle = 50ms,
-    .session_reply = DensoReplyKind::kTolerantProbe,
+    .session_reply = DensoBenchSessionReply::kTolerantProbe,
     .session_timeout = 2000ms,
     .jump_first_read = 2000ms,
     .jump_loop_read = 200ms,
@@ -1093,38 +1104,6 @@ TEST(DensoIso15765CanCommonTest, ConnectBenchSettlesForTheArmsDelay)
 
     EXPECT_EQ(f.transport.write_attempts, 0U);
     EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(50ms));
-}
-
-// The bool overload is the arm's standard values: identical frames, timeouts and logs.
-TEST(DensoIso15765CanCommonTest, ConnectBenchFatalArmMatchesBoolOverload)
-{
-    for (const bool discard : {false, true})
-    {
-        SCOPED_TRACE(discard);
-        const DensoBenchArm arm{
-            .settle = 500ms,
-            .session_reply = DensoReplyKind::kFatal,
-            .session_timeout = 200ms,
-            .jump_first_read = 200ms,
-            .jump_loop_read = 200ms,
-            .discard_first_reply = discard,
-        };
-        CommonFixture by_bool;
-        CommonFixture by_arm;
-        for (CommonFixture *f : {&by_bool, &by_arm})
-        {
-            f->transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x44}));
-        }
-
-        const auto rejected =
-            fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("bench diagnostic session rejected"));
-        EXPECT_THAT(DensoIso15765ConnectBench(by_bool.ctx, discard), rejected);
-        EXPECT_THAT(DensoIso15765ConnectBench(by_arm.ctx, arm), rejected);
-        EXPECT_EQ(by_arm.transport.write_attempts, by_bool.transport.write_attempts);
-        EXPECT_EQ(by_arm.transport.ReadTimeouts(), by_bool.transport.ReadTimeouts());
-        EXPECT_EQ(by_arm.clock.sleep_calls, by_bool.clock.sleep_calls);
-        EXPECT_EQ(by_arm.events.logs, by_bool.events.logs);
-    }
 }
 
 } // namespace

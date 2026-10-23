@@ -20,8 +20,7 @@ namespace fastecu::flash::testing
 
 // The IFlashExecutor contract every CAN family must satisfy. A family
 // differing on any of these would be a bug, not a protocol fact -- which is
-// what separates these from the protocol-sequence bodies that stay local (see
-// denso_iso15765_can_common.h for why those stay local).
+// what separates these from the protocol sequences, which differ per family.
 // Plan factories return Result<FlashPlan>. Each test must assert success
 // before dereferencing: a nonfatal assertion inside a value-returning
 // helper would let a failed setup continue into invalid access or I/O.

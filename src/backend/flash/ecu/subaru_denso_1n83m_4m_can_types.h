@@ -43,7 +43,7 @@ template <> struct DensoIso15765BootloaderProfileOf<SubaruDenso1n83m_4mCanPlan>
         .in_car_timeout = std::chrono::milliseconds{200},
         // It reads twice after the bench kernel jump, as SH72531 does.
         .bench = {.settle = std::chrono::milliseconds{500},
-                  .session_reply = DensoReplyKind::kFatal,
+                  .session_reply = DensoBenchSessionReply::kFatal,
                   .session_timeout = std::chrono::milliseconds{200},
                   .jump_first_read = std::chrono::milliseconds{200},
                   .jump_loop_read = std::chrono::milliseconds{200},
@@ -53,7 +53,7 @@ template <> struct DensoIso15765BootloaderProfileOf<SubaruDenso1n83m_4mCanPlan>
         // STATUS_ERROR` statements are commented out, so neither a wrong reply
         // nor an absent one stops the dump. This is the family's one genuine
         // behavioural divergence. Erase setup stays fatal (lines 1421, 1427).
-        .read_setup_reply = DensoReplyKind::kTolerantReply,
+        .read_setup_reply = DensoReadSetupReply::kTolerantReply,
         .read_setup_policy = {.read_timeout = std::chrono::milliseconds{200}},
         .pace_pages = false,
         .region_log = DensoRegionLog::kDumpAndBlock,

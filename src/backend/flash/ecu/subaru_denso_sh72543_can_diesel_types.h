@@ -55,7 +55,7 @@ template <> struct DensoIso15765BootloaderProfileOf<SubaruDensoSh72543CanDieselP
         // 682-753) reads first at serial_read_timeout, then at
         // serial_read_short_timeout.
         .bench = {.settle = std::chrono::milliseconds{50},
-                  .session_reply = DensoReplyKind::kTolerantProbe,
+                  .session_reply = DensoBenchSessionReply::kTolerantProbe,
                   .session_timeout = std::chrono::milliseconds{2000},
                   .jump_first_read = std::chrono::milliseconds{2000},
                   .jump_loop_read = std::chrono::milliseconds{200},
@@ -64,7 +64,7 @@ template <> struct DensoIso15765BootloaderProfileOf<SubaruDensoSh72543CanDieselP
         // absent reply, and both read with serial_read_short_timeout (lines
         // 845, 884) -- the two reads in this family that do not use the long
         // timeout.
-        .read_setup_reply = DensoReplyKind::kFatal,
+        .read_setup_reply = DensoReadSetupReply::kFatal,
         .read_setup_policy = {.read_timeout = std::chrono::milliseconds{200}},
         .pace_pages = true,
         // Legacy's own log line for all three "start & length" announcements

@@ -17,10 +17,11 @@ namespace fastecu::flash
 // not -- mc68hc16y5_02, sh7055_02 and mitsu_colt, which carry kernel images,
 // variant tables or confirmations -- keep their own hand-written builders.
 //
-// This shares plan *validation* only. The executors of these same families
-// stay deliberately un-factored, because their look-alike blocks differ in
-// timeouts, retry counts and response strictness: see
-// denso_iso15765_can_common.h and the port-then-factor section of docs/design-notes.md.
+// This shares plan *validation* only. Four of these families -- the Denso
+// ISO-15765 bootloader dialect -- share one executor and state their
+// differences as dialect profiles; the other executors stay un-factored,
+// because their look-alike blocks differ in timeouts, retry counts and
+// response strictness.
 struct SingleWindowPlanSpec
 {
     // The one qualified name every message composes from, e.g.

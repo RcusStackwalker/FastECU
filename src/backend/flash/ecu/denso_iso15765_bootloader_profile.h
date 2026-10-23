@@ -16,13 +16,21 @@ enum class DensoInCarRun
     kSh,
 };
 
-// How an exchange treats a reply other than the expected one. kFatal aborts on
-// a wrong or absent reply; kTolerantProbe logs a wrong reply and aborts on an
-// absent one; kTolerantReply logs both and aborts only on a transport failure.
-enum class DensoReplyKind
+// How the bench arm's session exchange treats a reply other than `50 43`:
+// kFatal aborts on a wrong or absent reply; kTolerantProbe logs a wrong reply
+// and aborts on an absent one.
+enum class DensoBenchSessionReply
 {
     kFatal,
     kTolerantProbe,
+};
+
+// How read_memory's two dump-setup exchanges treat a reply other than the
+// expected one: kFatal aborts on a wrong or absent reply; kTolerantReply logs
+// both and aborts only on a transport failure.
+enum class DensoReadSetupReply
+{
+    kFatal,
     kTolerantReply,
 };
 
@@ -48,7 +56,7 @@ enum class DensoRegionLog
 struct DensoBenchArm
 {
     std::chrono::milliseconds settle;
-    DensoReplyKind session_reply; // kFatal or kTolerantProbe
+    DensoBenchSessionReply session_reply;
     std::chrono::milliseconds session_timeout;
     std::chrono::milliseconds jump_first_read;
     std::chrono::milliseconds jump_loop_read;
@@ -68,7 +76,7 @@ struct DensoIso15765BootloaderProfile
     DensoInCarRun in_car_run;
     std::chrono::milliseconds in_car_timeout;
     DensoBenchArm bench;
-    DensoReplyKind read_setup_reply; // kFatal or kTolerantReply
+    DensoReadSetupReply read_setup_reply;
     uds::ExchangePolicy read_setup_policy;
     bool pace_pages;
     DensoRegionLog region_log;

@@ -37,7 +37,7 @@ template <> struct DensoIso15765BootloaderProfileOf<SubaruDensoSh72531CanPlan>
         .in_car_run = DensoInCarRun::kSh,
         .in_car_timeout = std::chrono::milliseconds{200},
         .bench = {.settle = std::chrono::milliseconds{500},
-                  .session_reply = DensoReplyKind::kFatal,
+                  .session_reply = DensoBenchSessionReply::kFatal,
                   .session_timeout = std::chrono::milliseconds{200},
                   .jump_first_read = std::chrono::milliseconds{200},
                   .jump_loop_read = std::chrono::milliseconds{200},
@@ -45,7 +45,7 @@ template <> struct DensoIso15765BootloaderProfileOf<SubaruDensoSh72531CanPlan>
         // Lines 837-911: both setup exchanges are fatal on a mismatch and on an
         // absent reply, and both read with serial_read_timeout (lines 856,
         // 893), not the short timeout its 1N83M 1.5M sibling uses here.
-        .read_setup_reply = DensoReplyKind::kFatal,
+        .read_setup_reply = DensoReadSetupReply::kFatal,
         .read_setup_policy = {.read_timeout = std::chrono::milliseconds{2000}},
         .pace_pages = true,
         .region_log = DensoRegionLog::kDumpAndBlock,

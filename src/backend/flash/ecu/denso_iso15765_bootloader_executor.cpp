@@ -206,7 +206,7 @@ Status TolerantSetup(const Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expect
 Status DumpSetup(const Ctx& ctx, const Profile& profile, bytes::ByteView pdu, bytes::Byte reply_service,
                  bytes::Byte tail, std::string_view subject)
 {
-    if (profile.read_setup_reply == DensoReplyKind::kTolerantReply)
+    if (profile.read_setup_reply == DensoReadSetupReply::kTolerantReply)
     {
         return TolerantSetup(ctx, pdu, bytes::Bytes{reply_service, 0x20, 0x01, tail},
                              profile.read_setup_policy.read_timeout);
