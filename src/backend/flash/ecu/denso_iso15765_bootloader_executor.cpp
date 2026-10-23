@@ -168,10 +168,14 @@ std::string StartAndLengthLine(const MemoryRegion& region)
     return std::format("Setting flash start: 0x{:x} and length: 0x{:x}", region.start, region.length);
 }
 
-// A tolerant-reply dump setup: a wrong or absent (or too-short) reply is
-// logged and stepped over; only a transport failure aborts. Legacy requires
-// received.length() > 7, i.e. four bytes past the 4-byte envelope, before it
-// inspects the reply at all.
+// A tolerant-reply dump setup (1N83M 4M, whose legacy read_memory has all four
+// `return STATUS_ERROR` statements at lines 876 / 883 / 917 / 924 commented
+// out): a wrong or absent (or too-short) reply is logged and stepped over.
+// Legacy requires received.length() > 7, i.e. four bytes past the 4-byte
+// envelope, before it inspects the reply at all. A transport-level failure is
+// still propagated: legacy's read_serial_data has no error channel at all, so a
+// broken bus has no legacy behaviour to preserve and must surface rather than
+// be mistaken for an empty reply.
 Status TolerantSetup(const Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                      std::chrono::milliseconds timeout)
 {

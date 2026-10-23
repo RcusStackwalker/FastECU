@@ -26,6 +26,13 @@ struct SubaruDenso1n83m_1_5mCanPlan
 template <> struct DensoIso15765BootloaderProfileOf<SubaruDenso1n83m_1_5mCanPlan>
 {
     static constexpr DensoIso15765BootloaderProfile kValue{
+        // Legacy names the 4MB sibling in the connect line and the two "using
+        // CAN" lines (lines 62, 70 and 76) -- an upstream copy-paste that the
+        // 4M sibling carries legitimately. Corrected here rather than
+        // transcribed: this family's own error strings already say 1.5M, so
+        // leaving these would make a flash log unattributable to the family
+        // that produced it. A deliberate, purely cosmetic divergence from the
+        // legacy text; do not "restore" 4MB.
         .log_name = "Denso 1N83M 1.5MB",
         .family_name = "Subaru Denso 1N83M 1.5M CAN",
         .obk_active_log = "OBK is active", // OBK probe, lines 105-127

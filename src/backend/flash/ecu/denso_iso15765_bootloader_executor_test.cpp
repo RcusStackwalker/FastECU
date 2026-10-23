@@ -136,5 +136,32 @@ TEST(DensoIso15765BootloaderDialect, DieselBenchStepsOverWrongSessionReply)
     EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kError, "Wrong response from ECU: 50 44 ")));
 }
 
+// SH72543 diesel words its write-block line as start-and-length, like its read
+// setup, and flashes block 0. The write stops at its first chunk.
+TEST(DensoIso15765BootloaderDialect, StartAndLengthWriteLogsBlockZeroAndItsRegion)
+{
+    ScriptedCanFlashTransport transport;
+    fastecu::flash::testing::ScriptDensoPreliminaries(transport, 0xFF, 0, true);
+    transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
+    transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+    transport.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
+    transport.Exchange(Request({0x10, 0x42}), Response({0x50, 0x42}));
+    transport.Exchange(Request({0x34, 0x04, 0x44, 0x00, 0x00, 0x80, 0x00, 0x00, 0x1F, 0x7F, 0x00}),
+                       Response({0x74, 0x20, 0x01, 0x05}));
+    transport.Exchange(Request({0x31, 0x01, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF}));
+    transport.QueueRead(Response({0x71, 0x01, 0x02}));
+
+    const auto plan = BuildSubaruDensoSh72543CanDieselPlan(FlashOperation::kWrite, "sub_ecu_denso_sh72543_can_diesel",
+                                                           "SH72543d", fastecu::flash::testing::PatternedRom(0x200000));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    const auto run = ExecutorRun<SubaruDensoSh72543CanDieselExecutor>(*plan, transport);
+
+    EXPECT_FALSE(run.result.has_value());
+    EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "Blocks to flash: 0,  (total: 1)")));
+    EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "Setting flash start: 0x8000 and length: 0x1f7f00")));
+    EXPECT_THAT(run.events.logs,
+                ::testing::Not(Contains(Pair(LogLevel::kInfo, ::testing::StartsWith("Flash block addr")))));
+}
+
 } // namespace
 } // namespace fastecu::flash
