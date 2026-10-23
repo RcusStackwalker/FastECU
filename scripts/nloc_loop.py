@@ -23,7 +23,8 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PureWindowsPath
 from typing import TextIO
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 from xml.etree import ElementTree
 
 import mutation_test
@@ -379,7 +380,7 @@ def test_xml_paths(bep_json: str) -> list[Path]:
                 f"{label}'s test.xml is at {xml['uri']}, not a local file; "
                 "it must be downloaded to count test cases"
             )
-        paths.append(Path(unquote(uri.path)))
+        paths.append(Path(url2pathname(uri.path)))
     return paths
 
 
