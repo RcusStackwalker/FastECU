@@ -882,6 +882,24 @@ TEST(DensoIso15765CanCommonTest, N83mInCarSequencePreservesBothFamilyTranscripts
     EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::Each(200ms));
 }
 
+// A failed send stops the run before its read; so does a failed read, before the next send.
+TEST(DensoIso15765CanCommonTest, InCarRunStopsOnAFailedSendOrRead)
+{
+    CommonFixture cancelled;
+    cancelled.cancellation.Cancel();
+    EXPECT_THAT(N83mInCarFireAndForget(cancelled.ctx, cancelled.transport),
+                fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(cancelled.transport.ReadTimeouts(), ::testing::IsEmpty());
+
+    CommonFixture disconnected;
+    disconnected.transport.Exchange(RequestTo(0x7A2, {0x10, 0xC0}));
+    disconnected.transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
+    EXPECT_THAT(N83mInCarFireAndForget(disconnected.ctx, disconnected.transport),
+                fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_TRUE(disconnected.transport.ScriptConsumed());
+    EXPECT_EQ(disconnected.transport.write_attempts, 1U);
+}
+
 // Session 0x03 on 0x7E1, and only the 0x7E0 reply reads at the primary timeout.
 TEST(DensoIso15765CanCommonTest, ShInCarSequenceSends03To7E1AndReadsThePrimaryReplyAtItsTimeout)
 {
