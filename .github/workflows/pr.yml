@@ -19,9 +19,9 @@ env:
   # Neither Chocolatey nor the Ubuntu archive carries 23 yet. Moving the version
   # means updating both checksums (the `digest` of each asset on the GitHub
   # release page).
-  CLANG_TIDY_LLVM_VERSION: '23.1.2'
-  CLANG_TIDY_LLVM_SHA256_LINUX: 'b5ed9675149cc837c282e9b6962c276c9fa62863d5b2f91537b60848552995b7'
-  CLANG_TIDY_LLVM_SHA256_WINDOWS: '8fb91cdc44fcbbdcf6b3ffd0a1f9859abd14a3c3aae4423c2b6d4a4f90bf0095'
+  CLANG_TIDY_LLVM_VERSION: '23.1.4'
+  CLANG_TIDY_LLVM_SHA256_LINUX: '25d814fda50d5fb0084b42be09605d8b1595d49d5e2e03a3345d7e112ff6f9f3'
+  CLANG_TIDY_LLVM_SHA256_WINDOWS: '854bffcfc84528e0ee92490ff5c178920abd358a79c3e98f053e41e3e8e4c6d2'
 
 jobs:
   pre-commit:

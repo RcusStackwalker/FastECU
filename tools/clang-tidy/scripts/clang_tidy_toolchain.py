@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-REQUIRED_LLVM_VERSION = "23.1.2"
+REQUIRED_LLVM_VERSION = "23.1.4"
 REQUIRED_CHECKS = frozenset(
     {
         "fastecu-accumulate-loop",
