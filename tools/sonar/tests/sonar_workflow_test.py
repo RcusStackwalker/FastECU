@@ -52,24 +52,25 @@ class SonarWorkflowTest(unittest.TestCase):
         self.assertNotIn("--attempt", self.steps[self.index("coverage_import")]["run"])
 
     def test_rerun_reuses_the_earlier_successful_coverage_product(self):
-        reuse = self.steps[self.index("reuse")]
-        self.assertIn("GITHUB_RUN_ATTEMPT", reuse["run"])
-        self.assertIn("sonar-coverage-$GITHUB_RUN_ID-", reuse["run"])
-        self.assertIn("actions: read", yaml.dump(self.permissions))
-        fresh = "steps.reuse.outputs.artifact_id == ''"
+        restore = self.steps[self.index("coverage_cache")]
+        self.assertTrue(restore["uses"].startswith("actions/cache/restore@"))
+        self.assertEqual(restore["if"], "github.run_attempt > 1")
+        self.assertIn("github.run_id", restore["with"]["key"])
+        self.assertNotIn("github.run_attempt", restore["with"]["key"])
+        fresh = "steps.coverage_cache.outputs.cache-hit != 'true'"
+        save = self.steps[self.index("coverage_save")]
+        self.assertTrue(save["uses"].startswith("actions/cache/save@"))
+        self.assertEqual(save["with"]["key"], restore["with"]["key"])
+        self.assertEqual(save["with"]["path"], restore["with"]["path"])
         for step in (
             self.steps[self.named("Build and run tests with coverage")],
             self.steps[self.index("coverage_export")],
-            self.steps[self.index("coverage_upload")],
+            save,
         ):
             self.assertEqual(step["if"], fresh)
-        download = self.steps[self.index("coverage_download")]
-        self.assertEqual(download["if"], "steps.reuse.outputs.artifact_id != ''")
-        self.assertEqual(download["with"]["artifact-ids"], "${{ steps.reuse.outputs.artifact_id }}")
-        upload = self.steps[self.index("coverage_upload")]
-        self.assertEqual(upload["with"]["if-no-files-found"], "error")
-        self.assertIn("github.run_id", upload["with"]["name"])
-        self.assertIn("github.run_attempt", upload["with"]["name"])
+        self.assertLess(self.index("coverage_export"), self.index("coverage_save"))
+        self.assertLess(self.index("coverage_save"), self.named("Collect the legacy"))
+        self.assertLess(self.index("coverage_cache"), self.named("Build and run tests"))
 
     def test_a_transient_scan_failure_is_retried_once_before_the_gate(self):
         first = self.steps[self.index("sonarcloud")]

@@ -27,7 +27,6 @@ on:
         required: true
 
 permissions:
-  actions: read
   contents: read
   pull-requests: read
 
@@ -37,8 +36,8 @@ env:
 
 jobs:
   # One job: a second runner's setup, cold Bazel start and artifact transfer cost
-  # more than the retry boundary was worth. A manual rerun reuses the earlier
-  # attempt's validated coverage product instead of rebuilding it, and a
+  # more than the retry boundary was worth. A manual rerun restores the earlier
+  # attempt's exported coverage product instead of rebuilding it, and a
   # transient scanner failure is retried once in place.
   sonarcloud:
     name: SonarCloud candidate
@@ -67,36 +66,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang llvm
 
-      - id: reuse
-        name: Find an earlier coverage product for this run
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          artifact_id=
-          if [ "$GITHUB_RUN_ATTEMPT" -gt 1 ]; then
-            artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" --jq \
-              "[.artifacts[] | select(.expired | not) | select(.name | startswith(\"sonar-coverage-$GITHUB_RUN_ID-\"))]
-               | sort_by(.created_at) | last | .id // empty")
-          fi
-          printf 'artifact_id=%s\n' "$artifact_id" >> "$GITHUB_OUTPUT"
-
-      - id: coverage_download
-        if: steps.reuse.outputs.artifact_id != ''
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      # A rerun is the same run id, so the earlier attempt's exported product is a
+      # cache hit. The import below revalidates its commit and run id either way.
+      - id: coverage_cache
+        if: github.run_attempt > 1
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          artifact-ids: ${{ steps.reuse.outputs.artifact_id }}
+          key: sonar-coverage-${{ github.run_id }}
           path: ${{ runner.temp }}/sonar-coverage
-          merge-multiple: true
 
       - name: Build and run tests with coverage
-        if: steps.reuse.outputs.artifact_id == ''
+        if: steps.coverage_cache.outputs.cache-hit != 'true'
         run: scripts/coverage-local.sh
         env:
           EXTRA_BAZEL_ARGS: --remote_download_regex=.*/_virtual_includes/.*
 
       - id: coverage_export
         name: Export the completed coverage product
-        if: steps.reuse.outputs.artifact_id == ''
+        if: steps.coverage_cache.outputs.cache-hit != 'true'
         run: |
           bazel run --config=coverage //tools/sonar:coverage_artifact -- export \
             --coverage-dir "$GITHUB_WORKSPACE/coverage" \
@@ -104,14 +91,12 @@ jobs:
             --commit "$(git rev-parse HEAD)" --run-id "$GITHUB_RUN_ID" \
             --attempt "$GITHUB_RUN_ATTEMPT" --producer-root "$GITHUB_WORKSPACE"
 
-      - id: coverage_upload
-        if: steps.reuse.outputs.artifact_id == ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - id: coverage_save
+        if: steps.coverage_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          name: sonar-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          key: sonar-coverage-${{ github.run_id }}
           path: ${{ runner.temp }}/sonar-coverage
-          if-no-files-found: error
-          retention-days: 14
 
       # Qualification-only reference: the production workflow keeps its old
       # blocking input path until this candidate has recorded real evidence.
