@@ -220,17 +220,25 @@ it locally, install `sonar-scanner`, then mirror CI:
 
 ```sh
 scripts/coverage-local.sh
-bazel run --config=coverage //bazel/compile_commands:refresh -- --config=coverage
-python3 scripts/sonar_compdb_check.py compile_commands.json
+bazel run --config=sonar_inputs //:sonar_inputs
 sonar-scanner -Dsonar.token=$SONAR_TOKEN
 ```
 
 The token is a personal one (SonarCloud → My Account → Security), not the CI
-secret. Sonar reads its C++ compile commands from Hedron's
-`compile_commands.json`, so the build stays cacheable (BuildBuddy in CI). The
-check script fails if Qt's `qobjectdefs.h` does not resolve through the
+secret. Sonar reads its C++ compile commands from `sonar-inputs/compile_commands.json`,
+which a Bazel aspect writes from the real configured compiler actions and the
+generated headers they need, without compiling application code. Preparation fails
+if any input is missing or if Qt's `qobjectdefs.h` does not resolve through the
 database: without it Sonar misreads `emit` as a declaration and raises
-`cpp:S1117`/`cpp:S824` false positives.
+`cpp:S1117`/`cpp:S824` false positives. Hedron's `compile_commands.json` remains
+for editors and clangd only.
+
+In CI one job builds coverage, exports it with its commit and run provenance,
+prepares the inputs, validates and relocates the report, and scans; a transient
+scanner failure is retried once, and a manual rerun restores the earlier attempt's
+coverage product from the cache instead of rebuilding it. The
+[qualification record](reference/sonar-aspect-qualification.md) holds the evidence
+behind this design.
 
 ### CodeQL
 

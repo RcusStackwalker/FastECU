@@ -1,11 +1,12 @@
 # Sonar aspect qualification
 
-Status: unqualified. The [approved design](../superpowers/specs/2026-10-22-sonar-aspect-design.md)
-and [implementation plan](../superpowers/plans/2026-10-22-sonar-aspect-migration.md)
-define the required evidence. The existing blocking
-[Sonar workflow](../../.github/workflows/sonar.yml) remains the production path.
-The [temporary candidate](../../.github/workflows/sonar-qualification.yml) provides
-separate coverage and scanner runners for qualification.
+Status: qualified and cut over. The Bazel aspect and the single-job workflow in
+[sonar.yml](../../.github/workflows/sonar.yml) replaced Hedron extraction and the
+separate scanner path. The design and plan that governed the migration were retired
+with it; their text remains in the history of the migration pull requests. The
+sections below are the measured record, kept as written; statements about the
+existing production workflow or a temporary candidate describe the state at the
+time of measurement.
 
 ## Recorded local evidence
 
