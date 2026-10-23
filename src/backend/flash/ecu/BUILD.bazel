@@ -303,21 +303,25 @@ cc_library(
 cc_library(
     name = "subaru_denso_1n83m_1_5m_can_types",
     hdrs = ["subaru_denso_1n83m_1_5m_can_types.h"],
+    deps = [":denso_iso15765_bootloader_profile"],
 )
 
 cc_library(
     name = "subaru_denso_sh72531_can_types",
     hdrs = ["subaru_denso_sh72531_can_types.h"],
+    deps = [":denso_iso15765_bootloader_profile"],
 )
 
 cc_library(
     name = "subaru_denso_sh72543_can_diesel_types",
     hdrs = ["subaru_denso_sh72543_can_diesel_types.h"],
+    deps = [":denso_iso15765_bootloader_profile"],
 )
 
 cc_library(
     name = "subaru_denso_1n83m_4m_can_types",
     hdrs = ["subaru_denso_1n83m_4m_can_types.h"],
+    deps = [":denso_iso15765_bootloader_profile"],
 )
 
 cc_library(
@@ -1344,40 +1348,20 @@ fastecu_portable_gtest(
 
 cc_library(
     name = "subaru_denso_sh72531_can_executor",
-    srcs = ["subaru_denso_sh72531_can_executor.cpp"],
     hdrs = ["subaru_denso_sh72531_can_executor.h"],
-    implementation_deps = [
-        ":denso_iso15765_can_common",
-        ":flash_phase_progress",
-        ":subaru_denso_sh72531_can_plan",
-        ":uds_client_exchange_common",
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
-        "//src/algorithms/protocol/uds",
-        "//src/algorithms/protocol/uds:uds_service_ids",
-        "//src/backend/flash:can_flash_uds_channel",
-        "//src/backend/protocol/uds:uds_client",
+    deps = [
+        ":denso_iso15765_bootloader_executor",
+        ":subaru_denso_sh72531_can_types",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
 )
 
 cc_library(
     name = "subaru_denso_sh72543_can_diesel_executor",
-    srcs = ["subaru_denso_sh72543_can_diesel_executor.cpp"],
     hdrs = ["subaru_denso_sh72543_can_diesel_executor.h"],
-    implementation_deps = [
-        ":denso_iso15765_can_common",
-        ":flash_phase_progress",
-        ":subaru_denso_sh72543_can_diesel_plan",
-        ":uds_client_exchange_common",
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
-        "//src/algorithms/protocol/uds",
-        "//src/algorithms/protocol/uds:uds_service_ids",
-        "//src/backend/flash:can_flash_uds_channel",
-        "//src/backend/protocol/uds:uds_client",
+    deps = [
+        ":denso_iso15765_bootloader_executor",
+        ":subaru_denso_sh72543_can_diesel_types",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
 )
 
 fastecu_portable_gtest(
@@ -1403,21 +1387,11 @@ fastecu_portable_gtest(
 
 cc_library(
     name = "subaru_denso_1n83m_4m_can_executor",
-    srcs = ["subaru_denso_1n83m_4m_can_executor.cpp"],
     hdrs = ["subaru_denso_1n83m_4m_can_executor.h"],
-    implementation_deps = [
-        ":denso_iso15765_can_common",
-        ":flash_phase_progress",
-        ":subaru_denso_1n83m_4m_can_plan",
-        ":uds_client_exchange_common",
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
-        "//src/algorithms/protocol/uds",
-        "//src/algorithms/protocol/uds:uds_service_ids",
-        "//src/backend/flash:can_flash_uds_channel",
-        "//src/backend/protocol/uds:uds_client",
+    deps = [
+        ":denso_iso15765_bootloader_executor",
+        ":subaru_denso_1n83m_4m_can_types",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
 )
 
 fastecu_portable_gtest(
@@ -1690,6 +1664,7 @@ cc_library(
         "//src/backend/flash:can_flash_uds_channel",
     ],
     deps = [
+        ":denso_iso15765_bootloader_profile",
         ":flash_phase_progress",
         ":uds_client_exchange_common",
         "//src/algorithms/protocol",
@@ -1742,21 +1717,11 @@ fastecu_portable_gtest(
 
 cc_library(
     name = "subaru_denso_1n83m_1_5m_can_executor",
-    srcs = ["subaru_denso_1n83m_1_5m_can_executor.cpp"],
     hdrs = ["subaru_denso_1n83m_1_5m_can_executor.h"],
-    implementation_deps = [
-        ":denso_iso15765_can_common",
-        ":flash_phase_progress",
-        ":subaru_denso_1n83m_1_5m_can_plan",
-        ":uds_client_exchange_common",
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
-        "//src/algorithms/protocol/uds",
-        "//src/algorithms/protocol/uds:uds_service_ids",
-        "//src/backend/flash:can_flash_uds_channel",
-        "//src/backend/protocol/uds:uds_client",
+    deps = [
+        ":denso_iso15765_bootloader_executor",
+        ":subaru_denso_1n83m_1_5m_can_types",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
 )
 
 fastecu_portable_gtest(
@@ -2002,4 +1967,50 @@ fastecu_portable_gtest(
         "//src/backend/protocol/uds/testing:scripted_uds_channel",
         "@googletest//:gtest",
     ],
+)
+
+cc_library(
+    name = "denso_iso15765_bootloader_profile",
+    hdrs = ["denso_iso15765_bootloader_profile.h"],
+    deps = ["//src/backend/protocol/uds:uds_client"],
+)
+
+fastecu_portable_gtest(
+    name = "denso_iso15765_bootloader_executor_test",
+    srcs = ["denso_iso15765_bootloader_executor_test.cpp"],
+    deps = [
+        ":subaru_denso_1n83m_1_5m_can_executor",
+        ":subaru_denso_1n83m_1_5m_can_plan",
+        ":subaru_denso_1n83m_4m_can_executor",
+        ":subaru_denso_1n83m_4m_can_plan",
+        ":subaru_denso_sh72531_can_executor",
+        ":subaru_denso_sh72531_can_plan",
+        ":subaru_denso_sh72543_can_diesel_executor",
+        ":subaru_denso_sh72543_can_diesel_plan",
+        "//src/backend/flash/ecu/testing:can_executor_conformance",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "denso_iso15765_bootloader_executor",
+    srcs = ["denso_iso15765_bootloader_executor.cpp"],
+    hdrs = ["denso_iso15765_bootloader_executor.h"],
+    implementation_deps = [
+        ":denso_iso15765_can_common",
+        ":flash_phase_progress",
+        ":subaru_denso_1n83m_1_5m_can_plan",
+        ":subaru_denso_1n83m_4m_can_plan",
+        ":subaru_denso_sh72531_can_plan",
+        ":subaru_denso_sh72543_can_diesel_plan",
+        ":uds_client_exchange_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/uds",
+        "//src/algorithms/protocol/uds:uds_service_ids",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+    deps = ["//src/backend/flash:flash_executor"],
 )

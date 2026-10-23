@@ -16,8 +16,9 @@ constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_1n83m_4m_can"}};
 // arguments (lines 834-836) and the 0x34/0x35 setup PDUs spell out literally
 // (lines 845-860, 886-901).
 constexpr MemoryRegion kMainBlock{0x08FAC000, 0x003D3F00};
-constexpr std::uint32_t kImageStart = 0x08F9C000; // fblocks[0].start
-constexpr std::uint32_t kImageSize = 0x3E4000;    // fblocks[0..2] summed, and N83M_4MB's own romsize
+constexpr std::uint32_t kImageStart =
+    DensoIso15765BootloaderProfileOf<SubaruDenso1n83m_4mCanPlan>::kValue.image_start; // fblocks[0].start
+constexpr std::uint32_t kImageSize = 0x3E4000; // fblocks[0..2] summed, and N83M_4MB's own romsize
 constexpr std::uint32_t kLeadPad = 0x10000;
 constexpr std::uint32_t kTailPad = 0x100;
 

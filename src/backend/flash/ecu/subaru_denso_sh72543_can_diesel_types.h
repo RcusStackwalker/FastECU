@@ -1,5 +1,8 @@
 #pragma once
+#include <chrono>
 #include <cstdint>
+
+#include "src/backend/flash/ecu/denso_iso15765_bootloader_profile.h"
 
 namespace fastecu::flash
 {
@@ -18,6 +21,74 @@ struct SubaruDensoSh72543CanDieselPlan
     bool extended_id;           // false
     std::uint32_t lead_pad_len; // 0x8000, prepended to a read image as 0xFF
     std::uint32_t tail_pad_len; // 0x100, appended to a read image as 0xFF
+};
+
+// The family's dialect profile. Citations are lines of
+// flash_ecu_subaru_denso_sh72543_can_diesel_operation.cpp as of 20892df.
+// Where its 1N83M 1.5M and SH72531 siblings read with the 200 ms
+// serial_read_short_timeout, this family mostly reads with the 2000 ms
+// serial_read_timeout (header lines 46-52).
+template <> struct DensoIso15765BootloaderProfileOf<SubaruDensoSh72543CanDieselPlan>
+{
+    static constexpr DensoIso15765BootloaderProfile kValue{
+        .log_name = "Denso SH72543 Diesel",
+        .family_name = "Subaru Denso SH72543 Diesel CAN",
+        // OBK probe, lines 108-128: the only connect exchange that reads with
+        // serial_read_short_timeout (line 118).
+        .obk_active_log = "OBK is active!",
+        // Unlike its three siblings, which query the ECU id with the vendor
+        // SID 0xAA, this family reads it with a standard ReadDataByIdentifier
+        // of DID F182 (lines 131-140) and checks the whole echoed `62 F1 82`
+        // header (line 146).
+        .identity_query = DensoIdentityQuery::kDidF182,
+        // THIS FAMILY DIFFERS: its tolerant probes (lines 284-342) read with
+        // serial_read_timeout where its three siblings use
+        // serial_read_short_timeout.
+        .probe_timeout = std::chrono::milliseconds{2000},
+        .in_car_run = DensoInCarRun::kSh,
+        .in_car_timeout = std::chrono::milliseconds{2000},
+        // Bench programming arm, lines 649-791. Line 653 waits 50 ms where the
+        // in-car arm waits 500 (line 345). Lines 655-681 hold the family's one
+        // commented-out `return STATUS_ERROR` (line 672): a wrong `50 43`
+        // answer is logged and stepped over, and only an absent or too-short
+        // reply aborts. Its three siblings abort there. The jump (lines
+        // 682-753) reads first at serial_read_timeout, then at
+        // serial_read_short_timeout.
+        .bench = {.settle = std::chrono::milliseconds{50},
+                  .session_reply = DensoReplyKind::kTolerantProbe,
+                  .session_timeout = std::chrono::milliseconds{2000},
+                  .jump_first_read = std::chrono::milliseconds{2000},
+                  .jump_loop_read = std::chrono::milliseconds{200},
+                  .discard_first_reply = false},
+        // Lines 822-901: both setup exchanges are fatal on a mismatch and on an
+        // absent reply, and both read with serial_read_short_timeout (lines
+        // 845, 884) -- the two reads in this family that do not use the long
+        // timeout.
+        .read_setup_reply = DensoReplyKind::kFatal,
+        .read_setup_policy = {.read_timeout = std::chrono::milliseconds{200}},
+        .pace_pages = true,
+        // Legacy's own log line for all three "start & length" announcements
+        // (lines 822-824, 1191-1193, 1396-1398).
+        .region_log = DensoRegionLog::kStartAndLength,
+        // write_memory (lines 1070-1149): block_modified is {1} over
+        // numblocks == 1, so block 0 -- kFlashBlocksSH72543d[0] -- is the one
+        // block reflashed. The table's 0x0-0x8000 entry is commented out.
+        .write_block_index = 0,
+        // Checksum verify reads twice with serial_read_timeout: line 1328 and,
+        // after the ECU's 7F 31 78 pending answer, the re-read at line 1348.
+        .checksum_policy = {.read_timeout = std::chrono::milliseconds{2000},
+                            .pending_timeout = std::chrono::milliseconds{2000}},
+        // Legacy write_memory hands reflash_block &data_array[fdt->fblocks->start]
+        // (line 1129), the encrypted whole-ROM buffer offset by fblocks[0].start
+        // = 0x8000, and reflash_block then indexes newdata[i + blockctr *
+        // blocksize] (line 1217) -- together data_array[blockaddr + i]: the
+        // absolute address, matching read_memory's own image base and the three
+        // sibling families. The original port design's "write-base divergence"
+        // reads line 1217 alone and concludes legacy wrote a full ROM 0x8000
+        // low; with the caller's pre-offset it does not. Do not "restore" a
+        // 0x8000 shift on its strength.
+        .image_start = 0x00000000,
+    };
 };
 
 } // namespace fastecu::flash

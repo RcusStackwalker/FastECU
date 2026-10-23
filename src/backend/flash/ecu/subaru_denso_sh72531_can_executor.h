@@ -1,14 +1,9 @@
 #pragma once
-#include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/ecu/denso_iso15765_bootloader_executor.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
 
 namespace fastecu::flash
 {
-class SubaruDensoSh72531CanExecutor final : public ICanFlashExecutor
-{
-  public:
-    Result<Iso15765Config> TransportSetup(const FlashPlan& plan) const override;
-
-    Result<FlashExecutionResult> Execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, IEventSink& events) override;
-};
+extern template class DensoIso15765BootloaderExecutor<SubaruDensoSh72531CanPlan>;
+using SubaruDensoSh72531CanExecutor = DensoIso15765BootloaderExecutor<SubaruDensoSh72531CanPlan>;
 } // namespace fastecu::flash

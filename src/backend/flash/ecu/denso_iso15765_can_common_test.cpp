@@ -1042,5 +1042,90 @@ TEST(DensoIso15765CanCommonTest, ConnectBenchStopsOnCancelledWaitOrWrongSession)
     }
 }
 
+// SH72543 diesel's bench arm: a 50 ms settle, a tolerant session probe read at
+// 2000 ms, then seed/key and a kernel jump read at 2000/200 ms.
+constexpr DensoBenchArm kTolerantBenchArm{
+    .settle = 50ms,
+    .session_reply = DensoReplyKind::kTolerantProbe,
+    .session_timeout = 2000ms,
+    .jump_first_read = 2000ms,
+    .jump_loop_read = 200ms,
+    .discard_first_reply = false,
+};
+
+// A wrong reply to a tolerant bench session is logged and stepped over: seed/key follows.
+TEST(DensoIso15765CanCommonTest, ConnectBenchTolerantProbeStepsOverWrongSessionReply)
+{
+    CommonFixture f;
+    f.transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x44}));
+    f.transport.Exchange(Request({0x27, 0x61}));
+    f.transport.QueueNoFrame();
+
+    EXPECT_THAT(DensoIso15765ConnectBench(f.ctx, kTolerantBenchArm), fastecu::testing::IsErr(ErrorKind::kTimeout));
+
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_EQ(f.transport.write_attempts, 2U);
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms, 2000ms));
+    EXPECT_THAT(f.events.logs,
+                ::testing::Contains(::testing::Pair(LogLevel::kError, "Wrong response from ECU: 50 44 ")));
+}
+
+// An absent reply to a tolerant bench session aborts before seed/key.
+TEST(DensoIso15765CanCommonTest, ConnectBenchTolerantProbeAbortsOnAbsentSessionReply)
+{
+    CommonFixture f;
+    f.transport.Exchange(Request({0x10, 0x43}));
+    f.transport.QueueNoFrame();
+
+    EXPECT_THAT(DensoIso15765ConnectBench(f.ctx, kTolerantBenchArm), fastecu::testing::IsErr(ErrorKind::kTimeout));
+
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+    EXPECT_EQ(f.transport.write_attempts, 1U);
+    EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms));
+}
+
+TEST(DensoIso15765CanCommonTest, ConnectBenchSettlesForTheArmsDelay)
+{
+    CommonFixture f;
+    f.cancellation.Cancel();
+
+    EXPECT_THAT(DensoIso15765ConnectBench(f.ctx, kTolerantBenchArm), fastecu::testing::IsErr(ErrorKind::kCancelled));
+
+    EXPECT_EQ(f.transport.write_attempts, 0U);
+    EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(50ms));
+}
+
+// The bool overload is the arm's standard values: identical frames, timeouts and logs.
+TEST(DensoIso15765CanCommonTest, ConnectBenchFatalArmMatchesBoolOverload)
+{
+    for (const bool discard : {false, true})
+    {
+        SCOPED_TRACE(discard);
+        const DensoBenchArm arm{
+            .settle = 500ms,
+            .session_reply = DensoReplyKind::kFatal,
+            .session_timeout = 200ms,
+            .jump_first_read = 200ms,
+            .jump_loop_read = 200ms,
+            .discard_first_reply = discard,
+        };
+        CommonFixture by_bool;
+        CommonFixture by_arm;
+        for (CommonFixture *f : {&by_bool, &by_arm})
+        {
+            f->transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x44}));
+        }
+
+        const auto rejected =
+            fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("bench diagnostic session rejected"));
+        EXPECT_THAT(DensoIso15765ConnectBench(by_bool.ctx, discard), rejected);
+        EXPECT_THAT(DensoIso15765ConnectBench(by_arm.ctx, arm), rejected);
+        EXPECT_EQ(by_arm.transport.write_attempts, by_bool.transport.write_attempts);
+        EXPECT_EQ(by_arm.transport.ReadTimeouts(), by_bool.transport.ReadTimeouts());
+        EXPECT_EQ(by_arm.clock.sleep_calls, by_bool.clock.sleep_calls);
+        EXPECT_EQ(by_arm.events.logs, by_bool.events.logs);
+    }
+}
+
 } // namespace
 } // namespace fastecu::flash
