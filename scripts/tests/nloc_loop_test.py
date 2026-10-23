@@ -320,6 +320,22 @@ class CoverageParseTest(unittest.TestCase):
         with self.assertRaisesRegex(nl.NlocLoopError, "outside"):
             nl.parse_coverage(lcov_report({"/elsewhere/a.cpp": {1: 1}}), _ROOT)
 
+    def test_treats_both_posix_and_windows_absolute_paths_as_absolute(self) -> None:
+        # Whatever the host OS, a leading "/" and a drive or UNC path are both
+        # absolute, so they are checked against the root and not kept as they are.
+        names = (
+            "/elsewhere/a.cpp",
+            "\\elsewhere\\a.cpp",
+            "C:\\elsewhere\\a.cpp",
+            "\\\\host\\share\\a.cpp",
+        )
+        for name in names:
+            with (
+                self.subTest(name=name),
+                self.assertRaisesRegex(nl.NlocLoopError, "outside"),
+            ):
+                nl.parse_coverage(lcov_report({name: {1: 1}}), _ROOT)
+
 
 def bep_test_result(label: str, xml_uri: str) -> str:
     """One `testResult` event of a --build_event_json_file."""

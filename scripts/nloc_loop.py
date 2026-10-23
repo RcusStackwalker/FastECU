@@ -21,7 +21,7 @@ import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import TextIO
 from urllib.parse import unquote, urlparse
 from xml.etree import ElementTree
@@ -342,7 +342,7 @@ def parse_coverage(lcov: str, root: Path) -> dict[str, FileCoverage]:
     for line in lcov.splitlines():
         if line.startswith("SF:"):
             name = line[3:]
-            path = _relative(root, name) if Path(name).is_absolute() else name
+            path = _relative(root, name) if _is_absolute(name) else name
             current = hits.setdefault(path, {})
         elif line.startswith("DA:") and current is not None:
             number, count = line[3:].split(",")[:2]
@@ -357,6 +357,11 @@ def parse_coverage(lcov: str, root: Path) -> dict[str, FileCoverage]:
         )
         for path, lines in hits.items()
     }
+
+
+def _is_absolute(name: str) -> bool:
+    """Rooted on any host: "/x", "\\x", "C:\\x" or a UNC path (Windows reads "/" as "\\")."""
+    return bool(PureWindowsPath(name).root)
 
 
 def test_xml_paths(bep_json: str) -> list[Path]:
