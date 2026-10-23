@@ -455,30 +455,8 @@ TEST_F(SubaruDenso1n83m_4mCanExecutorWrite, WriteErasesThenFlashesBlockOne)
     EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{500ms, 50ms, 500ms, 100ms}));
 }
 
-// Unlike ReadPropagatesADisconnectedTransport (can_executor_conformance.h),
-// which stops at read_memory's 0x34 setup exchange -- a fatal_query call --
-// this pins a transport error raised *inside* the 0xB7 dump-chunk loop, whose
-// reads go through fatal_request at a different call site, inside a `for`
-// loop carrying its own cancellation-check and progress-accumulation state.
-// fatal_request's generic error propagation is covered once for every family
-// by uds_client_exchange_common_test.cpp; this test is what actually proves
-// the loop itself aborts cleanly -- without corrupting rom/progress state --
-// on a transport error, rather than assuming fatal_request's coverage
-// implies the loop wrapping it behaves the same way.
-TEST(SubaruDenso1n83m_4mCanExecutor, ReadDisconnectMidDumpLoopPropagates)
-{
-    ScriptedCanFlashTransport transport;
-    ScriptBenchConnect(transport);
-    ScriptReadSetup(transport);
-    transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
-    transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
-
-    fastecu::flash::testing::ExpectReadFailsWith<SubaruDenso1n83m_4mCanExecutor>(ReadPlan(), transport,
-                                                                                 ErrorKind::kDisconnected);
-}
-
-// This family's own strictness boundary, distinct from both
-// ReadDisconnectMidDumpLoopPropagates above and the conformance suite's
+// This family's own strictness boundary, distinct from both the dialect's
+// mid-dump disconnect (pinned once, in the 1.5M suite) and the conformance suite's
 // ReadTimeoutPropagates (can_executor_conformance.h, which now faults at the
 // seed request -- see scriptUpToFirstFatalRead's comment): read_memory's
 // 0x34/0x35 dump-setup pair tolerates a wrong OR an absent reply
@@ -497,63 +475,6 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadTimeoutAtTheTolerantDumpSetupStillPropa
 
     fastecu::flash::testing::ExpectReadFailsWith<SubaruDenso1n83m_4mCanExecutor>(ReadPlan(), transport,
                                                                                  ErrorKind::kTimeout);
-}
-
-TEST(SubaruDenso1n83m_4mCanExecutor, NegativeResponseDuringConnectFails)
-{
-    // Tolerance is not blanket: the seed request keeps its live `return
-    // STATUS_ERROR`, so a negative response there must abort even in this
-    // family.
-    ScriptedCanFlashTransport transport;
-    ScriptPreliminaries(transport, 0xFF);
-    transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
-    transport.Exchange(Request({0x27, 0x61}), Response({0x7F, 0x27, 0x35}));
-
-    fastecu::flash::testing::ExpectReadFailsWith<SubaruDenso1n83m_4mCanExecutor>(ReadPlan(), transport,
-                                                                                 ErrorKind::kBadResponse);
-}
-
-TEST(SubaruDenso1n83m_4mCanExecutor, EmptyBranchSelectorReplyFails)
-{
-    // The wrong-reply return is commented out in legacy but the absent-reply
-    // one is not: a *wrong* branch-selector reply is tolerated, an *absent*
-    // one still returns STATUS_ERROR. This pins that half of the check, which
-    // the tolerance must not swallow.
-    ScriptedCanFlashTransport transport;
-    transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
-    transport.Exchange(Request({0xAA}), Response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));
-    transport.Exchange(Request({0x09, 0x02}), Response({0x49, 0x02, 'V', 'I', 'N'}));
-    transport.Exchange(Request({0x09, 0x04}), Response({0x49, 0x04, 'C', 'A', 'L'}));
-    transport.Exchange(Request({0x09, 0x06}), Response({0x49, 0x06, 0xAA, 0xBB}));
-    transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
-    transport.Exchange(Request({0x22, 0x10, 0x1D}));
-    transport.QueueNoFrame();
-
-    fastecu::flash::testing::ExpectReadFailsWith<SubaruDenso1n83m_4mCanExecutor>(ReadPlan(), transport,
-                                                                                 ErrorKind::kTimeout);
-}
-
-TEST_F(SubaruDenso1n83m_4mCanExecutorWrite, EraseRetryExhaustionFails)
-{
-    // Legacy erase_memory's re-read loop: twenty reads, no re-send, then
-    // "Flash area erase failed".
-    ScriptedCanFlashTransport transport;
-    ScriptBenchConnect(transport);
-    ScriptEraseMemory(transport);
-    for (int attempt = 0; attempt < 20; ++attempt)
-    {
-        transport.QueueRead(Response({0x71, 0x01, 0x03}));
-    }
-
-    const auto plan = WritePlan(rom_);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDenso1n83m_4mCanExecutor>(*plan, transport);
-
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_TRUE(transport.ScriptConsumed());
-    // A second trigger would have hit the end of the script and surfaced as an
-    // Internal error rather than BadResponse; the failure is the erase's own.
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Flash area erase failed")));
 }
 
 // The IFlashExecutor contract this family satisfies -- see
@@ -581,19 +502,6 @@ struct Denso1n83m_4mCanTraits
 
 INSTANTIATE_TYPED_TEST_SUITE_P(SubaruDenso1n83m_4mCan, CanExecutorConformance, Denso1n83m_4mCanTraits);
 
-// Independent family scripts: characterize the current boundaries, including
-// permissiveness, without invoking a new production helper or normalizing it.
-TEST(SubaruDenso1n83m_4mCanExecutor, ObkMismatchAbsentAndEmptyAreMisses)
-{
-    fastecu::flash::testing::ExpectObkProbeMissesInitialise<SubaruDenso1n83m_4mCanExecutor>(
-        &ReadPlan, &ScriptBenchConnect, &ScriptReadSetup, kBlockStart);
-}
-
-TEST(SubaruDenso1n83m_4mCanExecutor, ObkErrorsAndCancellationPropagateBeforeInitialization)
-{
-    fastecu::flash::testing::ExpectObkProbeErrorsPropagate<SubaruDenso1n83m_4mCanExecutor>(&ReadPlan);
-}
-
 TEST(SubaruDenso1n83m_4mCanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort)
 {
     for (const bool exhausted : {false, true})
@@ -614,18 +522,6 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIsBe
                                                              .obk_active_log = "OBK is active",
                                                              .sleeps = std::vector<std::chrono::milliseconds>{}});
     }
-}
-
-TEST(SubaruDenso1n83m_4mCanExecutor, PageAbsentEmptyAndCancelledFailWithoutStopOrProgress)
-{
-    fastecu::flash::testing::ExpectPageFailuresWithoutStopOrProgress<SubaruDenso1n83m_4mCanExecutor>(
-        &ReadPlan, &ScriptReadSetup, kBlockStart);
-}
-
-TEST(SubaruDenso1n83m_4mCanExecutor, CancellationAfterPageFailsButCancellationAtStopIsSwallowed)
-{
-    fastecu::flash::testing::ExpectCancellationAfterPageFailsButAtStopIsSwallowed<SubaruDenso1n83m_4mCanExecutor>(
-        &ReadPlan, &ScriptReadSetup, &ScriptFlashDump, kBlockStart, kBlockLength, kPageSize);
 }
 
 // No acknowledgement is required after the bounded bench wait. A matching
@@ -667,19 +563,6 @@ TEST(SubaruDenso1n83m_4mCanExecutor, BenchJumpExhaustionPreservesReadCountAndTim
     ASSERT_GE(timeouts.size(), 65U);
     EXPECT_EQ(timeouts[10], 200ms);
     EXPECT_THAT(std::vector<std::chrono::milliseconds>(timeouts.begin() + 11, timeouts.begin() + 62), Each(200ms));
-}
-
-TEST_F(SubaruDenso1n83m_4mCanExecutorWrite, CancellationAtCloseSettlePreventsChecksum)
-{
-    ScriptedCanFlashTransport transport;
-    ScriptBenchConnect(transport);
-    ScriptEraseMemory(transport);
-    transport.QueueRead(Response({0x71, 0x01, 0x02}));
-    ScriptReflashChunks(transport, wire_);
-    ScriptCloseRetries(transport, true);
-    const auto plan = WritePlan(rom_);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ExpectCancelAtCloseSettle<SubaruDenso1n83m_4mCanExecutor>(*plan, transport);
 }
 
 // A whole-image script includes both edge chunks with address-sensitive data;

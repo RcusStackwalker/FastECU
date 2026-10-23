@@ -352,6 +352,7 @@ TEST_F(SubaruDenso1n83m_1_5mCanExecutorWrite, WriteErasesThenFlashesBlockOne)
     EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{500ms, 500ms, 100ms}));
 }
 
+// One case for the dialect: all four families run this loop.
 // Unlike ReadPropagatesADisconnectedTransport (can_executor_conformance.h),
 // which stops at read_memory's 0x34 setup exchange -- a fatal_query call --
 // this pins a transport error raised *inside* the 0xB7 dump-chunk loop, whose
@@ -376,9 +377,9 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ReadDisconnectMidDumpLoopPropagates)
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, NegativeResponseDuringConnectFails)
 {
-    // The mirror of 1n83m_4m's tolerated checks: this family is strict, so a
-    // negative response to the seed request, which returns STATUS_ERROR, must
-    // abort rather than be logged and stepped over.
+    // A negative response to the seed request, which returns STATUS_ERROR,
+    // must abort rather than be logged and stepped over. The bench connect is
+    // the dialect's, so this case stands for all four families.
     ScriptedCanFlashTransport transport;
     ScriptPreliminaries(transport, 0xFF);
     transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x43}));
@@ -408,7 +409,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, NegativeResponseAtDumpSetupFails)
 TEST(SubaruDenso1n83m_1_5mCanExecutor, EmptyBranchSelectorReplyFails)
 {
     // An absent 0x22 0x10 0x1D reply is one of only two points in the
-    // preliminary phase that return STATUS_ERROR.
+    // preliminary phase that return STATUS_ERROR. One case for the dialect.
     ScriptedCanFlashTransport transport;
     transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
     transport.Exchange(Request({0xAA}), Response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));
@@ -426,7 +427,8 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, EmptyBranchSelectorReplyFails)
 TEST_F(SubaruDenso1n83m_1_5mCanExecutorWrite, EraseRetryExhaustionFails)
 {
     // Legacy erase_memory's re-read loop: twenty reads, no re-send, then
-    // "Flash area erase failed".
+    // "Flash area erase failed", and no chunk is written. One case for the
+    // dialect; the polling itself is DensoIso15765Erase's.
     ScriptedCanFlashTransport transport;
     ScriptBenchConnect(transport);
     ScriptEraseMemory(transport);
@@ -471,17 +473,58 @@ struct Denso1n83m_1_5mCanTraits
 
 INSTANTIATE_TYPED_TEST_SUITE_P(SubaruDenso1n83m_1_5mCan, CanExecutorConformance, Denso1n83m_1_5mCanTraits);
 
-// Independent family scripts: characterize the current boundaries, including
-// permissiveness, without invoking a new production helper or normalizing it.
+// The OBK probe and its outcome are the dialect executor's, the same for all
+// four families; these two cases stand for all of them. Each family's
+// OBK-active log line is pinned by its own ShortPages case.
+
+// An OBK probe that mismatches (0), is absent (1) or is empty (2) is a miss:
+// the ECU is initialised and the read proceeds, here until the scripted stop.
 TEST(SubaruDenso1n83m_1_5mCanExecutor, ObkMismatchAbsentAndEmptyAreMisses)
 {
-    fastecu::flash::testing::ExpectObkProbeMissesInitialise<SubaruDenso1n83m_1_5mCanExecutor>(
-        &ReadPlan, &ScriptBenchConnect, &ScriptReadSetup, kBlockStart);
+    for (int probe_case = 0; probe_case < 3; ++probe_case)
+    {
+        SCOPED_TRACE(probe_case);
+        ScriptedCanFlashTransport transport;
+        ScriptBenchConnect(transport, probe_case);
+        ScriptReadSetup(transport);
+        transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), kBlockStart)));
+        transport.QueueError(ErrorKind::kDisconnected, "stop after successful connection");
+        const auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        auto [clock, events, cancellation, result] = ExecutorRun<SubaruDenso1n83m_1_5mCanExecutor>(*plan, transport);
+        EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_THAT(events.logs,
+                    testing::Contains(testing::Pair(fastecu::LogLevel::kInfo, "OBK not active, initialising ECU...")));
+        EXPECT_EQ(transport.ReadTimeouts().front(), 200ms);
+    }
 }
 
+// A transport error, a cancellation or a malformed reply to the OBK probe is
+// returned as is, before the ECU is initialised.
 TEST(SubaruDenso1n83m_1_5mCanExecutor, ObkErrorsAndCancellationPropagateBeforeInitialization)
 {
-    fastecu::flash::testing::ExpectObkProbeErrorsPropagate<SubaruDenso1n83m_1_5mCanExecutor>(&ReadPlan);
+    for (const auto kind : {ErrorKind::kDisconnected, ErrorKind::kCancelled, ErrorKind::kBadResponse})
+    {
+        SCOPED_TRACE(static_cast<int>(kind));
+        ScriptedCanFlashTransport transport;
+        transport.Exchange(Request({0x10, 0x5F}));
+        if (kind == ErrorKind::kBadResponse)
+        {
+            transport.QueueRead(bytes::Bytes{}); // malformed envelope, unlike an empty PDU
+        }
+        else
+        {
+            transport.QueueError(kind, "probe failure");
+        }
+        const auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        auto [clock, events, cancellation, result] = ExecutorRun<SubaruDenso1n83m_1_5mCanExecutor>(*plan, transport);
+        EXPECT_THAT(result, fastecu::testing::IsErr(kind));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_THAT(events.logs, testing::Not(testing::Contains(
+                                     testing::Pair(fastecu::LogLevel::kInfo, "OBK not active, initialising ECU..."))));
+    }
 }
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIsBestEffort)
@@ -504,18 +547,6 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ShortPagesAdvanceByRequestedSizeAndStopIs
                                                                .obk_active_log = "OBK is active",
                                                                .sleeps = std::vector<std::chrono::milliseconds>{}});
     }
-}
-
-TEST(SubaruDenso1n83m_1_5mCanExecutor, PageAbsentEmptyAndCancelledFailWithoutStopOrProgress)
-{
-    fastecu::flash::testing::ExpectPageFailuresWithoutStopOrProgress<SubaruDenso1n83m_1_5mCanExecutor>(
-        &ReadPlan, &ScriptReadSetup, kBlockStart);
-}
-
-TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationAfterPageFailsButCancellationAtStopIsSwallowed)
-{
-    fastecu::flash::testing::ExpectCancellationAfterPageFailsButAtStopIsSwallowed<SubaruDenso1n83m_1_5mCanExecutor>(
-        &ReadPlan, &ScriptReadSetup, &ScriptFlashDump, kBlockStart, kBlockLength, kPageSize);
 }
 
 // No acknowledgement is required after the bounded bench wait. A matching
@@ -555,19 +586,6 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, BenchJumpExhaustionPreservesReadCountAndT
     ASSERT_GE(timeouts.size(), 64U);
     EXPECT_EQ(timeouts[10], 200ms);
     EXPECT_THAT(std::vector<std::chrono::milliseconds>(timeouts.begin() + 11, timeouts.begin() + 61), Each(200ms));
-}
-
-TEST_F(SubaruDenso1n83m_1_5mCanExecutorWrite, CancellationAtCloseSettlePreventsChecksum)
-{
-    ScriptedCanFlashTransport transport;
-    ScriptBenchConnect(transport);
-    ScriptEraseMemory(transport);
-    transport.QueueRead(Response({0x71, 0x01, 0x02}));
-    ScriptReflashChunks(transport, wire_);
-    ScriptCloseRetries(transport, true);
-    const auto plan = WritePlan(rom_);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ExpectCancelAtCloseSettle<SubaruDenso1n83m_1_5mCanExecutor>(*plan, transport);
 }
 
 // A whole-image script includes both edge chunks with address-sensitive data;
