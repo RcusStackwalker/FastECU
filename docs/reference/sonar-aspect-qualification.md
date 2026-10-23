@@ -223,3 +223,32 @@ Acceptance status: parity, scope, findings, coverage and retry evidence pass; th
 timing requirement is not met. Per the design, no requirement is waived, so the
 production cutover, guide reconciliation and the merge-time restriction of the
 qualification workflow are not performed.
+
+## Single-job candidate
+
+The two-job split was measured at roughly +100 seconds over the existing job on the
+critical path (a second runner's setup, a second cold Bazel start, preparation and
+artifact transfer; paired median +178 seconds across twelve same-revision pairs
+once qualification-only steps are removed). A job that starts beside the producer
+and polls for it was rejected: with one available runner it holds the runner while
+the producer cannot be scheduled. The candidate is now one job. The producer's
+coverage build, input preparation, import and scan run in sequence on one runner,
+and the import and export both validate the manifest against the job's own
+`git rev-parse HEAD`.
+
+Retry behaviour changes accordingly. There is no separate scanner job to re-run.
+A whole-run rerun leaves only its own attempt's artifacts, so reuse goes through a
+cache keyed by run id: the first attempt saves its exported coverage product and a
+later attempt restores it, skips the coverage build and export, and still imports
+and validates it (attempt 2 of run 39906977717 took 204 seconds, qualification-only
+steps included). A transient scanner failure is retried once in place before the
+Quality Gate.
+
+Attempt-1 timings of the single job against the existing job on the same revision,
+with qualification-only steps (baseline collection, graph regression, comparison,
+identity retention) excluded from the candidate: 245 against 301 seconds, and 257
+against 273 seconds. Input preparation took 8 seconds on the warm server. Two pairs
+are not a distribution and do not establish the margin; the recommended protocol is
+at least six to eight paired same-revision attempt-1 runs judged by the paired
+delta against a margin declared in advance, not by the 314 second figure. No
+performance acceptance is claimed.
