@@ -1964,7 +1964,7 @@ fastecu_portable_gtest(
 cc_library(
     name = "denso_iso15765_bootloader_profile",
     hdrs = ["denso_iso15765_bootloader_profile.h"],
-    deps = ["//src/backend/protocol/uds:uds_client"],
+    deps = ["//src/backend/protocol/uds:exchange_policy"],
 )
 
 fastecu_portable_gtest(
