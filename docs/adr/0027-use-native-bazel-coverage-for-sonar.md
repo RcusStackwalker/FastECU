@@ -36,9 +36,9 @@ SonarCloud chooses their versions per project, so they cannot be pinned.
   input to another build action. It keeps the existing ignore list and the
   resolvable-file floor.
 - Bazel owns the scanner: a pinned `http_archive` of sonar-scanner-cli, whose
-  bundled JRE is used (`sonar.scanner.skipJreProvisioning=true`, so there is no `rules_java`
-  dependency), launched by
-  `bazel run //tools/sonar:scan`. The scan itself is never cached.
+  bundled JRE is used (`sonar.scanner.skipJreProvisioning=true`, so there is no
+  `rules_java` dependency), launched by `bazel run //tools/sonar:scan`. The scan
+  itself is never cached.
 - Analyzer plugins stay on `actions/cache` for `~/.sonar/cache` with a
   weekly-rotating key, because their versions are server-chosen.
 - The rerun machinery (the `run_id` cache, the export/import steps and

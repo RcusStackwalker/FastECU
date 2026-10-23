@@ -8,6 +8,12 @@ sections below are the measured record, kept as written; statements about the
 existing production workflow or a temporary candidate describe the state at the
 time of measurement.
 
+The coverage transfer recorded here (exporting the `llvm-cov` report with commit
+and run provenance, importing it after validation, and restoring it on a rerun)
+and the `sonar_qualify` comparison tool no longer exist:
+[ADR 0027](../adr/0027-use-native-bazel-coverage-for-sonar.md) replaced them with
+native `bazel coverage` served from the BuildBuddy cache.
+
 ## Recorded local evidence
 
 Implementation commits `047fc992`, `8b8f0803` and `1bb8d41a` provide configured

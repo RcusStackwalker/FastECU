@@ -375,6 +375,26 @@ class BuildEventTest(unittest.TestCase):
         with self.assertRaisesRegex(nl.NlocLoopError, "//src/a:a_test"):
             nl.test_xml_paths(bep)
 
+    def test_test_xml_paths_rejects_a_result_without_test_xml(self) -> None:
+        event = json.loads(bep_test_result("//src/a:a_test", "file:///out/test.xml"))
+        event["testResult"]["testActionOutput"].pop()
+        bep = json.dumps(event) + "\n"
+        with self.assertRaisesRegex(nl.NlocLoopError, "//src/a:a_test reported no test.xml"):
+            nl.test_xml_paths(bep)
+
+    def test_reads_reported_test_xmls(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            xml = Path(temp) / "test.xml"
+            xml.write_text(gtest_xml(_RUN))
+            bep = bep_test_result("//src/a:a_test", xml.as_uri())
+            self.assertEqual(nl.read_test_xmls(bep), [gtest_xml(_RUN)])
+
+    def test_a_missing_test_xml_is_an_actionable_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            bep = bep_test_result("//src/a:a_test", (Path(temp) / "test.xml").as_uri())
+            with self.assertRaisesRegex(nl.NlocLoopError, "test.xml is missing"):
+                nl.read_test_xmls(bep)
+
 
 class TestCaseCountTest(unittest.TestCase):
     def test_counts_executed_cases_only(self) -> None:
@@ -393,7 +413,7 @@ def snapshot(test_cases: int, coverage: dict[str, tuple]) -> nl.Snapshot:
         test_cases,
         {
             p: nl.FileCoverage(
-                frozenset(spec[0]), spec[1], frozenset(spec[2]) if len(spec) > 2 else None
+                frozenset(spec[0]), spec[1], frozenset(spec[2] if len(spec) > 2 else ())
             )
             for p, spec in coverage.items()
         },
@@ -465,21 +485,6 @@ class GuardsTest(unittest.TestCase):
         [lost] = [r for r in nl.check_guards(base, head, "production", [_PROD], hunks) if not r.ok]
         self.assertEqual((lost.name, lost.detail), ("unchanged lines stay covered", f"{_PROD}:4"))
 
-    def test_guards_refuse_mixed_formats(self) -> None:
-        head = snapshot(10, {_PROD: ({1}, 2, {2})})
-        base = nl.Snapshot(head.commit, head.test_cases, head.coverage, "llvm-cov-show")
-        for kind in nl.KINDS:
-            with (
-                self.subTest(kind=kind),
-                self.assertRaisesRegex(nl.NlocLoopError, "retake the base snapshot"),
-            ):
-                nl.check_guards(base, head, kind, [_A])
-
-    def test_production_needs_line_tracking_in_both_snapshots(self) -> None:
-        old = snapshot(10, {_PROD: ({1}, 4)})
-        with self.assertRaisesRegex(nl.NlocLoopError, "re-run `guards snapshot`"):
-            nl.check_guards(old, old, "production", [_PROD], {_PROD: [nl.Hunk(1, 1, 1, 1)]})
-
     def test_production_ignores_deleted_and_new_files(self) -> None:
         base = snapshot(10, {_PROD: ({1}, 4, {2})})
         head = snapshot(10, {"src/flash/new.cpp": (set(), 4, {1})})
@@ -529,25 +534,9 @@ class SnapshotTest(unittest.TestCase):
     def test_round_trips(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "s.json"
-            for original in (
-                snapshot(10, {_PROD: ({3, 1}, 4)}),  # taken before line tracking
-                snapshot(10, {_PROD: ({3, 1}, 4, {2, 5})}),
-            ):
-                original.save(path)
-                self.assertEqual(nl.Snapshot.load(path), original)
-
-    def test_round_trips_lcov_format(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            path = Path(temp) / "s.json"
-            snapshot(10, {_PROD: ({1}, 2, {2})}).save(path)
-            self.assertEqual(json.loads(path.read_text())["format"], "lcov")
-            self.assertEqual(nl.Snapshot.load(path).format, nl.COVERAGE_FORMAT)
-
-    def test_snapshot_without_format_loads_as_llvm_cov_show(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            path = Path(temp) / "s.json"
-            path.write_text(json.dumps({"commit": "c0ffee", "test_cases": 1, "coverage": {}}))
-            self.assertEqual(nl.Snapshot.load(path).format, "llvm-cov-show")
+            original = snapshot(10, {_PROD: ({3, 1}, 4, {2, 5})})
+            original.save(path)
+            self.assertEqual(nl.Snapshot.load(path), original)
 
 
 class PrKindTest(unittest.TestCase):

@@ -23,7 +23,8 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PureWindowsPath
 from typing import TextIO
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 from xml.etree import ElementTree
 
 import mutation_test
@@ -42,10 +43,6 @@ MIN_SAVINGS = 50
 JSCPD_REPORT = Path(".nloc-loop/jscpd/jscpd-report.json")
 SNAPSHOTS = Path(".nloc-loop/snapshots")
 BEP_JSON = Path(".nloc-loop/coverage/bep.json")
-# The coverage report a snapshot was parsed from. Snapshots saved before the key
-# existed came from `llvm-cov show`; the line sets of the two are not comparable.
-COVERAGE_FORMAT = "lcov"
-LEGACY_COVERAGE_FORMAT = "llvm-cov-show"
 RunHook = Callable[[Path], str]
 RunJscpd = Callable[[Path], Mapping]
 HostFiles = Callable[[Path], set[str]]
@@ -331,8 +328,7 @@ def query_host_files(root: Path) -> set[str]:
 class FileCoverage:
     covered: frozenset[int]
     executable: int
-    # None in snapshots taken before the diff-aware guards recorded them.
-    uncovered: frozenset[int] | None = None
+    uncovered: frozenset[int]
 
 
 def parse_coverage(lcov: str, root: Path) -> dict[str, FileCoverage]:
@@ -372,17 +368,28 @@ def test_xml_paths(bep_json: str) -> list[Path]:
         if "testResult" not in event:
             continue
         label = event["id"]["testResult"]["label"]
-        for output in event["testResult"].get("testActionOutput", ()):
-            if output["name"] != "test.xml":
-                continue
-            uri = urlparse(output["uri"])
-            if uri.scheme != "file":
-                raise NlocLoopError(
-                    f"{label}'s test.xml is at {output['uri']}, not a local file; "
-                    "it must be downloaded to count test cases"
-                )
-            paths.append(Path(unquote(uri.path)))
+        xml = next(
+            (o for o in event["testResult"].get("testActionOutput", ()) if o["name"] == "test.xml"),
+            None,
+        )
+        if xml is None:
+            raise NlocLoopError(f"{label} reported no test.xml; its test cases cannot be counted")
+        uri = urlparse(xml["uri"])
+        if uri.scheme != "file":
+            raise NlocLoopError(
+                f"{label}'s test.xml is at {xml['uri']}, not a local file; "
+                "it must be downloaded to count test cases"
+            )
+        paths.append(Path(url2pathname(uri.path)))
     return paths
+
+
+def read_test_xmls(bep_json: str) -> list[str]:
+    """The contents of every test.xml a --build_event_json_file reports."""
+    try:
+        return [p.read_text() for p in test_xml_paths(bep_json)]
+    except FileNotFoundError as error:
+        raise NlocLoopError(f"a reported test.xml is missing: {error.filename}") from error
 
 
 def count_test_cases(xmls: Sequence[str]) -> int:
@@ -407,7 +414,6 @@ class Snapshot:
     commit: str
     test_cases: int
     coverage: Mapping[str, FileCoverage]
-    format: str = COVERAGE_FORMAT
 
     @classmethod
     def load(cls, path: Path) -> Snapshot:
@@ -419,26 +425,23 @@ class Snapshot:
                 p: FileCoverage(
                     frozenset(c["covered"]),
                     c["executable"],
-                    frozenset(c["uncovered"]) if "uncovered" in c else None,
+                    frozenset(c["uncovered"]),
                 )
                 for p, c in data["coverage"].items()
             },
-            data.get("format", LEGACY_COVERAGE_FORMAT),
         )
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         coverage = {
-            p: {"covered": sorted(c.covered), "executable": c.executable}
-            | ({} if c.uncovered is None else {"uncovered": sorted(c.uncovered)})
+            p: {
+                "covered": sorted(c.covered),
+                "executable": c.executable,
+                "uncovered": sorted(c.uncovered),
+            }
             for p, c in sorted(self.coverage.items())
         }
-        payload = {
-            "commit": self.commit,
-            "test_cases": self.test_cases,
-            "format": self.format,
-            "coverage": coverage,
-        }
+        payload = {"commit": self.commit, "test_cases": self.test_cases, "coverage": coverage}
         path.write_text(json.dumps(payload) + "\n")
 
 
@@ -454,7 +457,7 @@ def _lost_lines(base: Snapshot, head: Snapshot) -> dict[str, list[int]]:
     for path, coverage in base.coverage.items():
         if classify(path) != PRODUCTION:
             continue
-        kept = head.coverage.get(path, FileCoverage(frozenset(), 0)).covered
+        kept = head.coverage.get(path, FileCoverage(frozenset(), 0, frozenset())).covered
         if missing := sorted(coverage.covered - kept):
             lost[path] = missing
     return lost
@@ -518,7 +521,7 @@ def _lost_unchanged(
         before = base.coverage.get(path)
         if before is None:
             continue
-        kept = head.coverage.get(path, FileCoverage(frozenset(), 0)).covered
+        kept = head.coverage.get(path, FileCoverage(frozenset(), 0, frozenset())).covered
         for line in sorted(before.covered):
             mapped = map_line(line, hunks.get(path, ()))
             if mapped is not None and mapped not in kept:
@@ -526,13 +529,9 @@ def _lost_unchanged(
     return lost
 
 
-def _uncovered_in(snapshot: Snapshot, path: str, lines: set[int], role: str) -> int:
+def _uncovered_in(snapshot: Snapshot, path: str, lines: set[int]) -> int:
     coverage = snapshot.coverage.get(path)
-    if coverage is None:
-        return 0
-    if coverage.uncovered is None:
-        raise NlocLoopError(f"the {role} snapshot predates line tracking; re-run `guards snapshot`")
-    return len(coverage.uncovered & lines)
+    return 0 if coverage is None else len(coverage.uncovered & lines)
 
 
 def _uncovered_balance(
@@ -541,8 +540,8 @@ def _uncovered_balance(
     """(uncovered executable lines added, uncovered ones deleted) over production files."""
     added = deleted = 0
     for path in touched:
-        added += _uncovered_in(head, path, added_lines(hunks.get(path, ())), "head")
-        deleted += _uncovered_in(base, path, deleted_lines(hunks.get(path, ())), "base")
+        added += _uncovered_in(head, path, added_lines(hunks.get(path, ())))
+        deleted += _uncovered_in(base, path, deleted_lines(hunks.get(path, ())))
     return added, deleted
 
 
@@ -554,11 +553,6 @@ def check_guards(
     hunks: Mapping[str, Sequence[Hunk]] | None = None,
 ) -> list[GuardResult]:
     """The local guards for a loop PR of `kind` (docs/tooling.md#nloc-hill-climbing-loop)."""
-    if base.format != head.format:
-        raise NlocLoopError(
-            f"the base snapshot is {base.format} coverage and the head's is {head.format}; "
-            "retake the base snapshot: check out the base commit and run `guards snapshot`"
-        )
     results = [
         GuardResult(
             "test cases",
@@ -623,8 +617,7 @@ def run_bazel_coverage(root: Path) -> tuple[str, list[str]]:
         raise NlocLoopError(f"bazel coverage failed:\n{tail}")
     output_path = _run_tool(root, ["bazel", "info", *config, "output_path"]).strip()
     report = Path(output_path) / "_coverage" / "_coverage_report.dat"
-    xmls = [p.read_text() for p in test_xml_paths(bep.read_text())]
-    return report.read_text(), xmls
+    return report.read_text(), read_test_xmls(bep.read_text())
 
 
 def _xcrun_path(root: Path, tool: str) -> str:
@@ -659,7 +652,7 @@ def _guards(args: argparse.Namespace, run_coverage: RunCoverage, git: RunGit, ou
                 "a snapshot describes a commit; commit or stash uncommitted changes"
             )
         report, xmls = run_coverage(root)
-        snap = Snapshot(head, count_test_cases(xmls), parse_coverage(report, root), COVERAGE_FORMAT)
+        snap = Snapshot(head, count_test_cases(xmls), parse_coverage(report, root))
         snap.save(_snapshot_path(root, head))
         out.write(f"snapshot {head}: {snap.test_cases} test cases, {len(snap.coverage)} files\n")
         return 0

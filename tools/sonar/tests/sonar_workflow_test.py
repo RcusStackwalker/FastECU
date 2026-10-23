@@ -67,7 +67,6 @@ class SonarWorkflowTest(unittest.TestCase):
     def test_the_scanner_reads_the_aspect_database_and_hedron_is_not_used(self):
         commands = "\n".join(step.get("run", "") for step in self.steps)
         self.assertIn("bazel run --config=sonar_inputs //:sonar_inputs", commands)
-        self.assertNotIn("--qualification-records", commands)
         self.assertNotIn("compile_commands:refresh", commands)
         properties = (ROOT / "sonar-project.properties").read_text()
         self.assertIn(

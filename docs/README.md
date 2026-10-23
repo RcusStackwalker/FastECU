@@ -54,7 +54,9 @@ assessment and a recorded Colt bench run remain outstanding.
 
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 The [Sonar aspect qualification record](reference/sonar-aspect-qualification.md)
-holds the evidence behind the Bazel-aspect scanner inputs and the single-job SonarCloud workflow.
+holds the evidence behind the Bazel-aspect scanner inputs;
+[ADR 0027](adr/0027-use-native-bazel-coverage-for-sonar.md) records the native
+coverage and pinned scanner of the SonarCloud job.
 Find them, when present, with:
 
 ```sh

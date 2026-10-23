@@ -199,23 +199,6 @@ class InputsTest(unittest.TestCase):
             with self.assertRaisesRegex(inputs.InputsError, "source"):
                 inputs.prepare(workspace, workspace / "prepared", run=self.runner())
 
-    def test_qualification_export_is_opt_in_and_keeps_the_complete_unique_input_set(self):
-        destination = self.root / "prepared"
-        inputs.prepare(self.root, destination, run=self.runner(), qualification_records=True)
-        value = json.loads((destination / "records.json").read_text())
-        self.assertEqual(value["version"], 2)
-        self.assertEqual(value["commands"][0]["owner"], "//fixture:probe")
-        self.assertEqual(
-            set(value["inputs"]),
-            {
-                str(self.source),
-                str(self.root / "header.h"),
-                str(self.root / "include/QtCore/qobjectdefs.h"),
-            },
-        )
-        inputs.prepare(self.root, destination, run=self.runner())
-        self.assertFalse((destination / "records.json").exists())
-
     def test_missing_non_qt_header_or_broken_symlink_prevents_publication(self):
         header = self.root / "header.h"
         header.unlink()

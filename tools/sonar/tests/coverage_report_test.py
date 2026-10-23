@@ -22,6 +22,21 @@ class CoverageReportTest(unittest.TestCase):
         text = "SF:src/a.cpp\nDA:1,1\nend_of_record\nSF:src/a.cpp\nDA:1,2\nend_of_record\n"
         self.assertEqual(report.parse_lcov(text)["src/a.cpp"].lines, {1: 3})
 
+    def test_a_branch_repeated_across_records_counts_once(self):
+        text = (
+            "SF:src/a.cpp\nDA:1,1\nBRDA:1,0,0,1\nBRDA:1,0,1,-\nend_of_record\n"
+            "SF:src/a.cpp\nDA:1,1\nBRDA:1,0,0,0\nBRDA:1,0,1,2\nend_of_record\n"
+        )
+        self.assertEqual(report.parse_lcov(text)["src/a.cpp"].branches, {1: (2, 2)})
+
+    def test_rejects_malformed_records(self):
+        for record in ("DA:1", "DA:x,1", "BRDA:1,0,0", "BRDA:1,0,0,x"):
+            with (
+                self.subTest(record=record),
+                self.assertRaisesRegex(report.LcovError, f"src/a.cpp: '{record}'"),
+            ):
+                report.parse_lcov(f"SF:src/a.cpp\n{record}\nend_of_record\n")
+
     def test_drops_ignored_absolute_missing(self):
         paths = [
             "src/a.cpp",
@@ -64,14 +79,14 @@ class CoverageReportTest(unittest.TestCase):
             "  </file>\n</coverage>\n",
         )
 
-    def _run(self, min_files):
+    def _run(self, min_files, extra=""):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
         (root / "src").mkdir()
         (root / "src" / "a.cpp").write_text("")
         lcov = root / "c.dat"
-        lcov.write_text(LCOV_A + "SF:src/gone.cpp\nDA:1,1\nend_of_record\n")
+        lcov.write_text(LCOV_A + "SF:src/gone.cpp\nDA:1,1\nend_of_record\n" + extra)
         out = root / "out"
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
@@ -88,6 +103,12 @@ class CoverageReportTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("1 of", err)
         self.assertIn("src/gone.cpp", err)
+        self.assertFalse((out / "sonar-coverage.xml").exists())
+
+    def test_main_reports_a_malformed_record(self):
+        code, err, out = self._run(1, extra="SF:src/a.cpp\nDA:oops\nend_of_record\n")
+        self.assertEqual(code, 1)
+        self.assertIn("malformed lcov record in src/a.cpp: 'DA:oops'", err)
         self.assertFalse((out / "sonar-coverage.xml").exists())
 
     def test_main_writes_both_outputs(self):

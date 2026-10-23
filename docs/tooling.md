@@ -225,7 +225,9 @@ for the last step:
 # macOS only: Xcode's LLVM tools are not on PATH.
 MAC="--repo_env=GCOV=$(xcrun -f llvm-profdata) --repo_env=BAZEL_LLVM_COV=$(xcrun -f llvm-cov)"
 bazel coverage --config=coverage $MAC //...
-bazel run //tools/sonar:coverage_report -- --lcov "$(bazel info --config=coverage $MAC output_path)/_coverage/_coverage_report.dat" --root "$PWD" --output-dir coverage
+bazel run --config=coverage $MAC //tools/sonar:coverage_report -- \
+  --lcov "$(bazel info --config=coverage $MAC output_path)/_coverage/_coverage_report.dat" \
+  --root "$PWD" --output-dir coverage
 bazel run --config=sonar_inputs //:sonar_inputs
 # Linux:
 bazel run --config=coverage //tools/sonar:scan -- -Dsonar.token=$SONAR_TOKEN
@@ -242,12 +244,13 @@ database: without it Sonar misreads `emit` as a declaration and raises
 `cpp:S1117`/`cpp:S824` false positives. Hedron's `compile_commands.json` remains
 for editors and clangd only.
 
-In CI one job builds coverage, exports it with its commit and run provenance,
-prepares the inputs, validates and relocates the report, and scans; a transient
-scanner failure is retried once, and a manual rerun restores the earlier attempt's
-coverage product from the cache instead of rebuilding it. The
+In CI one job runs `bazel coverage`, converts the combined lcov report to Sonar's
+generic coverage format, prepares the inputs and scans; a transient scanner
+failure is retried once. Test results and coverage come from the BuildBuddy
+cache, so a rerun or an unrelated commit reruns only the affected tests.
+[ADR 0027](adr/0027-use-native-bazel-coverage-for-sonar.md) records why; the
 [qualification record](reference/sonar-aspect-qualification.md) holds the evidence
-behind this design.
+behind the aspect-based scanner inputs.
 
 ### CodeQL
 
@@ -406,12 +409,10 @@ clean HEAD's executed test cases (from each test's `test.xml`, found through the
 build event file `.nloc-loop/coverage/bep.json`; skipped and disabled cases
 excluded) and per-file covered lines from the combined lcov report in
 `.nloc-loop/snapshots/<commit>.json`. Test results are cached, so a retake only
-reruns the tests the commit affects. A failing test fails the snapshot.
-Snapshots taken before the move to `bazel coverage` record `llvm-cov show`
-lines, which do not compare with lcov ones: `guards check` refuses to mix the
-two, so retake the base snapshot. Take one on the base (the merge-base with `origin/master`) before
-branching and one on the loop PR's HEAD; `guards check` compares them and
-exits 1 when a guard fails:
+reruns the tests the commit affects. A failing test fails the snapshot. Take
+one on the base (the merge-base with `origin/master`) before branching and one
+on the loop PR's HEAD; `guards check` compares them and exits 1 when a guard
+fails:
 
 - Both kinds: executed test cases do not drop.
 - Test-only: no production file changed, and every production line covered
