@@ -34,8 +34,15 @@ The N83M 1.5M, N83M 4M, SH72531 and SH72543 diesel flash families. They talk
 to the ECU's resident on-board kernel after a kernel jump and upload no
 kernel. Their wire behaviour from connect through close is shared operation by
 operation where it is proven identical; each family's remaining deviations are
-its own.
+its own, stated in its dialect profile.
 _Avoid_: Wave 4
+
+**Dialect profile**:
+The per-family facts a dialect runs with: the family's timings, log text,
+reply strictness and image placement. Every deviation a family has from its
+dialect siblings is a value in its profile; the order of operations belongs to
+the dialect.
+_Avoid_: Family config, variant, settings
 
 **Kernel jump**:
 The diagnostic-session request that hands a bootloader flash family's ECU over
@@ -51,6 +58,12 @@ _Avoid_: Retry loop, init wait
 An exchange whose wrong reply is logged and stepped over, but whose absent or
 too-short reply aborts the operation.
 _Avoid_: Non-fatal query (that never aborts), soft check
+
+**Tolerant reply**:
+An exchange whose wrong or absent reply is logged and stepped over; only a
+failure of the transport itself aborts the operation.
+_Avoid_: Tolerant probe (an absent reply aborts that), non-fatal query (that
+also steps over transport failures)
 
 **Fire-and-forget run**:
 The in-car arm's opening writes to the other modules on the bus, whose replies
