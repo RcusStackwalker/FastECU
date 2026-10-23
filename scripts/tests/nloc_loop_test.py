@@ -317,8 +317,9 @@ class CoverageParseTest(unittest.TestCase):
         self.assertEqual(list(nl.parse_coverage(report, _ROOT)), [_PROD])
 
     def test_rejects_sections_outside_the_root(self) -> None:
+        report = lcov_report({"/elsewhere/a.cpp": {1: 1}})
         with self.assertRaisesRegex(nl.NlocLoopError, "outside"):
-            nl.parse_coverage(lcov_report({"/elsewhere/a.cpp": {1: 1}}), _ROOT)
+            nl.parse_coverage(report, _ROOT)
 
     def test_treats_both_posix_and_windows_absolute_paths_as_absolute(self) -> None:
         # Whatever the host OS, a leading "/" and a drive or UNC path are both
@@ -330,11 +331,12 @@ class CoverageParseTest(unittest.TestCase):
             "\\\\host\\share\\a.cpp",
         )
         for name in names:
+            report = lcov_report({name: {1: 1}})
             with (
                 self.subTest(name=name),
                 self.assertRaisesRegex(nl.NlocLoopError, "outside"),
             ):
-                nl.parse_coverage(lcov_report({name: {1: 1}}), _ROOT)
+                nl.parse_coverage(report, _ROOT)
 
 
 def bep_test_result(label: str, xml_uri: str) -> str:
