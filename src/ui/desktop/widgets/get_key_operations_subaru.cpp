@@ -41,7 +41,7 @@ GetKeyOperationsSubaru::~GetKeyOperationsSubaru()
 {
 }
 
-void GetKeyOperationsSubaru::closeEvent(QCloseEvent *bar)
+void GetKeyOperationsSubaru::closeEvent(QCloseEvent *)
 {
     // kill_process = true;
 }

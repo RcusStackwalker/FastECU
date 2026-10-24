@@ -102,7 +102,7 @@ TEST(MapPresentation, ColorsFiniteValuesAcrossExtremeBounds)
 
 TEST(MapPresentation, ConstantRangeHasValidColor)
 {
-    EXPECT_EQ(mapCellColor(3, {3, 3}), QColor::fromHsvF(0, 0.85, 0.85));
+    EXPECT_EQ(mapCellColor(3, {3, 3}), QColor::fromHsvF(0, 0.85F, 0.85F));
 }
 
 TEST(MapPresentation, NumericSelectionIndexRequiresRepresentableInteger)

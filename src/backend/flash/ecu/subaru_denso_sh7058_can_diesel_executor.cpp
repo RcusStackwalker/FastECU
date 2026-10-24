@@ -291,7 +291,7 @@ Status StrictService(Context& context, bytes::ByteView pdu, bytes::Byte expected
     return {};
 }
 
-Result<bytes::Bytes> SecurityKey(Context& context, bytes::ByteView seed)
+Result<bytes::Bytes> SecurityKey(Context&, bytes::ByteView seed)
 {
     if (seed.size() != 4)
     {

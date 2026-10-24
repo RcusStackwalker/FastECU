@@ -237,8 +237,8 @@ class BiuOperationsSubaru : public QDialog
     };
 
     static constexpr auto kBiuDataFactors =
-        std::to_array<float>({0.0843, 0, 0.0843, 0,   0.0843, 0, 0.0843, 0, 0.0196, 0, 0.4, 0,
-                              0.0196, 0, 0.5,    -40, 0.0392, 0, 0.4,    0, 0.0843, 0, 1,   0});
+        std::to_array<float>({0.0843F, 0, 0.0843F, 0,   0.0843F, 0, 0.0843F, 0, 0.0196F, 0, 0.4F, 0,
+                              0.0196F, 0, 0.5F,    -40, 0.0392F, 0, 0.4F,    0, 0.0843F, 0, 1,    0});
 
     QStringList can_data_names_ = {
         "Front wheel speed     ", "km/hr", "VDC/ABS latest f-code ", "     ", "Blower fan steps      ", "steps",
@@ -247,7 +247,7 @@ class BiuOperationsSubaru : public QDialog
     };
 
     static constexpr auto kCanDataFactors =
-        std::to_array<float>({0.0562, 0, 1, 0, 1, 0, 0.0016, 0, 0.001, 0, 1, -40, 0.1235, 0, 1, 0, 1, 0});
+        std::to_array<float>({0.0562F, 0, 1, 0, 1, 0, 0.0016F, 0, 0.001F, 0, 1, -40, 0.1235F, 0, 1, 0, 1, 0});
 
     QStringList biu_tt_names_ = {
         "Room lamp off delay time ", "     ", "Auto-lock time           ", "secs ",

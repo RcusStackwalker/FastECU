@@ -163,3 +163,16 @@ value is not presented as its current reading, and unavailable does not mean zer
 The combination of measurement kind, protocol, and definition ID. Repeated display
 positions share acquisition and one CSV column; distinct definitions remain distinct
 measurements even when their physical sources overlap.
+
+## Build
+
+**First-party code**:
+The sources this repository owns: its applications, libraries and tests, together
+with the code generated from them. External repositories and the headers they
+provide are not first-party code.
+_Avoid_: Our code, internal code
+
+**Strict warning set**:
+The per-compiler collection of warnings enabled for all first-party code, on top
+of the compiler's default level. Any warning in it fails the build.
+_Avoid_: Warning level, lint rules

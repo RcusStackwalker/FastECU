@@ -82,10 +82,10 @@ class InMemoryFileSystem : public IFileSystem
                 });
             }
         }
-        if (auto files = files_by_parent.find(key); files != files_by_parent.end())
+        if (auto legacy_files = files_by_parent.find(key); legacy_files != files_by_parent.end())
         {
             has_legacy_fixture = true;
-            for (const auto& [name, modified_time] : files->second)
+            for (const auto& [name, modified_time] : legacy_files->second)
             {
                 entries.push_back(DirEntry{
                     .name = name,

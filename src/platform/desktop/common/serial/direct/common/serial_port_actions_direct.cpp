@@ -125,7 +125,7 @@ bool SerialPortActionsDirect::IsSerialPortOpen()
     return serial_->isOpen();
 }
 
-bool SerialPortActionsDirect::SetKlineTimings(uint32_t parameter, int value)
+bool SerialPortActionsDirect::SetKlineTimings(uint32_t, int value)
 {
     p1_max_ms = value;
     return kSerialSuccess;
@@ -424,7 +424,7 @@ int SerialPortActionsDirect::LineEndCheck1Toggled(int state)
     {
         if (use_openport2_adapter)
         {
-            j2534_->PassThruSetProgrammingVoltage(dev_id_, kJ2534J1962Pin11, -2);
+            j2534_->PassThruSetProgrammingVoltage(dev_id_, kJ2534J1962Pin11, static_cast<unsigned long>(-2));
         }
         else
         {
@@ -455,7 +455,7 @@ int SerialPortActionsDirect::LineEndCheck2Toggled(int state)
     {
         if (use_openport2_adapter)
         {
-            j2534_->PassThruSetProgrammingVoltage(dev_id_, kJ2534J1962Pin9, -2);
+            j2534_->PassThruSetProgrammingVoltage(dev_id_, kJ2534J1962Pin9, static_cast<unsigned long>(-2));
         }
         else
         {
@@ -1153,7 +1153,7 @@ bool SerialPortActionsDirect::GetSerialNum(char *serial_arg)
         std::array<unsigned char, 256> data;
     } outbuf{};
 
-    outbuf.length = outbuf.data.size() - 1; // reserve one byte for the null terminator
+    outbuf.length = static_cast<unsigned int>(outbuf.data.size() - 1); // reserve one byte for the null terminator
     memcpy(serial_arg, outbuf.data.data(), outbuf.length);
     serial_arg[outbuf.length] = 0;
     return true;

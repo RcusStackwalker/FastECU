@@ -1,0 +1,23 @@
+# The strict warning set for first-party code. See
+# docs/adr/0028-raise-first-party-warnings-one-flag-at-a-time.md; ADR 0018
+# makes any warning here fatal through REPO.bazel.
+#
+# Each flag lands in its own change, with the sites it reports fixed on every
+# compiler. A flag with no counterpart on a compiler is left out of that
+# compiler's line.
+
+# Qt, googletest and pugixml headers reach our compiles through -I; this makes
+# them -isystem (/external:I with /external:W0 on MSVC) so only our own code
+# can warn.
+build --features=external_include_paths
+
+# Bazel matches the path relative to the owning repository, so an external
+# repository's sources look like "googlemock/src/x.cc" and the filter lists our
+# top-level source directories instead. Generated moc/uic output is reached
+# through its bazel-out prefix. No backslashes: .bazelrc unescapes them before
+# Bazel sees the regex.
+
+# GCC's -Wall includes -Wsign-compare and clang's does not.
+build:macos --per_file_copt=^(src|apps|tests|bazel)/.*[.](cc|cpp|cxx|mm)$@-Wsign-compare
+
+build:windows --per_file_copt=^(bazel-out/[^/]+/bin/)?(apps|src|tests)/.*@/W4,/permissive-
