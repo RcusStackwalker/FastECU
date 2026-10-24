@@ -14,6 +14,7 @@
 #include "src/backend/logging/testing/logger_xml_fixtures.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
+#include "src/backend/ports/testing/in_memory_file_system.h"
 
 namespace
 {
@@ -39,9 +40,10 @@ LoggerSelection Cleared(std::string protocol)
 class LoggingSelectionUseCaseTest : public ::testing::Test
 {
   protected:
+    fastecu::InMemoryFileSystem file_system_;
     fastecu::InMemoryFileRepository repository_;
     fastecu::InMemoryAtomicFileWriter writer_;
-    fastecu::logging::LoggerDefinitionService definitions_{repository_, writer_};
+    fastecu::logging::LoggerDefinitionService definitions_{file_system_, repository_, writer_};
     fastecu::logging::LoggerModel model_;
 
     LoggingSelectionUseCase UseCase()
@@ -76,6 +78,7 @@ TEST_F(LoggingSelectionUseCaseInstall, InstallsTheConfiguredDefinitionAndResetsT
 
 TEST_F(LoggingSelectionUseCaseInstall, ReportsTheBundledHandleWhenNoneIsConfigured)
 {
+    file_system_.files["/home/u/.FastECU/logger_cdbg_example.xml"] = BytesOf(kDefinition);
     repository_.files["/home/u/.FastECU/logger_cdbg_example.xml"] = BytesOf(kDefinition);
 
     const auto installed = UseCase().InstallDefinition(
@@ -88,7 +91,8 @@ TEST_F(LoggingSelectionUseCaseInstall, ReportsTheBundledHandleWhenNoneIsConfigur
 
 TEST_F(LoggingSelectionUseCaseInstall, BundledHandleIsReportedEvenWhenItsLoadFails)
 {
-    // Resolution only probes the user copy for readability; a malformed one fails to parse.
+    // Resolution only probes the user copy for existence; a malformed one fails to parse.
+    file_system_.files["/home/u/.FastECU/logger_cdbg_example.xml"] = BytesOf("<logger><protocols>");
     repository_.files["/home/u/.FastECU/logger_cdbg_example.xml"] = BytesOf("<logger><protocols>");
 
     const auto installed = UseCase().InstallDefinition(
