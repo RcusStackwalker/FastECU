@@ -26,12 +26,8 @@ Result<std::optional<LoggerSelection>> ReadSelection(bytes::ByteView conf, std::
 Result<bytes::Bytes> WriteSelection(bytes::ByteView conf, std::string_view ecu_id, const LoggerSelection& selection,
                                     std::string_view source);
 
-// The first-N walk read_logger_definition_file performs at parse time:
-// 15 gauges / 12 lower-panel / 20 switches, ignoring `enabled`.
-LoggerSelection InitialSelection(const LoggerDefinition& definition);
-
-// The enabled-only walk read_logger_conf performs when the ECU id is absent,
-// at the same caps.
+// The enabled-only walk read_logger_conf performs when the ECU id is absent:
+// the first 15 gauges / 12 lower-panel / 20 switches that are enabled.
 LoggerSelection DefaultSelection(const LoggerDefinition& definition);
 
 } // namespace fastecu::logging

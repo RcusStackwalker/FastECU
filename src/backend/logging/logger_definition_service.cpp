@@ -13,15 +13,14 @@ constexpr std::string_view kBundledCdbgExample = ":/config/logger_cdbg_example.x
 
 } // namespace
 
-LoggerDefinitionService::LoggerDefinitionService(IFileRepository& repository, IResourceBundle& bundle,
-                                                 IAtomicFileWriter& writer)
-    : repository_(repository), bundle_(bundle), writer_(writer)
+LoggerDefinitionService::LoggerDefinitionService(IFileRepository& repository, IAtomicFileWriter& writer)
+    : repository_(repository), writer_(writer)
 {
 }
 
-Result<std::string> LoggerDefinitionService::ResolveDefinitionHandle(std::string_view configured_handle,
-                                                                     std::string_view log_protocol,
-                                                                     std::string_view config_files_directory)
+std::string LoggerDefinitionService::ResolveDefinitionHandle(std::string_view configured_handle,
+                                                             std::string_view log_protocol,
+                                                             std::string_view config_files_directory)
 {
     if (!configured_handle.empty())
     {

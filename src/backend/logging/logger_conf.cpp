@@ -69,7 +69,7 @@ std::vector<std::string> CollectIds(pugi::xml_node parent, const char *element_n
            std::ranges::to<std::vector>();
 }
 
-LoggerSelection Walk(const LoggerDefinition& definition, bool enabled_only)
+LoggerSelection Walk(const LoggerDefinition& definition)
 {
     LoggerSelection selection;
     if (!definition.parameters.empty())
@@ -78,7 +78,7 @@ LoggerSelection Walk(const LoggerDefinition& definition, bool enabled_only)
     }
     for (const LoggerParameter& parameter : definition.parameters)
     {
-        if (enabled_only && !parameter.enabled)
+        if (!parameter.enabled)
         {
             continue;
         }
@@ -93,12 +93,9 @@ LoggerSelection Walk(const LoggerDefinition& definition, bool enabled_only)
     }
     for (const LoggerSwitch& paramswitch : definition.switches)
     {
-        // The enabled-only walk gates on LoggerSwitch::enabled, mirroring
-        // read_logger_conf's `log_switch_enabled.at(i) == "1"` check
-        // (file_actions.cpp:990). The first-N walk (initial_selection)
-        // deliberately does not filter, same as the gauge/lower-panel loop
-        // above.
-        if (enabled_only && !paramswitch.enabled)
+        // Mirrors read_logger_conf's `log_switch_enabled.at(i) == "1"` check
+        // (file_actions.cpp:990).
+        if (!paramswitch.enabled)
         {
             continue;
         }
@@ -209,14 +206,9 @@ Result<bytes::Bytes> WriteSelection(bytes::ByteView conf, std::string_view ecu_i
     return bytes::Bytes(xml.begin(), xml.end());
 }
 
-LoggerSelection InitialSelection(const LoggerDefinition& definition)
-{
-    return Walk(definition, /*enabled_only=*/false);
-}
-
 LoggerSelection DefaultSelection(const LoggerDefinition& definition)
 {
-    return Walk(definition, /*enabled_only=*/true);
+    return Walk(definition);
 }
 
 } // namespace fastecu::logging

@@ -71,7 +71,7 @@ class DesktopComposition
     StartupEventSink startup_events_;
     fastecu::config::ConfigSession config_;
     fastecu::logging::LoggerModel logger_model_;
-    fastecu::logging::LoggerDefinitionService logger_definitions_{file_repository_, resource_bundle_, file_writer_};
+    fastecu::logging::LoggerDefinitionService logger_definitions_{file_repository_, file_writer_};
     fastecu::logging::LoggingSelectionUseCase logging_selection_{logger_definitions_, logger_model_};
     std::optional<fastecu::Error> startup_error_;
     std::unique_ptr<fastecu::definition::DefinitionService> definition_service_;

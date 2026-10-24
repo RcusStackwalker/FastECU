@@ -9,7 +9,6 @@
 
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
-#include "src/backend/ports/testing/in_memory_resource_bundle.h"
 
 namespace
 {
@@ -40,12 +39,11 @@ class LoggerDefinitionServiceTest : public ::testing::Test
 {
   protected:
     fastecu::InMemoryFileRepository repository_;
-    fastecu::InMemoryResourceBundle bundle_;
     fastecu::InMemoryAtomicFileWriter writer_;
 
     LoggerDefinitionService Service()
     {
-        return LoggerDefinitionService(repository_, bundle_, writer_);
+        return LoggerDefinitionService(repository_, writer_);
     }
 };
 
@@ -66,30 +64,26 @@ TEST_F(LoggerDefinitionServiceTest, PropagatesAReadFailure)
 
 TEST_F(LoggerDefinitionServiceTest, ResolvesTheConfiguredHandleUnchanged)
 {
-    ASSERT_THAT(Service().ResolveDefinitionHandle("configured.xml", "CDBG", "/home/u/.FastECU/"),
-                fastecu::testing::IsOkAnd("configured.xml"));
+    EXPECT_EQ(Service().ResolveDefinitionHandle("configured.xml", "CDBG", "/home/u/.FastECU/"), "configured.xml");
 }
 
 TEST_F(LoggerDefinitionServiceTest, PrefersTheConfigDirCdbgExampleWhenPresent)
 {
     repository_.files["/home/u/.FastECU/logger_cdbg_example.xml"] = BytesOf(kDefinition);
 
-    ASSERT_THAT(Service().ResolveDefinitionHandle("", "CDBG", "/home/u/.FastECU/"),
-                fastecu::testing::IsOkAnd("/home/u/.FastECU/logger_cdbg_example.xml"));
+    EXPECT_EQ(Service().ResolveDefinitionHandle("", "CDBG", "/home/u/.FastECU/"),
+              "/home/u/.FastECU/logger_cdbg_example.xml");
 }
 
 TEST_F(LoggerDefinitionServiceTest, FallsBackToTheBundledCdbgExample)
 {
     // Config-dir file absent; the bundled resource is the only source.
-    ASSERT_THAT(Service().ResolveDefinitionHandle("", "CDBG", "/home/u/.FastECU/"),
-                fastecu::testing::IsOkAnd(":/config/logger_cdbg_example.xml"));
+    EXPECT_EQ(Service().ResolveDefinitionHandle("", "CDBG", "/home/u/.FastECU/"), ":/config/logger_cdbg_example.xml");
 }
 
 TEST_F(LoggerDefinitionServiceTest, LeavesTheHandleEmptyForNonCdbgProtocols)
 {
-    const auto handle = Service().ResolveDefinitionHandle("", "SSM", "/home/u/.FastECU/");
-    ASSERT_THAT(handle, fastecu::testing::IsOk());
-    EXPECT_THAT(*handle, ::testing::IsEmpty());
+    EXPECT_THAT(Service().ResolveDefinitionHandle("", "SSM", "/home/u/.FastECU/"), ::testing::IsEmpty());
 }
 
 TEST_F(LoggerDefinitionServiceTest, LoadSelectionReturnsTheStoredEntry)

@@ -12,26 +12,18 @@ LoggingSelectionUseCase::LoggingSelectionUseCase(LoggerDefinitionService& defini
 
 std::expected<InstallOutcome, InstallFailure> LoggingSelectionUseCase::InstallDefinition(const DefinitionSource& source)
 {
-    // The service resolves without failing today; the step stays so the
-    // caller's notice keeps a home if resolution ever reports an error.
-    auto handle = definitions_.ResolveDefinitionHandle(source.configured_handle, source.log_protocol,
-                                                       source.config_files_directory);
-    if (!handle)
-    {
-        return std::unexpected(InstallFailure{.step = InstallFailure::Step::kResolve, .error = handle.error()});
-    }
-    const bool bundled_handle_used = source.configured_handle.empty() && !handle->empty();
-    auto definition = definitions_.LoadDefinition(*handle);
+    std::string handle = definitions_.ResolveDefinitionHandle(source.configured_handle, source.log_protocol,
+                                                              source.config_files_directory);
+    const bool bundled_handle_used = source.configured_handle.empty() && !handle.empty();
+    auto definition = definitions_.LoadDefinition(handle);
     if (!definition)
     {
-        return std::unexpected(InstallFailure{.step = InstallFailure::Step::kLoad,
-                                              .handle = *handle,
-                                              .bundled_handle_used = bundled_handle_used,
-                                              .error = definition.error()});
+        return std::unexpected(InstallFailure{
+            .handle = std::move(handle), .bundled_handle_used = bundled_handle_used, .error = definition.error()});
     }
     model_.InstallDefinition(std::move(*definition));
     model_.SetSelection(model_.DefaultSelection(source.log_protocol));
-    return InstallOutcome{.resolved_handle = *handle, .bundled_handle_used = bundled_handle_used};
+    return InstallOutcome{.resolved_handle = std::move(handle), .bundled_handle_used = bundled_handle_used};
 }
 
 Result<RestoreOutcome> LoggingSelectionUseCase::RestorePendingSelection(std::string_view conf_handle,
