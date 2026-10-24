@@ -527,40 +527,17 @@ Status WriteMem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
 
 } // namespace
 
-Result<Iso15765Config> SubaruTcuCvtHitachiM32rCanExecutor::TransportSetup(const FlashPlan& plan) const
+Result<Iso15765Config> SubaruTcuCvtHitachiM32rCanExecutor::Setup(const SubaruTcuCvtHitachiM32rCanPlan& family) const
 {
-    if (const Status match = CheckFamily(plan, FlashFamily::kSubaruTcuCvtHitachiM32rCan); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (const Status valid = ValidateSubaruTcuCvtHitachiM32rCanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& family = std::get<SubaruTcuCvtHitachiM32rCanPlan>(plan.FamilyPlan());
     return Iso15765ConfigFrom(family);
 }
 
-Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::Execute(const FlashPlan& plan,
-                                                                         ICanFlashTransport& transport, IClock& clock,
-                                                                         const ICancellationToken& cancellation,
-                                                                         IEventSink& events)
+Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::Run(const SubaruTcuCvtHitachiM32rCanPlan& family,
+                                                                     const FlashPlan& plan,
+                                                                     ICanFlashTransport& transport, IClock& clock,
+                                                                     const ICancellationToken& cancellation,
+                                                                     IEventSink& events)
 {
-    if (const Status matched = CheckFamily(plan, FlashFamily::kSubaruTcuCvtHitachiM32rCan); !matched.has_value())
-    {
-        return std::unexpected(matched.error());
-    }
-    if (const Status valid = ValidateSubaruTcuCvtHitachiM32rCanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-
-    const auto& family = std::get<SubaruTcuCvtHitachiM32rCanPlan>(plan.FamilyPlan());
-
     const bool read = plan.Operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.Start(read ? "Connect to TCU" : "Connect", 1);

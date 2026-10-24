@@ -481,40 +481,16 @@ Status WriteMem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
 
 } // namespace
 
-Result<Iso15765Config> SubaruHitachiM32rCanExecutor::TransportSetup(const FlashPlan& plan) const
+Result<Iso15765Config> SubaruHitachiM32rCanExecutor::Setup(const SubaruHitachiM32rCanPlan& family) const
 {
-    if (const Status match = CheckFamily(plan, FlashFamily::kSubaruHitachiM32rCan); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (const Status valid = ValidateSubaruHitachiM32rCanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& family = std::get<SubaruHitachiM32rCanPlan>(plan.FamilyPlan());
     return Iso15765ConfigFrom(family);
 }
 
-Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::Execute(const FlashPlan& plan, ICanFlashTransport& transport,
-                                                                   IClock& clock,
-                                                                   const ICancellationToken& cancellation,
-                                                                   IEventSink& events)
+Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::Run(const SubaruHitachiM32rCanPlan& family,
+                                                               const FlashPlan& plan, ICanFlashTransport& transport,
+                                                               IClock& clock, const ICancellationToken& cancellation,
+                                                               IEventSink& events)
 {
-    if (const Status matched = CheckFamily(plan, FlashFamily::kSubaruHitachiM32rCan); !matched.has_value())
-    {
-        return std::unexpected(matched.error());
-    }
-    if (const Status valid = ValidateSubaruHitachiM32rCanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-
-    const auto& family = std::get<SubaruHitachiM32rCanPlan>(plan.FamilyPlan());
-
     const bool read = plan.Operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.Start(read ? "Connect to ECU" : "Connect", 1);

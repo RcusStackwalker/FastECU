@@ -291,38 +291,16 @@ Result<FlashExecutionResult> ExecuteOpenTransport(const FlashPlan& plan, IKlineF
 }
 } // namespace
 
-Result<KlineConfig> SubaruMitsuM32rKlineExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruMitsuM32rKlineExecutor::Setup(const SubaruMitsuM32rKlinePlan& family) const
 {
-    if (const Status match = CheckFamily(plan, FlashFamily::kSubaruMitsuM32rKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (const Status valid = ValidateSubaruMitsuM32rKlinePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& p = std::get<SubaruMitsuM32rKlinePlan>(plan.FamilyPlan());
-    return NonIso14230KlineConfigFrom(p);
+    return NonIso14230KlineConfigFrom(family);
 }
 
-Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::Execute(const FlashPlan& plan,
-                                                                   IKlineFlashTransport& transport, IClock& clock,
-                                                                   const ICancellationToken& cancellation,
-                                                                   IEventSink& events)
+Result<FlashExecutionResult> SubaruMitsuM32rKlineExecutor::Run(const SubaruMitsuM32rKlinePlan& p, const FlashPlan& plan,
+                                                               IKlineFlashTransport& transport, IClock& clock,
+                                                               const ICancellationToken& cancellation,
+                                                               IEventSink& events)
 {
-    if (const Status match = CheckFamily(plan, FlashFamily::kSubaruMitsuM32rKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (const Status valid = ValidateSubaruMitsuM32rKlinePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-    const auto& p = std::get<SubaruMitsuM32rKlinePlan>(plan.FamilyPlan());
     return ExecuteOpenTransport(plan, transport, clock, cancellation, events, p);
 }
 } // namespace fastecu::flash

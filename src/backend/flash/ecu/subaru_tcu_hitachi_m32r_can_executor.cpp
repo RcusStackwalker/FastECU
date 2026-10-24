@@ -760,38 +760,16 @@ Result<FlashExecutionResult> ExecuteTransfer(const FlashPlan& plan, ICanFlashTra
 
 } // namespace
 
-Result<Iso15765Config> SubaruTcuHitachiM32rCanExecutor::TransportSetup(const FlashPlan& plan) const
+Result<Iso15765Config> SubaruTcuHitachiM32rCanExecutor::Setup(const SubaruTcuHitachiM32rCanPlan& family) const
 {
-    if (const Status family = CheckFamily(plan, FlashFamily::kSubaruTcuHitachiM32rCan); !family.has_value())
-    {
-        return std::unexpected(family.error());
-    }
-    if (const Status valid = ValidateSubaruTcuHitachiM32rCanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& parameters = std::get<SubaruTcuHitachiM32rCanPlan>(plan.FamilyPlan());
-    return Iso15765ConfigFrom(parameters);
+    return Iso15765ConfigFrom(family);
 }
 
-Result<FlashExecutionResult> SubaruTcuHitachiM32rCanExecutor::Execute(const FlashPlan& plan,
-                                                                      ICanFlashTransport& transport, IClock& clock,
-                                                                      const ICancellationToken& cancellation,
-                                                                      IEventSink& events)
+Result<FlashExecutionResult> SubaruTcuHitachiM32rCanExecutor::Run(const SubaruTcuHitachiM32rCanPlan& parameters,
+                                                                  const FlashPlan& plan, ICanFlashTransport& transport,
+                                                                  IClock& clock, const ICancellationToken& cancellation,
+                                                                  IEventSink& events)
 {
-    if (const Status family = CheckFamily(plan, FlashFamily::kSubaruTcuHitachiM32rCan); !family.has_value())
-    {
-        return std::unexpected(family.error());
-    }
-    if (const Status valid = ValidateSubaruTcuHitachiM32rCanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-    const auto& parameters = std::get<SubaruTcuHitachiM32rCanPlan>(plan.FamilyPlan());
     Result<std::optional<std::string>> connected =
         ConnectBootloader(transport, clock, cancellation, events, parameters);
     if (!connected.has_value())
