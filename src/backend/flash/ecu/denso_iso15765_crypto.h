@@ -15,7 +15,7 @@ namespace fastecu::flash
 // SH72543 diesel families. The BEEF-dialect consumers are SubaruTcuDensoSh705xCanExecutor,
 // SubaruDensoSh7058CanExecutor and SubaruDensoSh7058CanDieselExecutor.
 //
-// Each cluster was ported standalone, with duplication tolerated, so that
+// Each family was ported standalone, with duplication tolerated, so that
 // factoring happened only after the finished executors and their independent
 // characterization tests were visible. Direct comparison proved that the
 // seed/key table, encrypt table and index transformation are byte-identical
@@ -23,10 +23,10 @@ namespace fastecu::flash
 // values for the stock security flow and kernel upload; their normal-ROM
 // BEEF payloads remain raw, so none consumes the decrypt table for ROM reads.
 // The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
-// DensoCAN is not a consumer of this data-only cluster.
+// DensoCAN is not a consumer of this data-only module.
 //
 // Scope note: the index transformation these tables are paired with is NOT
-// here. It is not specific to this cluster -- it was spelled out at fourteen
+// here. It is not specific to these tables -- it was spelled out at fourteen
 // production call sites across this package and src/backend/flash/eeprom --
 // and now lives in src/algorithms/protocol/ssm as
 // SsmProtocol::kIndexTransformationStock, next to the ECUTEK variant it is
@@ -59,8 +59,8 @@ inline constexpr std::array<std::uint16_t, 4> kDensoIso15765EncryptTable{0xC85B,
 // No BEEF-dialect normal-ROM BEEF path consumes this table.
 inline constexpr std::array<std::uint16_t, 4> kDensoIso15765DecryptTable{0x92A0, 0xE282, 0x32C0, 0xC85B};
 
-// The three SsmProtocol calls that bind the tables above. All four cluster
-// members and the applicable BEEF-dialect families carried these byte-for-byte;
+// The three SsmProtocol calls that bind the tables above. All four bootloader-dialect
+// families and the applicable BEEF-dialect families carried these byte-for-byte;
 // they are pure table-to-algorithm adapters with no protocol sequence in them.
 
 // generate_can_seed_key().

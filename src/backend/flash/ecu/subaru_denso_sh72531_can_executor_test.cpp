@@ -411,7 +411,7 @@ struct Sh72531CanTraits
     static constexpr std::uint32_t kBlockLength = ::kBlockLength;
     static constexpr std::uint32_t kPageSize = ::kPageSize;
     // serial_read_short_timeout (header lines 45-48): the timeout the
-    // tolerant_probe exchanges in connect_bootloader read with, and the one
+    // TolerantProbe exchanges in ConnectBootloader read with, and the one
     // every other short-timeout read in this family's connect/read path
     // shares.
     static constexpr std::chrono::milliseconds kProbeTimeout{200};

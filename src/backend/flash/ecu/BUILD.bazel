@@ -1681,6 +1681,7 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:can_flash_uds_channel",
         "//src/backend/flash:flash_types",
+        "//src/backend/flash/ecu/testing:can_executor_conformance",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:mock_clock",

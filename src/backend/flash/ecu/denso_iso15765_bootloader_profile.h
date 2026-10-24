@@ -34,7 +34,7 @@ enum class DensoReadSetupReply
     kTolerantReply,
 };
 
-// The connect's ECU identity query: the 0x1A ECU-ID service, or a 0x22 read
+// The connect's ECU identity query: the 0xAA ECU-ID service, or a 0x22 read
 // of DID F182 that logs five bytes.
 enum class DensoIdentityQuery
 {

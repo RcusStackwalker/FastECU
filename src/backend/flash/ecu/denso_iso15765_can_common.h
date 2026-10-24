@@ -2,7 +2,6 @@
 
 #include <chrono>
 #include <cstdint>
-#include <format>
 #include <optional>
 #include <string_view>
 
@@ -20,7 +19,7 @@ namespace fastecu::flash
 // The dialect's rejection log prefix, legacy's "Wrong response from ECU: ".
 inline constexpr std::string_view kDensoIso15765RejectionPrefix = "Wrong response from ECU: ";
 
-// The common module shares eleven operations across the four
+// The common module shares ten operations across the four
 // bootloader-dialect families (the seed/key and payload tables they use are
 // in denso_iso15765_crypto.h):
 // - setup-PDU encoding;
@@ -29,7 +28,6 @@ inline constexpr std::string_view kDensoIso15765RejectionPrefix = "Wrong respons
 // - the read dump: B7 page reads, the best-effort stop and the 0xFF padding;
 // - the image write loop: B6 chunk writes at the family's image base;
 // - the close: best-effort transfer exit, settle and checksum verify;
-// - the single-block write_memory body around the family's reflash;
 // - connect_bootloader's prelude: OBK probe, identity queries, access-method
 //   probe and branch selector;
 // - the in-car arm, with one fire-and-forget run for the N83M families and one
@@ -52,7 +50,7 @@ inline constexpr std::string_view kDensoIso15765RejectionPrefix = "Wrong respons
 // through the transport -- directly. `channel` is the same
 // CanFlashUdsChannel instance `uds` wraps.
 //
-// Executors that log their own rejections use kDensoIso15765RejectionPrefix.
+// Rejections are logged with kDensoIso15765RejectionPrefix.
 //
 // Pure setup encoding shared by the N83M 1.5M/4M, SH72531 and SH72543 diesel
 // bootloader executors: RequestDownload (34) or RequestUpload (35), 04 44,
@@ -105,7 +103,7 @@ Status DensoIso15765WriteImageAndVerifyChecksum(const CanExecutorContext& ctx, b
                                                 std::uint32_t image_base, const MemoryRegion& block,
                                                 PhaseReporter& progress, const uds::ExchangePolicy& checksum_policy);
 
-// fatal_query with this dialect's "Wrong response from ECU: " rejection
+// FatalQuery with this dialect's "Wrong response from ECU: " rejection
 // prefix; see uds_client_exchange_common.h for what expected_prefix, subject
 // and min_payload_size mean.
 Result<bytes::Bytes> FatalQuery(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
@@ -138,7 +136,7 @@ Status DensoIso15765JumpToKernel(const CanExecutorContext& ctx, bytes::Byte sess
 Result<bool> DensoObkIsActive(const CanExecutorContext& ctx, std::string_view active_log);
 
 // connect_bootloader's identity prelude: the ECU ID query (AA; SH72543 diesel
-// reads it by DID instead and keeps that query local), then VIN, CAL ID and
+// reads it by DID instead in its own executor), then VIN, CAL ID and
 // CVN (09 02/04/06). Each logs its request, reads at 2000 ms and is non-fatal:
 // a mismatch or an exchange error, cancellation included, is logged and
 // swallowed.
@@ -153,7 +151,7 @@ void DensoVehicleInfoQueries(const CanExecutorContext& ctx);
 Result<bool> DensoProgrammingBranchIsInCar(const CanExecutorContext& ctx, std::chrono::milliseconds probe_timeout);
 
 // The bootloader dialect's SecurityAccess exchange: request the level-0x61 seed, derive the
-// key from its four payload bytes with denso_seed_key, send it at level 0x62.
+// key from its four payload bytes with DensoSeedKey, send it at level 0x62.
 // Both exchanges are fatal on a rejected, absent or mismatched reply, and a
 // seed reply with fewer than four seed bytes fails before any key is sent.
 // Both read with a single 2000 ms read_timeout; pending replies keep the UDS
@@ -196,36 +194,5 @@ Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTranspo
 // tolerant probe on SH72543 diesel -- seed/key, then the bench kernel jump
 // (10 42, at most 50 tries) read at the arm's jump timeouts.
 Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBenchArm& arm);
-
-// write_memory's body: each family erases and reflashes exactly one block
-// (legacy block_modified marks one entry), so this logs `block_index` -- 1 of
-// a three-block table on the N83M and SH72531 families, 0 of SH72543 diesel's
-// one-block table -- erases `block` with DensoIso15765Erase, then runs the
-// family's `reflash(PhaseReporter&)` under a "Write ROM" phase sized to the
-// block. The dialect executor's reflash logs the family's header line around
-// the shared write and close.
-template <typename Reflash>
-Status DensoIso15765WriteBlock(const CanExecutorContext& ctx, const MemoryRegion& block, int block_index,
-                               PhaseSequence& phases, Reflash&& reflash)
-{
-    LogInfo(ctx, std::format("Blocks to flash: {},  (total: 1)", block_index));
-    LogInfo(ctx, "--- Erasing ECU flash memory ---");
-    PhaseReporter erase = phases.Start("Erase", 1);
-    if (const Status erased = DensoIso15765Erase(ctx, block); !erased.has_value())
-    {
-        return erased;
-    }
-    erase.Complete();
-
-    LogInfo(ctx, "--- Start writing ROM file to ECU flash memory ---");
-    PhaseReporter write = phases.Start("Write ROM", static_cast<int>(block.length));
-    if (const Status written = reflash(write); !written.has_value())
-    {
-        return written;
-    }
-    write.Complete();
-    LogInfo(ctx, std::format("Block {} reflash complete.", block_index));
-    return {};
-}
 
 } // namespace fastecu::flash
