@@ -237,7 +237,6 @@ cc_library(
         ":denso_beef_can_common",
         ":denso_iso15765_crypto",
         ":flash_phase_progress",
-        ":subaru_denso_sh7058_can_diesel_plan",
         ":uds_client_exchange_common",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
@@ -247,7 +246,10 @@ cc_library(
         "//src/backend/flash:transfer_progress",
         "//src/backend/protocol/uds:uds_client",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_denso_sh7058_can_diesel_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -437,7 +439,6 @@ cc_library(
         ":denso_beef_can_common",
         ":denso_iso15765_crypto",
         ":flash_phase_progress",
-        ":subaru_tcu_denso_sh705x_can_plan",
         ":uds_client_exchange_common",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
@@ -447,7 +448,10 @@ cc_library(
         "//src/backend/flash:transfer_progress",
         "//src/backend/protocol/uds:uds_client",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_tcu_denso_sh705x_can_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 cc_library(
@@ -458,7 +462,6 @@ cc_library(
         ":denso_beef_can_common",
         ":denso_iso15765_crypto",
         ":flash_phase_progress",
-        ":subaru_denso_sh7058_can_plan",
         ":uds_client_exchange_common",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
@@ -469,7 +472,10 @@ cc_library(
         "//src/backend/flash:transfer_progress",
         "//src/backend/protocol/uds:uds_client",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_denso_sh7058_can_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 cc_library(
