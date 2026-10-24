@@ -553,9 +553,6 @@
     "//src/backend/ports/testing:in_memory_resource_bundle_test": {
       "seconds": 0.129
     },
-    "//src/backend/ports/testing:in_memory_settings_test": {
-      "seconds": 0.214
-    },
     "//src/backend/ports/testing:mock_clock_test": {
       "seconds": 0.256
     },

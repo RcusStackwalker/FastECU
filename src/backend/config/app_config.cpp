@@ -7,7 +7,6 @@
 #include <sstream>
 #include <string_view>
 #include <string>
-#include <tuple>
 #include <vector>
 
 #include <pugixml.hpp>
@@ -158,21 +157,6 @@ Result<AppConfig> ParseAppConfig(const ConfigPaths& paths, IFileRepository& file
     {
         ParseSetting(setting, config);
     }
-    return config;
-}
-
-Result<AppConfig> LoadAppConfig(const ConfigPaths& paths, IFileRepository& file_repository)
-{
-    Result<AppConfig> config = ParseAppConfig(paths, file_repository);
-    if (!config.has_value())
-    {
-        return config;
-    }
-    // Matches legacy FileActions::read_config_file (file_actions.cpp:910),
-    // which rewrites the config file on every load. The save's result is
-    // fire-and-forget; callers needing to observe it use parse_app_config
-    // and save_app_config themselves (ConfigSession does).
-    std::ignore = SaveAppConfig(*config, paths, file_repository);
     return config;
 }
 

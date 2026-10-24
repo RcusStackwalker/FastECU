@@ -17,7 +17,6 @@ cc_library(
         "qt_file_repository.cpp",
         "qt_file_system.cpp",
         "qt_resource_bundle.cpp",
-        "qt_settings.cpp",
     ],
     hdrs = [
         "qt_atomic_file_writer.h",
@@ -25,7 +24,6 @@ cc_library(
         "qt_file_repository.h",
         "qt_file_system.h",
         "qt_resource_bundle.h",
-        "qt_settings.h",
     ],
     copts = COMMON_COPTS,
     implementation_deps = ["//bazel/qt:core"],
