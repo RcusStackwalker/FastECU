@@ -13,9 +13,7 @@
 #include <cstddef>
 #include <memory>
 
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
 #include <windows.h>
-#endif
 
 #include "J2534_tactrix_win.h"
 #include "src/platform/desktop/windows/j2534/j2534_bridge_client.h"
@@ -23,7 +21,6 @@
 // name is token-pasted into a type and a member name, so it cannot be parenthesized.
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
 #define J2534_PT_FN(name) Pf##name *pf##name
-#define J2534_PT_EXT(name) PT_API Pf##name name
 
 class J2534
 {
@@ -47,7 +44,6 @@ class J2534
     void SetDllName(const char *name);
     void GetDllName(char *name);
     bool Valid();
-    char *GetLastError();
 
     long PassThruOpen(const void *p_name, unsigned long *p_device_id);
     long PassThruClose(unsigned long device_id);
@@ -77,15 +73,10 @@ class J2534
     bool CheckDll();
     int IsValidSconfigParam(SCONFIG s);
 
-    std::array<char, 256> last_error_;
     std::array<char, 256> dll_name_;
     bool is_library_initialized_;
 
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     HINSTANCE h_dll_; // Handle to DLL
-#else
-    void *h_dll_;
-#endif
 
     std::unique_ptr<J2534BridgeClient> bridge_client_;
     bool use_bridge_ = false;
@@ -107,22 +98,3 @@ class J2534
     J2534_PT_FN(PassThruGetLastError);
     J2534_PT_FN(PassThruIoctl);
 };
-
-#if defined(OP20PT32_USE_LIB)
-//	PT_API void OP20PT32_Start();
-//	PT_API void OP20PT32_Stop();
-J2534_PT_EXT(PassThruOpen);
-J2534_PT_EXT(PassThruClose);
-J2534_PT_EXT(PassThruConnect);
-J2534_PT_EXT(PassThruDisconnect);
-J2534_PT_EXT(PassThruReadMsgs);
-J2534_PT_EXT(PassThruWriteMsgs);
-J2534_PT_EXT(PassThruStartPeriodicMsg);
-J2534_PT_EXT(PassThruStopPeriodicMsg);
-J2534_PT_EXT(PassThruStartMsgFilter);
-J2534_PT_EXT(PassThruStopMsgFilter);
-J2534_PT_EXT(PassThruSetProgrammingVoltage);
-J2534_PT_EXT(PassThruReadVersion);
-J2534_PT_EXT(PassThruGetLastError);
-J2534_PT_EXT(PassThruIoctl);
-#endif

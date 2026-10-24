@@ -84,7 +84,6 @@ class J2534 : public QObject
     void CloseSerialPort();
     QByteArray ReadSerialData(std::uint32_t datalen, std::uint16_t timeout);
     int WriteSerialData(const QByteArray& output);
-    QByteArray WriteSerialIso14230Data(QByteArray output);
     QString ParseMessageToHex(const QByteArray& received);
     std::uint32_t ParseTs(const char *data);
     bool GetIsTxDone();
