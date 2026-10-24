@@ -35,13 +35,6 @@ using fastecu::ui::protocolCapability;
 using fastecu::ui::protocolField;
 using fastecu::ui::qs;
 
-const QColor MainWindow::kRedLightOff = QColor(96, 32, 32);
-const QColor MainWindow::kYellowLightOff = QColor(96, 96, 32);
-const QColor MainWindow::kGreenLightOff = QColor(32, 96, 32);
-const QColor MainWindow::kRedLightOn = QColor(255, 64, 64);
-const QColor MainWindow::kYellowLightOn = QColor(223, 223, 64);
-const QColor MainWindow::kGreenLightOn = QColor(64, 255, 64);
-
 namespace
 {
 // Relays a component's LOG_* signals to the log channel.
@@ -86,7 +79,6 @@ MainWindow::MainWindow(MainWindowServices services, QWidget *parent)
     config_session_ = &services_.config;
     calibration_workspace_ = &services_.calibrations;
 
-    software_name_ = qs(services_.application.name);
     software_title_ = qs(services_.application.title);
     software_version_ = qs(services_.application.version);
     this->setWindowTitle(software_title_ + " " + software_version_);
@@ -376,8 +368,8 @@ void MainWindow::setupToolbar()
     log_transport_list_->setObjectName("log_transport_list");
     ui_->toolBar->addWidget(log_transport_list_);
 
-    flash_transports_ = createFlashTransportsList();
-    log_transports_ = createLogTransportsList();
+    createFlashTransportsList();
+    createLogTransportsList();
     connect(flash_transport_list_, SIGNAL(currentIndexChanged(int)), this, SLOT(flashTransportChanged()));
     connect(log_transport_list_, SIGNAL(currentIndexChanged(int)), this, SLOT(logTransportChanged()));
 
@@ -458,24 +450,6 @@ MainWindow::~MainWindow()
 {
     connection_coordinator_->shutdown();
     logging_run_->shutdown();
-}
-
-void MainWindow::setComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled)
-{
-    auto *model = qobject_cast<QStandardItemModel *>(comboBox->model());
-    assert(model);
-    if (!model)
-    {
-        return;
-    }
-
-    auto *item = model->item(index);
-    assert(item);
-    if (!item)
-    {
-        return;
-    }
-    item->setEnabled(enabled);
 }
 
 QStringList MainWindow::createFlashTransportsList()
@@ -1387,11 +1361,6 @@ void MainWindow::changeSwitchValues()
     changeLogValues(2, protocol_);
 }
 
-fastecu::logging::LoggerSelection MainWindow::displayedLoggingSelection() const
-{
-    const auto view = logging_run_->view();
-    return view.active_snapshot ? view.active_snapshot->Selection() : logger_model_->Selection();
-}
 void MainWindow::updateLoggingPendingState()
 {
     const auto view = logging_run_->view();
@@ -1571,11 +1540,6 @@ void MainWindow::loadLoggerSelection()
     }
 }
 
-void MainWindow::saveLoggerSelection()
-{
-    savePendingLoggingSelection(logger_model_->Selection());
-}
-
 void MainWindow::savePendingLoggingSelection(fastecu::logging::LoggerSelection selection)
 {
     const auto& handle = config_session_->EffectivePaths().logger_file;
@@ -1709,45 +1673,6 @@ void MainWindow::removeEcuDefinitionFile()
     }
 }
 
-void MainWindow::addNewLoggerDefinitionFile()
-{
-}
-
-void MainWindow::removeLoggerDefinitionFile()
-{
-}
-
-QString MainWindow::parseMessageToHex(const QByteArray& received)
-{
-    QString msg;
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')));
-    }
-
-    return msg;
-}
-
-template <typename FlashClass> FlashClass *MainWindow::connectSignalsAndRunModule(FlashClass *object)
-{
-    // To successfully connect an overloaded signal,
-    // one should provide a suitable template parameter to connect()
-    QObject::connect<void (FlashClass::*)(QString)>(object, &FlashClass::external_logger, this,
-                                                    &MainWindow::externalLogger);
-    QObject::connect<void (FlashClass::*)(int)>(object, &FlashClass::external_logger, this,
-                                                &MainWindow::externalLoggerSetProgressbarValue);
-
-    // If signal is not overloaded, QObject::connect<> template will deduce type automatically
-    QObject::connect(object, &FlashClass::logE, log_channel_, &fastecu::ui::LogChannel::logE);
-    QObject::connect(object, &FlashClass::logW, log_channel_, &fastecu::ui::LogChannel::logW);
-    QObject::connect(object, &FlashClass::logI, log_channel_, &fastecu::ui::LogChannel::logI);
-    QObject::connect(object, &FlashClass::logD, log_channel_, &fastecu::ui::LogChannel::logD);
-
-    object->run();
-    return object;
-}
-
 // External logger slot for string messages
 void MainWindow::externalLogger(const QString& message)
 {
@@ -1819,7 +1744,6 @@ void MainWindow::setupLoggingEngine()
 void MainWindow::restoreLoggingUiState()
 {
     logging_state_ = false;
-    log_params_request_started_ = false;
     ui_->actionToggleRealtime->setChecked(false);
     updateLoggingPendingState();
     if (logger_model_ != nullptr)

@@ -55,10 +55,6 @@
 #include "src/ui/desktop/hexedit/hexedit.h"
 #include "src/ui/desktop/channels/log_channel.h"
 
-// Flash modules
-
-// OBD
-
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
@@ -68,11 +64,6 @@
 #include "src/ui/desktop/connection/connection_ports.h"
 
 #include <functional>
-
-extern void logError(const QString& message, bool timestamp, bool linefeed);
-extern void logWarning(const QString& message, bool timestamp, bool linefeed);
-extern void logInfo(const QString& message, bool timestamp, bool linefeed);
-extern void logDebug(const QString& message, bool timestamp, bool linefeed);
 
 namespace fastecu::ui
 {
@@ -111,40 +102,11 @@ class MainWindow : public QMainWindow
     MainWindowServices services_;
     std::unique_ptr<fastecu::desktop::logging::DesktopLoggingRun> logging_run_;
 
-    QString software_name_;
     QString software_title_;
     QString software_version_;
 
-    static const QColor kRedLightOff;
-    static const QColor kRedLightOn;
-    static const QColor kYellowLightOff;
-    static const QColor kYellowLightOn;
-    static const QColor kGreenLightOff;
-    static const QColor kGreenLightOn;
-
     bool logging_state_ = false;
-    bool log_params_request_started_ = false;
     bool ecu_init_complete_ = false;
-
-    uint16_t receive_timeout_ = 500;
-    uint16_t serial_read_timeout_ = 2000;
-    uint16_t serial_read_extra_short_timeout_ = 50;
-    uint16_t serial_read_short_timeout_ = 200;
-    uint16_t serial_read_medium_timeout_ = 500;
-    uint16_t serial_read_long_timeout_ = 800;
-    uint16_t serial_read_extra_long_timeout_ = 3000;
-
-    int map_cell_width_selectable_ = 240;
-    int map_cell_width1_d_ = 96;
-    int map_cell_width_ = 54;
-    int map_cell_height_ = 26;
-    int cell_font_size_ = static_cast<int>(map_cell_height_ / 2.25);
-
-    int x_size_ = 0;
-    int y_size_ = 0;
-
-    int connection_time_out_delay_ = 5;
-    int connection_time_out_delay_count_ = 50;
 
     // Declared interaction first, so the coordinator borrowing it is
     // destroyed first.
@@ -156,7 +118,6 @@ class MainWindow : public QMainWindow
     // Persists the resolved bundled definition handle into the settings.
     void useBundledLoggerDefinition(const std::string& handle);
     void loadLoggerSelection();
-    void saveLoggerSelection();
     // Applies and persists `selection` for the current ECU, noticing a failed save.
     void savePendingLoggingSelection(fastecu::logging::LoggerSelection selection);
     void reportLoggingCsvError(const QString& message);
@@ -181,12 +142,8 @@ class MainWindow : public QMainWindow
     bool addCalibration(fastecu::calibration::SessionId id);
 
     fastecu::desktop::connection::AdapterConnection *connection_ = nullptr;
-    // QTimer *serial_poll_timer;
-    uint16_t serial_poll_timer_timeout_ = 500;
     QString serial_port_baudrate_ = "4800";
     QString default_serial_port_baudrate_ = "4800";
-    QString serial_port_linux_ = "/dev/ttyUSB0";
-    QString serial_port_windows_ = "COM67";
     QString serial_port_;
     QString previous_serial_port_;
     QString serial_port_prefix_;
@@ -203,46 +160,11 @@ class MainWindow : public QMainWindow
     // the port changed, and remember the port for the next launch.
     void rememberOpenedPort(const QString& port, const QString& openedPort);
 
-    int ecu_protocols_list_length_ = 6;
-    QString current_car_model_ = "";
-
-    // QStringList flash_methods;
-    QStringList flash_transports_;
-    QStringList log_transports_;
-
-    //        "Mercedes",     "CR3 EDC16C31",     "K-Line",           "K-Line",           "iso14230", "Mercedes Benz
-    //        320CDI",
-
-    enum RomInfoEnum
-    {
-        kXmlId,
-        kInternalIdAddress,
-        kInternalIdString,
-        kEcuId,
-        kMake,
-        kMarket,
-        kModel,
-        kSubModel,
-        kTransmission,
-        kYear,
-        kFlashMethod,
-        kMemModel,
-        kChecksumModule,
-        kRomBase,
-        kFileSize,
-        kDefFile,
-    };
-
     QString ecuid_ = "";
     QString protocol_ = "";
-    QString log_protocol_ = "";
 
     QTimer *vbatt_timer_;
     uint16_t vbatt_timer_timeout_ = 1000;
-    uint16_t vbatt_timer_comms_timeout_ = 5000;
-
-    // QTimer *ssm_init_poll_timer;
-    uint16_t ssm_init_poll_timer_timeout_ = 250;
 
     QString active_log_value_protocol_filter_;
 
@@ -251,28 +173,16 @@ class MainWindow : public QMainWindow
     QRadioButton *ecu_radio_button_;
     QRadioButton *tcu_radio_button_;
 
-    QTreeWidget tree_widget_;
     CalibrationTreeWidget *calibration_tree_widget_ = new CalibrationTreeWidget();
 
     QLabel *status_bar_connection_label_ = new QLabel("");
     QLabel *logging_pending_label_ = new QLabel();
     QLabel *status_bar_ecu_label_ = new QLabel("");
 
-    QMenu *main_window_menu_{};
-
     QPushButton *refresh_serial_port_list_;
     QComboBox *serial_port_list_;
     QComboBox *flash_transport_list_;
     QComboBox *log_transport_list_;
-
-    QFile syslog_file_;
-    QTextStream syslog_file_outstream_;
-    bool write_syslog_to_file_ = false;
-    bool syslog_file_open_ = false;
-
-    QDialog *settings_dialog_{};
-    QListWidget *contents_widget_{};
-    QStackedWidget *pages_widget_{};
 
     QSize toolbar_item_size_ = QSize(24, 24);
 
@@ -285,8 +195,6 @@ class MainWindow : public QMainWindow
     void saveCalibrationFileAs();
     void setMapSelection(fastecu::calibration::SessionId id, int mapIndex, const QString& item);
     void setMapSwitch(fastecu::calibration::SessionId id, int mapIndex, int state);
-    QStringList parseStringlistFromExpressionString(QString expression, QString x);
-    float calculateValueFromExpression(QStringList expression);
 
     // log_operations
     void parseLogValueList(QByteArray received, const QString& protocolArg);
@@ -326,9 +234,6 @@ class MainWindow : public QMainWindow
     void changeLogValues(int tabIndex, const QString& protocolArg);
 
     // mainwindow.c
-    // Connect signals for any flash class and execute ::run() method
-    template <typename FlashClass> FlashClass *connectSignalsAndRunModule(FlashClass *object);
-    void setComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled);
     void setFlashArrowState();
     void updateProtocolInfo(const QString& flashMethod);
     // The session's selected vehicle; always valid once constructed.
@@ -343,9 +248,6 @@ class MainWindow : public QMainWindow
     void applyProtocolChoice(int result, std::optional<std::string> protocolName);
     QStringList createFlashTransportsList();
     QStringList createLogTransportsList();
-    // QString check_kernel(QString flash_method);
-    QTextEdit *iterateWidgetChild(QObjectList children);
-    bool writeSyslog(QString msg);
 
     // menuactions.c
     void connectMenuActions();
@@ -395,7 +297,6 @@ class MainWindow : public QMainWindow
     std::unique_ptr<fastecu::ui::ConnectionCoordinator> connection_coordinator_;
     void disconnectFromEcu();
     void ecuDefinitionManager();
-    void loggerDefinitionManager();
     void winolsCsvToRomraiderXml();
     void setRealtimeState(bool state);
     void toggleRealtime();
@@ -446,22 +347,15 @@ class MainWindow : public QMainWindow
     void changeSwitchValues();
     void updateLogboxes(const QString& protocolArg);
     void updateLogboxValues(const QString& protocolArg);
-    fastecu::logging::LoggerSelection displayedLoggingSelection() const;
     void updateLoggingPendingState();
     void addNewEcuDefinitionFile();
     void removeEcuDefinitionFile();
-    void addNewLoggerDefinitionFile();
-    void removeLoggerDefinitionFile();
-    QString parseMessageToHex(const QByteArray& received);
     void setStatusBarLabel(bool serialConnectionState, bool ecuConnectionState, const QString& romId);
     void customMenuRequested(QPoint pos);
     void selectableComboboxItemChanged(const QString& item);
     void checkboxStateChanged(int state);
     void closeApp();
     // Logger
-    // void logger(int log_level, QString message, bool timestamp, bool linefeed);
-    // void logger(QString message, bool timestamp, bool linefeed);
-    // void sendMsgToLogWindow(QWidget* parent, QString msg);
     void sendMessageToLogWindow(const QString& msg);
 
     // logvalues.c
@@ -472,14 +366,10 @@ class MainWindow : public QMainWindow
     void updateVbatt();
 
   signals:
-    void checkSerialPort();
-    void sendSerialData(QByteArray output);
     void logE(QString message, bool timestamp, bool linefeed);
     void logW(QString message, bool timestamp, bool linefeed);
     void logI(QString message, bool timestamp, bool linefeed);
     void logD(QString message, bool timestamp, bool linefeed);
-    // void syslog(int logType, bool write_syslog_to_file, QString message, bool timestamp, bool linefeed);
-    void syslog(QString message, bool timestamp, bool linefeed);
     void enableLogWriteToFile(bool enable);
 
   private:

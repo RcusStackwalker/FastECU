@@ -452,10 +452,6 @@ void MainWindow::ecuDefinitionManager()
     definitionsManagerDialog->exec();
 }
 
-void MainWindow::loggerDefinitionManager()
-{
-}
-
 void MainWindow::setRealtimeState(bool state)
 {
     ui_->actionToggleRealtime->setChecked(state);
