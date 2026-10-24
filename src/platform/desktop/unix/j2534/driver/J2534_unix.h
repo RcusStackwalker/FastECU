@@ -50,13 +50,17 @@ class J2534 : public QObject
     bool Init()
     {
         return true;
-    };
-    void SetDllName(const char * /*name*/) {}; // For Win/Linux compatibility only
-    void GetDllName(char * /*name*/) {};       // For Win/Linux compatibility only
+    }
+    void SetDllName(const char * /*name*/)
+    {
+    } // For Win/Linux compatibility only
+    void GetDllName(char * /*name*/)
+    {
+    } // For Win/Linux compatibility only
     void Debug(bool enable)
     {
         debug_mode_ = enable;
-    };
+    }
 
     long PassThruOpen(const void *p_name, unsigned long *p_device_id);
     long PassThruClose(unsigned long device_id);

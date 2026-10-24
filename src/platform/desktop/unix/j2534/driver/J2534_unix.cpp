@@ -181,7 +181,7 @@ long J2534::PassThruOpen(const void *p_name, unsigned long *p_device_id)
     QByteArray output;
     QByteArray received;
     QByteArray check_result = "ar";
-    QString name = (char *)p_name;
+    QString name = static_cast<const char *>(p_name);
     unsigned long *dev_id = (unsigned long *)p_device_id;
     long result = kJ2534ErrNotSupported;
 
@@ -206,7 +206,7 @@ long J2534::PassThruOpen(const void *p_name, unsigned long *p_device_id)
     return result;
 }
 
-long J2534::PassThruClose(unsigned long device_id)
+long J2534::PassThruClose(unsigned long /*device_id*/)
 {
     QByteArray output;
     QByteArray received;
@@ -224,7 +224,7 @@ long J2534::PassThruClose(unsigned long device_id)
     return result;
 }
 
-long J2534::PassThruConnect(unsigned long device_id, unsigned long protocol_id, unsigned long flags,
+long J2534::PassThruConnect(unsigned long /*device_id*/, unsigned long protocol_id, unsigned long flags,
                             unsigned long baudrate, unsigned long *p_channel_id)
 {
     QByteArray output;
@@ -276,7 +276,7 @@ long J2534::PassThruDisconnect(unsigned long channel_id)
     return result;
 }
 
-long J2534::PassThruReadMsgs(unsigned long channel_id, PassThruMsg *p_msg, unsigned long *p_num_msgs,
+long J2534::PassThruReadMsgs(unsigned long /*channel_id*/, PassThruMsg *p_msg, unsigned long *p_num_msgs,
                              unsigned long timeout)
 {
     RxState state{.msg = p_msg, .timeout = timeout};
@@ -475,7 +475,7 @@ J2534::FrameOutcome J2534::FinishMessage(QByteArray& received, RxState& state)
 }
 
 long J2534::PassThruWriteMsgs(unsigned long channel_id, const PassThruMsg *p_msg, unsigned long *p_num_msgs,
-                              unsigned long timeout)
+                              unsigned long /*timeout*/)
 {
     QByteArray output;
     QByteArray received;
@@ -531,7 +531,7 @@ long J2534::PassThruStopPeriodicMsg(unsigned long channel_id, unsigned long msg_
 
 long J2534::PassThruStartMsgFilter(unsigned long channel_id, unsigned long filter_type, const PassThruMsg *p_mask_msg,
                                    const PassThruMsg *p_pattern_msg, const PassThruMsg *p_flow_control_msg,
-                                   unsigned long *p_msg_id)
+                                   unsigned long * /*p_msg_id*/)
 {
     QByteArray output;
     QByteArray received;
@@ -557,14 +557,14 @@ long J2534::PassThruStartMsgFilter(unsigned long channel_id, unsigned long filte
     return result;
 }
 
-long J2534::PassThruStopMsgFilter(unsigned long channel_id, unsigned long msg_id)
+long J2534::PassThruStopMsgFilter(unsigned long /*channel_id*/, unsigned long /*msg_id*/)
 {
     long result = kJ2534StatusNoerror;
 
     return result;
 }
 
-long J2534::PassThruSetProgrammingVoltage(unsigned long device_id, unsigned long pin, unsigned long voltage)
+long J2534::PassThruSetProgrammingVoltage(unsigned long /*device_id*/, unsigned long pin, unsigned long voltage)
 {
     QByteArray output;
     QByteArray received;
@@ -580,7 +580,7 @@ long J2534::PassThruSetProgrammingVoltage(unsigned long device_id, unsigned long
 }
 
 long J2534::PassThruReadVersion(char *p_api_version, char *p_dll_version, char *p_firmware_version,
-                                unsigned long device_id)
+                                unsigned long /*device_id*/)
 {
     QByteArray output;
     QByteArray received;
@@ -614,7 +614,7 @@ long J2534::PassThruReadVersion(char *p_api_version, char *p_dll_version, char *
     return result;
 }
 
-long J2534::PassThruGetLastError(char *p_error_description)
+long J2534::PassThruGetLastError(char * /*p_error_description*/)
 {
     long result = kJ2534StatusNoerror;
 
