@@ -35,6 +35,17 @@ You may copy, distribute and modify the software as long as you track changes/da
 
 Commercial uses is possible, but **all code linked with GPL 3.0 source code must be disclosed under a GPL 3.0 compatible license.**
 
+### Verifying a download
+
+Release assets carry GitHub build-provenance attestations, and releases are
+immutable. With the [GitHub CLI](https://cli.github.com/), check a downloaded
+zip (replace `<tag>` and `<platform>`):
+
+```sh
+gh attestation verify FastECU-<tag>-<platform>.zip --repo RcusStackwalker/FastECU
+gh release verify-asset <tag> FastECU-<tag>-<platform>.zip --repo RcusStackwalker/FastECU
+```
+
 ### Build and test
 
 FastECU uses Bazel 9.3.0 and Qt 6.8.3. Install Bazelisk (or the pinned Bazel
