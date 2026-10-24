@@ -16,4 +16,12 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation operation, s
                                                      std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                      bool adapter_supplies_programming_voltage);
 Status ValidateSubaruUnisiaJecsM32rKlinePlan(const FlashPlan& plan);
+
+template <> struct PlanValidator<SubaruUnisiaJecsM32rKlinePlan>
+{
+    static Status Validate(const FlashPlan& plan)
+    {
+        return ValidateSubaruUnisiaJecsM32rKlinePlan(plan);
+    }
+};
 } // namespace fastecu::flash

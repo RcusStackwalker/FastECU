@@ -42,15 +42,6 @@ struct Session
     const SubaruUnisiaJecsM32rBootModeProgramPlan& wire;
 };
 
-Status CancelledIfRequested(const ICancellationToken& cancellation, std::string_view where)
-{
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, std::format("cancelled {}", where));
-    }
-    return {};
-}
-
 Status Send(Session& s, bytes::ByteView payload)
 {
     return SendM32rSsmFrame(s.transport, s.cancellation, payload, s.wire.tester_id, s.wire.target_id);
@@ -194,10 +185,7 @@ Status WriteBlock(Session& s, bytes::ByteView image, int block, int blocks)
 
 Status Program(Session& s, const FlashPlan& plan)
 {
-    if (Status cancelled = CancelledIfRequested(s.cancellation, "before programming voltage"); !cancelled.has_value())
-    {
-        return cancelled;
-    }
+    // Plan admission is the cancellation checkpoint before the voltage.
     // write_mem() :366: VPP stays, MOD1 drops. The operator removed MOD1
     // before this attempt started (the workflow's RemoveMod1 prompt).
     s.events.Log(LogLevel::kDebug, "Set programming voltage +12v to Line End Check 1");
@@ -226,18 +214,11 @@ Status Program(Session& s, const FlashPlan& plan)
 }
 } // namespace
 
-Result<KlineConfig> SubaruUnisiaJecsM32rBootModeProgramExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig>
+SubaruUnisiaJecsM32rBootModeProgramExecutor::Setup(const SubaruUnisiaJecsM32rBootModeProgramPlan& family) const
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (Status valid = ValidateSubaruUnisiaJecsM32rBootmodePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
     // write_mem() :361-364: no parity, 19200 baud.
-    return NonIso14230KlineConfigFrom(std::get<SubaruUnisiaJecsM32rBootModeProgramPlan>(plan.FamilyPlan()));
+    return NonIso14230KlineConfigFrom(family);
 }
 
 Status SubaruUnisiaJecsM32rBootModeProgramExecutor::BeforeTransportConfigure(IKlineFlashTransport& transport, IClock&,
@@ -252,20 +233,11 @@ Status SubaruUnisiaJecsM32rBootModeProgramExecutor::BeforeTransportConfigure(IKl
 }
 
 Result<FlashExecutionResult>
-SubaruUnisiaJecsM32rBootModeProgramExecutor::Execute(const FlashPlan& plan, IKlineFlashTransport& transport,
-                                                     IClock& clock, const ICancellationToken& cancellation,
-                                                     IEventSink& events)
+SubaruUnisiaJecsM32rBootModeProgramExecutor::Run(const SubaruUnisiaJecsM32rBootModeProgramPlan& family,
+                                                 const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
+                                                 const ICancellationToken& cancellation, IEventSink& events)
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (Status valid = ValidateSubaruUnisiaJecsM32rBootmodePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    Session session{transport, clock, cancellation, events,
-                    std::get<SubaruUnisiaJecsM32rBootModeProgramPlan>(plan.FamilyPlan())};
+    Session session{transport, clock, cancellation, events, family};
     const Status written = Program(session, plan);
     // execute() :85, :89: legacy dropped the lines after write_mem().
     events.Log(LogLevel::kDebug, "Removing programming voltage +12v from Line End Check 1");

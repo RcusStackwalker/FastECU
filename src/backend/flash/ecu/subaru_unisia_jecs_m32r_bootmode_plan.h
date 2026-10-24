@@ -19,4 +19,20 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation op
                                                                std::optional<bytes::Bytes> image);
 // Validates a plan of either bootmode family.
 Status ValidateSubaruUnisiaJecsM32rBootmodePlan(const FlashPlan& plan);
+
+template <> struct PlanValidator<SubaruUnisiaJecsM32rBootModeProgramPlan>
+{
+    static Status Validate(const FlashPlan& plan)
+    {
+        return ValidateSubaruUnisiaJecsM32rBootmodePlan(plan);
+    }
+};
+
+template <> struct PlanValidator<SubaruUnisiaJecsM32rBootModeKernelPlan>
+{
+    static Status Validate(const FlashPlan& plan)
+    {
+        return ValidateSubaruUnisiaJecsM32rBootmodePlan(plan);
+    }
+};
 } // namespace fastecu::flash

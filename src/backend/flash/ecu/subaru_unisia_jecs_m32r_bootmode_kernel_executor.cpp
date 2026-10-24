@@ -30,11 +30,8 @@ Status CancelledIfRequested(const ICancellationToken& cancellation, std::string_
 Status Upload(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
               const ICancellationToken& cancellation, IEventSink& events)
 {
-    if (Status cancelled = CancelledIfRequested(cancellation, "before boot mode lines"); !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    // execute() :64-67.
+    // execute() :64-67. Plan admission is the cancellation checkpoint before
+    // the lines are raised.
     events.Log(LogLevel::kInfo, "Set programming voltage +12v to Line End Check 1 and MOD1 to Line End Check 2");
     if (Status raised = transport.EnableBootModeLines(); !raised.has_value())
     {
@@ -85,19 +82,11 @@ Status Upload(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& cl
 }
 } // namespace
 
-Result<KlineConfig> SubaruUnisiaJecsM32rBootModeKernelExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig>
+SubaruUnisiaJecsM32rBootModeKernelExecutor::Setup(const SubaruUnisiaJecsM32rBootModeKernelPlan& family) const
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (Status valid = ValidateSubaruUnisiaJecsM32rBootmodePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
     // execute() :52-60.
-    KlineConfig config =
-        NonIso14230KlineConfigFrom(std::get<SubaruUnisiaJecsM32rBootModeKernelPlan>(plan.FamilyPlan()));
+    KlineConfig config = NonIso14230KlineConfigFrom(family);
     config.parity = KlineParity::kEven; // execute() :57
     return config;
 }
@@ -113,20 +102,11 @@ Status SubaruUnisiaJecsM32rBootModeKernelExecutor::BeforeTransportConfigure(IKli
     return transport.SetAddIso14230Header(false);
 }
 
-Result<FlashExecutionResult> SubaruUnisiaJecsM32rBootModeKernelExecutor::Execute(const FlashPlan& plan,
-                                                                                 IKlineFlashTransport& transport,
-                                                                                 IClock& clock,
-                                                                                 const ICancellationToken& cancellation,
-                                                                                 IEventSink& events)
+Result<FlashExecutionResult>
+SubaruUnisiaJecsM32rBootModeKernelExecutor::Run(const SubaruUnisiaJecsM32rBootModeKernelPlan& /*family*/,
+                                                const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
+                                                const ICancellationToken& cancellation, IEventSink& events)
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (Status valid = ValidateSubaruUnisiaJecsM32rBootmodePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
     const Status uploaded = Upload(plan, transport, clock, cancellation, events);
     // Legacy dropped the boot mode lines implicitly, by closing the port in
     // write_mem()'s reset_connection() (:361); the explicit drop here is the

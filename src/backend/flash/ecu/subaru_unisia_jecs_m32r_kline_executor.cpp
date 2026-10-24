@@ -447,18 +447,10 @@ Status WriteRom(Session& s, const FlashPlan& plan)
 }
 } // namespace
 
-Result<KlineConfig> SubaruUnisiaJecsM32rKlineExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruUnisiaJecsM32rKlineExecutor::Setup(const SubaruUnisiaJecsM32rKlinePlan& family) const
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kSubaruUnisiaJecsM32rKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (Status valid = ValidateSubaruUnisiaJecsM32rKlinePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
     // execute() :50-57.
-    return NonIso14230KlineConfigFrom(std::get<SubaruUnisiaJecsM32rKlinePlan>(plan.FamilyPlan()));
+    return NonIso14230KlineConfigFrom(family);
 }
 
 Status SubaruUnisiaJecsM32rKlineExecutor::BeforeTransportConfigure(IKlineFlashTransport& transport, IClock&,
@@ -468,20 +460,13 @@ Status SubaruUnisiaJecsM32rKlineExecutor::BeforeTransportConfigure(IKlineFlashTr
     return transport.SetAddIso14230Header(false);
 }
 
-Result<FlashExecutionResult> SubaruUnisiaJecsM32rKlineExecutor::Execute(const FlashPlan& plan,
-                                                                        IKlineFlashTransport& transport, IClock& clock,
-                                                                        const ICancellationToken& cancellation,
-                                                                        IEventSink& events)
+Result<FlashExecutionResult> SubaruUnisiaJecsM32rKlineExecutor::Run(const SubaruUnisiaJecsM32rKlinePlan& family,
+                                                                    const FlashPlan& plan,
+                                                                    IKlineFlashTransport& transport, IClock& clock,
+                                                                    const ICancellationToken& cancellation,
+                                                                    IEventSink& events)
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kSubaruUnisiaJecsM32rKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (Status valid = ValidateSubaruUnisiaJecsM32rKlinePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    Session session{transport, clock, cancellation, events, std::get<SubaruUnisiaJecsM32rKlinePlan>(plan.FamilyPlan())};
+    Session session{transport, clock, cancellation, events, family};
     if (plan.Operation() == FlashOperation::kRead)
     {
         return ReadRom(session, plan);
