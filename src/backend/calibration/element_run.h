@@ -15,7 +15,7 @@ namespace fastecu::calibration
 //
 // A non-owning view: `endian` and `from_byte` borrow from the RomDefinition
 // (the map's scaling or the resolved axis fields) used to build the run, which
-// always outlives the decode_numeric_run call. Never store one.
+// always outlives the DecodeNumericRun call. Never store one.
 struct ElementRun
 {
     std::uint64_t address{0};

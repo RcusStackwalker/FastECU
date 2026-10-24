@@ -42,7 +42,7 @@ struct DtcReport
 };
 
 // One OBD-II DTC read or clear, reproducing the legacy DtcOperations dialog's
-// wire sequence, sleeps, and log wording (step 6g spec, "DTC today"). Always
+// wire sequence, sleeps, and log wording Always
 // clears the link's header and resets it before returning.
 Result<DtcReport> RunDtcSession(const DtcRequest& request, IDiagnosticLink& link, IClock& clock,
                                 const ICancellationToken& cancellation, IEventSink& events);

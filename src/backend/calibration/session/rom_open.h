@@ -24,7 +24,7 @@ namespace fastecu::calibration
 struct ReadImage
 {
     std::vector<std::uint8_t> rom;
-    // Required. The caller names it (flash::read_image_filename), as
+    // Required. The caller names it (flash::ReadImageFilename), as
     // MainWindow already does before every legacy open.
     std::string filename;
     // As reported by the read; a definition match replaces it.
@@ -38,7 +38,7 @@ struct ReadImage
 struct RomOpenOutcome
 {
     SessionContents contents;
-    // ConfigSession::select_by_protocol_name found the ROM's flash method, so
+    // ConfigSession::SelectByProtocolName found the ROM's flash method, so
     // the selected vehicle may have changed. The UI refreshes its protocol
     // display when this is set.
     bool vehicle_selected{false};

@@ -359,7 +359,7 @@ Result<RomDefinition> DefinitionService::Load(const DefinitionCatalog& catalog, 
 Status DefinitionService::CreateDefinition(std::string_view destination, const DefinitionHeaderInput& input,
                                            bool allow_overwrite)
 {
-    // "create" means a brand new definition file; import_definition is the rewrite-an-existing-
+    // "create" means a brand new definition file; ImportDefinition is the rewrite-an-existing-
     // file path. Without this check a filename collision would silently replace -- and lose --
     // whatever definition was already at that destination. Callers whose own UI already
     // confirmed the overwrite (e.g. a native Save-As dialog) pass allow_overwrite=true.

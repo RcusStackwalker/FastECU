@@ -29,7 +29,7 @@ Status Load(pugi::xml_document& document, bytes::ByteView conf, std::string_view
     // the XML declaration. A user who hand-annotated their conf file with an
     // XML comment -- or, far more commonly, whose conf simply starts with the
     // <?xml ...?> declaration that resources/shared/config/logger.cfg ships
-    // with -- would otherwise lose it silently on the first write_selection()
+    // with -- would otherwise lose it silently on the first WriteSelection()
     // round-trip (load, then re-serialize the whole DOM) -- add them back in.
     if (const pugi::xml_parse_result parsed =
             document.load_buffer(conf.data(), conf.size(),

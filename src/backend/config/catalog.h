@@ -207,7 +207,7 @@ struct VehicleSpec
 };
 
 // The protocol named `name`, for wiring VehicleSpec::protocol in constant
-// data; nullptr when `protocols` has none, which catalog_references_resolve
+// data; nullptr when `protocols` has none, which CatalogReferencesResolve
 // then rejects.
 consteval const ProtocolSpec *ProtocolIn(std::span<const ProtocolSpec> protocols, std::string_view name)
 {
@@ -217,7 +217,7 @@ consteval const ProtocolSpec *ProtocolIn(std::span<const ProtocolSpec> protocols
 
 // The checks cheap enough to static_assert on every supported compiler:
 // every vehicle has a protocol, every protocol has a vehicle, and no protocol
-// has a kernel load address without a kernel. catalog_problems() checks
+// has a kernel load address without a kernel. CatalogProblems() checks
 // these and the rest.
 constexpr bool CatalogReferencesResolve(std::span<const ProtocolSpec> protocols, std::span<const VehicleSpec> vehicles)
 {
@@ -271,7 +271,7 @@ class Catalog
 };
 
 // Every way `catalog` is inconsistent, one message each; empty when it is
-// consistent. Covers catalog_references_resolve, plus duplicate protocol
+// consistent. Covers CatalogReferencesResolve, plus duplicate protocol
 // names and vehicle ids, vehicle id spelling, comma-separated aliases,
 // vehicles whose protocol belongs to another catalog, and memory maps that are
 // invalid or share a ROM file size.

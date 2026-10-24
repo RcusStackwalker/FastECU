@@ -20,7 +20,7 @@ inline std::string HexText(std::uint64_t value)
     return std::format("0x{:x}", value);
 }
 
-// The pure hex parse shared by parser_utils.cpp's parse_hex_unsigned (which
+// The pure hex parse shared by parser_utils.cpp's ParseHexUnsigned (which
 // wraps it in definition-parser error context) and the flash EEPROM read
 // plan use case (which needs it without pugixml or that context). Extracted
 // rather than reimplemented -- a second std::from_chars wrapper is exactly
@@ -28,7 +28,7 @@ inline std::string HexText(std::uint64_t value)
 //
 // Trims surrounding whitespace (the same set std::isspace matches in the C
 // locale -- ' ', '\t', '\r', '\n', '\v', '\f' -- matching parser_utils.cpp's
-// trim_copy exactly, since this is a behavior-preserving extraction of its
+// TrimCopy exactly, since this is a behavior-preserving extraction of its
 // hex-parsing core), accepts an optional "0x"/"0X" prefix, and requires the
 // entire remainder to be consumed, so trailing junk is a rejection rather
 // than a partial parse. Matches Qt's QString::toUInt(&ok, 16) on every value

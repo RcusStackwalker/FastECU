@@ -33,6 +33,10 @@ coordinators retain their UI roles; see the relevant
 
 ### P1: Resolve known correctness gaps
 
+- **Relearn poll terminal condition.** `RelearnOutcome` (`service_function_types.h`)
+  surfaces the last status frame, but when the relearn poll should stop has no
+  bench evidence. The session returns the raw bytes and never interprets them.
+  Capture a relearn on a real TCU before deciding the terminal condition.
 - **OpenPort five-baud ASCII comparison.** `five_baud_header` checks J2534 bytes
   `[5]`/`[7]` for iso9141 and `[8]`/`[9]` for iso14230 against `'8'`/`'8'` and
   `'8'`/`'f'`. Direct serial checks numeric `0x08`/`0x08` at `[1]`/`[2]` and

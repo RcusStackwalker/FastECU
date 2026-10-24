@@ -9,8 +9,7 @@
 #include <string_view>
 #include <vector>
 
-// OBD-II framing rules the DTC dialog used, reproduced exactly (step 6g spec,
-// "DTC today"). Byte comparisons are unsigned; bounds are checked.
+// OBD-II framing rules the DTC dialog used, reproduced exactly. Byte comparisons are unsigned; bounds are checked.
 namespace fastecu::diagnostics
 {
 
@@ -45,9 +44,9 @@ bytes::Bytes BuildRequest(ObdProtocol protocol, std::uint32_t source_id, bytes::
 
 enum class ResponseCheck
 {
-    kShort, // no response byte at response_index(); the caller keeps reading
+    kShort, // no response byte at ResponseIndex(); the caller keeps reading
     kOk,
-    kNrc,     // 0x7F at response_index()
+    kNrc,     // 0x7F at ResponseIndex()
     kWrongId, // mode or PID echo does not match, or the PID echo is missing
 };
 
@@ -61,7 +60,7 @@ bytes::Bytes UnframeDtcListResponse(ObdProtocol protocol, bytes::ByteView frame)
 std::optional<KlineHeader> FiveBaudHeader(ObdProtocol requested, bytes::ByteView response, bool uses_j2534);
 bool FastInitAccepted(bytes::ByteView response);
 
-// "%02x " per byte, as the dialog's parse_message_to_hex did.
+// "%02x " per byte, as the legacy dialog's parse_message_to_hex did.
 std::string FormatHex(bytes::ByteView data);
 std::string FormatPidPageLabel(std::size_t page, bytes::ByteView bitmap);
 std::string FormatSupportedPids(std::size_t page, bytes::ByteView bitmap);

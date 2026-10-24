@@ -84,7 +84,7 @@ Status PopulateOptionalBoolean(pugi::xml_node table, std::string_view attribute_
                                std::string_view source, std::string_view definition_id);
 
 // The <table> attributes and checks both definition formats read the same way. Each parser
-// keeps its own parse_table / parse_axis and composes these with its format-specific rules.
+// keeps its own ParseTable / ParseAxis and composes these with its format-specific rules.
 Status PopulateMapHeader(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
                          std::string_view definition_id);
 Status PopulateMapSize(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
@@ -116,7 +116,7 @@ Result<std::optional<UnresolvedScaling>> ParseMapScaling(pugi::xml_node table, U
     return std::optional<UnresolvedScaling>{std::move(*scaling)};
 }
 
-// ParseScaling: as for parse_map_scaling.
+// ParseScaling: as for ParseMapScaling.
 template <typename ParseScaling>
 Result<UnresolvedAxisDefinition> ParseAxisDefinition(pugi::xml_node table, std::uint32_t default_size,
                                                      std::string_view source, std::string_view definition_id,
