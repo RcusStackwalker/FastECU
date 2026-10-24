@@ -1020,17 +1020,9 @@ bytes::Bytes DensoSh705xKlineBalancedKernel(bytes::ByteView kernel)
     return out;
 }
 
-Result<KlineConfig> SubaruDensoSh705xKlineExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruDensoSh705xKlineExecutor::Setup(const SubaruDensoSh705xKlinePlan& family) const
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kSubaruDensoSh705xKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705xKlinePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return NonIso14230KlineConfigFrom(std::get<SubaruDensoSh705xKlinePlan>(plan.FamilyPlan()));
+    return NonIso14230KlineConfigFrom(family);
 }
 
 Status SubaruDensoSh705xKlineExecutor::BeforeTransportConfigure(IKlineFlashTransport& transport, IClock&,
@@ -1048,19 +1040,11 @@ Status SubaruDensoSh705xKlineExecutor::BeforeTransportConfigure(IKlineFlashTrans
     return CheckCancelled(cancellation, "cancelled after K-Line reset");
 }
 
-Result<FlashExecutionResult> SubaruDensoSh705xKlineExecutor::Execute(const FlashPlan& plan,
-                                                                     IKlineFlashTransport& transport, IClock& clock,
-                                                                     const ICancellationToken& cancellation,
-                                                                     IEventSink& events)
+Result<FlashExecutionResult> SubaruDensoSh705xKlineExecutor::Run(const SubaruDensoSh705xKlinePlan& /*family*/,
+                                                                 const FlashPlan& plan, IKlineFlashTransport& transport,
+                                                                 IClock& clock, const ICancellationToken& cancellation,
+                                                                 IEventSink& events)
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kSubaruDensoSh705xKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705xKlinePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
     // execute():68 -- the shared serial can arrive with the header flag set by
     // another feature; every BEEF and SSM frame of this family goes out bare.
     if (Status header = transport.SetAddIso14230Header(false); !header.has_value())

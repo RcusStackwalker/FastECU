@@ -1266,5 +1266,22 @@ TEST(SubaruDensoSh705xKlineExecutor, CancellationDuringWriteStopsBeforeTheNextCo
     }
 }
 
+TEST(SubaruDensoSh705xKlineExecutor, PrecancelledRunIsRefusedBeforeTheHeaderMode)
+{
+    auto plan = MakePlan(FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    ScriptedKlineFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancellation{true};
+    RecordingEventSink events;
+    SubaruDensoSh705xKlineExecutor executor;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_TRUE(transport.header_mode_calls.empty());
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+}
+
 } // namespace
 } // namespace fastecu::flash

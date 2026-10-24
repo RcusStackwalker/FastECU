@@ -7,14 +7,17 @@ namespace fastecu::flash
 {
 
 // Portable replacement for FlashEcuSubaruDensoSH705xKlineOperation.
-class SubaruDensoSh705xKlineExecutor final : public IKlineFlashExecutor
+class SubaruDensoSh705xKlineExecutor final : public FamilyExecutor<SubaruDensoSh705xKlinePlan, IKlineFlashExecutor>
 {
   public:
-    Result<KlineConfig> TransportSetup(const FlashPlan& plan) const override;
     Status BeforeTransportConfigure(IKlineFlashTransport& transport, IClock& clock,
                                     const ICancellationToken& cancellation) const override;
-    Result<FlashExecutionResult> Execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, IEventSink& events) override;
+
+  private:
+    Result<KlineConfig> Setup(const SubaruDensoSh705xKlinePlan& family) const override;
+    Result<FlashExecutionResult> Run(const SubaruDensoSh705xKlinePlan& family, const FlashPlan& plan,
+                                     IKlineFlashTransport& transport, IClock& clock,
+                                     const ICancellationToken& cancellation, IEventSink& events) override;
 };
 
 // upload_kernel(): append 00 00, pad to a multiple of four, drop the last two
