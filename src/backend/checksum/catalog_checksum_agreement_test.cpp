@@ -28,6 +28,11 @@
 #include "src/backend/config/catalog.h"
 #include "src/backend/flash/flash_device_lookup.h"
 
+using ::testing::_;
+using ::testing::IsEmpty;
+using ::testing::Not;
+using ::testing::Optional;
+
 namespace fastecu::checksum
 {
 namespace
@@ -104,7 +109,7 @@ TEST(CatalogChecksumAgreement, EveryRoutedProtocolCorrectsEachFileSizeItAccepts)
         SCOPED_TRACE(::testing::PrintToString(vehicle));
         const config::ProtocolSpec& protocol = *vehicle->protocol;
         const std::vector<std::uint32_t> sizes = AcceptedFileSizes(protocol);
-        ASSERT_FALSE(sizes.empty()) << protocol.name;
+        ASSERT_THAT(sizes, Not(IsEmpty())) << protocol.name;
         for (const std::uint32_t size : sizes)
         {
             SCOPED_TRACE(std::format("{} {:#x}", protocol.name, size));
@@ -113,11 +118,11 @@ TEST(CatalogChecksumAgreement, EveryRoutedProtocolCorrectsEachFileSizeItAccepts)
             ++checked;
 
             ASSERT_EQ(outcome.status, Status::kFamilyRan);
-            ASSERT_TRUE(outcome.family_result.has_value());
+            ASSERT_THAT(outcome.family_result, Optional(_));
             // Corrected, not merely Ok(): a family that writes nothing proves nothing.
             EXPECT_EQ(outcome.family_result->status, ChecksumResult::Status::kCorrected)
                 << outcome.family_result->message;
-            EXPECT_TRUE(outcome.corrected_file.has_value());
+            EXPECT_THAT(outcome.corrected_file, Optional(_));
         }
     }
     EXPECT_GT(checked, 0);
