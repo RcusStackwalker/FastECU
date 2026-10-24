@@ -21,6 +21,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
+#include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -325,6 +326,29 @@ Result<FlashPlan> ValidKlinePlan(EepromReadMode mode = EepromReadMode::kMode2)
     return MakeKlinePlan(mode, KernelFixtureBytes(), kKernelStartAddr);
 }
 
+// The builder refuses this plan, so it reaches ValidateAndBuild as raw fields.
+Result<FlashPlan> HandBuiltInvalidPlan()
+{
+    return ValidateAndBuild(FlashPlanFields{
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromKline,
+        .transport = TransportKind::kKline,
+        .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
+        .mcu_name = "SH7055",
+        .transfer_region = MemoryRegion{.start = 0, .length = 0x100},
+        .erase_regions = {},
+        .image = std::nullopt,
+        .kernel = KernelImage{.id = "k", .load_address = kKernelStartAddr, .bytes = KernelFixtureBytes()},
+        .family_plan = DensoSh705xEepromKlinePlan{.mode = EepromReadMode::kMode2,
+                                                  .security = DensoSecurityVariant::kCobb,
+                                                  .tester_id = 0xf0,
+                                                  .target_id = 0x10,
+                                                  .initial_baud = 4800,
+                                                  .kernel_baud = 15625},
+        .confirmations = {},
+    });
+}
+
 } // namespace
 
 TEST(DensoSh705xEepromKlineExecutorTest, TransportSetupReturnsPlansWireParameters)
@@ -366,6 +390,74 @@ TEST(DensoSh705xEepromKlineExecutorTest, WrongFamilyPlanIsRejectedWithNoTranspor
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(transport.ScriptConsumed()); // nothing was ever queued or consumed
+}
+
+TEST(DensoSh705xEepromKlineExecutorTest, TransportSetupRejectsForeignFamily)
+{
+    auto foreign = BuildDensoSh705xEepromPlan(DensoSh705xEepromInput{
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromCan,
+        .target_id = "sub_ecu_eeprom_denso_sh7055_densocan",
+        .mcu_name = "SH7055",
+        .flash_method = "sub_ecu_eeprom_denso_sh7055_densocan",
+        .kernel = KernelImage{.id = "k", .load_address = kKernelStartAddr, .bytes = {0x01, 0x02, 0x03, 0x04}},
+        .mode = EepromReadMode::kMode2,
+        .security = DensoSecurityVariant::kStock,
+        .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
+    });
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
+    EXPECT_THAT(DensoSh705xEepromKlineExecutor{}.TransportSetup(*foreign),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                            ::testing::Eq("plan family does not match this executor")));
+}
+
+TEST(DensoSh705xEepromKlineExecutorTest, InvalidPlanIsRefusedBeforeAnyIo)
+{
+    const auto plan = HandBuiltInvalidPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    RecordingEventSink events;
+    FakeCancellationToken cancellation;
+    EXPECT_THAT(
+        DensoSh705xEepromKlineExecutor{}.TransportSetup(*plan),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                    ::testing::Eq("security variant is not supported on the K-Line transport")));
+    EXPECT_THAT(
+        DensoSh705xEepromKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                    ::testing::Eq("security variant is not supported on the K-Line transport")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_TRUE(transport.header_mode_calls.empty());
+}
+
+TEST(DensoSh705xEepromKlineExecutorTest, InvalidPlanWinsOverPrecancel)
+{
+    const auto plan = HandBuiltInvalidPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    RecordingEventSink events;
+    FakeCancellationToken cancellation{true};
+    EXPECT_THAT(
+        DensoSh705xEepromKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                    ::testing::Eq("security variant is not supported on the K-Line transport")));
+}
+
+TEST(DensoSh705xEepromKlineExecutorTest, PrecancelledRunIsRefusedInAdmission)
+{
+    const auto plan = ValidKlinePlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    RecordingEventSink events;
+    FakeCancellationToken cancellation{true};
+    EXPECT_THAT(DensoSh705xEepromKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_TRUE(transport.header_mode_calls.empty());
+    EXPECT_TRUE(events.logs.empty());
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, FullBootloaderStockSecurityMode2MatchesLegacyTrace)

@@ -6,6 +6,8 @@
 
 #include <limits>
 
+#include "src/backend/flash/flash_validation.h"
+
 namespace fastecu::flash
 {
 namespace
@@ -196,6 +198,75 @@ TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionReturnsKnownMcuBounds
 TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionRejectsUnknownMcu)
 {
     ASSERT_THAT(ResolveSh705xEepromRegion("NOT_A_REAL_MCU"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+}
+
+// The builder refuses these, so they reach ValidateAndBuild as raw fields.
+FlashPlanFields HandBuiltKlineFields()
+{
+    return FlashPlanFields{
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromKline,
+        .transport = TransportKind::kKline,
+        .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
+        .mcu_name = "SH7055",
+        .transfer_region = MemoryRegion{.start = kSh7055EepromStart, .length = kSh7055EepromLen},
+        .erase_regions = {},
+        .image = std::nullopt,
+        .kernel = KernelImage{.id = "k", .load_address = kSh7055KernelRamStart, .bytes = bytes::Bytes(64, 0xaa)},
+        .family_plan = DensoSh705xEepromKlinePlan{.mode = EepromReadMode::kMode2,
+                                                  .security = DensoSecurityVariant::kStock,
+                                                  .tester_id = 0xf0,
+                                                  .target_id = 0x10,
+                                                  .initial_baud = 4800,
+                                                  .kernel_baud = 15625},
+        .confirmations = {},
+    };
+}
+
+TEST(DensoSh705xEepromCommonTest, PlanValidatorAcceptsBuilderPlans)
+{
+    const auto kline = BuildDensoSh705xEepromPlan(ValidKlineInput());
+    ASSERT_THAT(kline, fastecu::testing::IsOk());
+    EXPECT_THAT(ValidateDensoSh705xEepromPlan(*kline), fastecu::testing::IsOk());
+
+    auto can_input = ValidKlineInput();
+    can_input.family = FlashFamily::kDensoSh705xEepromCan;
+    const auto can = BuildDensoSh705xEepromPlan(can_input);
+    ASSERT_THAT(can, fastecu::testing::IsOk());
+    EXPECT_THAT(ValidateDensoSh705xEepromPlan(*can), fastecu::testing::IsOk());
+}
+
+TEST(DensoSh705xEepromCommonTest, PlanValidatorRejectsHandBuiltPlans)
+{
+    {
+        auto fields = HandBuiltKlineFields();
+        std::get<DensoSh705xEepromKlinePlan>(fields.family_plan).security = DensoSecurityVariant::kCobb;
+        const auto plan = ValidateAndBuild(std::move(fields));
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_THAT(
+            ValidateDensoSh705xEepromPlan(*plan),
+            fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                        ::testing::Eq("security variant is not supported on the K-Line transport")));
+    }
+    {
+        auto fields = HandBuiltKlineFields();
+        fields.transfer_region = MemoryRegion{.start = kSh7055EepromStart, .length = kSh7055EepromLen - 1};
+        const auto plan = ValidateAndBuild(std::move(fields));
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_THAT(
+            ValidateDensoSh705xEepromPlan(*plan),
+            fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                        ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
+    }
+    {
+        auto fields = HandBuiltKlineFields();
+        fields.kernel->load_address = kSh7055KernelRamEnd;
+        const auto plan = ValidateAndBuild(std::move(fields));
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_THAT(ValidateDensoSh705xEepromPlan(*plan),
+                    fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                ::testing::Eq("kernel load range is outside the SH705x RAM region")));
+    }
 }
 
 TEST(DensoSh705xEepromCommonTest, NoTransportOrConfigurationCallOccursOnRejection)

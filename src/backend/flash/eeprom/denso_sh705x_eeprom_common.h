@@ -66,4 +66,25 @@ Result<void> ValidateDensoSh705xEepromPreflight(const DensoSh705xEepromInput& in
 
 Result<FlashPlan> BuildDensoSh705xEepromPlan(DensoSh705xEepromInput input);
 
+// Re-runs the builder's constraints (ValidateDensoSh705xEepromPreflight, with
+// the kernel's byte count) on a finished plan, so an executor refuses a plan
+// that did not come from the builder before any I/O.
+Status ValidateDensoSh705xEepromPlan(const FlashPlan& plan);
+
+template <> struct PlanValidator<DensoSh705xEepromKlinePlan>
+{
+    static Status Validate(const FlashPlan& plan)
+    {
+        return ValidateDensoSh705xEepromPlan(plan);
+    }
+};
+
+template <> struct PlanValidator<DensoSh705xEepromCanPlan>
+{
+    static Status Validate(const FlashPlan& plan)
+    {
+        return ValidateDensoSh705xEepromPlan(plan);
+    }
+};
+
 } // namespace fastecu::flash

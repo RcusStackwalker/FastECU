@@ -33,6 +33,7 @@ fastecu_portable_gtest(
     srcs = ["denso_sh705x_eeprom_common_test.cpp"],
     deps = [
         ":denso_sh705x_eeprom_common",
+        "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -84,7 +85,6 @@ cc_library(
     srcs = ["denso_sh705x_eeprom_kline_executor.cpp"],
     hdrs = ["denso_sh705x_eeprom_kline_executor.h"],
     implementation_deps = [
-        ":denso_sh705x_eeprom_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash/ecu:denso_sh705x_kline_common",
@@ -95,7 +95,10 @@ cc_library(
         "//bazel/layers:platform",
         "//bazel/layers:tests",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":denso_sh705x_eeprom_common",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -106,6 +109,7 @@ fastecu_portable_gtest(
         ":denso_sh705x_eeprom_kline",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_validation",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -120,7 +124,6 @@ cc_library(
     srcs = ["denso_sh705x_eeprom_can_executor.cpp"],
     hdrs = ["denso_sh705x_eeprom_can_executor.h"],
     implementation_deps = [
-        ":denso_sh705x_eeprom_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
     ],
@@ -130,7 +133,10 @@ cc_library(
         "//bazel/layers:platform",
         "//bazel/layers:tests",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":denso_sh705x_eeprom_common",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 # For WrongConcreteTransportTypeReturnsInvalidConfigWithNoIo, which
@@ -144,6 +150,7 @@ fastecu_portable_gtest(
         ":denso_sh705x_eeprom_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_validation",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
