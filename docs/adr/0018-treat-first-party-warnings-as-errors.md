@@ -70,7 +70,8 @@ repo(features = ["treat_warnings_as_errors"])
 - A warning is a failed action and is never cached, so a cached build can no
   longer hide one.
 - Warnings are fixed at their cause. Source-level `#pragma` suppressions,
-  `-Wno-*` flags, and `-Wno-error=` are not used; an intentionally discarded
+  `-Wno-*` flags, and `-Wno-error=` are not used (except the one flag ADR 0028
+  drops from the strict set); an intentionally discarded
   result is written `std::ignore = call;` (see the
   [coding style guide](../coding-style.md#error-handling)).
 - One pre-existing flag stays: `-Wno-implicit-function-declaration` in

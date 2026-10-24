@@ -56,13 +56,23 @@ just sized, two on a `back()` of a non-empty constant, and four inside libstdc++
   or deferred, with the evidence recorded here.
 - A fix never changes behaviour. A real bug found while cleaning up becomes its
   own issue and a test-first change.
+- A flag is dropped by `-Wno-<flag>` after the flag that includes it in the
+  `bazel/warnings.bazelrc` line, never by a pragma. The only drop so far is
+  `-Wmissing-field-initializers` (inside `-Wextra`): GCC reports 563 sites where
+  a designated initializer omits a member without a default member initializer,
+  and clang does not. Silencing it needs `{}` on every such member, which
+  clang-tidy's `readability-redundant-member-init` rejects for 183 of the 239
+  members involved (class types such as `std::string`), so the two checks
+  cannot both be satisfied. Listing every member at the call sites would make
+  idiomatic designated initializers worse.
 - CI reports no warning counts. The warnings-as-errors gate is the contract.
 
 | Flag | Status |
 | --- | --- |
 | MSVC `/W4 /permissive-`, `external_include_paths` | landed |
 | `-Wextra-semi`, `-Wcast-qual`, `-Wunused-parameter` | landed (`-Wunused-parameter` pairs with C4100, already in `/W4`) |
-| `-Wextra` (`-Wmissing-field-initializers`) | planned |
+| `-Wextra` | landed, without `-Wmissing-field-initializers` |
+| `-Wmissing-field-initializers` | dropped: GCC-only, contradicts `readability-redundant-member-init` |
 | `-Wshadow` | planned |
 | `-Wold-style-cast` | planned |
 | `-Wconversion`, `-Wsign-conversion` | planned |
@@ -87,7 +97,7 @@ just sized, two on a `back()` of a non-empty constant, and four inside libstdc++
 - Each change is reviewable on its own, and a compiler upgrade that adds a
   false positive to an enabled flag is answered by dropping or deferring that
   flag in this ADR, not by a suppression.
-- `-Wnull-dereference` is not enforced. Real null dereferences are caught by
+- `-Wmissing-field-initializers` and `-Wnull-dereference` are not enforced. Real null dereferences are caught by
   clang-tidy and the sanitizer builds.
 - The Android NDK build is still not gated by warnings-as-errors (ADR 0018), so
   its warnings are not enforced; gating it is separate work.
