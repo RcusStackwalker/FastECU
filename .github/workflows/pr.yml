@@ -287,8 +287,10 @@ jobs:
       - name: clang-tidy configured-graph regression
         run: bazel test --config=release //tools/clang-tidy/aspect/tests:transition_outputs_test
 
+      # Windows copies runfiles into the tree before a local test prefetches remote
+      # cache hits, so the default toplevel download leaves unreadable entries.
       - name: clang-tidy module fixtures
-        run: bazel test --config=release //tools/clang-tidy/scripts:clang_tidy_check_fixtures
+        run: bazel test --config=release --remote_download_outputs=all //tools/clang-tidy/scripts:clang_tidy_check_fixtures
 
       - name: clang-tidy report
         run: |
