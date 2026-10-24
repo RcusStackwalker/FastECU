@@ -81,17 +81,6 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     QStringList serial_port_list;
     QString opened_serial_port;
-    QString subaru_02_16bit_bootloader_baudrate = "9600";
-    QString subaru_04_16bit_bootloader_baudrate = "15625";
-    QString subaru_02_32bit_bootloader_baudrate = "9600";
-    QString subaru_04_32bit_bootloader_baudrate = "";
-    QString subaru_05_32bit_bootloader_baudrate = "";
-
-    QString subaru_02_16bit_kernel_baudrate = "39473";
-    QString subaru_04_16bit_kernel_baudrate = "39473";
-    QString subaru_02_32bit_kernel_baudrate = "62500";
-    QString subaru_04_32bit_kernel_baudrate = "62500";
-    QString subaru_05_32bit_kernel_baudrate = "62500";
 
     QString can_speed = "500000";
 
@@ -359,96 +348,6 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     bool SetOpenedSerialPort(QString value) override
     {
         opened_serial_port = value;
-        return true;
-    }
-    QString GetSubaru0216bitBootloaderBaudrate() override
-    {
-        return subaru_02_16bit_bootloader_baudrate;
-    }
-    bool SetSubaru0216bitBootloaderBaudrate(QString value) override
-    {
-        subaru_02_16bit_bootloader_baudrate = value;
-        return true;
-    }
-    QString GetSubaru0416bitBootloaderBaudrate() override
-    {
-        return subaru_04_16bit_bootloader_baudrate;
-    }
-    bool SetSubaru0416bitBootloaderBaudrate(QString value) override
-    {
-        subaru_04_16bit_bootloader_baudrate = value;
-        return true;
-    }
-    QString GetSubaru0232bitBootloaderBaudrate() override
-    {
-        return subaru_02_32bit_bootloader_baudrate;
-    }
-    bool SetSubaru0232bitBootloaderBaudrate(QString value) override
-    {
-        subaru_02_32bit_bootloader_baudrate = value;
-        return true;
-    }
-    QString GetSubaru0432bitBootloaderBaudrate() override
-    {
-        return subaru_04_32bit_bootloader_baudrate;
-    }
-    bool SetSubaru0432bitBootloaderBaudrate(QString value) override
-    {
-        subaru_04_32bit_bootloader_baudrate = value;
-        return true;
-    }
-    QString GetSubaru0532bitBootloaderBaudrate() override
-    {
-        return subaru_05_32bit_bootloader_baudrate;
-    }
-    bool SetSubaru0532bitBootloaderBaudrate(QString value) override
-    {
-        subaru_05_32bit_bootloader_baudrate = value;
-        return true;
-    }
-    QString GetSubaru0216bitKernelBaudrate() override
-    {
-        return subaru_02_16bit_kernel_baudrate;
-    }
-    bool SetSubaru0216bitKernelBaudrate(QString value) override
-    {
-        subaru_02_16bit_kernel_baudrate = value;
-        return true;
-    }
-    QString GetSubaru0416bitKernelBaudrate() override
-    {
-        return subaru_04_16bit_kernel_baudrate;
-    }
-    bool SetSubaru0416bitKernelBaudrate(QString value) override
-    {
-        subaru_04_16bit_kernel_baudrate = value;
-        return true;
-    }
-    QString GetSubaru0232bitKernelBaudrate() override
-    {
-        return subaru_02_32bit_kernel_baudrate;
-    }
-    bool SetSubaru0232bitKernelBaudrate(QString value) override
-    {
-        subaru_02_32bit_kernel_baudrate = value;
-        return true;
-    }
-    QString GetSubaru0432bitKernelBaudrate() override
-    {
-        return subaru_04_32bit_kernel_baudrate;
-    }
-    bool SetSubaru0432bitKernelBaudrate(QString value) override
-    {
-        subaru_04_32bit_kernel_baudrate = value;
-        return true;
-    }
-    QString GetSubaru0532bitKernelBaudrate() override
-    {
-        return subaru_05_32bit_kernel_baudrate;
-    }
-    bool SetSubaru0532bitKernelBaudrate(QString value) override
-    {
-        subaru_05_32bit_kernel_baudrate = value;
         return true;
     }
     QString GetCanSpeed() override

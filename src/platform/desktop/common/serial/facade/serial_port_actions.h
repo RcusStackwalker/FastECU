@@ -96,27 +96,6 @@ class SerialPortActions : public QObject
     bool SetSerialPortList(const QStringList& value);
     QString GetOpenedSerialPort();
     bool SetOpenedSerialPort(const QString& value);
-    QString GetSubaru0216bitBootloaderBaudrate();
-    bool SetSubaru0216bitBootloaderBaudrate(const QString& value);
-    QString GetSubaru0416bitBootloaderBaudrate();
-    bool SetSubaru0416bitBootloaderBaudrate(const QString& value);
-    QString GetSubaru0232bitBootloaderBaudrate();
-    bool SetSubaru0232bitBootloaderBaudrate(const QString& value);
-    QString GetSubaru0432bitBootloaderBaudrate();
-    bool SetSubaru0432bitBootloaderBaudrate(const QString& value);
-    QString GetSubaru0532bitBootloaderBaudrate();
-    bool SetSubaru0532bitBootloaderBaudrate(const QString& value);
-
-    QString GetSubaru0216bitKernelBaudrate();
-    bool SetSubaru0216bitKernelBaudrate(const QString& value);
-    QString GetSubaru0416bitKernelBaudrate();
-    bool SetSubaru0416bitKernelBaudrate(const QString& value);
-    QString GetSubaru0232bitKernelBaudrate();
-    bool SetSubaru0232bitKernelBaudrate(const QString& value);
-    QString GetSubaru0432bitKernelBaudrate();
-    bool SetSubaru0432bitKernelBaudrate(const QString& value);
-    QString GetSubaru0532bitKernelBaudrate();
-    bool SetSubaru0532bitKernelBaudrate(const QString& value);
 
     QString GetCanSpeed();
     bool SetCanSpeed(const QString& value);
