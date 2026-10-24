@@ -631,36 +631,17 @@ Status WriteMem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSeque
 
 } // namespace
 
-Result<Iso15765Config> MitsuColtM32rCanExecutor::TransportSetup(const FlashPlan& plan) const
+Result<Iso15765Config> MitsuColtM32rCanExecutor::Setup(const MitsuColtM32rCanPlan& family) const
 {
-    if (const Status match = CheckFamily(plan, FlashFamily::kMitsuColtM32rCan); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (const Status valid = ValidateMitsuColtM32rCanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& family = std::get<MitsuColtM32rCanPlan>(plan.FamilyPlan());
     // Legacy line 32-33: configureIso15765Can(serial, "500000", 0x7E0, 0x7E8).
     // Transport lifetime is owned by the caller; see ADR 0015.
     return Iso15765ConfigFrom(family);
 }
 
-Result<FlashExecutionResult> MitsuColtM32rCanExecutor::Execute(const FlashPlan& plan, ICanFlashTransport& transport,
-                                                               IClock& clock, const ICancellationToken& cancellation,
-                                                               IEventSink& events)
+Result<FlashExecutionResult> MitsuColtM32rCanExecutor::Run(const MitsuColtM32rCanPlan& family, const FlashPlan& plan,
+                                                           ICanFlashTransport& transport, IClock& clock,
+                                                           const ICancellationToken& cancellation, IEventSink& events)
 {
-    if (const Status matched = CheckFamily(plan, FlashFamily::kMitsuColtM32rCan); !matched.has_value())
-    {
-        return std::unexpected(matched.error());
-    }
-    if (const Status valid = ValidateMitsuColtM32rCanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& family = std::get<MitsuColtM32rCanPlan>(plan.FamilyPlan());
-
     const std::uint32_t rom_end = plan.TransferRegion().start + plan.TransferRegion().length;
     const bool read = plan.Operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : (rom_end == mitsu_colt_can::kFullRomSize ? 6 : 5));

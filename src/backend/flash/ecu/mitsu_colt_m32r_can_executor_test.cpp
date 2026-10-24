@@ -1986,7 +1986,7 @@ class CancelAtPhaseProgressSink final : public RecordingEventSink
     bool triggered_ = false;
 };
 
-TEST(MitsuColtM32rCanExecutor, PrecancelledExecutionReportsConnectingBeforeRefusal)
+TEST(MitsuColtM32rCanExecutor, PrecancelledExecutionIsRefusedInAdmission)
 {
     ScriptedCanFlashTransport transport;
     FakeClock clock;
@@ -1997,10 +1997,11 @@ TEST(MitsuColtM32rCanExecutor, PrecancelledExecutionReportsConnectingBeforeRefus
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     token.Cancel();
     ASSERT_THAT(ExecuteGuarded(executor, *plan, transport, clock, token, events),
-                fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_TRUE(token.Cancelled());
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo,
-                                           "Connecting to Mitsubishi Colt CZT M32R CAN bootloader, please wait...")));
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_THAT(events.logs, IsEmpty());
+    EXPECT_THAT(events.phase_progress_calls, IsEmpty());
+    EXPECT_THAT(events.progress_calls, IsEmpty());
+    EXPECT_THAT(events.notices, IsEmpty());
     EXPECT_EQ(transport.write_attempts, 0U);
     EXPECT_EQ(transport.read_attempts, 0U);
 }
