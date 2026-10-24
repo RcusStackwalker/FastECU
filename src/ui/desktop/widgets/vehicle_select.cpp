@@ -107,17 +107,6 @@ VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidg
     const QModelIndex makeIndex = ui_->car_make_tree_widget->selectionModel()->currentIndex();
     ui_->car_make_tree_widget->setCurrentIndex(makeIndex);
     emit ui_->car_make_tree_widget->itemSelectionChanged();
-
-    // this->adjustSize();
-    /*
-        const QModelIndex model_index = ui->car_model_tree_widget->selectionModel()->currentIndex();
-        ui->car_model_tree_widget->setCurrentIndex(model_index);
-        emit ui->car_model_tree_widget->itemSelectionChanged();
-
-        const QModelIndex version_index = ui->car_version_tree_widget->selectionModel()->currentIndex();
-        ui->car_version_tree_widget->setCurrentIndex(version_index);
-        emit ui->car_version_tree_widget->itemSelectionChanged();
-    */
 }
 
 VehicleSelect::~VehicleSelect()

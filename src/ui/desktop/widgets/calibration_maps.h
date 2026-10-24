@@ -76,14 +76,10 @@ class CalibrationMaps : public QWidget
     void refresh(); // Resolves the stable identity; a closed session is inert.
 
   private slots:
-    // void fetchFromEcu();
-    // void storeToEcu();
     void startSelection(int row, int col);
     void cellChanged(int curRow, int curCol, int prevRow, int prevCol);
 
   signals:
-    void fetchFromEcuButtonClicked();
-    void storeToEcuButtonClicked();
     void selectableComboboxItemChanged(QString);
     void checkboxStateChanged(int);
 
