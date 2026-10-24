@@ -44,9 +44,9 @@ std::uint32_t BytesToSeed(bytes::ByteView seed_bytes);  // expects exactly 4 byt
 std::array<bytes::Byte, 4> KeyBytes(std::uint32_t key); // produces exactly 4 bytes
 
 // SID 0x23 vendor extension seed request: [0x23][0x27][0x41].
-bytes::Bytes BuildChallengeSeedRequest();
+std::array<bytes::Byte, 3> BuildChallengeSeedRequest();
 
 // SID 0x23 vendor extension key answer: [0x23][0x27][0x42][4-byte key].
-bytes::Bytes BuildChallengeKey(std::uint32_t key);
+std::array<bytes::Byte, 7> BuildChallengeKey(std::uint32_t key);
 
 } // namespace mitsu_colt_can_vendor_ext

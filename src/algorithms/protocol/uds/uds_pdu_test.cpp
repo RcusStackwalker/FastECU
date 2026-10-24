@@ -1,5 +1,8 @@
 #include "src/algorithms/protocol/uds/uds_pdu.h"
 
+#include <array>
+#include <concepts>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -32,12 +35,16 @@ TEST(UdsPduTest, StructuralNrcConstantsMatchTheStandard)
 
 TEST(UdsPduTest, BuildsAServiceOnlyRequest)
 {
-    EXPECT_THAT(uds::BuildRequest(0x3E), ElementsAre(0x3E));
+    const auto request = uds::BuildRequest(0x3E);
+    static_assert(std::same_as<decltype(request), const std::array<bytes::Byte, 1>>);
+    EXPECT_THAT(request, ElementsAre(0x3E));
 }
 
 TEST(UdsPduTest, BuildsASubfunctionRequest)
 {
-    EXPECT_THAT(uds::BuildRequest(0x10, bytes::Byte{0x03}), ElementsAre(0x10, 0x03));
+    const auto request = uds::BuildRequest(0x10, bytes::Byte{0x03});
+    static_assert(std::same_as<decltype(request), const std::array<bytes::Byte, 2>>);
+    EXPECT_THAT(request, ElementsAre(0x10, 0x03));
 }
 
 TEST(UdsPduTest, BuildsADataCarryingRequest)

@@ -48,13 +48,13 @@ TEST(TestMitsuColtCanVendorExtProtocol, byte_native_seed_and_key_helpers_round_t
 }
 TEST(TestMitsuColtCanVendorExtProtocol, byte_native_challenge_frame_layout)
 {
-    ASSERT_EQ(BuildChallengeSeedRequest(), BytesFromHex("232741"));
-    ASSERT_EQ(BuildChallengeKey(0x12345678U), BytesFromHex("23274212345678"));
+    ASSERT_EQ(BuildChallengeSeedRequest(), (std::array<bytes::Byte, 3>{0x23, 0x27, 0x41}));
+    ASSERT_EQ(BuildChallengeKey(0x12345678U), (std::array<bytes::Byte, 7>{0x23, 0x27, 0x42, 0x12, 0x34, 0x56, 0x78}));
 }
 TEST(TestMitsuColtCanVendorExtProtocol, challenge_key_frame_uses_inverse_key_bytes)
 {
     const auto seed_bytes = BytesFromHex("669E0CB4");
     const std::uint32_t key = ChallengeInverseTransform(BytesToSeed(seed_bytes));
     ASSERT_EQ(KeyBytes(key), (std::array<bytes::Byte, 4>{0x12, 0x34, 0x56, 0x78}));
-    ASSERT_EQ(BuildChallengeKey(key), BytesFromHex("23274212345678"));
+    ASSERT_EQ(BuildChallengeKey(key), (std::array<bytes::Byte, 7>{0x23, 0x27, 0x42, 0x12, 0x34, 0x56, 0x78}));
 }

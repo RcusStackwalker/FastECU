@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include "src/algorithms/protocol/bytes.h"
 
 // UDS/KWP2000 application-layer PDUs: [SID][subfunction?][data...].
@@ -50,11 +52,14 @@ constexpr bytes::Byte RequestFromPositive(bytes::Byte positive_sid)
 // own named parameter position. `buildRequest(kServiceSecurityAccess, 0x05_b)`
 // is then unambiguous on sight.
 //
-// A family builder may compose its own frames with bytes::composeBe
-// or delegate to these -- MitsuColtCan's builders delegate, which is what puts
-// the [SID][...] shape in one place instead of one per service.
-bytes::Bytes BuildRequest(bytes::Byte sid);
-bytes::Bytes BuildRequest(bytes::Byte sid, bytes::Byte subfunction);
+// Fixed-size requests return arrays; data-bearing requests retain vector
+// ownership because their payload length is known only at runtime.
+//
+// Family builders may compose fixed frames directly with bytes::ComposeBe
+// to preserve their static extent, or delegate to these overloads when the
+// request shape matches.
+std::array<bytes::Byte, 1> BuildRequest(bytes::Byte sid);
+std::array<bytes::Byte, 2> BuildRequest(bytes::Byte sid, bytes::Byte subfunction);
 bytes::Bytes BuildRequest(bytes::Byte sid, bytes::ByteView data);
 bytes::Bytes BuildRequest(bytes::Byte sid, bytes::Byte subfunction, bytes::ByteView data);
 

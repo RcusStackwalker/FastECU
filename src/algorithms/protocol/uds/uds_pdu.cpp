@@ -5,14 +5,14 @@
 namespace uds
 {
 
-bytes::Bytes BuildRequest(bytes::Byte sid)
+std::array<bytes::Byte, 1> BuildRequest(bytes::Byte sid)
 {
-    return bytes::ComposeBeWithExtraCapacity(0, sid);
+    return bytes::ComposeBe(sid);
 }
 
-bytes::Bytes BuildRequest(bytes::Byte sid, bytes::Byte subfunction)
+std::array<bytes::Byte, 2> BuildRequest(bytes::Byte sid, bytes::Byte subfunction)
 {
-    return bytes::ComposeBeWithExtraCapacity(0, sid, subfunction);
+    return bytes::ComposeBe(sid, subfunction);
 }
 
 bytes::Bytes BuildRequest(bytes::Byte sid, bytes::ByteView data)
