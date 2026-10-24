@@ -1,6 +1,8 @@
 # Compile-time-sized big-endian composition
 
-Status: design approved in conversation; implementation pending.
+Status: implemented and host-verified. Original proposal retained pending
+history-preserving delivery; remove completed planning artifacts in a separate
+change after their original contents reach delivered history.
 
 ## Intent and constraints
 

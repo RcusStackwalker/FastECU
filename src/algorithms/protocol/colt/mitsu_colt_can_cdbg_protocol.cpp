@@ -1,10 +1,13 @@
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include <algorithm>
 #include <array>
 #include <bit>
 
 namespace mitsu_colt_can_cdbg
 {
+
+using namespace bytes::literals;
 
 CdbgFrame BuildInitFrame()
 {
@@ -18,8 +21,7 @@ CdbgFrame BuildSecuritySeedRequestFrame()
 
 std::uint32_t SeedToKey(std::uint32_t seed)
 {
-    std::array<bytes::Byte, 4> data = {};
-    bytes::WriteU32Be(data, 0, seed);
+    auto data = bytes::ComposeBe(seed);
 
     for (int i = 0; i < 4; ++i)
     {
@@ -98,9 +100,7 @@ std::uint32_t ExtractSeed(bytes::ByteView reply)
 
 CdbgFrame BuildSecurityKeyFrame(std::uint32_t key)
 {
-    CdbgFrame frame{kCmdSecurityKey, 0, 0, 0, 0, 0, 0, 0};
-    bytes::WriteU32Be(frame, 2, key);
-    return frame;
+    return bytes::ComposeBe(kCmdSecurityKey, 0x00_b, key, 0x00_b, 0x00_b);
 }
 
 bool SecurityGranted(bytes::ByteView reply)
@@ -132,9 +132,7 @@ CdbgFrame BuildLogStartFrame(bytes::Byte instance, bytes::Byte frame_count, std:
         encoded = static_cast<std::uint16_t>(interval_ms);
     }
 
-    CdbgFrame frame{kCmdLogStart, 0, 1, instance, frame_count, unit_flag, 0, 0};
-    bytes::WriteU16Be(frame, 6, encoded);
-    return frame;
+    return bytes::ComposeBe(kCmdLogStart, 0x00_b, 0x01_b, instance, frame_count, unit_flag, encoded);
 }
 
 bool BatchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
@@ -184,9 +182,7 @@ std::vector<CdbgFrame> BuildFrameInitFrames(bytes::Byte instance, bytes::Byte fr
         out.push_back(CdbgFrame{kCmdLogSelectItem, 0, instance, frame_index, static_cast<bytes::Byte>(i), 0, 0, 0});
 
         const CdbgChannel& ch = frame_items.at(i);
-        CdbgFrame pointer_frame{kCmdLogSetPointer, 0, ch.size, 0, 0, 0, 0, 0};
-        bytes::WriteU32Be(pointer_frame, 4, ch.pointer);
-        out.push_back(pointer_frame);
+        out.push_back(bytes::ComposeBe(kCmdLogSetPointer, 0x00_b, ch.size, 0x00_b, ch.pointer));
     }
     return out;
 }
