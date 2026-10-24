@@ -75,7 +75,7 @@ UdsExchangeContext ExchangeContext(Ctx& ctx)
 }
 
 // The "fatal" shape every exchange below uses except the four identity
-// queries (non_fatal_query) and the close-block retry loop (each
+// queries (NonFatalQuery) and the close-block retry loop (each
 // intentionally tolerant of failure, see below). See
 // uds_client_exchange_common.h for the shared rejection/cancellation
 // logging this delegates to.
@@ -84,9 +84,9 @@ Result<bytes::Bytes> FatalRequest(Ctx& ctx, bytes::ByteView pdu, std::string_vie
     return ::fastecu::flash::FatalRequest(ExchangeContext(ctx), pdu, kRejectionPrefix, operation);
 }
 
-// The fatal_request + expected-response-prefix check every exchange below
+// The FatalRequest + expected-response-prefix check every exchange below
 // repeats except the four identity queries and the close-block retry loop --
-// see uds_client_exchange_common.h's fatal_query for what expected_prefix,
+// see uds_client_exchange_common.h's FatalQuery for what expected_prefix,
 // subject, and min_payload_size mean.
 Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                                 std::string_view subject, std::optional<std::size_t> min_payload_size = std::nullopt)

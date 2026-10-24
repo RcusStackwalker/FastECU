@@ -8,7 +8,7 @@
 // character-for-character from the legacy source wherever it had a
 // counterpart, with two kinds of exception: the messages the UDS layer
 // replaced (a decoded NRC or envelope complaint where the legacy decoder could
-// only say "Not a valid answer"), and fatal_request's rejection messages,
+// only say "Not a valid answer"), and FatalRequest's rejection messages,
 // which use a generic "{operation} rejected: " prefix instead. The
 // operator-cancellation message has no legacy counterpart at all -- the legacy
 // code logged nothing there.
@@ -1179,7 +1179,7 @@ TEST_F(MitsuColtM32rCanWriteExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
 
 TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZeroStatus)
 {
-    // Same fatal_query wiring as the MitsuColtM32rCanExecutorRoutineStatusTest
+    // Same FatalQuery wiring as the MitsuColtM32rCanExecutorRoutineStatusTest
     // cases below, exercised through the top-128KB bootstrap's copy of
     // unlock_and_erase() -- the `stage` suffix must appear in the log too.
     ScriptedCanFlashTransport transport;
@@ -1216,11 +1216,11 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZe
 // The erase trigger (RoutineControl 224) and the CRC check (RoutineControl
 // 225) both reply [routine-id echo][status] past the SID UdsClient already
 // validated: a matching SID echo alone does not mean the routine itself
-// succeeded, so both exchanges go through fatal_query with expected_prefix
+// succeeded, so both exchanges go through FatalQuery with expected_prefix
 // = {routine, 0x00} (colt_commented.S ~0x59c8-0x5a38 for the erase trigger,
 // ~0x5aa0-0x5ad4 for the CRC check -- the latter is where cobd_data[2]
 // carries whether can_flasher_current_block_calculated_crc matched the
-// reference). fatal_query's own mismatch handling -- too-short payload,
+// reference). FatalQuery's own mismatch handling -- too-short payload,
 // wrong prefix content -- is already exercised generically by
 // FatalQueryTest in uds_client_exchange_common_test.cpp, so these two cases
 // only need to confirm each call site is wired to the right expected_prefix;
@@ -1787,7 +1787,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
     ASSERT_THAT(ExecuteGuarded(executor, *plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
-    // fatal_query's generic mismatch wording (uds_client_exchange_common.h),
+    // FatalQuery's generic mismatch wording (uds_client_exchange_common.h),
     // not the legacy text: the reply is a well-formed positive response to
     // the service that was sent, so what actually went wrong is the response
     // byte, not something an NRC decoder would explain.

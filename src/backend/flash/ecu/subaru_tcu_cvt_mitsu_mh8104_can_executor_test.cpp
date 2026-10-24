@@ -341,7 +341,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSucceedsEvenWhenEveryDiagnosticR
     // Still shaped like a seed reply so a key can be computed, but wrong
     // SID -- this family does not validate the SID before using the bytes.
     // The executor extracts the 4 seed bytes at stripped-PDU offsets [2..5]
-    // (uds::payload(pdu)[1..4], mirroring legacy's received.at(6..9)), i.e.
+    // (uds::Payload(pdu)[1..4], mirroring legacy's received.at(6..9)), i.e.
     // {0x33, 0xAA, 0xBB, 0xCC} here, NOT the trailing 4 bytes of this
     // 7-byte reply -- legacy indexes by absolute position, not by "the
     // seed field of a well-formed 0x67/0x01 reply".

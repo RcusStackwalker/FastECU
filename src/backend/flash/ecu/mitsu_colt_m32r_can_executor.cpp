@@ -51,13 +51,13 @@ struct Ctx
     uds::UdsClient& uds;
 };
 
-// The plain fatal_request every exchange below repeats when a matching SID
+// The plain FatalRequest every exchange below repeats when a matching SID
 // echo is all it needs (RequestDownload, TransferData, the reflash unlock
-// request, each ReadMemoryByAddress chunk): unlike fatal_query below there is
-// no expected_prefix to check, just report_exchange_failure's
+// request, each ReadMemoryByAddress chunk): unlike FatalQuery below there is
+// no expected_prefix to check, just ReportExchangeFailure's
 // rejection-vs-cancellation wrapping on failure. `operation` drives both
 // halves of that wrapping -- "{operation} rejected: " on an ECU rejection,
-// "during {operation}" on a cancellation. Built the same way as fatal_query
+// "during {operation}" on a cancellation. Built the same way as FatalQuery
 // -- a fresh UdsExchangeContext per call, since this family has no single
 // fixed policy either.
 Result<bytes::Bytes> FatalRequest(Ctx& ctx, bytes::ByteView pdu, const uds::ExchangePolicy& policy,
@@ -67,14 +67,14 @@ Result<bytes::Bytes> FatalRequest(Ctx& ctx, bytes::ByteView pdu, const uds::Exch
                                           std::format("{} rejected: ", operation), operation);
 }
 
-// The fatal_request + expected-response-prefix check every exchange in
+// The FatalRequest + expected-response-prefix check every exchange in
 // connect_bootloader below repeats. Unlike the other three
 // UdsExchangeContext-based CAN families, this one has no single fixed
 // exchange policy or rejection prefix -- the vendor challenge block above
 // uses its own prefixes per exchange, and erase/write (not shown here) use
 // kSlowExchangePolicy -- so `policy` is built into a fresh UdsExchangeContext
 // per call instead of a shared one, and rejection_prefix stays an explicit
-// parameter. See uds_client_exchange_common.h's fatal_query for what
+// parameter. See uds_client_exchange_common.h's FatalQuery for what
 // expected_prefix, subject, and min_payload_size mean.
 Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                                 const uds::ExchangePolicy& policy, std::string_view rejection_prefix,
@@ -352,7 +352,7 @@ Status UploadAndCommit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Phas
     // SID echo alone would not mean the CRC matched: RoutineControl 225's
     // reply carries a status byte after the routine-id echo (colt_commented.S
     // ~0x5aa0-0x5ad4), 0 only when can_flasher_current_block_calculated_crc
-    // equals the reference CRC. fatal_query's expected_prefix pins both
+    // equals the reference CRC. FatalQuery's expected_prefix pins both
     // bytes at once, so a reported mismatch is rejected the same generic way
     // as a malformed reply -- see the vendor challenge key rejection above
     // for the identical pattern and its "not the legacy text" rationale.
@@ -393,7 +393,7 @@ Status UnlockAndErase(Ctx& ctx, std::string_view stage)
     // RoutineControl 224's reply carries a status byte after the routine-id
     // echo (colt_commented.S ~0x59c8-0x5a38), and the bootloader reports
     // flasher_try_erase_range_call() failing via a positive reply with a
-    // nonzero status instead of an NRC. fatal_query's expected_prefix pins
+    // nonzero status instead of an NRC. FatalQuery's expected_prefix pins
     // both bytes at once, so that failure is rejected the same generic way
     // as a malformed reply -- see the vendor challenge key rejection in
     // connect_bootloader for the identical pattern.
