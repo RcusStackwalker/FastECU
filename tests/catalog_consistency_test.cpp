@@ -18,6 +18,9 @@
 #include "src/backend/config/builtin_catalog.h"
 #include "src/backend/flash/flash_device_lookup.h"
 
+using ::testing::IsEmpty;
+using ::testing::Not;
+
 namespace
 {
 
@@ -57,7 +60,7 @@ std::set<std::string> BundledKernelNames()
 TEST(CatalogConsistency, EveryKernelNameIsABundledFileSpelledExactly)
 {
     const std::set<std::string> bundled = BundledKernelNames();
-    ASSERT_FALSE(bundled.empty());
+    ASSERT_THAT(bundled, Not(IsEmpty()));
     for (const auto& protocol : BuiltinCatalog().Protocols())
     {
         SCOPED_TRACE(::testing::PrintToString(protocol));

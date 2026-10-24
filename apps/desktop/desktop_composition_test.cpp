@@ -36,6 +36,8 @@ namespace
 
 using fastecu::testing::IsOk;
 using fastecu::ui::LogChannel;
+using ::testing::_;
+using ::testing::Optional;
 
 constexpr auto kVersion = "0.1.0-beta.5";
 
@@ -201,7 +203,7 @@ TEST_F(DesktopCompositionTest, failedStartupBuildsNoServicesAndPerformsNoEcuIo)
     DesktopComposition composition{root.path()};
 
     ASSERT_TRUE(!composition.Started());
-    ASSERT_TRUE(composition.StartupError().has_value());
+    ASSERT_THAT(composition.StartupError(), Optional(_));
     ASSERT_TRUE(QString::fromStdString(composition.StartupError()->detail).contains(config_dir + "fastecu.cfg"));
     // Nothing that could log, thread, or talk to an ECU was created.
     ASSERT_TRUE(!DefinitionCatalogsOf(composition));
@@ -289,7 +291,7 @@ TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
 
     ASSERT_TRUE(!composition.Started());
     const auto& startup_error = composition.StartupError();
-    ASSERT_TRUE(startup_error.has_value());
+    ASSERT_THAT(startup_error, Optional(_));
     const QString text = StartupFailureText(*startup_error);
     ASSERT_TRUE(text.contains(config_dir + "fastecu.cfg"));
     ASSERT_TRUE(!SerialOf(composition));

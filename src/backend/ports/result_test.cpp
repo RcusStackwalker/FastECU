@@ -1,6 +1,9 @@
 #include "src/backend/ports/result.h"
 #include "src/backend/ports/testing/result_matchers.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::IsEmpty;
 
 using fastecu::Error;
 using fastecu::ErrorKind;
@@ -28,7 +31,7 @@ TEST(Status, VoidSuccessAndFailure)
     EXPECT_TRUE(ok.has_value());
     Status bad = Fail(ErrorKind::kDisconnected);
     ASSERT_THAT(bad, fastecu::testing::IsErr(ErrorKind::kDisconnected));
-    EXPECT_TRUE(bad.error().detail.empty());
+    EXPECT_THAT(bad.error().detail, IsEmpty());
 }
 
 TEST(ErrorKind, StableSpellings)
@@ -46,5 +49,5 @@ TEST(Error, DefaultsToInternalKind)
 {
     const Error error;
     EXPECT_EQ(error.kind, ErrorKind::kInternal);
-    EXPECT_TRUE(error.detail.empty());
+    EXPECT_THAT(error.detail, IsEmpty());
 }

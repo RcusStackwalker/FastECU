@@ -1,4 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -10,6 +11,10 @@
 #include "src/backend/protocol/testing/scripted_kline_transport.h"
 #include "src/backend/protocol/testing/scripted_ssm_transport.h"
 
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
+
 using namespace mutdma;
 using namespace std::chrono_literals;
 
@@ -20,7 +25,7 @@ TEST(TransportContract, NoFrameIsSuccessfulEmptyOptional)
     fastecu::FakeCancellationToken token;
     auto result = t.Read(20ms, token);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_FALSE(result->has_value());
+    EXPECT_THAT(*result, Eq(std::nullopt));
 }
 
 TEST(TransportContract, CancellationIsNotSilence)
@@ -46,7 +51,7 @@ TEST(TransportContract, CanReadReturnsFrameWithIdAndPayload)
     fastecu::FakeCancellationToken token;
     auto result = t.Read(20ms, token);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->has_value());
+    ASSERT_THAT(*result, Optional(_));
     EXPECT_EQ(result->value().id, 0x7E8U);
     EXPECT_EQ(result->value().payload, test_bytes::BytesFromHex("0102"));
 }
@@ -63,7 +68,7 @@ TEST(TestTransport, scripted_write_then_read)
     ASSERT_EQ(*written, 1U);
     const auto read = t.Read(50ms, token);
     ASSERT_THAT(read, fastecu::testing::IsOk());
-    ASSERT_TRUE(read->has_value());
+    ASSERT_THAT(*read, Optional(_));
     ASSERT_EQ(read->value(), test_bytes::BytesFromHex("A5"));
     ASSERT_TRUE(t.ScriptConsumed());
 }

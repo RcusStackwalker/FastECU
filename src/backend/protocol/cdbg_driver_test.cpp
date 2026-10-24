@@ -1,9 +1,12 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 #include "src/backend/protocol/testing/scripted_can_transport.h"
+
+using ::testing::IsEmpty;
 using namespace mitsu_colt_can_cdbg;
 using namespace std::chrono_literals;
 
@@ -182,7 +185,7 @@ TEST(TestCdbgDriver, poll_returns_empty_when_not_streaming)
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.PollOnce(50ms, cancellation);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->values.empty());
+    ASSERT_THAT(result->values, IsEmpty());
 }
 
 TEST(TestCdbgDriver, handshake_propagates_cancellation_from_bounded_read)

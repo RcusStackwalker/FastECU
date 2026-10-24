@@ -13,7 +13,10 @@ using namespace std::chrono_literals;
 
 using fastecu::ErrorKind;
 using fastecu::FakeCancellationToken;
+using ::testing::_;
 using testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::Optional;
 
 TEST(ScriptedUdsChannelTest, AcceptsAnExpectedSend)
 {
@@ -77,12 +80,12 @@ TEST(ScriptedUdsChannelTest, ReplaysQueuedReceivesInOrder)
 
     const auto first = channel.Receive(100ms, cancellation);
     ASSERT_THAT(first, fastecu::testing::IsOk());
-    ASSERT_TRUE(first->has_value());
+    ASSERT_THAT(*first, Optional(_));
     EXPECT_THAT(**first, ElementsAre(0x50, 0x03));
 
     const auto second = channel.Receive(100ms, cancellation);
     ASSERT_THAT(second, fastecu::testing::IsOk());
-    EXPECT_FALSE(second->has_value());
+    EXPECT_THAT(*second, Eq(std::nullopt));
 
     ASSERT_THAT(channel.Receive(100ms, cancellation), fastecu::testing::IsErr(ErrorKind::kDisconnected));
 }

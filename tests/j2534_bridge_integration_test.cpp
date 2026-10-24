@@ -1,5 +1,6 @@
 #include "src/platform/desktop/windows/j2534/j2534_bridge_protocol.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <cstdio>
 #include <cstdlib>
@@ -9,6 +10,8 @@
 #include <windows.h>
 
 using namespace j2534_bridge;
+using ::testing::IsEmpty;
+using ::testing::Not;
 
 namespace
 {
@@ -210,8 +213,8 @@ std::string J2534BridgeIntegration::dll_path_;
 
 TEST_F(J2534BridgeIntegration, CallsAndChildCrashContracts)
 {
-    ASSERT_FALSE(host_exe_.empty()) << "set J2534_BRIDGE_HOST_EXE";
-    ASSERT_FALSE(dll_path_.empty()) << "set FAKE_J2534_DLL_PATH";
+    ASSERT_THAT(host_exe_, Not(IsEmpty())) << "set J2534_BRIDGE_HOST_EXE";
+    ASSERT_THAT(dll_path_, Not(IsEmpty())) << "set FAKE_J2534_DLL_PATH";
 
     BridgeProcess bridge;
     ASSERT_TRUE(bridge.Start(host_exe_, dll_path_)) << "failed to spawn j2534_bridge_host";
