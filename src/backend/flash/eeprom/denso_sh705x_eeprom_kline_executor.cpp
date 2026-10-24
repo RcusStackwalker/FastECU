@@ -93,9 +93,9 @@ bytes::Bytes Sid10Request()
 {
     return {0x10, 0x85, 0x02};
 }
-bytes::Bytes Sid34Request(std::uint32_t addr, std::uint32_t len)
+std::array<bytes::Byte, 8> Sid34Request(std::uint32_t addr, std::uint32_t len)
 {
-    return bytes::ComposeBeWithExtraCapacity(0, 0x34_b, U24{addr}, 0x04_b, U24{len});
+    return ComposeBe(0x34_b, U24{addr}, 0x04_b, U24{len});
 }
 bytes::Bytes Sid31Request()
 {
@@ -103,10 +103,9 @@ bytes::Bytes Sid31Request()
 }
 
 // request_kernel_id(), lines 964-994: NOT SsmProtocol::addHeader-framed.
-bytes::Bytes RequestKernelIdFrame()
+std::array<bytes::Byte, 6> RequestKernelIdFrame()
 {
-    const auto frame = ComposeBeWithChecksum(bytes::Sum8, kSubKernelStartComm, std::uint16_t{1}, kSubKernelId);
-    return {frame.begin(), frame.end()};
+    return ComposeBeWithChecksum(bytes::Sum8, kSubKernelStartComm, std::uint16_t{1}, kSubKernelId);
 }
 
 bool LooksKernelAlive(bytes::ByteView received)
