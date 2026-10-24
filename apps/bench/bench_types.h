@@ -69,9 +69,9 @@ struct TrafficEvidence
 {
     std::size_t exchange_count = 0;
     bytes::Bytes tx;
-    bytes::Bytes rx;
+    bytes::Bytes rx{};
     bytes::Bytes last_tx;
-    bytes::Bytes last_rx;
+    bytes::Bytes last_rx{};
     std::uint64_t elapsed_ms = 0;
 };
 
@@ -104,17 +104,17 @@ struct CommandOutcome
 {
     std::string step;
     std::size_t exchange_count = 0;
-    bytes::Bytes tx;
-    bytes::Bytes rx;
-    bytes::Bytes last_tx;
-    bytes::Bytes last_rx;
-    bytes::Bytes data;
+    bytes::Bytes tx{};
+    bytes::Bytes rx{};
+    bytes::Bytes last_tx{};
+    bytes::Bytes last_rx{};
+    bytes::Bytes data{};
     std::uint64_t elapsed_ms = 0;
-    std::optional<double> vbatt;
+    std::optional<double> vbatt{};
     bool ok = true;
-    std::string note;
-    std::optional<ErrorKind> error_kind;
-    std::string error_detail;
+    std::string note{};
+    std::optional<ErrorKind> error_kind{};
+    std::string error_detail{};
 };
 
 } // namespace fastecu::bench

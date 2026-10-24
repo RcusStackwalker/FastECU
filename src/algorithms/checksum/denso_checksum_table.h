@@ -22,7 +22,7 @@ struct DensoTableSpec
 {
     memory::FlashAddress table_address;
     std::uint32_t table_length = 0;
-    std::span<const DensoWordOverride> overrides;
+    std::span<const DensoWordOverride> overrides{};
     bool detect_disabled = true;
 };
 

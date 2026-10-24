@@ -19,8 +19,8 @@ struct IdentifyOutcome
 {
     bool success = false;
     std::string ecu_id;
-    bytes::Bytes init_response;
-    std::string error_detail;
+    bytes::Bytes init_response{};
+    std::string error_detail{};
 };
 
 // Runs identification off the UI thread. The Qt implementation wraps

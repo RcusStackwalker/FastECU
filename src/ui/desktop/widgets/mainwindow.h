@@ -127,7 +127,7 @@ class MainWindow : public QMainWindow
     struct OpenCalibration
     {
         fastecu::calibration::SessionId id{};
-        fastecu::ui::CalibrationViewState view;
+        fastecu::ui::CalibrationViewState view{};
     };
     std::vector<OpenCalibration> calibrations_;
     fastecu::calibration::CalibrationWorkspace *calibration_workspace_ = nullptr;

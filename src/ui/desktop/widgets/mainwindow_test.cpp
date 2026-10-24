@@ -1006,21 +1006,21 @@ class MainWindowTest : public ::testing::Test
     {
         std::string from_byte = "x";
         std::string to_byte = "x";
-        std::string fine_increment;
-        std::string maximum;
+        std::string fine_increment{};
+        std::string maximum{};
         AssignmentOther other = AssignmentOther::kNone;
         bool write_during_dialog = false; // the map's bytes become 20
         bool select_other_during_dialog = false;
         bool close_during_dialog = false;
         QString typed = "x+1";
         AssignmentAction action = AssignmentAction::kSet;
-        QString clipboard;
-        std::optional<std::uint16_t> value; // absent: the edited session is closed
-        QString cell;
-        std::optional<bool> dirty;
-        std::optional<bool> notice;
-        QString notice_contains;
-        QString notice_excludes;
+        QString clipboard{};
+        std::optional<std::uint16_t> value{}; // absent: the edited session is closed
+        QString cell{};
+        std::optional<bool> dirty{};
+        std::optional<bool> notice{};
+        QString notice_contains{};
+        QString notice_excludes{};
     };
     void checkTypedAssignment(const AssignmentCase& c);
     static fastecu::definition::RomDefinition assignmentDefinition(const AssignmentCase& c);

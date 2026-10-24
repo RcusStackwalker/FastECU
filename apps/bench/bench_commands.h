@@ -27,8 +27,8 @@ struct PreparedStep
     // than parsing spec.args a second time.
     std::uint32_t address = 0;
     std::uint32_t length = 0;
-    bytes::Bytes pdu;
-    std::optional<bytes::Bytes> upload_payload;
+    bytes::Bytes pdu{};
+    std::optional<bytes::Bytes> upload_payload{};
     // True when this step uploads one of the built-in erase helper routines,
     // which is what arms `erase`. Resolved here so the driver never has to
     // recognise an erase helper by matching argument strings.

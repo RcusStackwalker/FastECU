@@ -43,7 +43,7 @@ struct MemoryMapSpec
     std::span<const memory::MemoryBlock> blocks;
     // The ECU address that address 0 in these ROMs' definition files stands
     // for (ADR 0020).
-    memory::FlashAddress definition_base;
+    memory::FlashAddress definition_base{};
 
     // Where the furthest-placed ROM file byte ends; 0 with no file-backed
     // block, and 0xFFFFFFFF when that end is past the 32-bit range.
@@ -153,25 +153,25 @@ consteval std::array<memory::MemoryBlock, sizeof...(Segments)> LinearBlocks(std:
 // One flash and logging protocol, as compile-time data.
 struct ProtocolSpec
 {
-    std::string_view name;  // unique within a catalog
-    std::string_view alias; // one token a definition's flash method may use; empty when none
-    std::string_view ecu;
-    std::string_view mcu; // names the FlashDevice (FindFlashDevice) giving erase geometry
-    std::string_view mode;
+    std::string_view name{};  // unique within a catalog
+    std::string_view alias{}; // one token a definition's flash method may use; empty when none
+    std::string_view ecu{};
+    std::string_view mcu{}; // names the FlashDevice (FindFlashDevice) giving erase geometry
+    std::string_view mode{};
     ChecksumSupport checksum = ChecksumSupport::kNone;
     bool read = false;
     bool test_write = false;
     bool write = false;
-    std::string_view flash_transport; // comma-separated; the UI splits it
-    std::string_view log_transport;   // comma-separated; the UI splits it
-    std::string_view log_protocol;
-    std::string_view kernel; // a file in the kernel directory; empty when none is uploaded
-    std::optional<std::uint32_t> kernel_load_address;
-    std::string_view description;
+    std::string_view flash_transport{}; // comma-separated; the UI splits it
+    std::string_view log_transport{};   // comma-separated; the UI splits it
+    std::string_view log_protocol{};
+    std::string_view kernel{}; // a file in the kernel directory; empty when none is uploaded
+    std::optional<std::uint32_t> kernel_load_address{};
+    std::string_view description{};
     // Empty when ROM files sit at address 0 with every byte writable: those get
     // the identity map at any size. Otherwise one map per ROM file size the
     // protocol accepts.
-    std::span<const MemoryMapSpec> memory_maps;
+    std::span<const MemoryMapSpec> memory_maps{};
 };
 
 // The load address as protocols.cfg spelled it -- "0x" then unpadded
@@ -194,14 +194,14 @@ std::expected<memory::MemoryImage, memory::MemoryError> PlaceRomFile(const Proto
 struct VehicleSpec
 {
     std::string_view id; // saved in fastecu.cfg: never changed, never reused
-    std::string_view make;
-    std::string_view model;
-    std::string_view version;
-    std::string_view type;
-    std::string_view kw;
-    std::string_view hp;
-    std::string_view fuel;
-    std::string_view year;
+    std::string_view make{};
+    std::string_view model{};
+    std::string_view version{};
+    std::string_view type{};
+    std::string_view kw{};
+    std::string_view hp{};
+    std::string_view fuel{};
+    std::string_view year{};
     // Into the same catalog's protocols; never null in a consistent catalog.
     const ProtocolSpec *protocol = nullptr;
 };

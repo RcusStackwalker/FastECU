@@ -27,20 +27,20 @@ struct FlashPlanFields
     std::string target_id;
     std::string mcu_name;
     MemoryRegion transfer_region{};
-    std::vector<MemoryRegion> erase_regions;
+    std::vector<MemoryRegion> erase_regions{};
     std::optional<bytes::Bytes> image;
     // Where `image`'s bytes sit at ECU addresses (ADR 0020). Consumed by
     // ValidateAndBuild, which places the image by it once for RomImage(); the
     // built plan does not keep it. Only a write image can have one.
-    std::optional<memory::MemoryMap> image_map;
+    std::optional<memory::MemoryMap> image_map{};
     // Optional because not every family uploads one. The EEPROM pair loads a
     // kernel file and uploads it; the Mitsu Colt CAN family drives the ECU's
     // own vendor bootloader and uploads only compile-time RAM helper routines
     // that are protocol constants, not a loaded image. See
     // kFamilyRequiresKernel (flash_types.h) for which families require one.
-    std::optional<KernelImage> kernel;
+    std::optional<KernelImage> kernel{};
     FamilyPlan family_plan;
-    std::vector<ConfirmationSpec> confirmations;
+    std::vector<ConfirmationSpec> confirmations{};
 };
 
 class FlashPlan

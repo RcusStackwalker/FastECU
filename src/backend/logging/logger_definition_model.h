@@ -15,9 +15,9 @@ struct Conversion
     std::string units;
     std::string expr;
     std::string format;
-    std::string gauge_min;
-    std::string gauge_max;
-    std::string gauge_step;
+    std::string gauge_min{};
+    std::string gauge_max{};
+    std::string gauge_step{};
     std::string storage_type = "";
     std::string endian = "";
 
@@ -27,8 +27,8 @@ struct Conversion
 struct LoggerAddressSpec
 {
     std::string value;
-    std::optional<std::string> length;
-    std::optional<std::string> bit;
+    std::optional<std::string> length{};
+    std::optional<std::string> bit{};
     bool operator==(const LoggerAddressSpec&) const = default;
 };
 
@@ -37,16 +37,16 @@ struct LoggerParameter
 {
     std::string protocol;
     std::string id;
-    std::string name;
-    std::string description;
-    std::string address;
-    std::string length;
-    std::string ecu_byte_index;
-    std::string ecu_bit;
-    std::string target;
+    std::string name{};
+    std::string description{};
+    std::string address{};
+    std::string length{};
+    std::string ecu_byte_index{};
+    std::string ecu_bit{};
+    std::string target{};
     bool enabled{false};
-    std::vector<Conversion> conversions;
-    std::vector<LoggerAddressSpec> address_specs;
+    std::vector<Conversion> conversions{};
+    std::vector<LoggerAddressSpec> address_specs{};
 
     bool operator==(const LoggerParameter&) const = default;
 };
@@ -55,24 +55,24 @@ struct LoggerSwitch
 {
     std::string protocol;
     std::string id;
-    std::string name;
-    std::string description;
-    std::string address;
-    std::string ecu_byte_index;
-    std::string ecu_bit;
-    std::string target;
+    std::string name{};
+    std::string description{};
+    std::string address{};
+    std::string ecu_byte_index{};
+    std::string ecu_bit{};
+    std::string target{};
     // XML defaults only. LoggerModel owns runtime support separately.
     bool enabled{false};
 
-    std::string sample_bit;
+    std::string sample_bit{};
 
     bool operator==(const LoggerSwitch&) const = default;
 };
 
 struct LoggerDefinition
 {
-    std::vector<LoggerParameter> parameters;
-    std::vector<LoggerSwitch> switches;
+    std::vector<LoggerParameter> parameters{};
+    std::vector<LoggerSwitch> switches{};
 
     bool operator==(const LoggerDefinition&) const = default;
 };
@@ -82,9 +82,9 @@ struct LoggerDefinition
 struct LoggerSelection
 {
     std::string protocol;
-    std::vector<std::string> gauge_ids;
-    std::vector<std::string> lower_panel_ids;
-    std::vector<std::string> switch_ids;
+    std::vector<std::string> gauge_ids{};
+    std::vector<std::string> lower_panel_ids{};
+    std::vector<std::string> switch_ids{};
 
     bool operator==(const LoggerSelection&) const = default;
 };

@@ -27,7 +27,7 @@ struct ServiceFunctionWorkerResult
     bool success = false;
     ErrorKind error_kind = ErrorKind::kInternal;
     QString error_detail;
-    std::optional<ServiceFunctionOutcome> outcome;
+    std::optional<ServiceFunctionOutcome> outcome{};
 };
 
 // Qt lifecycle adapter for a portable ServiceFunctionSession. Mirrors

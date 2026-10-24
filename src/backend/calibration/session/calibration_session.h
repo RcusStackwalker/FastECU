@@ -33,8 +33,8 @@ enum class RomOrigin
 struct RomSource
 {
     // Basename of `path`; "default.bin" when the path has none.
-    std::string display_name;
-    std::string path;
+    std::string display_name{};
+    std::string path{};
     RomOrigin origin{RomOrigin::kFile};
 
     bool operator==(const RomSource&) const = default;
@@ -43,8 +43,8 @@ struct RomSource
 struct ResolvedDefinition
 {
     definition::DefinitionFormat format{definition::DefinitionFormat::kEcuFlash};
-    std::string id;
-    definition::RomDefinition definition;
+    std::string id{};
+    definition::RomDefinition definition{};
 
     bool operator==(const ResolvedDefinition&) const = default;
 };
@@ -54,27 +54,27 @@ struct ResolvedDefinition
 // RomId fields and the protocol-derived RomInfo slots.
 struct RomProtocolInfo
 {
-    std::string flash_method; // after alias resolution
-    std::string checksum_module;
-    std::string mcu_type;
-    std::string kernel_path;
-    std::string kernel_start_address;
-    std::string rom_id;
-    std::string file_size_label; // "<unpadded bytes / 1024>kb"
+    std::string flash_method{}; // after alias resolution
+    std::string checksum_module{};
+    std::string mcu_type{};
+    std::string kernel_path{};
+    std::string kernel_start_address{};
+    std::string rom_id{};
+    std::string file_size_label{}; // "<unpadded bytes / 1024>kb"
 
     bool operator==(const RomProtocolInfo&) const = default;
 };
 
 struct SessionContents
 {
-    RomSource source;
+    RomSource source{};
     // The ROM file exactly as loaded, placed at ECU addresses by its memory
     // map (ADR 0020). Saving writes its file bytes back in this layout.
     memory::MemoryImage image;
     // nullopt: opened without a definition ("continue without definition
     // file"), a modeled state rather than placeholder rows.
-    std::optional<ResolvedDefinition> definition;
-    RomProtocolInfo protocol;
+    std::optional<ResolvedDefinition> definition{};
+    RomProtocolInfo protocol{};
 };
 
 // One open ROM: the ROM file as loaded, placed at ECU addresses by its memory
