@@ -82,7 +82,7 @@ Status DesktopKlineFlashTransport::Open()
         {
             // Real sentinel, confirmed by reading the body (step 5c Task
             // 12): SerialPortActionsDirect::open_serial_port()
-            // (serial_port_actions_direct.cpp:519-644) returns
+            // (serial_port_actions_direct.cpp) returns
             // `openedSerialPort` (non-empty) on every success path and
             // `{}` (an empty/null QString) on every failure path -- the
             // brief's original guess of "empty QString means failure"
@@ -211,7 +211,7 @@ Status DesktopKlineFlashTransport::SetAddIso14230Header(bool add_header)
         {
             // Same shape as configure()'s setters above:
             // SerialPortActionsDirect:: set_add_iso14230_header()
-            // (serial_port_actions_direct.h:217-221) just assigns a
+            // (serial_port_actions_direct.h) just assigns a
             // member and unconditionally `return true` -- it cannot
             // plausibly report "adapter gone", so any failure here is
             // InvalidConfig, never Disconnected.
@@ -254,7 +254,7 @@ Status DesktopKlineFlashTransport::SetBaud(int baud)
             }
             // Real sentinel, confirmed by reading the body (step 5c Task 12):
             // SerialPortActionsDirect::change_port_speed()
-            // (serial_port_actions_direct.cpp:71-120) returns STATUS_SUCCESS
+            // (serial_port_actions_direct.cpp) returns STATUS_SUCCESS
             // (0x00) on success and STATUS_ERROR (0x01) -- a small *positive*
             // value, never negative -- on every failure path. The brief's
             // original draft guessed `< 0`, which would have silently treated

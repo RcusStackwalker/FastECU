@@ -92,7 +92,7 @@ inline Status ResetSerialConnection(SerialPortActions *serial)
                                      [serial]() -> Status
                                      {
                                          // SerialPortActions::reset_connection()
-                                         // (serial_port_actions.cpp:523-527) is `runOnBackend(...); return
+                                         // (serial_port_actions.cpp) is `runOnBackend(...); return
                                          // true;` -- it cannot report failure through its return value, so
                                          // only an exception can produce an Internal error here.
                                          serial->ResetConnection();
