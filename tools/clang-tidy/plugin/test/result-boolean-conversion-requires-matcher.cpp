@@ -4,6 +4,7 @@
 
 #include <gmock/gmock.h>
 #include "src/backend/ports/result.h"
+#include <expected>
 #include <optional>
 fastecu::Result<int> ReadValue();
 TEST(ResultAssertions, Conversion) {
@@ -14,4 +15,8 @@ TEST(ResultAssertions, Conversion) {
 // CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-result-assertion]
     std::optional<int> optional{1};
     ASSERT_TRUE(optional);
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-result-assertion]
+    std::expected<int, int> other{1};
+    EXPECT_FALSE(!other);
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-result-assertion]
 }

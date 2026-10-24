@@ -1,7 +1,8 @@
 // Match the direct operand of GoogleTest's AssertionResult construction.
 // Following only transparent wrappers and logical negation excludes unrelated
 // nested calls/aggregates while retaining direct assertions inside callbacks.
-// Only std::expected<T, fastecu::Error> counts, not std::optional. The Result
+// Boolean assertions on any std::expected or std::optional are diagnosed; the
+// any-error rules apply only to std::expected<T, fastecu::Error>. The Result
 // API suite (src/backend/ports/result_test.cpp) is excluded.
 #include "ResultAssertionCheck.h"
 
@@ -36,31 +37,30 @@ void ResultAssertionCheck::registerMatchers(MatchFinder *finder)
                   isExpandedFromMacro("ASSERT_TRUE"), isExpandedFromMacro("ASSERT_FALSE")),
             hasArgument(
                 0, ignoringImplicit(ignoringParenImpCasts(anyOf(
-                       cxxMemberCallExpr(
-                           callee(cxxMethodDecl(
-                               hasName("has_value"),
-                               ofClass(classTemplateSpecializationDecl(
-                                   hasName("::std::expected"),
-                                   hasTemplateArgument(1, refersToType(recordType(hasDeclaration(
-                                                              cxxRecordDecl(hasName("::fastecu::Error")))))))))))
-                           .bind("assertion"),
+                       cxxMemberCallExpr(callee(cxxMethodDecl(hasName("has_value")))).bind("assertion"),
                        unaryOperator(
                            hasOperatorName("!"),
                            hasUnaryOperand(ignoringImplicit(ignoringParenImpCasts(
-                               cxxMemberCallExpr(
-                                   callee(cxxMethodDecl(
-                                       hasName("has_value"),
-                                       ofClass(classTemplateSpecializationDecl(
-                                           hasName("::std::expected"),
-                                           hasTemplateArgument(1, refersToType(recordType(hasDeclaration(cxxRecordDecl(
-                                                                      hasName("::fastecu::Error")))))))))))
-                                   .bind("assertion"))))))))),
+                               cxxMemberCallExpr(callee(cxxMethodDecl(hasName("has_value")))).bind("assertion"))))))))),
             unless(isExpansionInFileMatching("(^|.*[/\\\\])src[/\\\\]backend[/\\\\]ports[/\\\\]result_test[.]cpp$"))),
         this);
 }
 
 namespace
 {
+// The library may declare has_value() and operator bool in an implementation
+// base class, so look through the implicit derived-to-base conversion.
+QualType ObjectType(const CXXMemberCallExpr& call)
+{
+    const auto type = call.getImplicitObjectArgument()->IgnoreImpCasts()->getType();
+    return type->isPointerType() ? type->getPointeeType() : type;
+}
+
+bool IsBooleanAssertedType(QualType type)
+{
+    return IsExpectedType(type) || IsOptionalType(type);
+}
+
 bool IsErrorAssertion(const CXXMemberCallExpr& access, ASTContext& context)
 {
     if (!IsResultType(access.getImplicitObjectArgument()->getType()))
@@ -92,12 +92,19 @@ bool ResultAssertionCheck::InResultApi(const Stmt& statement) const
         .ends_with("src/backend/ports/result_test.cpp");
 }
 
-void ResultAssertionCheck::DiagnoseBoolean(const Stmt& statement)
+void ResultAssertionCheck::DiagnoseBoolean(const Stmt& statement, QualType type)
 {
     if (InResultApi(statement))
         return;
-    diag(statement.getBeginLoc(),
-         "assert Result/Status with IsOk(), IsErr(), or IsErrWith() rather than a bare boolean assertion");
+    if (IsResultType(type))
+        diag(statement.getBeginLoc(),
+             "assert Result/Status with IsOk(), IsErr(), or IsErrWith() rather than a bare boolean assertion");
+    else if (IsExpectedType(type))
+        diag(statement.getBeginLoc(),
+             "assert std::expected with IsOk() or IsErrThat() rather than a bare boolean assertion");
+    else
+        diag(statement.getBeginLoc(),
+             "assert std::optional with Optional() or Eq(std::nullopt) rather than a bare boolean assertion");
 }
 
 void ResultAssertionCheck::DiagnoseError(const Expr& expression)
@@ -115,8 +122,9 @@ void ResultAssertionCheck::CheckConversion(const CXXMemberCallExpr& conversion)
     const auto macro = AssertionMacro(conversion.getBeginLoc(), ast_->getSourceManager(), ast_->getLangOpts());
     const bool boolean_assertion =
         macro == "ASSERT_TRUE" || macro == "ASSERT_FALSE" || macro == "EXPECT_TRUE" || macro == "EXPECT_FALSE";
-    if (boolean_assertion && IsResultType(conversion.getImplicitObjectArgument()->getType()))
-        DiagnoseBoolean(conversion);
+    const auto type = ObjectType(conversion);
+    if (boolean_assertion && IsBooleanAssertedType(type))
+        DiagnoseBoolean(conversion, type);
 }
 
 void ResultAssertionCheck::check(const MatchFinder::MatchResult& result)
@@ -126,8 +134,8 @@ void ResultAssertionCheck::check(const MatchFinder::MatchResult& result)
         construct && construct->getNumArgs())
     {
         const auto *actual = StripExpression(construct->getArg(0));
-        if (IsResultType(actual->getType()))
-            DiagnoseBoolean(*actual);
+        if (IsBooleanAssertedType(actual->getType()))
+            DiagnoseBoolean(*actual, actual->getType());
     }
     if (const auto *conversion = result.Nodes.getNodeAs<CXXMemberCallExpr>("conversion"))
         CheckConversion(*conversion);
@@ -140,7 +148,8 @@ void ResultAssertionCheck::check(const MatchFinder::MatchResult& result)
         if (assertion && IsResultType(assertion->actual->getType()) && IsAnyErrorMatcher(assertion->matcher))
             DiagnoseError(*assertion->actual);
     }
-    if (const auto *node = result.Nodes.getNodeAs<Stmt>("assertion"))
-        DiagnoseBoolean(*node);
+    if (const auto *node = result.Nodes.getNodeAs<CXXMemberCallExpr>("assertion");
+        node && IsBooleanAssertedType(ObjectType(*node)))
+        DiagnoseBoolean(*node, ObjectType(*node));
 }
 } // namespace fastecu::tidy

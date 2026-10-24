@@ -3,7 +3,9 @@
 // RUN: diff %t_test.orig %t_test.cpp
 
 #include <gmock/gmock.h>
+#include <expected>
 #include <optional>
+#include <string>
 #include "src/backend/ports/result.h"
 #include "src/backend/ports/testing/result_matchers.h"
 bool CheckFlags(bool flags) { return flags; }
@@ -25,7 +27,19 @@ TEST(InlineChecks, ResultAssertions) {
     EXPECT_TRUE(nested.has_value());
 // CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-result-assertion]
     EXPECT_TRUE(optional.has_value());
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-result-assertion]
+    EXPECT_FALSE(!optional.has_value());
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-result-assertion]
     EXPECT_TRUE(nested->has_value());
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-result-assertion]
+    std::expected<int, std::string> other{42};
+    EXPECT_TRUE(other.has_value());
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-result-assertion]
+    ASSERT_FALSE(other.has_value());
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-result-assertion]
+    EXPECT_THAT(optional, ::testing::Optional(42));
+    EXPECT_THAT(optional, ::testing::Eq(std::nullopt));
+    EXPECT_THAT(other, fastecu::testing::IsOk());
     EXPECT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(result.has_value() || optional.has_value());
     EXPECT_TRUE(CheckFlags(result.has_value()));

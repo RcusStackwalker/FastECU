@@ -1,5 +1,6 @@
-// Boolean container predicates as the direct operand of a GoogleTest assertion,
-// with the same operand rules as fastecu-result-assertion.
+// Boolean container predicates (the std algorithms and empty()) as the direct
+// operand of a GoogleTest assertion, with the same operand rules as
+// fastecu-result-assertion.
 #include "ContainerAssertionCheck.h"
 #include "TestAssertionSupport.h"
 
@@ -18,6 +19,18 @@ ContainerAssertionCheck::ContainerAssertionCheck(llvm::StringRef name, clang::ti
 void ContainerAssertionCheck::registerMatchers(MatchFinder *finder)
 {
     finder->addMatcher(cxxForRangeStmt().bind("element_loop"), this);
+    const auto empty_call =
+        cxxMemberCallExpr(callee(cxxMethodDecl(hasName("empty"), parameterCountIs(0))), hasType(booleanType()))
+            .bind("empty_assertion");
+    finder->addMatcher(
+        cxxConstructExpr(hasType(recordType(hasDeclaration(cxxRecordDecl(hasName("::testing::AssertionResult"))))),
+                         anyOf(isExpandedFromMacro("EXPECT_TRUE"), isExpandedFromMacro("EXPECT_FALSE"),
+                               isExpandedFromMacro("ASSERT_TRUE"), isExpandedFromMacro("ASSERT_FALSE")),
+                         hasArgument(0, ignoringImplicit(ignoringParenImpCasts(anyOf(
+                                            empty_call, unaryOperator(hasOperatorName("!"),
+                                                                      hasUnaryOperand(ignoringImplicit(
+                                                                          ignoringParenImpCasts(empty_call))))))))),
+        this);
     finder->addMatcher(
         cxxConstructExpr(
             hasType(recordType(hasDeclaration(cxxRecordDecl(hasName("::testing::AssertionResult"))))),
@@ -53,6 +66,9 @@ void ContainerAssertionCheck::check(const MatchFinder::MatchResult& result)
     if (const auto *loop = result.Nodes.getNodeAs<Stmt>("element_loop");
         loop && IsElementAssertionLoop(*loop, *result.Context))
         diag(loop->getBeginLoc(), "assert every element with a container matcher instead of an assertion loop");
+    if (const auto *empty = result.Nodes.getNodeAs<Stmt>("empty_assertion"))
+        diag(empty->getBeginLoc(),
+             "assert emptiness with IsEmpty() or Not(IsEmpty()) so a failure prints the contents");
     if (const auto *node = result.Nodes.getNodeAs<Stmt>("assertion"))
     {
         if (uniform_bytes_enabled_)

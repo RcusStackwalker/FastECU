@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <gmock/gmock.h>
+#include <string>
 #include <vector>
 bool CheckFlags(bool flags) { return flags; }
 TEST(InlineChecks, ContainerAssertions) {
@@ -24,6 +25,17 @@ TEST(InlineChecks, ContainerAssertions) {
     ASSERT_FALSE(std::none_of(
 // CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-container-assertion]
         values.begin(), values.end(), positive));
+    EXPECT_TRUE(values.empty());
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-container-assertion]
+    ASSERT_FALSE(values.empty()) << "need values";
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-container-assertion]
+    EXPECT_TRUE(!values.empty());
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-container-assertion]
+    std::string text;
+    EXPECT_FALSE(text.empty());
+// CHECK-MESSAGES: :[[@LINE-1]]:{{[0-9]+}}: warning: {{.*}} [fastecu-container-assertion]
+    EXPECT_THAT(values, ::testing::Not(::testing::IsEmpty()));
+    EXPECT_TRUE(values.empty() || text.empty());
     EXPECT_THAT(values, ::testing::Each(::testing::Gt(0)));
     const bool all_positive = std::ranges::all_of(values, positive);
     EXPECT_TRUE(all_positive);
