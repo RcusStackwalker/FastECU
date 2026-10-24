@@ -527,7 +527,7 @@ struct Sh72543CanDieselTraits
     static constexpr std::uint32_t kBlockStart = ::kBlockStart;
     static constexpr std::uint32_t kBlockLength = ::kBlockLength;
     static constexpr std::uint32_t kPageSize = ::kPageSize;
-    // connect_bootloader's tolerant_probe exchanges read with this family's
+    // ConnectBootloader's TolerantProbe exchanges read with this family's
     // long timeout (serial_read_timeout), unlike its three siblings, which
     // probe with the short one.
     static constexpr std::chrono::milliseconds kProbeTimeout{2000};

@@ -163,14 +163,14 @@ void ScriptReadSetupWithMissingThenWrongReply(ScriptedCanFlashTransport& t)
 // regardless of which failure mode (a transport error, a bare timeout, or an
 // empty frame) belongs there.
 //
-// Unlike every sibling in this cluster, this family's read_memory dump-setup
-// pair (the 0x34/0x35 exchanges) is NOT a safe place to stop: tolerant_setup
+// Unlike every sibling in this dialect, this family's read_memory dump-setup
+// pair (the 0x34/0x35 exchanges) is NOT a safe place to stop: the dump-setup query
 // treats a wrong OR an absent reply there as non-fatal (see
 // ProceedsPastMalformedConnectAndDumpSetupResponses /
 // ProceedsPastMalformedInCarProbeAndDumpSetup), so an empty-reply fault
 // injected there would be swallowed rather than surfaced, silently defeating
 // ReadReportsAnEmptyReplyAsTimeout. The security-access seed request
-// (security_access(), fatal_query-based) is the first exchange after the
+// (DensoSecurityAccess, FatalQuery-based) is the first exchange after the
 // tolerant preliminaries that is fatal on all three fault kinds, so that is
 // where this family's copy of the shared conformance script stops instead.
 void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
@@ -487,7 +487,7 @@ struct Denso1n83m_4mCanTraits
     static constexpr std::uint32_t kBlockStart = ::kBlockStart;
     static constexpr std::uint32_t kBlockLength = ::kBlockLength;
     static constexpr std::uint32_t kPageSize = ::kPageSize;
-    // connect_bootloader's tolerant_probe exchanges read with this family's
+    // ConnectBootloader's TolerantProbe exchanges read with this family's
     // short timeout (serial_read_short_timeout), like two of its three
     // siblings.
     static constexpr std::chrono::milliseconds kProbeTimeout{200};

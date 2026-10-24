@@ -7,7 +7,6 @@
 #include <chrono>
 #include <cstdint>
 #include <initializer_list>
-#include <iterator>
 #include <ranges>
 #include <string_view>
 
@@ -17,6 +16,7 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/flash_types.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
@@ -69,22 +69,9 @@ using fastecu::MockClock;
 using fastecu::RecordingClock;
 using fastecu::RecordingEventSink;
 using fastecu::Status;
-
-bytes::Bytes Request(std::initializer_list<bytes::Byte> payload)
-{
-    bytes::Bytes out;
-    bytes::AppendU32Be(out, 0x7E0);
-    out.insert(out.end(), payload.begin(), payload.end());
-    return out;
-}
-
-bytes::Bytes Response(std::initializer_list<bytes::Byte> payload)
-{
-    bytes::Bytes out;
-    bytes::AppendU32Be(out, 0x7E8);
-    out.insert(out.end(), payload.begin(), payload.end());
-    return out;
-}
+using fastecu::flash::testing::Request;
+using fastecu::flash::testing::RequestTo;
+using fastecu::flash::testing::Response;
 
 // Cancels the operator's token once a given log line has been emitted, so a
 // test can stop the flow at an exact point between two exchanges.
@@ -134,7 +121,7 @@ struct CommonFixture
     CanExecutorContext ctx{cancellation, events, clock, client, channel};
 };
 
-TEST(DensoIso15765CanCommonTest, JumpWaitChecksCurrentReplyBeforeEachSleep)
+TEST(DensoIso15765CanCommon, JumpWaitChecksCurrentReplyBeforeEachSleep)
 {
     CommonFixture immediate;
     EXPECT_THAT(DensoIso15765WaitForJumpAck(immediate.ctx, 0x42, bytes::Bytes{0x50, 0x42}, 50, 200ms),
@@ -160,7 +147,7 @@ TEST(DensoIso15765CanCommonTest, JumpWaitChecksCurrentReplyBeforeEachSleep)
     }
 }
 
-TEST(DensoIso15765CanCommonTest, JumpWaitFinalReceiveIsNotChecked)
+TEST(DensoIso15765CanCommon, JumpWaitFinalReceiveIsNotChecked)
 {
     for (const int attempts : {50, 10})
     {
@@ -195,7 +182,7 @@ TEST(DensoIso15765CanCommonTest, JumpWaitFinalReceiveIsNotChecked)
     }
 }
 
-TEST(DensoIso15765CanCommonTest, JumpWaitPropagatesSleepAndReceiveErrors)
+TEST(DensoIso15765CanCommon, JumpWaitPropagatesSleepAndReceiveErrors)
 {
     for (const auto kind :
          {ErrorKind::kInvalidConfig, ErrorKind::kTimeout, ErrorKind::kDisconnected, ErrorKind::kBadResponse,
@@ -222,7 +209,7 @@ TEST(DensoIso15765CanCommonTest, JumpWaitPropagatesSleepAndReceiveErrors)
     }
 }
 
-TEST(DensoIso15765CanCommonTest, JumpWaitCancelledSleepDoesNotReceive)
+TEST(DensoIso15765CanCommon, JumpWaitCancelledSleepDoesNotReceive)
 {
     CommonFixture f;
     f.cancellation.Cancel();
@@ -233,7 +220,7 @@ TEST(DensoIso15765CanCommonTest, JumpWaitCancelledSleepDoesNotReceive)
 }
 
 // Even a matching first reply is discarded: only the re-read after 50 ms counts.
-TEST(DensoIso15765CanCommonTest, JumpToKernelDiscardsMatchingFirstReplyOnlyWhenAsked)
+TEST(DensoIso15765CanCommon, JumpToKernelDiscardsMatchingFirstReplyOnlyWhenAsked)
 {
     for (const bool discard_first_reply : {false, true})
     {
@@ -266,7 +253,7 @@ TEST(DensoIso15765CanCommonTest, JumpToKernelDiscardsMatchingFirstReplyOnlyWhenA
 }
 
 // The SH72543 diesel bench shape: first read at 2000 ms, continuation at 200 ms.
-TEST(DensoIso15765CanCommonTest, JumpToKernelReadsFirstAndLoopRepliesAtTheirOwnTimeouts)
+TEST(DensoIso15765CanCommon, JumpToKernelReadsFirstAndLoopRepliesAtTheirOwnTimeouts)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0x10, 0x42}));
@@ -281,7 +268,7 @@ TEST(DensoIso15765CanCommonTest, JumpToKernelReadsFirstAndLoopRepliesAtTheirOwnT
     EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(100ms));
 }
 
-TEST(DensoIso15765CanCommonTest, JumpToKernelPropagatesFirstAndDiscardReadFailures)
+TEST(DensoIso15765CanCommon, JumpToKernelPropagatesFirstAndDiscardReadFailures)
 {
     for (const bool fail_discard_read : {false, true})
     {
@@ -303,7 +290,7 @@ TEST(DensoIso15765CanCommonTest, JumpToKernelPropagatesFirstAndDiscardReadFailur
 }
 
 // Changing the retry bound, error tolerance, or timeout breaks this literal transcript.
-TEST(DensoIso15765CanCommonTest, TransferExitRetriesSixTimesAndSwallowsReturnedErrors)
+TEST(DensoIso15765CanCommon, TransferExitRetriesSixTimesAndSwallowsReturnedErrors)
 {
     for (const bool acknowledged : {false, true})
     {
@@ -351,7 +338,7 @@ TEST(DensoIso15765CanCommonTest, TransferExitRetriesSixTimesAndSwallowsReturnedE
     }
 }
 
-TEST(DensoIso15765CanCommonTest, TransferExitPendingRereadsWithinOneRequestAndStopsOnSuccess)
+TEST(DensoIso15765CanCommon, TransferExitPendingRereadsWithinOneRequestAndStopsOnSuccess)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0x37}), Response({0x7F, 0x37, 0x78}));
@@ -369,7 +356,7 @@ TEST(DensoIso15765CanCommonTest, TransferExitPendingRereadsWithinOneRequestAndSt
                                ::testing::Pair(LogLevel::kInfo, "Closed succesfully: 77 12 ")));
 }
 
-TEST(DensoIso15765CanCommonTest, TransferExitWithCancelledTokenDoesNoLaterIo)
+TEST(DensoIso15765CanCommon, TransferExitWithCancelledTokenDoesNoLaterIo)
 {
     CommonFixture f;
     CancellingEventSink events(f.cancellation, "Closing out Flashing of this block");
@@ -385,7 +372,7 @@ TEST(DensoIso15765CanCommonTest, TransferExitWithCancelledTokenDoesNoLaterIo)
 }
 
 // Distinct read and pending timeouts show the family's policy reaches both reads.
-TEST(DensoIso15765CanCommonTest, CloseAndVerifyChecksumSettlesThenSendsLiteralRoutine)
+TEST(DensoIso15765CanCommon, CloseAndVerifyChecksumSettlesThenSendsLiteralRoutine)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0x37}), Response({0x77}));
@@ -402,7 +389,7 @@ TEST(DensoIso15765CanCommonTest, CloseAndVerifyChecksumSettlesThenSendsLiteralRo
     EXPECT_THAT(f.events.logs.back(), ::testing::Pair(LogLevel::kInfo, "Checksum verified"));
 }
 
-TEST(DensoIso15765CanCommonTest, CloseAndVerifyChecksumRejectionReturnsErrorWithoutVerifiedLog)
+TEST(DensoIso15765CanCommon, CloseAndVerifyChecksumRejectionReturnsErrorWithoutVerifiedLog)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0x37}), Response({0x77}));
@@ -416,7 +403,7 @@ TEST(DensoIso15765CanCommonTest, CloseAndVerifyChecksumRejectionReturnsErrorWith
                 ::testing::Not(::testing::Contains(::testing::Pair(LogLevel::kInfo, "Checksum verified"))));
 }
 
-TEST(DensoIso15765CanCommonTest, CloseAndVerifyChecksumCancelledSettleSendsNoChecksum)
+TEST(DensoIso15765CanCommon, CloseAndVerifyChecksumCancelledSettleSendsNoChecksum)
 {
     CommonFixture f;
     CancellingEventSink events(f.cancellation, "Closed succesfully: 77 ");
@@ -433,7 +420,7 @@ TEST(DensoIso15765CanCommonTest, CloseAndVerifyChecksumCancelledSettleSendsNoChe
 }
 
 // A literal short chunk pins wire encoding without coupling to image encryption.
-TEST(DensoIso15765CanCommonTest, WriteChunkSendsLiteralB6AbsoluteAddress)
+TEST(DensoIso15765CanCommon, WriteChunkSendsLiteralB6AbsoluteAddress)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0xB6, 0x08, 0xFA, 0xC0, 0x00, 0x11, 0x22}), Response({0xF6}));
@@ -445,7 +432,7 @@ TEST(DensoIso15765CanCommonTest, WriteChunkSendsLiteralB6AbsoluteAddress)
     EXPECT_THAT(f.events.progress_calls, ::testing::IsEmpty());
 }
 
-TEST(DensoIso15765CanCommonTest, WriteChunkPropagatesNegativeTransportAndCancellation)
+TEST(DensoIso15765CanCommon, WriteChunkPropagatesNegativeTransportAndCancellation)
 {
     for (int response_case = 0; response_case < 3; ++response_case)
     {
@@ -489,7 +476,7 @@ TEST(DensoIso15765CanCommonTest, WriteChunkPropagatesNegativeTransportAndCancell
 
 // Wrong address encoding, timeout, or accepting a partial crypto word breaks this
 // literal page transcript. The helper must leave pacing and progress to callers.
-TEST(DensoIso15765CanCommonTest, ReadPageUsesLiteralB7AddressAndWholeWordDecrypt)
+TEST(DensoIso15765CanCommon, ReadPageUsesLiteralB7AddressAndWholeWordDecrypt)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0xB7, 0x08, 0xFA, 0xC0, 0x00}),
@@ -506,7 +493,7 @@ TEST(DensoIso15765CanCommonTest, ReadPageUsesLiteralB7AddressAndWholeWordDecrypt
     EXPECT_THAT(f.events.phase_progress_calls, ::testing::IsEmpty());
 }
 
-TEST(DensoIso15765CanCommonTest, ReadPagePropagatesAbsentEmptyTransportAndCancellation)
+TEST(DensoIso15765CanCommon, ReadPagePropagatesAbsentEmptyTransportAndCancellation)
 {
     for (int response_case = 0; response_case < 4; ++response_case)
     {
@@ -565,7 +552,7 @@ std::vector<int> ProgressDone(const RecordingEventSink& events)
            std::ranges::to<std::vector<int>>();
 }
 
-TEST(DensoIso15765CanCommonTest, ReadDumpReadsPagesStopsAndPadsWithPacingOnlyWhenAsked)
+TEST(DensoIso15765CanCommon, ReadDumpReadsPagesStopsAndPadsWithPacingOnlyWhenAsked)
 {
     for (const bool pace_pages : {false, true})
     {
@@ -600,7 +587,7 @@ TEST(DensoIso15765CanCommonTest, ReadDumpReadsPagesStopsAndPadsWithPacingOnlyWhe
 }
 
 // The stop loop's outcome is never checked, so six failures still yield the image.
-TEST(DensoIso15765CanCommonTest, ReadDumpStopRetriesSixTimesAndIgnoresFailures)
+TEST(DensoIso15765CanCommon, ReadDumpStopRetriesSixTimesAndIgnoresFailures)
 {
     CommonFixture f;
     for (int attempt = 0; attempt < 6; ++attempt)
@@ -627,7 +614,7 @@ TEST(DensoIso15765CanCommonTest, ReadDumpStopRetriesSixTimesAndIgnoresFailures)
 }
 
 // The read is already complete when the stop is sent, so a cancellation there is swallowed.
-TEST(DensoIso15765CanCommonTest, ReadDumpCancelledAtStopStillReturnsTheImage)
+TEST(DensoIso15765CanCommon, ReadDumpCancelledAtStopStillReturnsTheImage)
 {
     CommonFixture f;
     CancellingEventSink events(f.cancellation, "Sending stop command");
@@ -642,7 +629,7 @@ TEST(DensoIso15765CanCommonTest, ReadDumpCancelledAtStopStillReturnsTheImage)
     EXPECT_EQ(f.transport.write_attempts, 0U);
 }
 
-TEST(DensoIso15765CanCommonTest, ReadDumpPageFailureOrCancellationSendsNoStop)
+TEST(DensoIso15765CanCommon, ReadDumpPageFailureOrCancellationSendsNoStop)
 {
     for (const bool cancelled : {false, true})
     {
@@ -683,7 +670,7 @@ bytes::Bytes ChunkRequest(std::uint32_t address, bytes::ByteView encrypted_chunk
 
 // A nonzero image base and a trailing partial chunk: only the one whole chunk
 // is sent, taken at the wire address minus the base, never at the block offset.
-TEST(DensoIso15765CanCommonTest, WriteImageSendsWholeChunksIndexedFromImageBase)
+TEST(DensoIso15765CanCommon, WriteImageSendsWholeChunksIndexedFromImageBase)
 {
     CommonFixture f;
     bytes::Bytes image(0x300);
@@ -703,7 +690,7 @@ TEST(DensoIso15765CanCommonTest, WriteImageSendsWholeChunksIndexedFromImageBase)
 }
 
 // A cancelled or rejected write stops the loop and never reaches the close.
-TEST(DensoIso15765CanCommonTest, WriteImageAndVerifyStopsOnCancellationOrChunkFailureBeforeClosing)
+TEST(DensoIso15765CanCommon, WriteImageAndVerifyStopsOnCancellationOrChunkFailureBeforeClosing)
 {
     for (const bool cancelled : {false, true})
     {
@@ -730,7 +717,7 @@ TEST(DensoIso15765CanCommonTest, WriteImageAndVerifyStopsOnCancellationOrChunkFa
     }
 }
 
-TEST(DensoIso15765CanCommonTest, SecurityAccessReadsLiteralSeedAndKeyAtTwoSeconds)
+TEST(DensoIso15765CanCommon, SecurityAccessReadsLiteralSeedAndKeyAtTwoSeconds)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
@@ -742,7 +729,7 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessReadsLiteralSeedAndKeyAtTwoSecond
     EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms, 2000ms));
 }
 
-TEST(DensoIso15765CanCommonTest, SecurityAccessRereadsPendingReplyWithoutResending)
+TEST(DensoIso15765CanCommon, SecurityAccessRereadsPendingReplyWithoutResending)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0x27, 0x61}), Response({0x7F, 0x27, 0x78}));
@@ -756,7 +743,7 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessRereadsPendingReplyWithoutResendi
     EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms, 3000ms, 3000ms, 2000ms));
 }
 
-TEST(DensoIso15765CanCommonTest, SecurityAccessRejectsShortSeedWithoutSendingKey)
+TEST(DensoIso15765CanCommon, SecurityAccessRejectsShortSeedWithoutSendingKey)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33}));
@@ -767,7 +754,7 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessRejectsShortSeedWithoutSendingKey
     EXPECT_EQ(f.transport.WritesConsumed(), 1U);
 }
 
-TEST(DensoIso15765CanCommonTest, SecurityAccessPropagatesCancellation)
+TEST(DensoIso15765CanCommon, SecurityAccessPropagatesCancellation)
 {
     CommonFixture f;
     CancellingEventSink events(f.cancellation, "Seed request ok");
@@ -794,7 +781,7 @@ void ScriptEraseTrigger(ScriptedCanFlashTransport& transport)
     transport.Exchange(Request({0x31, 0x01, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF}));
 }
 
-TEST(DensoIso15765CanCommonTest, EraseSetupMismatchDoesNotSendTrigger)
+TEST(DensoIso15765CanCommon, EraseSetupMismatchDoesNotSendTrigger)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
@@ -806,7 +793,7 @@ TEST(DensoIso15765CanCommonTest, EraseSetupMismatchDoesNotSendTrigger)
     EXPECT_EQ(f.transport.WritesConsumed(), 1U);
 }
 
-TEST(DensoIso15765CanCommonTest, EraseAccepts71_01_02AfterPolling)
+TEST(DensoIso15765CanCommon, EraseAccepts71_01_02AfterPolling)
 {
     CommonFixture f;
     ScriptEraseSetup(f.transport);
@@ -827,7 +814,7 @@ TEST(DensoIso15765CanCommonTest, EraseAccepts71_01_02AfterPolling)
                     ::testing::Pair(LogLevel::kInfo, "Flash erased! Starting flash write, do not power off!")));
 }
 
-TEST(DensoIso15765CanCommonTest, ErasePollingStopsAfter20ReceivesAndNeverResendsTrigger)
+TEST(DensoIso15765CanCommon, ErasePollingStopsAfter20ReceivesAndNeverResendsTrigger)
 {
     CommonFixture f;
     ScriptEraseSetup(f.transport);
@@ -849,7 +836,7 @@ TEST(DensoIso15765CanCommonTest, ErasePollingStopsAfter20ReceivesAndNeverResends
     EXPECT_THAT(f.events.logs, ::testing::Contains(::testing::Pair(LogLevel::kError, "Flash area erase failed")));
 }
 
-TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
+TEST(DensoIso15765CanCommon, EraseCancellationAfterTriggerStopsPolling)
 {
     CommonFixture f;
     // Stop the operator's token during the settle sleep that follows the trigger.
@@ -867,18 +854,10 @@ TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
     EXPECT_EQ(f.transport.ReadTimeouts().size(), 1U);
 }
 
-bytes::Bytes RequestTo(std::uint32_t id, std::initializer_list<bytes::Byte> payload)
-{
-    bytes::Bytes out;
-    bytes::AppendU32Be(out, id);
-    out.insert(out.end(), payload.begin(), payload.end());
-    return out;
-}
-
 // Both N83M families send this literal run, with the in-car 0x7E1 request
 // asking for subfunction 0x63. Replies are read and thrown away, so each one
 // here carries a deliberately wrong id and content.
-TEST(DensoIso15765CanCommonTest, N83mInCarSequencePreservesBothFamilyTranscripts)
+TEST(DensoIso15765CanCommon, N83mInCarSequencePreservesBothFamilyTranscripts)
 {
     CommonFixture f;
     const std::array<bytes::Bytes, 10> requests{RequestTo(0x7A2, {0x10, 0xC0}), RequestTo(0x7E0, {0x10, 0x63}),
@@ -900,7 +879,7 @@ TEST(DensoIso15765CanCommonTest, N83mInCarSequencePreservesBothFamilyTranscripts
 }
 
 // A failed send stops the run before its read; so does a failed read, before the next send.
-TEST(DensoIso15765CanCommonTest, InCarRunStopsOnAFailedSendOrRead)
+TEST(DensoIso15765CanCommon, InCarRunStopsOnAFailedSendOrRead)
 {
     CommonFixture cancelled;
     cancelled.cancellation.Cancel();
@@ -918,7 +897,7 @@ TEST(DensoIso15765CanCommonTest, InCarRunStopsOnAFailedSendOrRead)
 }
 
 // Session 0x03 on 0x7E1, and only the 0x7E0 reply reads at the primary timeout.
-TEST(DensoIso15765CanCommonTest, ShInCarSequenceSends03To7E1AndReadsThePrimaryReplyAtItsTimeout)
+TEST(DensoIso15765CanCommon, ShInCarSequenceSends03To7E1AndReadsThePrimaryReplyAtItsTimeout)
 {
     CommonFixture f;
     const std::array<bytes::Bytes, 10> requests{RequestTo(0x7A2, {0x10, 0xC0}), RequestTo(0x7E0, {0x10, 0x63}),
@@ -940,7 +919,7 @@ TEST(DensoIso15765CanCommonTest, ShInCarSequenceSends03To7E1AndReadsThePrimaryRe
 }
 
 // A cancelled opening wait sends nothing; an absent probe reply aborts before the run.
-TEST(DensoIso15765CanCommonTest, ConnectInCarStopsOnCancelledWaitOrAbsentProbe)
+TEST(DensoIso15765CanCommon, ConnectInCarStopsOnCancelledWaitOrAbsentProbe)
 {
     for (const bool cancelled : {false, true})
     {
@@ -981,7 +960,7 @@ constexpr DensoBenchArm kFatalBenchArm{
 };
 
 // A cancelled opening wait sends nothing; a wrong bench session reply is fatal before seed/key.
-TEST(DensoIso15765CanCommonTest, ConnectBenchStopsOnCancelledWaitOrWrongSession)
+TEST(DensoIso15765CanCommon, ConnectBenchStopsOnCancelledWaitOrWrongSession)
 {
     for (const bool cancelled : {false, true})
     {
@@ -1021,7 +1000,7 @@ constexpr DensoBenchArm kTolerantBenchArm{
 };
 
 // A wrong reply to a tolerant bench session is logged and stepped over: seed/key follows.
-TEST(DensoIso15765CanCommonTest, ConnectBenchTolerantProbeStepsOverWrongSessionReply)
+TEST(DensoIso15765CanCommon, ConnectBenchTolerantProbeStepsOverWrongSessionReply)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0x10, 0x43}), Response({0x50, 0x44}));
@@ -1038,7 +1017,7 @@ TEST(DensoIso15765CanCommonTest, ConnectBenchTolerantProbeStepsOverWrongSessionR
 }
 
 // An absent reply to a tolerant bench session aborts before seed/key.
-TEST(DensoIso15765CanCommonTest, ConnectBenchTolerantProbeAbortsOnAbsentSessionReply)
+TEST(DensoIso15765CanCommon, ConnectBenchTolerantProbeAbortsOnAbsentSessionReply)
 {
     CommonFixture f;
     f.transport.Exchange(Request({0x10, 0x43}));
@@ -1051,7 +1030,7 @@ TEST(DensoIso15765CanCommonTest, ConnectBenchTolerantProbeAbortsOnAbsentSessionR
     EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::ElementsAre(2000ms));
 }
 
-TEST(DensoIso15765CanCommonTest, ConnectBenchSettlesForTheArmsDelay)
+TEST(DensoIso15765CanCommon, ConnectBenchSettlesForTheArmsDelay)
 {
     CommonFixture f;
     f.cancellation.Cancel();

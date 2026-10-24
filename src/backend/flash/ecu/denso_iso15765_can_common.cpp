@@ -409,16 +409,13 @@ namespace
 // too-short reply is fatal. Callers that read further into the returned frame
 // must length-check it themselves: this only guarantees two bytes.
 //
-// `timeout` is a parameter, not a cluster constant: three members probe with
-// their short timeout and subaru_denso_sh72543_can_diesel probes with its long
-// one. Collapsing that difference is exactly what this file's header comment
-// warns against.
+// `timeout` is a parameter, not a constant: three families probe with their
+// short timeout and subaru_denso_sh72543_can_diesel probes with its long one. Collapsing that difference is exactly
+// what this file's header comment warns against.
 //
-// Not specific to this cluster in principle, but shared here because these
-// four are the families that provably share it.
 Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
-                                   std::string_view rejection_prefix, std::string_view subject)
+                                   std::string_view subject)
 {
     if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
     {
@@ -440,7 +437,7 @@ Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteVie
     const bytes::Bytes& frame = **received;
     if (frame[0] != expected_service || frame[1] != expected_subfunction)
     {
-        LogError(ctx, std::format("{}{}", rejection_prefix, bytes::ToHex(frame)));
+        LogError(ctx, std::format("{}{}", kDensoIso15765RejectionPrefix, bytes::ToHex(frame)));
     }
     return frame;
 }
@@ -495,16 +492,15 @@ void DensoVehicleInfoQueries(const CanExecutorContext& ctx)
 Result<bool> DensoProgrammingBranchIsInCar(const CanExecutorContext& ctx, std::chrono::milliseconds probe_timeout)
 {
     LogInfo(ctx, "Checking access method");
-    if (Result<bytes::Bytes> access =
-            TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
-                          0x01, probe_timeout, kDensoIso15765RejectionPrefix, "access-method probe");
+    if (Result<bytes::Bytes> access = TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe},
+                                                    kSessionControlReply, 0x01, probe_timeout, "access-method probe");
         !access.has_value())
     {
         return std::unexpected(access.error());
     }
     Result<bytes::Bytes> selector =
         TolerantProbe(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D}, kReadDataByIdentifierReply, 0x10,
-                      probe_timeout, kDensoIso15765RejectionPrefix, "programming-branch selector");
+                      probe_timeout, "programming-branch selector");
     if (!selector.has_value())
     {
         return std::unexpected(selector.error());
@@ -625,7 +621,7 @@ Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTranspo
     }
     if (Result<bytes::Bytes> probe =
             TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
-                          0x01, read_timeout, kDensoIso15765RejectionPrefix, "in-car access-method probe");
+                          0x01, read_timeout, "in-car access-method probe");
         !probe.has_value())
     {
         return std::unexpected(probe.error());
@@ -671,7 +667,7 @@ Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBench
     if (Result<bytes::Bytes> session =
             arm.session_reply == DensoBenchSessionReply::kTolerantProbe
                 ? TolerantProbe(ctx, session_pdu, kSessionControlReply, kSessionBench, arm.session_timeout,
-                                kDensoIso15765RejectionPrefix, "bench diagnostic session")
+                                "bench diagnostic session")
                 : FatalQuery(ctx, session_pdu, bytes::Bytes{kSessionBench}, {.read_timeout = arm.session_timeout},
                              "bench diagnostic session");
         !session.has_value())

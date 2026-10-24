@@ -85,7 +85,7 @@ template <typename Plan> Status CheckPlan(const FlashPlan& plan)
 
 // SH72543 diesel's ECU ID query: a ReadDataByIdentifier of DID F182 read at
 // serial_read_timeout. It needs a two-byte reply check (`F1 82`) where the
-// shared non_fatal_query checks one subfunction byte. Same shape otherwise:
+// shared NonFatalQuery checks one subfunction byte. Same shape otherwise:
 // log on a match, log and continue on anything else.
 void DidF182Query(const Ctx& ctx)
 {
@@ -261,13 +261,30 @@ Status ReflashBlock(const Ctx& ctx, const Profile& profile, bytes::ByteView imag
 }
 
 // Legacy write_memory, lines 1081-1160. block_modified marks exactly one block
-// -- the plan's transfer region -- so one block is erased and reflashed.
+// -- the plan's transfer region -- so one block is erased and reflashed. The
+// log lines carry the profile's block index: 1 of a three-block table on the
+// N83M and SH72531 families, 0 of SH72543 diesel's one-block table.
 Status WriteMemory(const Ctx& ctx, const Profile& profile, bytes::ByteView image, const MemoryRegion& block,
                    PhaseSequence& phases)
 {
-    return DensoIso15765WriteBlock(ctx, block, profile.write_block_index, phases,
-                                   [&ctx, &profile, image, &block](PhaseReporter& write)
-                                   { return ReflashBlock(ctx, profile, image, block, write); });
+    LogInfo(ctx, std::format("Blocks to flash: {},  (total: 1)", profile.write_block_index));
+    LogInfo(ctx, "--- Erasing ECU flash memory ---");
+    PhaseReporter erase = phases.Start("Erase", 1);
+    if (const Status erased = DensoIso15765Erase(ctx, block); !erased.has_value())
+    {
+        return erased;
+    }
+    erase.Complete();
+
+    LogInfo(ctx, "--- Start writing ROM file to ECU flash memory ---");
+    PhaseReporter write = phases.Start("Write ROM", static_cast<int>(block.length));
+    if (const Status written = ReflashBlock(ctx, profile, image, block, write); !written.has_value())
+    {
+        return written;
+    }
+    write.Complete();
+    LogInfo(ctx, std::format("Block {} reflash complete.", profile.write_block_index));
+    return {};
 }
 
 } // namespace

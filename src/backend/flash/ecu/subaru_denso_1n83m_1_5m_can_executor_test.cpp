@@ -347,14 +347,14 @@ TEST_F(SubaruDenso1n83m_1_5mCanExecutorWrite, WriteErasesThenFlashesBlockOne)
 
 // One case for the dialect: all four families run this loop.
 // Unlike ReadPropagatesADisconnectedTransport (can_executor_conformance.h),
-// which stops at read_memory's 0x34 setup exchange -- a fatal_query call --
+// which stops at read_memory's 0x34 setup exchange -- a FatalQuery call --
 // this pins a transport error raised *inside* the 0xB7 dump-chunk loop, whose
-// reads go through fatal_request at a different call site, inside a `for`
+// reads go through FatalRequest at a different call site, inside a `for`
 // loop carrying its own cancellation-check and progress-accumulation state.
-// fatal_request's generic error propagation is covered once for every family
+// FatalRequest's generic error propagation is covered once for every family
 // by uds_client_exchange_common_test.cpp; this test is what actually proves
 // the loop itself aborts cleanly -- without corrupting rom/progress state --
-// on a transport error, rather than assuming fatal_request's coverage
+// on a transport error, rather than assuming FatalRequest's coverage
 // implies the loop wrapping it behaves the same way.
 TEST(SubaruDenso1n83m_1_5mCanExecutor, ReadDisconnectMidDumpLoopPropagates)
 {
@@ -457,7 +457,7 @@ struct Denso1n83m_1_5mCanTraits
     static constexpr std::uint32_t kBlockStart = ::kBlockStart;
     static constexpr std::uint32_t kBlockLength = ::kBlockLength;
     static constexpr std::uint32_t kPageSize = ::kPageSize;
-    // connect_bootloader's tolerant_probe exchanges read with this family's
+    // ConnectBootloader's TolerantProbe exchanges read with this family's
     // short timeout, a deliberate per-family value (subaru_denso_sh72543_can_diesel
     // probes with 2000ms instead).
     static constexpr std::chrono::milliseconds kProbeTimeout{200};
