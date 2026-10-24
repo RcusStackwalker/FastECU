@@ -184,6 +184,24 @@ TEST_F(Sh72543rExecutor, SetupAndForeignPlanRejectBeforeIo)
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(transport_.writes, 0U);
 }
+TEST_F(Sh72543rExecutor, ForeignPlanIsRejectedWithTheAdmissionText)
+{
+    auto foreign =
+        BuildSubaruTcuHitachiM32rCanPlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_can", "M32R_512KB", std::nullopt);
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
+    EXPECT_THAT(executor_.TransportSetup(*foreign),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                            ::testing::Eq("plan family does not match this executor")));
+}
+TEST_F(Sh72543rExecutor, PrecancelledRunIsRefusedInAdmission)
+{
+    cancel_.Cancel();
+    EXPECT_THAT(ExecutePlan(),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_EQ(transport_.writes, 0U);
+    EXPECT_TRUE(events_.logs.empty());
+    EXPECT_TRUE(events_.phase_progress_calls.empty());
+}
 TEST_F(Sh72543rExecutor, CompleteReadPinsBytesTimingAndKernelShortcut)
 {
     Alive();

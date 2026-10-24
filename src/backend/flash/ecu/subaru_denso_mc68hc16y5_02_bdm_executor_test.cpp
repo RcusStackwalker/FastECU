@@ -26,6 +26,7 @@ namespace
 {
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::_;
 using ::testing::Contains;
@@ -660,6 +661,31 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, InvalidPlanIsRejectedBeforeAnyTranspor
                 IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ForeignFamilyIsRejectedWithTheAdmissionText)
+{
+    const auto foreign_plan =
+        BuildSubaruUnisiaJecsPlan(FlashOperation::kRead, "sub_ecu_unisia_jecs_m3779x", "M3779x", std::nullopt);
+    ASSERT_THAT(foreign_plan, IsOk());
+    EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.TransportSetup(*foreign_plan),
+                IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("plan family does not match this executor")));
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, PrecancelledRunIsRefusedInAdmission)
+{
+    ScriptedKlineFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancellation{true};
+    RecordingEventSink events;
+    auto plan = ReadPlan();
+    ASSERT_THAT(plan, IsOk());
+
+    EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_TRUE(events.logs.empty());
+    EXPECT_TRUE(events.progress_calls.empty());
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorOnWpcspReplyPropagates)

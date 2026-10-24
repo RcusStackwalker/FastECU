@@ -45,7 +45,7 @@ Status ValidateIdentity(std::string_view protocol, std::string_view mcu)
 
 Status ValidateSubaruUnisiaJecsPlan(const FlashPlan& plan)
 {
-    if (plan.Family() != FlashFamily::kSubaruUnisiaJecs || plan.Transport() != TransportKind::kKline)
+    if (plan.Transport() != TransportKind::kKline)
     {
         return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Unisia Jecs");
     }

@@ -94,7 +94,7 @@ Status ValidateImage(const FlashPlan& plan)
 
 Status ValidateSubaruHitachiSh72543rCanPlan(const FlashPlan& plan)
 {
-    if (plan.Family() != FlashFamily::kSubaruHitachiSh72543rCan || plan.Transport() != TransportKind::kCanIso15765)
+    if (plan.Transport() != TransportKind::kCanIso15765)
     {
         return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Hitachi SH72543R CAN");
     }

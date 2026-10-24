@@ -366,16 +366,11 @@ Status BootstrapKernel(bytes::ByteView kernel, IKlineFlashTransport& transport, 
 }
 } // namespace
 
-Result<KlineConfig> SubaruDensoMc68hc16y5_02BdmExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruDensoMc68hc16y5_02BdmExecutor::Setup(const SubaruDensoMc68hc16y5_02BdmPlan& family) const
 {
-    if (auto valid = ValidateSubaruDensoMc68hc16y502BdmPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& wire = std::get<SubaruDensoMc68hc16y5_02BdmPlan>(plan.FamilyPlan());
     // execute() :50-54.
     return KlineConfig{
-        .baud = wire.baud, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::kNone};
+        .baud = family.baud, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::kNone};
 }
 
 Status SubaruDensoMc68hc16y5_02BdmExecutor::BeforeTransportConfigure(IKlineFlashTransport& transport, IClock&,
@@ -386,18 +381,12 @@ Status SubaruDensoMc68hc16y5_02BdmExecutor::BeforeTransportConfigure(IKlineFlash
     return transport.SetAddIso14230Header(false);
 }
 
-Result<FlashExecutionResult>
-SubaruDensoMc68hc16y5_02BdmExecutor::Execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
-                                             const ICancellationToken& cancellation, IEventSink& events)
+Result<FlashExecutionResult> SubaruDensoMc68hc16y5_02BdmExecutor::Run(const SubaruDensoMc68hc16y5_02BdmPlan& /*family*/,
+                                                                      const FlashPlan& plan,
+                                                                      IKlineFlashTransport& transport, IClock& clock,
+                                                                      const ICancellationToken& cancellation,
+                                                                      IEventSink& events)
 {
-    if (auto valid = ValidateSubaruDensoMc68hc16y502BdmPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
     if (plan.Operation() == FlashOperation::kRead)
     {
         auto image = ReadImage(plan, transport, clock, cancellation, events);
