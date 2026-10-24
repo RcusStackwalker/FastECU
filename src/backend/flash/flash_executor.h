@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <variant>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/flash/flash_plan.h"
@@ -351,6 +352,64 @@ class IMixedCanFlashExecutor
     }
     virtual Result<FlashExecutionResult> Execute(const FlashPlan&, IMixedCanFlashTransport&, IClock&,
                                                  const ICancellationToken&, IEventSink&) = 0;
+};
+
+// Plan admission for one family's executor: the checks every executor makes
+// before any family code runs. TransportSetup checks the plan's family, then
+// runs the family validator, then hands the family plan to Setup. Execute
+// makes the same two checks, then refuses a cancelled run with "cancelled
+// before setup", then hands the family plan and the whole plan to Run.
+//
+// A family executor derives from this with its plan alternative and its
+// executor interface (IKlineFlashExecutor, ICanFlashExecutor or
+// IMixedCanFlashExecutor) and implements Setup and Run. BeforeTransportConfigure
+// and BeforeTransportOpen stay on the interface. Validator defaults to the
+// family's PlanValidator specialization; only admission tests pass another.
+template <typename Plan, typename Interface, typename Validator = PlanValidator<Plan>>
+class FamilyExecutor : public Interface
+{
+  public:
+    using TransportType = typename Interface::TransportType;
+    using ConfigType = typename Interface::ConfigType;
+
+    Result<ConfigType> TransportSetup(const FlashPlan& plan) const final
+    {
+        if (const Status admitted = CheckPlan(plan); !admitted.has_value())
+        {
+            return std::unexpected(admitted.error());
+        }
+        return Setup(std::get<Plan>(plan.FamilyPlan()));
+    }
+
+    Result<FlashExecutionResult> Execute(const FlashPlan& plan, TransportType& transport, IClock& clock,
+                                         const ICancellationToken& cancellation, IEventSink& events) final
+    {
+        if (const Status admitted = CheckPlan(plan); !admitted.has_value())
+        {
+            return std::unexpected(admitted.error());
+        }
+        if (cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "cancelled before setup");
+        }
+        return Run(std::get<Plan>(plan.FamilyPlan()), plan, transport, clock, cancellation, events);
+    }
+
+  protected:
+    virtual Result<ConfigType> Setup(const Plan& family) const = 0;
+    virtual Result<FlashExecutionResult> Run(const Plan& family, const FlashPlan& plan, TransportType& transport,
+                                             IClock& clock, const ICancellationToken& cancellation,
+                                             IEventSink& events) = 0;
+
+  private:
+    static Status CheckPlan(const FlashPlan& plan)
+    {
+        if (const Status match = CheckFamily(plan, FamilyTraits<Plan>::kFamily); !match.has_value())
+        {
+            return match;
+        }
+        return Validator::Validate(plan);
+    }
 };
 
 // An executor already bound to a transport it is known to accept. FlashWorker

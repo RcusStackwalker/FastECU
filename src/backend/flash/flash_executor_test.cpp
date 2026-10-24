@@ -1,9 +1,14 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/flash_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/testing/scripted_kline_flash_transport.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
+#include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_event_sink.h"
 
 namespace fastecu::flash
 {
@@ -89,6 +94,195 @@ TEST(CheckFamilyTest, WrongFamilyFailsWithInvalidConfig)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ASSERT_THAT(CheckFamily(*plan, FlashFamily::kMitsuColtM32rCan), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+}
+
+FlashPlanFields ForeignCanReadFields()
+{
+    return FlashPlanFields{
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromCan,
+        .transport = TransportKind::kCanIso15765,
+        .target_id = "sub_ecu_denso_sh705x_eeprom_can",
+        .mcu_name = "SH7058",
+        .transfer_region = MemoryRegion{.start = 0x0, .length = 0x100},
+        .erase_regions = {},
+        .image = std::nullopt,
+        .kernel = KernelImage{.id = "k", .load_address = 0xffff6004, .bytes = {0x01, 0x02}},
+        .family_plan =
+            DensoSh705xEepromCanPlan{
+                .mode = EepromReadMode::kMode2,
+                .security = DensoSecurityVariant::kStock,
+                .request_id = 0x7e0,
+                .response_id = 0x7e8,
+                .bitrate = 500000,
+                .extended_id = false,
+            },
+        .confirmations = {},
+    };
+}
+
+// Stands in for a family validator so each admission test chooses whether
+// validation passes, and can tell whether it ran at all.
+struct CountingValidator
+{
+    static inline int calls = 0;
+    static inline Status result = {};
+
+    static Status Validate(const FlashPlan& /*plan*/)
+    {
+        ++calls;
+        return result;
+    }
+};
+
+class ProbeExecutor final : public FamilyExecutor<DensoSh705xEepromKlinePlan, IKlineFlashExecutor, CountingValidator>
+{
+  public:
+    mutable const DensoSh705xEepromKlinePlan *setup_family = nullptr;
+    const DensoSh705xEepromKlinePlan *run_family = nullptr;
+    const FlashPlan *run_plan = nullptr;
+
+  private:
+    Result<KlineConfig> Setup(const DensoSh705xEepromKlinePlan& family) const override
+    {
+        setup_family = &family;
+        return NonIso14230KlineConfigFrom(family);
+    }
+
+    Result<FlashExecutionResult> Run(const DensoSh705xEepromKlinePlan& family, const FlashPlan& plan,
+                                     IKlineFlashTransport& /*transport*/, IClock& /*clock*/,
+                                     const ICancellationToken& /*cancellation*/, IEventSink& /*events*/) override
+    {
+        run_family = &family;
+        run_plan = &plan;
+        return FlashExecutionResult{.operation = plan.Operation(), .read_bytes = std::nullopt};
+    }
+};
+
+class FamilyExecutorTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        CountingValidator::calls = 0;
+        CountingValidator::result = {};
+    }
+
+    Result<FlashExecutionResult> Execute(const FlashPlan& plan)
+    {
+        return executor.Execute(plan, transport, clock, cancellation, events);
+    }
+
+    ProbeExecutor executor;
+    ScriptedKlineFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+};
+
+TEST_F(FamilyExecutorTest, TransportSetupRejectsForeignFamily)
+{
+    auto foreign = ValidateAndBuild(ForeignCanReadFields());
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
+
+    const auto config = executor.TransportSetup(*foreign);
+
+    ASSERT_THAT(config, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                    ::testing::Eq("plan family does not match this executor")));
+    EXPECT_EQ(CountingValidator::calls, 0);
+    EXPECT_EQ(executor.setup_family, nullptr);
+}
+
+TEST_F(FamilyExecutorTest, ForeignFamilyNeverReachesValidator)
+{
+    auto foreign = ValidateAndBuild(ForeignCanReadFields());
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
+
+    const auto result = Execute(*foreign);
+
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                    ::testing::Eq("plan family does not match this executor")));
+    EXPECT_EQ(CountingValidator::calls, 0);
+    EXPECT_EQ(executor.run_plan, nullptr);
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+}
+
+TEST_F(FamilyExecutorTest, TransportSetupReturnsValidatorError)
+{
+    auto plan = ValidateAndBuild(KlineReadFields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    CountingValidator::result = Fail(ErrorKind::kInvalidConfig, "probe invalid");
+
+    const auto config = executor.TransportSetup(*plan);
+
+    ASSERT_THAT(config, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("probe invalid")));
+    EXPECT_EQ(CountingValidator::calls, 1);
+    EXPECT_EQ(executor.setup_family, nullptr);
+}
+
+TEST_F(FamilyExecutorTest, TransportSetupHandsFamilyPlanToSetup)
+{
+    auto plan = ValidateAndBuild(KlineReadFields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const auto config = executor.TransportSetup(*plan);
+
+    ASSERT_THAT(config, fastecu::testing::IsOk());
+    EXPECT_EQ(executor.setup_family, &std::get<DensoSh705xEepromKlinePlan>(plan->FamilyPlan()));
+    EXPECT_EQ(config->baud, 4800);
+    EXPECT_EQ(config->target_id, 0x10);
+}
+
+TEST_F(FamilyExecutorTest, ExecuteValidatesBeforeCheckingCancellation)
+{
+    auto plan = ValidateAndBuild(KlineReadFields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    CountingValidator::result = Fail(ErrorKind::kInvalidConfig, "probe invalid");
+    cancellation.SetCancelled(true);
+
+    const auto result = Execute(*plan);
+
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("probe invalid")));
+    EXPECT_EQ(cancellation.CheckCount(), 0U);
+}
+
+TEST_F(FamilyExecutorTest, ExecuteCancelledAfterAdmissionChecks)
+{
+    auto plan = ValidateAndBuild(KlineReadFields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    cancellation.SetCancelled(true);
+
+    const auto result = Execute(*plan);
+
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_EQ(CountingValidator::calls, 1);
+    EXPECT_EQ(executor.run_plan, nullptr);
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_THAT(events.logs, ::testing::IsEmpty());
+}
+
+TEST_F(FamilyExecutorTest, ExecuteHandsFamilyAndFlashPlanToRun)
+{
+    auto plan = ValidateAndBuild(KlineReadFields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const auto result = Execute(*plan);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(result->operation, FlashOperation::kRead);
+    EXPECT_EQ(executor.run_family, &std::get<DensoSh705xEepromKlinePlan>(plan->FamilyPlan()));
+    EXPECT_EQ(executor.run_plan, &*plan);
+}
+
+TEST_F(FamilyExecutorTest, AdmissionReachedThroughInterface)
+{
+    auto plan = ValidateAndBuild(KlineReadFields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    IKlineFlashExecutor& through_interface = executor;
+
+    EXPECT_THAT(through_interface.TransportSetup(*plan), fastecu::testing::IsOk());
+    EXPECT_THAT(through_interface.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
+    EXPECT_EQ(CountingValidator::calls, 2);
 }
 
 } // namespace

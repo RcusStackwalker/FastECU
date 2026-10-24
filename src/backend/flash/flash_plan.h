@@ -125,4 +125,14 @@ class FlashPlan
     std::optional<memory::MemoryImage> rom_image_;
 };
 
+// A family's plan validator, reached by plan admission (FamilyExecutor in
+// flash_executor.h). A specialization provides
+// `static Status Validate(const FlashPlan&)`, forwarding to the family's
+// Validate...Plan function.
+//
+// Like FamilyTraits, it deliberately has no primary definition: a family
+// whose executor derives from FamilyExecutor must specialize it in its
+// *_plan.h, next to the validator, or the executor fails to compile.
+template <typename PlanT> struct PlanValidator;
+
 } // namespace fastecu::flash

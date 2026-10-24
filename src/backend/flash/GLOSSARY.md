@@ -16,6 +16,12 @@ model line over one transport.
 _Avoid_: Wave, step, protocol (a protocol id such as `sub_ecu_denso_1n83m_1_5m_can`
 names one flash family's catalog entry)
 
+**Plan admission**:
+The checks an executor makes before any family code runs: the plan belongs
+to this family, passes its family validator, and the run has not been
+cancelled.
+_Avoid_: Preamble, executor shell
+
 **Dialect**:
 Two or more flash families that share wire-level behaviour, proven by shared
 code and tests for named operations (seed/key, erase, an in-car sequence).
