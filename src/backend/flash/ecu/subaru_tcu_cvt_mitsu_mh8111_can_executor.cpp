@@ -83,9 +83,9 @@ Result<bytes::Bytes> FatalRequest(Ctx& ctx, bytes::ByteView pdu, std::string_vie
     return ::fastecu::flash::FatalRequest(ExchangeContext(ctx), pdu, kRejectionPrefix, operation);
 }
 
-// The FatalRequest + expected-response-prefix check every exchange in
-// connect_bootloader below repeats -- see uds_client_exchange_common.h's
-// FatalQuery for what expected_prefix, subject, and min_payload_size mean.
+// Binds this family's context and rejection prefix to the shared FatalQuery,
+// which connect_bootloader calls for each of its exchanges. The shared
+// header documents expected_prefix, subject and min_payload_size.
 Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                                 std::string_view subject, std::optional<std::size_t> min_payload_size = std::nullopt)
 {
