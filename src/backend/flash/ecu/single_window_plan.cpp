@@ -61,10 +61,6 @@ Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPla
     {
         return valid;
     }
-    if (plan.Family() != spec.family || plan.Transport() != spec.transport)
-    {
-        return Fail(kInvalidConfig, std::format("plan is not for {}", spec.display_name));
-    }
     if (!spec.wire_params_ok(plan))
     {
         return Fail(kInvalidConfig, std::format("{} wire parameters are invalid", spec.display_name));

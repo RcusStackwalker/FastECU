@@ -81,10 +81,6 @@ Status ValidateSubaruDensoSh705502Plan(const FlashPlan& plan)
     {
         return valid;
     }
-    if (plan.Family() != FlashFamily::kSubaruDensoSh705502 || plan.Transport() != TransportKind::kKline)
-    {
-        return Fail(kInvalidConfig, "plan is not for SH7055_02");
-    }
     // The wire parameters include the ECU-ID read, which only a Read performs.
     if (const auto *family = std::get_if<SubaruDensoSh7055_02Plan>(&plan.FamilyPlan());
         family == nullptr || *family != WireParams(plan.Operation()))

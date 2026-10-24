@@ -97,10 +97,6 @@ Status ValidateCapability(const FlashPlan& plan, const CatalogEntry& entry)
 
 Status ValidateSubaruTcuDensoSh705xCanPlan(const FlashPlan& plan)
 {
-    if (plan.Family() != FlashFamily::kSubaruTcuDensoSh705xCan || plan.Transport() != TransportKind::kCanIso15765)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso SH705x TCU CAN");
-    }
     const auto *wire = std::get_if<SubaruTcuDensoSh705xCanPlan>(&plan.FamilyPlan());
     if (wire == nullptr || !WireParametersMatch(*wire))
     {

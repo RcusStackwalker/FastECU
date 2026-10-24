@@ -146,10 +146,6 @@ Status ValidateRomPlacement(const FlashPlan& plan)
 Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
 {
     using enum ErrorKind;
-    if (plan.Family() != FlashFamily::kSubaruDensoMc68hc16y502 || plan.Transport() != TransportKind::kKline)
-    {
-        return Fail(kInvalidConfig, "plan is not for MC68HC16Y5_02");
-    }
     const auto *family = std::get_if<SubaruDensoMc68hc16y5_02Plan>(&plan.FamilyPlan());
     if (family == nullptr)
     {

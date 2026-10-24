@@ -90,10 +90,6 @@ Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
 
 Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan)
 {
-    if (plan.Family() != FlashFamily::kSubaruDensoSh705xDensoCan || plan.Transport() != TransportKind::kCanRawIso15765)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso SH705x DensoCAN");
-    }
     const auto *wire = std::get_if<SubaruDensoSh705xDensoCanPlan>(&plan.FamilyPlan());
     if (wire == nullptr || !WireParametersMatch(*wire))
     {

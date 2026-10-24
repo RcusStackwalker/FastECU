@@ -57,10 +57,6 @@ Status ValidateMitsuColtM32rCanPlan(const FlashPlan& plan)
     {
         return std::unexpected(variant.error());
     }
-    if (plan.Family() != FlashFamily::kMitsuColtM32rCan)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "plan is not for Mitsubishi Colt M32R CAN");
-    }
     if (plan.McuName() != (*variant)->mcu)
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("Protocol {} expects MCU {}; got {}", plan.TargetId(),

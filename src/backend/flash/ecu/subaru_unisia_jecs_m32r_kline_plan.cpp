@@ -95,10 +95,6 @@ Status ValidateWriteShape(const FlashPlan& plan, const Variant& variant)
 
 Status ValidateSubaruUnisiaJecsM32rKlinePlan(const FlashPlan& plan)
 {
-    if (plan.Family() != FlashFamily::kSubaruUnisiaJecsM32rKline || plan.Transport() != TransportKind::kKline)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Unisia Jecs M32R");
-    }
     const auto variant = FindVariant(plan.TargetId(), plan.McuName());
     if (!variant.has_value())
     {
