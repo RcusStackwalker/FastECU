@@ -1,14 +1,16 @@
 #pragma once
 
+#include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
 #include "src/backend/flash/flash_executor.h"
 
 namespace fastecu::flash
 {
-class SubaruHitachiSh7058CanExecutor final : public ICanFlashExecutor
+class SubaruHitachiSh7058CanExecutor final : public FamilyExecutor<SubaruHitachiSh7058CanPlan, ICanFlashExecutor>
 {
-  public:
-    Result<Iso15765Config> TransportSetup(const FlashPlan& plan) const override;
-    Result<FlashExecutionResult> Execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, IEventSink& events) override;
+  private:
+    Result<Iso15765Config> Setup(const SubaruHitachiSh7058CanPlan& family) const override;
+    Result<FlashExecutionResult> Run(const SubaruHitachiSh7058CanPlan& family, const FlashPlan& plan,
+                                     ICanFlashTransport& transport, IClock& clock,
+                                     const ICancellationToken& cancellation, IEventSink& events) override;
 };
 } // namespace fastecu::flash

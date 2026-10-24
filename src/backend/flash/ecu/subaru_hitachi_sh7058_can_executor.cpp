@@ -311,28 +311,16 @@ class Session
     IEventSink& events_;
 };
 } // namespace
-Result<Iso15765Config> SubaruHitachiSh7058CanExecutor::TransportSetup(const FlashPlan& plan) const
+Result<Iso15765Config> SubaruHitachiSh7058CanExecutor::Setup(const SubaruHitachiSh7058CanPlan& family) const
 {
-    if (auto valid = ValidateSubaruHitachiSh7058Plan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (plan.Operation() != FlashOperation::kWrite)
-    {
-        return Fail(ErrorKind::kUnsupported, "SH7058 CAN supports write only");
-    }
-    return Iso15765ConfigFrom(std::get<SubaruHitachiSh7058CanPlan>(plan.FamilyPlan()));
+    return Iso15765ConfigFrom(family);
 }
 
-Result<FlashExecutionResult> SubaruHitachiSh7058CanExecutor::Execute(const FlashPlan& plan,
-                                                                     ICanFlashTransport& transport, IClock& clock,
-                                                                     const ICancellationToken& cancel,
-                                                                     IEventSink& events)
+Result<FlashExecutionResult> SubaruHitachiSh7058CanExecutor::Run(const SubaruHitachiSh7058CanPlan& /*family*/,
+                                                                 const FlashPlan& plan, ICanFlashTransport& transport,
+                                                                 IClock& clock, const ICancellationToken& cancel,
+                                                                 IEventSink& events)
 {
-    if (auto setup = TransportSetup(plan); !setup.has_value())
-    {
-        return std::unexpected(setup.error());
-    }
     Session session(transport, clock, cancel, events);
     if (auto status = session.Connect(); !status.has_value())
     {

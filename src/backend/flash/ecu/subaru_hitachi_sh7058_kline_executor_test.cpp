@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
@@ -13,6 +14,46 @@
 
 namespace fastecu::flash
 {
+TEST(SubaruHitachiSh7058KlineExecutor, TransportSetupRejectsForeignFamily)
+{
+    const auto foreign = BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, "sub_ecu_hitachi_sh72543r_can",
+                                                           "SH72543R", std::nullopt);
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
+    EXPECT_THAT(SubaruHitachiSh7058KlineExecutor{}.TransportSetup(*foreign),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                            ::testing::Eq("plan family does not match this executor")));
+}
+
+TEST(SubaruHitachiSh7058KlineExecutor, PrecancelledRunIsRefusedInAdmission)
+{
+    const auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                                   std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancel{true};
+    RecordingEventSink events;
+    EXPECT_THAT(SubaruHitachiSh7058KlineExecutor{}.Execute(*plan, transport, clock, cancel, events),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_TRUE(transport.header_mode_calls.empty());
+    EXPECT_TRUE(events.logs.empty());
+}
+
+TEST(SubaruHitachiSh7058KlineExecutor, WriteOperationIsRefusedBeforeThePrecancelCheck)
+{
+    const auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can",
+                                                   "SH7058_1block", bytes::Bytes(0x100000));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancel{true};
+    RecordingEventSink events;
+    EXPECT_THAT(
+        SubaruHitachiSh7058KlineExecutor{}.Execute(*plan, transport, clock, cancel, events),
+        fastecu::testing::IsErrWith(ErrorKind::kUnsupported, ::testing::Eq("SH7058 K-Line supports read only")));
+}
+
 TEST(SubaruHitachiSh7058KlineExecutor, RejectsMissingInitializationBeforeReadPages)
 {
     auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
