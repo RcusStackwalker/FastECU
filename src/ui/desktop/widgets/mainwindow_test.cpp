@@ -280,6 +280,11 @@ class ModalDriver final : public QObject
             {
                 continue;
             }
+            if (qobject_cast<QFileDialog *>(dialog) != nullptr)
+            {
+                dialog->reject(); // cancel the file picker
+                return true;
+            }
             if (dialog->objectName() == "BiuOperationsSubaruWindow")
             {
                 dialog->reject(); // the BIU window has no work to do here
@@ -940,6 +945,8 @@ class MainWindowTest : public ::testing::Test
     void checkSelectableSignalEditsItsEmittingSession();
     void checkFailedMapDecodeKeepsAnErrorView();
     void checkOpeningAMissingCalibrationFileReportsFailure();
+    void checkCancellingTheCalibrationPickerReportsFailure();
+    void checkStartingAnEcuOperationWithoutAPortWarns();
     // A second ROM opened beside the edited one: none, its session only, or
     // also its window of the same map.
     enum class AssignmentOther
@@ -2237,6 +2244,42 @@ void MainWindowTest::checkOpeningAMissingCalibrationFileReportsFailure()
 TEST_F(MainWindowTest, openingAMissingCalibrationFileReportsFailure)
 {
     ASSERT_NO_FATAL_FAILURE(checkOpeningAMissingCalibrationFileReportsFailure());
+}
+
+void MainWindowTest::checkCancellingTheCalibrationPickerReportsFailure()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
+    MainWindow window{services.services()};
+    EXPECT_FALSE(window.openCalibrationFile(QString()));
+    driver.stop();
+    EXPECT_FALSE(driver.timedOut());
+    EXPECT_EQ(driver.noFileSelectedCount(), 0);
+    EXPECT_TRUE(driver.acceptedTexts().contains("No file selected"));
+}
+
+TEST_F(MainWindowTest, cancellingTheCalibrationPickerReportsFailure)
+{
+    ASSERT_NO_FATAL_FAILURE(checkCancellingTheCalibrationPickerReportsFailure());
+}
+
+void MainWindowTest::checkStartingAnEcuOperationWithoutAPortWarns()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
+    MainWindow window{services.services()};
+    EXPECT_TRUE(startEcuOperations(window, "read"));
+    driver.stop();
+    EXPECT_TRUE(driver.acceptedTexts().contains("No serial port selected!"));
+}
+
+TEST_F(MainWindowTest, startingAnEcuOperationWithoutAPortWarns)
+{
+    ASSERT_NO_FATAL_FAILURE(checkStartingAnEcuOperationWithoutAPortWarns());
 }
 
 void MainWindowTest::checkWindowPreservesInjectedLoggingFactory()
