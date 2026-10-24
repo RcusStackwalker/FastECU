@@ -185,7 +185,7 @@ INSTANTIATE_TEST_SUITE_P(
                                           QString("driver setup exploded")},
                       StartRejectionsCase{"unknown_exception", 5, static_cast<int>(fastecu::ErrorKind::kInternal),
                                           QString("protocol factory threw an unknown exception")}),
-    [](const ::testing::TestParamInfo<StartRejectionsCase>& info) { return info.param.name; });
+    [](const ::testing::TestParamInfo<StartRejectionsCase>& param_info) { return param_info.param.name; });
 
 TEST_P(StartRejectionsParameters, start_rejections)
 {

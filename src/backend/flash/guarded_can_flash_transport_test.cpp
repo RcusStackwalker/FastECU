@@ -134,11 +134,11 @@ TEST_P(GuardedCanFlashTransportReadOutcomes, ReadOutcomesPassThrough)
 INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, GuardedCanFlashTransportReadOutcomes,
                          ::testing::Combine(::testing::Values(0, 1, 2), ::testing::Bool()),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  const std::array<std::string, 3> names{"Absent", "Empty", "Data"};
-                                 return names.at(std::get<0>(info.param)) +
-                                        (std::get<1>(info.param) ? "CancelledInside" : "Live");
+                                 return names.at(std::get<0>(param_info.param)) +
+                                        (std::get<1>(param_info.param) ? "CancelledInside" : "Live");
                              }));
 
 using FailureCase = std::tuple<ErrorKind, bool, bool>;
@@ -174,11 +174,11 @@ INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, GuardedCanFlashTransportFailu
                                                               ErrorKind::kCancelled, ErrorKind::kUnsupported,
                                                               ErrorKind::kInternal),
                                             ::testing::Bool(), ::testing::Bool()),
-                         [](const auto& info)
+                         [](const auto& param_info)
                          {
-                             return std::string(ToString(std::get<0>(info.param))) +
-                                    (std::get<1>(info.param) ? "Read" : "Write") +
-                                    (std::get<2>(info.param) ? "CancelledInside" : "Live");
+                             return std::string(ToString(std::get<0>(param_info.param))) +
+                                    (std::get<1>(param_info.param) ? "Read" : "Write") +
+                                    (std::get<2>(param_info.param) ? "CancelledInside" : "Live");
                          });
 
 TEST(GuardedCanFlashTransport, AcceptedWriteSuccessSurvivesInsideCallCancellation)
@@ -258,7 +258,7 @@ TEST_P(GuardedCanFlashTransportLifecycle, LifecycleRestartAndUnblockForwardAfter
     EXPECT_EQ(inner.unblock_calls, 1);
 }
 INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, GuardedCanFlashTransportLifecycle, ::testing::Bool(),
-                         [](const auto& info) { return info.param ? "Failures" : "Success"; });
+                         [](const auto& param_info) { return param_info.param ? "Failures" : "Success"; });
 
 } // namespace
 } // namespace fastecu::flash

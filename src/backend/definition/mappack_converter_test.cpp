@@ -163,7 +163,7 @@ INSTANTIATE_TEST_SUITE_P(
                        "hexadecimal address"},
         InvalidCsvCase{"MalformedYAxisDataHeader", CsvReplacing(";1;1;$3000", ";1;bad;$3000"), "row 2",
                        "column AxisY.DataHeader", "nonnegative integer"}),
-    [](const ::testing::TestParamInfo<InvalidCsvCase>& info) { return info.param.name; });
+    [](const ::testing::TestParamInfo<InvalidCsvCase>& param_info) { return param_info.param.name; });
 
 TEST(MapPackConverter, InvalidThirdRecordReportsItsOwnRow)
 {

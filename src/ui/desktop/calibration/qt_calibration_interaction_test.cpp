@@ -178,10 +178,10 @@ TEST_P(WriteWarningChoices, MapsOnlyCancelToDeclined)
 INSTANTIATE_TEST_SUITE_P(Answers, WriteWarningChoices,
                          ::testing::Values(QMessageBox::Ok, QMessageBox::Cancel, QMessageBox::Rejected),
                          (
-                             [](const auto& info)
+                             [](const auto& paramInfo)
                              {
                                  static constexpr std::array kNames{"Ok", "Cancel", "Rejected"};
-                                 return kNames[info.index];
+                                 return kNames[paramInfo.index];
                              }));
 
 struct NoticeCase
@@ -232,13 +232,13 @@ INSTANTIATE_TEST_SUITE_P(Notices, NoticeRendering,
                                            NoticeCase{CalibrationNotice::kNoSaveFilename, QMessageBox::Information,
                                                       "Calibration file", "No file name selected"}),
                          (
-                             [](const auto& info)
+                             [](const auto& paramInfo)
                              {
                                  static constexpr std::array kNames{
                                      "NoCalibrationToWriteWarningWriteROMNoFileSelected",
                                      "NoCalibrationToSaveInformationCalibrationFileNoCalibrationToSave",
                                      "NoSaveFilenameInformationCalibrationFileNoFileNameSelected"};
-                                 return kNames[info.index];
+                                 return kNames[paramInfo.index];
                              }));
 
 TEST(QtCalibrationInteraction, SavePathRoundTrip)

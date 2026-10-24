@@ -334,12 +334,12 @@ INSTANTIATE_TEST_SUITE_P(
                       TypedStorageCase{StorageType::kInt32, "little", {0, 0, 0, 0x80}, -2147483648.0},
                       TypedStorageCase{StorageType::kFloat, "little", {0x3f, 0xc0, 0, 0}, 1.5}),
     (
-        [](const auto& info)
+        [](const auto& param_info)
         {
             static constexpr std::array kNames{"Uint8BigEndian",    "Int8BigEndian",      "Uint16BigEndian",
                                                "Int16LittleEndian", "Uint24LittleEndian", "Int24BigEndian",
                                                "Uint32BigEndian",   "Int32LittleEndian",  "FloatLittleEndian"};
-            return kNames[info.index];
+            return kNames[param_info.index];
         }));
 
 TEST(DecodeNumericRun, RejectsOverflowingLayoutsBeforeReading)

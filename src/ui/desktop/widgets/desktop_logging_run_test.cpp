@@ -568,10 +568,10 @@ TEST_P(DesktopLoggingRunFailure, newRunRetriesCsvAfterALatchedFailure)
 INSTANTIATE_TEST_SUITE_P(Failures, DesktopLoggingRunFailure,
                          ::testing::Values(FailurePoint::kOpen, FailurePoint::kHeaderWrite, FailurePoint::kRowWrite),
                          (
-                             [](const auto& info)
+                             [](const auto& paramInfo)
                              {
                                  static constexpr std::array kNames{"Open", "HeaderWrite", "RowWrite"};
-                                 return kNames[info.index];
+                                 return kNames[paramInfo.index];
                              }));
 
 TEST_F(DesktopLoggingRunTest, csvErrorSubscriberStopsAfterFailureStateCommits)
@@ -651,10 +651,10 @@ INSTANTIATE_TEST_SUITE_P(Failures, DesktopLoggingRunStartFailure,
                          ::testing::Values(StartFailure::kMissingRegistration, StartFailure::kFactory,
                                            StartFailure::kThrow, StartFailure::kNull),
                          (
-                             [](const auto& info)
+                             [](const auto& paramInfo)
                              {
                                  static constexpr std::array kNames{"MissingRegistration", "Factory", "Throw", "Null"};
-                                 return kNames[info.index];
+                                 return kNames[paramInfo.index];
                              }));
 
 enum class EndCase
@@ -722,10 +722,10 @@ TEST_P(DesktopLoggingRunCompletion, engineCompletionReasonsReleaseRunAndCsv)
 INSTANTIATE_TEST_SUITE_P(Reasons, DesktopLoggingRunCompletion,
                          ::testing::Values(EndCase::kHandshake, EndCase::kCancel, EndCase::kAdapter, EndCase::kRuntime),
                          (
-                             [](const auto& info)
+                             [](const auto& paramInfo)
                              {
                                  static constexpr std::array kNames{"Handshake", "Cancel", "Adapter", "Runtime"};
-                                 return kNames[info.index];
+                                 return kNames[paramInfo.index];
                              }));
 
 TEST_F(DesktopLoggingRunTest, workerFirstSampleIsRetained)

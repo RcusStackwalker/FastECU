@@ -179,8 +179,8 @@ INSTANTIATE_TEST_SUITE_P(
                       ConfigureFailsAtEachRemainingSetterInTurnCase{"set_is_can_connection", 1},
                       ConfigureFailsAtEachRemainingSetterInTurnCase{"set_is_29_bit_id", 3},
                       ConfigureFailsAtEachRemainingSetterInTurnCase{"set_serial_port_baudrate", 4}),
-    [](const ::testing::TestParamInfo<ConfigureFailsAtEachRemainingSetterInTurnCase>& info)
-    { return info.param.name; });
+    [](const ::testing::TestParamInfo<ConfigureFailsAtEachRemainingSetterInTurnCase>& param_info)
+    { return param_info.param.name; });
 
 // Data-driven sibling of configureChecksEveryBooleanSetterInOrderAndStops-
 // AtFirstFailure() above (which only exercises the third setter's

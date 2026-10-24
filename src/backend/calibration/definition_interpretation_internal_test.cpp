@@ -79,10 +79,10 @@ TEST_P(DefinitionInterpretation, MapElementOwnsMetadataAcrossMoves)
 
 INSTANTIATE_TEST_SUITE_P(ExpressionStorage, DefinitionInterpretation, ::testing::Values(0U, 128U),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"ShortExpression", "HeapBackedExpression"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 TEST(ResolveMapElement, UsesResolvedAxisFieldsAndScalingBounds)

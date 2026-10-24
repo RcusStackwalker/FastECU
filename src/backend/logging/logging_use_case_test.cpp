@@ -253,11 +253,11 @@ INSTANTIATE_TEST_SUITE_P(LoggingUseCase, TerminalPollErrorTest,
                                            fastecu::ErrorKind::kInternal, fastecu::ErrorKind::kDisconnected,
                                            fastecu::ErrorKind::kCancelled, fastecu::ErrorKind::kTimeout),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"InvalidConfig", "Unsupported", "Internal",
                                                                     "Disconnected",  "Cancelled",   "Timeout"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 TEST(LoggingUseCaseTest, ConversionFailureContinuesHealthyPeersAndRecoversWithBoundedDiagnostics)

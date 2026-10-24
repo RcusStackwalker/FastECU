@@ -534,7 +534,7 @@ INSTANTIATE_TEST_SUITE_P(
                       NumericCase{"storagetype=\"float\"", "", {0x3f, 0x80, 0, 1}, 1.00000011920928955078125},
                       NumericCase{"storagetype=\"float\"", "endian=\"little\"", {0, 0, 0xc0, 0x3f}, 1.5}),
     (
-        [](const auto& info)
+        [](const auto& param_info)
         {
             static constexpr std::array kNames{"DefaultTwoBytes",
                                                "DefaultOneByte",
@@ -548,7 +548,7 @@ INSTANTIATE_TEST_SUITE_P(
                                                "FloatBigEndian",
                                                "FloatMantissaLowBit",
                                                "FloatLittleEndian"};
-            return kNames[info.index];
+            return kNames[param_info.index];
         }));
 
 TEST(SsmLoggingProtocolTest, StopSucceeds)
@@ -977,7 +977,7 @@ TEST(SsmLoggingProtocolTest, DirectPollCapsEachReadToRemainingDeadline)
 }
 
 INSTANTIATE_TEST_SUITE_P(DirectAndOpenPort, SsmFrameIntegrityTest, ::testing::Bool(),
-                         ([](const auto& info) { return info.param ? "OpenPort" : "Direct"; }));
+                         ([](const auto& param_info) { return param_info.param ? "OpenPort" : "Direct"; }));
 
 TEST(SsmLoggingProtocolTest, RejectsNonfiniteFloatWithoutFabricatedZero)
 {

@@ -159,7 +159,8 @@ INSTANTIATE_TEST_SUITE_P(
                       EachBooleanSetterFailureIsInvalidConfigCase{"set_iso15765_destination_address", 7},
                       EachBooleanSetterFailureIsInvalidConfigCase{"set_can_source_address", 8},
                       EachBooleanSetterFailureIsInvalidConfigCase{"set_can_destination_address", 9}),
-    [](const ::testing::TestParamInfo<EachBooleanSetterFailureIsInvalidConfigCase>& info) { return info.param.name; });
+    [](const ::testing::TestParamInfo<EachBooleanSetterFailureIsInvalidConfigCase>& param_info)
+    { return param_info.param.name; });
 
 TEST_P(EachBooleanSetterFailureIsInvalidConfigParameters, eachBooleanSetterFailureIsInvalidConfig)
 {

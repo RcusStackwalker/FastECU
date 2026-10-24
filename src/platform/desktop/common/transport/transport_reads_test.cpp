@@ -300,11 +300,11 @@ INSTANTIATE_TEST_SUITE_P(Adapters, TransportReads,
                          ::testing::Values(ReadPath::kKline, ReadPath::kSsm, ReadPath::kKlineFlash, ReadPath::kKlineRaw,
                                            ReadPath::kCanFlash, ReadPath::kMixedCan),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"Kline",    "Ssm",      "KlineFlash",
                                                                     "KlineRaw", "CanFlash", "MixedCan"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 const auto *const kApplicationEnvironment =

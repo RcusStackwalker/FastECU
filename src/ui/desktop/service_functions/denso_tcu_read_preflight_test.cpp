@@ -258,8 +258,8 @@ INSTANTIATE_TEST_SUITE_P(
                           "read", "Read Param", static_cast<int>(DensoTcuReadAction::kReadParameters)},
                       ChooserReturnsTheActionNamedByEachLegacyButtonCase{
                           "set", "Set Param", static_cast<int>(DensoTcuReadAction::kSetParameters)}),
-    [](const ::testing::TestParamInfo<ChooserReturnsTheActionNamedByEachLegacyButtonCase>& info)
-    { return info.param.name; });
+    [](const ::testing::TestParamInfo<ChooserReturnsTheActionNamedByEachLegacyButtonCase>& paramInfo)
+    { return paramInfo.param.name; });
 
 TEST_P(ChooserReturnsTheActionNamedByEachLegacyButtonParameters, chooserReturnsTheActionNamedByEachLegacyButton)
 {
@@ -307,8 +307,8 @@ INSTANTIATE_TEST_SUITE_P(
                                                                false},
         DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{"cancelled",
                                                                static_cast<int>(DensoTcuReadAction::kCancelled), true}),
-    [](const ::testing::TestParamInfo<DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase>& info)
-    { return info.param.name; });
+    [](const ::testing::TestParamInfo<DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase>& paramInfo)
+    { return paramInfo.param.name; });
 
 TEST_P(DumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters, dumpAndCancelledReturnWithoutIgnitionOrSerialCalls)
 {
@@ -351,8 +351,8 @@ INSTANTIATE_TEST_SUITE_P(
             "read", static_cast<int>(DensoTcuReadAction::kReadParameters)},
         DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{
             "set", static_cast<int>(DensoTcuReadAction::kSetParameters)}),
-    [](const ::testing::TestParamInfo<DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase>& info)
-    { return info.param.name; });
+    [](const ::testing::TestParamInfo<DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase>& paramInfo)
+    { return paramInfo.param.name; });
 
 TEST_P(DecliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
        decliningIgnitionSkipsEveryServiceDialogAndSerialCall)
@@ -398,8 +398,8 @@ INSTANTIATE_TEST_SUITE_P(
             "read", static_cast<int>(DensoTcuReadAction::kReadParameters), "Read TCU Parameters"},
         AcceptingIgnitionOpensTheMatchingRealServiceDialogCase{
             "set", static_cast<int>(DensoTcuReadAction::kSetParameters), "Set TCU Parameters"}),
-    [](const ::testing::TestParamInfo<AcceptingIgnitionOpensTheMatchingRealServiceDialogCase>& info)
-    { return info.param.name; });
+    [](const ::testing::TestParamInfo<AcceptingIgnitionOpensTheMatchingRealServiceDialogCase>& paramInfo)
+    { return paramInfo.param.name; });
 
 TEST_P(AcceptingIgnitionOpensTheMatchingRealServiceDialogParameters, acceptingIgnitionOpensTheMatchingRealServiceDialog)
 {
