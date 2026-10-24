@@ -19,8 +19,6 @@ alone does not make a presentation flow backend policy.
 
 Remaining actions from the backend migration roadmap:
 
-- Extract logger configuration/model installation and selection persistence
-  orchestration from `MainWindow` into backend use cases.
 - Extract BIU decoding/settings/session policy into portable diagnostics/codecs.
   Keep BIU exchanges synchronous and timer ownership on the desktop.
 - Extract DataTerminal script execution into portable diagnostics. Script
@@ -172,6 +170,13 @@ Remaining behavior and code gaps:
 - Construct a gauge renderer for acquired gauge selections; the current desktop
   acquires, caches and exports these values but has no gauge renderer.
 - `CarNotResponding` is logged without a live GUI indicator.
+- Pending logging selections are restored only after the SSM capability parse
+  (`log_operations_ssm.cpp`). MUT, MUT_DMA and CDBG save each edit but start
+  every run from the definition's default.
+- Edits made before an ECU is identified are saved under ECU id `""`, so they
+  never reach the ECU identified next.
+- Choosing a different logging definition in Settings takes effect only after a
+  restart; nothing reinstalls it.
 - Live channel/interval/protocol reconfiguration requires an explicit path through
   session config and worker; saved selection edits remain pending with a visible
   restart-needed state and current acquisition/display/CSV bindings stay frozen.

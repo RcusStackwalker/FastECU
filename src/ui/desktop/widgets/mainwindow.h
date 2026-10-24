@@ -155,6 +155,8 @@ class MainWindow : public QMainWindow
     void loadLoggerDefinition();
     void loadLoggerSelection();
     void saveLoggerSelection();
+    // Applies and persists `selection` for the current ECU, noticing a failed save.
+    void savePendingLoggingSelection(fastecu::logging::LoggerSelection selection);
     void reportLoggingCsvError(const QString& message);
     fastecu::config::ConfigSession *config_session_ = nullptr;
     std::optional<fastecu::Error> last_settings_save_error_;

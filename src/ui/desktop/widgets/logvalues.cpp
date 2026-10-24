@@ -163,9 +163,8 @@ void MainWindow::changeLogGaugeValue(int index)
     if (applyChoice(selection, selection.gauge_ids, qobject_cast<QComboBox *>(sender()), index))
     {
         const auto protocol = QString::fromStdString(selection.protocol);
-        logger_model_->SetSelection(std::move(selection));
+        savePendingLoggingSelection(std::move(selection));
         updateLogboxes(protocol);
-        saveLoggerSelection();
     }
 }
 void MainWindow::changeLogDigitalValue(int index)
@@ -174,9 +173,8 @@ void MainWindow::changeLogDigitalValue(int index)
     if (applyChoice(selection, selection.lower_panel_ids, qobject_cast<QComboBox *>(sender()), index))
     {
         const auto protocol = QString::fromStdString(selection.protocol);
-        logger_model_->SetSelection(std::move(selection));
+        savePendingLoggingSelection(std::move(selection));
         updateLogboxes(protocol);
-        saveLoggerSelection();
     }
 }
 void MainWindow::changeLogSwitchValue(int index)
@@ -185,8 +183,7 @@ void MainWindow::changeLogSwitchValue(int index)
     if (applyChoice(selection, selection.switch_ids, qobject_cast<QComboBox *>(sender()), index))
     {
         const auto protocol = QString::fromStdString(selection.protocol);
-        logger_model_->SetSelection(std::move(selection));
+        savePendingLoggingSelection(std::move(selection));
         updateLogboxes(protocol);
-        saveLoggerSelection();
     }
 }

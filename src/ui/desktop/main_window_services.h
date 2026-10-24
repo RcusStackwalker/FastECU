@@ -16,7 +16,7 @@ class QtFileRepository;
 namespace fastecu::logging
 {
 class LoggerModel;
-class LoggerDefinitionService;
+class LoggingSelectionUseCase;
 } // namespace fastecu::logging
 namespace fastecu::config
 {
@@ -60,7 +60,7 @@ struct MainWindowServices
     fastecu::calibration::CalibrationWorkspace& calibrations;
     fastecu::calibration::RomSaveUseCase& rom_save;
     fastecu::logging::LoggerModel& logger_model;
-    fastecu::logging::LoggerDefinitionService& logger_definitions;
+    fastecu::logging::LoggingSelectionUseCase& logging_selection;
     QtFileRepository& config_repository;
     QtEventSink& file_action_events;
     fastecu::ui::LogChannel& log;
