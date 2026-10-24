@@ -17,7 +17,9 @@ build --features=external_include_paths
 # through its bazel-out prefix. No backslashes: .bazelrc unescapes them before
 # Bazel sees the regex.
 
+# C++ sources only: some of these flags are not valid for C and Objective-C.
 # GCC's -Wall includes -Wsign-compare and clang's does not.
-build:macos --per_file_copt=^(src|apps|tests|bazel)/.*[.](cc|cpp|cxx|mm)$@-Wsign-compare
+build:macos --per_file_copt=^(bazel-out/[^/]+/bin/)?(src|apps|tests|bazel)/.*[.](cc|cpp|cxx|mm)$@-Wsign-compare,-Wextra-semi,-Wcast-qual,-Wunused-parameter
+build:linux --per_file_copt=^(bazel-out/[^/]+/bin/)?(src|apps|tests|bazel)/.*[.](cc|cpp|cxx|mm)$@-Wextra-semi,-Wcast-qual,-Wunused-parameter
 
 build:windows --per_file_copt=^(bazel-out/[^/]+/bin/)?(apps|src|tests)/.*@/W4,/permissive-

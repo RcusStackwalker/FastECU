@@ -61,7 +61,7 @@ just sized, two on a `back()` of a non-empty constant, and four inside libstdc++
 | Flag | Status |
 | --- | --- |
 | MSVC `/W4 /permissive-`, `external_include_paths` | landed |
-| `-Wextra-semi`, `-Wcast-qual`, `-Wunused-parameter` | planned |
+| `-Wextra-semi`, `-Wcast-qual`, `-Wunused-parameter` | landed (`-Wunused-parameter` pairs with C4100, already in `/W4`) |
 | `-Wextra` (`-Wmissing-field-initializers`) | planned |
 | `-Wshadow` | planned |
 | `-Wold-style-cast` | planned |
