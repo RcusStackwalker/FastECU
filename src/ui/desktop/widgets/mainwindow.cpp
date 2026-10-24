@@ -1557,7 +1557,9 @@ void MainWindow::saveLoggerSelection()
 void MainWindow::savePendingLoggingSelection(fastecu::logging::LoggerSelection selection)
 {
     const auto& handle = config_session_->EffectivePaths().logger_file;
-    if (!services_.logging_selection.SavePendingSelection(handle, ecuid_.toStdString(), std::move(selection)))
+    if (const auto saved =
+            services_.logging_selection.SavePendingSelection(handle, ecuid_.toStdString(), std::move(selection));
+        !saved.has_value())
     {
         services_.file_action_events.Notice("Logger file: Unable to save logger config file '" + handle + "'");
     }
