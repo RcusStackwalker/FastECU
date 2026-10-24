@@ -2382,7 +2382,6 @@ void MainWindowTest::checkLoggingDefinitionErrorShowsDetailAndLeavesStopped()
     EXPECT_FALSE(window.logging_run_->view().active_snapshot.has_value());
     EXPECT_FALSE(action->isChecked());
     EXPECT_FALSE(window.logging_state_);
-    EXPECT_FALSE(window.log_params_request_started_);
 }
 
 TEST_F(MainWindowTest, loggingDefinitionErrorShowsDetailAndLeavesStopped)
@@ -3806,7 +3805,7 @@ void MainWindowTest::checkLoggingSelectionWiringAndSupportPreservation()
     ASSERT_TRUE(window.logger_model_->ParameterAvailable("SSM", "rpm"));
     ASSERT_TRUE(window.logger_model_->SwitchAvailable("SSM", "flag"));
     ASSERT_TRUE(window.logger_model_->Definition().parameters.front().enabled);
-    window.saveLoggerSelection();
+    window.savePendingLoggingSelection(window.logger_model_->Selection());
     const auto stored = services.logger_definitions.LoadSelection(cfg.toStdString(), "MODEL_TEST");
     ASSERT_THAT(stored, fastecu::testing::IsOk());
     ASSERT_TRUE(stored->has_value());
@@ -3959,7 +3958,7 @@ void MainWindowTest::checkSavingASelectionThatCannotBePersistedNoticesTheOperato
     QStringList notices;
     QObject::connect(&services.events, &QtEventSink::noticed, &window,
                      [&notices](const QString& message) { notices.append(message); });
-    window.saveLoggerSelection();
+    window.savePendingLoggingSelection(window.logger_model_->Selection());
     ASSERT_EQ(notices, QStringList{"Logger file: Unable to save logger config file '" + cfg + "'"});
     driver.stop();
 }
