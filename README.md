@@ -121,7 +121,7 @@ A `MUT_DMA` log protocol has been added for Mitsubishi M32R ECUs communicating o
 
 Known gaps before this is production-ready:
 
-- The wake/init step uses `AlreadyInMode`, which assumes the ECU is already in DMA mode. The correct 5-baud wake sequence (`FiveBaudInit`) and the exact on-wire byte exchange still need bench confirmation on a real M32R ECU.
+- The wake/init step uses `AlreadyInMode`, which assumes the ECU is already in DMA mode. A 5-baud wake sequence is not implemented, and the exact on-wire byte exchange still need bench confirmation on a real M32R ECU.
 - Memory writes are untested on a running ECU. The address window guard is a software-only check — no ECU-side acknowledgement is verified.
 
 The GUI-free codec, free-form, and memory algorithms live under

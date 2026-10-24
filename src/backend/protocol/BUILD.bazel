@@ -6,7 +6,6 @@ package(default_visibility = ["//bazel/layers:backend_and_above"])
 cc_library(
     name = "protocol",
     srcs = [
-        "imut_dma_init.cpp",
         "mitsu_colt_can_cdbg_driver.cpp",
         "mut_dma_driver.cpp",
     ],

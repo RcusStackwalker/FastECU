@@ -146,21 +146,6 @@ fastecu_portable_gtest(
 )
 
 cc_library(
-    name = "in_memory_settings",
-    hdrs = ["in_memory_settings.h"],
-    deps = ["//src/backend/ports"],
-)
-
-fastecu_portable_gtest(
-    name = "in_memory_settings_test",
-    srcs = ["in_memory_settings_test.cpp"],
-    deps = [
-        ":in_memory_settings",
-        "@googletest//:gtest",
-    ],
-)
-
-cc_library(
     name = "recording_event_sink",
     hdrs = ["recording_event_sink.h"],
     deps = ["//src/backend/ports"],

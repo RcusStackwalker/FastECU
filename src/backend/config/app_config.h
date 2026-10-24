@@ -33,11 +33,8 @@ struct AppConfig
 
 // Reads and parses fastecu.cfg without writing anything back. Absent
 // settings stay "" and directory values are returned as written in the
-// file (unnormalized) -- the contract load_app_config has always had.
+// file (unnormalized) -- the contract the legacy loader always had.
 Result<AppConfig> ParseAppConfig(const ConfigPaths& paths, IFileRepository& file_repository);
-
-// Replaces FileActions::read_config_file.
-Result<AppConfig> LoadAppConfig(const ConfigPaths& paths, IFileRepository& file_repository);
 
 // Replaces FileActions::save_config_file. Returns the normalized config
 // (trailing slash appended to calibration_files_directory/

@@ -3,7 +3,6 @@
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
-#include "src/platform/desktop/common/ports/qt_settings.h"
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QSettings>
@@ -127,26 +126,6 @@ TEST(QtFileRepositoryTest, ReadOfMissingPathFails)
 
     QtFileRepository repo;
     ASSERT_THAT(repo.Read(path), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-}
-
-// ---- QtSettings ---------------------------------------------------------
-// Isolation: QtPortEnvironment redirects QSettings to a throwaway temp
-// directory before any QtSettings is constructed, so these tests never touch
-// the real user config.
-
-TEST(QtSettingsTest, GetOfMissingKeyReturnsNullopt)
-{
-    QtSettings settings;
-    EXPECT_EQ(settings.Get("qt-port-adapters-test/missing-key"), std::nullopt);
-}
-
-TEST(QtSettingsTest, SetThenGetRoundTrips)
-{
-    QtSettings settings;
-    settings.Set("qt-port-adapters-test/round-trip", "some-value");
-    std::optional<std::string> v = settings.Get("qt-port-adapters-test/round-trip");
-    ASSERT_TRUE(v.has_value());
-    EXPECT_EQ(*v, "some-value");
 }
 
 // ---- QtEventSink --------------------------------------------------------

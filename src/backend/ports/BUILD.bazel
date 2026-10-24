@@ -22,7 +22,6 @@ cc_library(
         "manual_cancellation_token.h",
         "resource_bundle.h",
         "result.h",
-        "settings.h",
     ],
 )
 
