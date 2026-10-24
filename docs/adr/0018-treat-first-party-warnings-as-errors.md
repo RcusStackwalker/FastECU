@@ -46,10 +46,10 @@ repo(features = ["treat_warnings_as_errors"])
   a newer LLVM than the build. The build is the warnings gate.
 - Warning levels are unchanged: `-Wall` on clang and GCC, MSVC's default,
   plus `-Wsign-compare` on macOS. GCC's `-Wall` includes it and clang's does
-  not, so Linux CI rejected comparisons that macOS accepted. `.bazelrc`
+  not, so Linux CI rejected comparisons that macOS accepted. `bazel/warnings.bazelrc`
   adds it with a `--per_file_copt` filter on our own source directories, so
   dependencies stay untouched; the generated `moc_*` files are outside it.
-  Raising the levels further is [issue #470](https://github.com/RcusStackwalker/FastECU/issues/470).
+  Raising the levels further is [ADR 0028](0028-raise-first-party-warnings-one-flag-at-a-time.md).
 
 ## Alternatives
 

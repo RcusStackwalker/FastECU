@@ -12,6 +12,8 @@
 #include "src/platform/desktop/common/logging/runtime/logging_worker.h"
 #include <QMap>
 #include <array>
+#include <bit>
+#include <cstdint>
 #include <optional>
 #include <format>
 #include <string>
@@ -286,10 +288,10 @@ TEST(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_an
         EXPECT_CALL(serial.Fake(), WriteSerialData(MutFrame(0xa0, 1, 0xa1, 0x0a))).WillOnce(Return(QByteArray{}));
         EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(MutFrame(0xa5, 0, 0xa5, 0x0d)));
         QByteArray ids(31, '\0');
-        ids[0] = char(0xa1);
+        ids[0] = std::bit_cast<char>(std::uint8_t{0xa1});
         ids[1] = 1;
         ids[2] = 0x40;
-        ids[4] = char(0x80);
+        ids[4] = std::bit_cast<char>(std::uint8_t{0x80});
         ids[29] = 0x62;
         ids[30] = 0x0d;
         EXPECT_CALL(serial.Fake(), WriteSerialData(ids)).WillOnce(Return(QByteArray{}));
@@ -322,10 +324,10 @@ TEST(DesktopLoggingProtocolRegistrationTest, firmware_little_endian_mut_reaches_
         EXPECT_CALL(serial.Fake(), WriteSerialData(MutFrame(0xa0, 1, 0xa1, 0x0a))).WillOnce(Return(QByteArray{}));
         EXPECT_CALL(serial.Fake(), ReadSerialData(50)).WillOnce(Return(MutFrame(0xa5, 0, 0xa5, 0x0d)));
         QByteArray ids(31, '\0');
-        ids[0] = char(0xa1);
+        ids[0] = std::bit_cast<char>(std::uint8_t{0xa1});
         ids[1] = 1;
         ids[2] = 0x40;
-        ids[4] = char(0x80);
+        ids[4] = std::bit_cast<char>(std::uint8_t{0x80});
         ids[29] = 0x62;
         ids[30] = 0x0d;
         EXPECT_CALL(serial.Fake(), WriteSerialData(ids)).WillOnce(Return(QByteArray{}));

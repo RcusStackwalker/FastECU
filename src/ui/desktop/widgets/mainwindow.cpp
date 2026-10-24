@@ -1086,7 +1086,7 @@ void MainWindow::setMapSwitch(fastecu::calibration::SessionId id, int mapIndex, 
     (void)state;
 }
 
-void MainWindow::calibrationFilesTreewidgetItemSelected(QTreeWidgetItem *item)
+void MainWindow::calibrationFilesTreewidgetItemSelected(QTreeWidgetItem *)
 {
     QList<QTreeWidgetItem *> itemList;
     QTreeWidgetItem *selectedItem = ui_->calibrationFilesTreeWidget->selectedItems().at(0);
@@ -1332,7 +1332,7 @@ void MainWindow::closeCalibrationMap(QObject *obj)
     }
 }
 
-void MainWindow::closeEvent(QCloseEvent *event)
+void MainWindow::closeEvent(QCloseEvent *)
 {
     closeApp();
 }

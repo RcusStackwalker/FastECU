@@ -229,7 +229,7 @@ CalibrationMaps::~CalibrationMaps()
 {
 }
 
-void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int xSizeArg)
+void CalibrationMaps::setMapTableWidgetSize(int maxWidth, int maxHeight, int)
 {
     int w = 0;
     int h = 0;
@@ -492,7 +492,7 @@ void CalibrationMaps::startSelection(int row, int col)
 
 // While a selection extends, cells outside the part it started in (axis row,
 // axis column or body) stop being selectable.
-void CalibrationMaps::cellChanged(int curRow, int curCol, int prevRow, int prevCol)
+void CalibrationMaps::cellChanged(int, int, int, int)
 {
     const QString layout = mapLayout();
     const Qt::ItemFlags fixed = Qt::ItemIsEditable | Qt::ItemIsEnabled;

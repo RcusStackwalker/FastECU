@@ -23,7 +23,7 @@ QGroupBox *LogBox::drawLogBoxes(const QString& type, int index, int logBoxCount,
     return gb;
 }
 
-QGroupBox *LogBox::drawLogSwitchBox(int index, int switchBoxCount, const QString& title, const QString& unit,
+QGroupBox *LogBox::drawLogSwitchBox(int index, int switchBoxCount, const QString& title, const QString&,
                                     const QString& value)
 {
     QScreen *screen = QGuiApplication::primaryScreen();

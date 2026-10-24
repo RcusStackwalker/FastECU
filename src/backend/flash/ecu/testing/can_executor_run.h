@@ -5,6 +5,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -355,7 +356,7 @@ void ExpectIdentityFailuresAreNonFatal(MakePlan make_plan, std::initializer_list
         transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
         transport.Exchange(Request(ecu_id_request));
         transport.QueueError(error, "identity failure");
-        for (const bytes::Byte subfunction : {0x02, 0x04, 0x06})
+        for (const bytes::Byte subfunction : std::to_array<bytes::Byte>({0x02, 0x04, 0x06}))
         {
             transport.Exchange(Request({0x09, subfunction}));
             transport.QueueError(error, "identity failure");

@@ -164,7 +164,7 @@ void BiuOperationsSubaru::closeResultsWindows()
     }
 }
 
-void BiuOperationsSubaru::closeEvent(QCloseEvent *event)
+void BiuOperationsSubaru::closeEvent(QCloseEvent *)
 {
     qDebug() << "Closing BIU log window";
     keep_alive_timer_->stop();

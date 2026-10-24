@@ -55,7 +55,7 @@ Settings::~Settings()
     }
 }
 
-void Settings::closeEvent(QCloseEvent *bar)
+void Settings::closeEvent(QCloseEvent *)
 {
     qDebug() << "Save config file before exit, bye bye!";
     saveConfigFile();
