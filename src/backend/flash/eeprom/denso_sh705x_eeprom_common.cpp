@@ -300,8 +300,8 @@ Status ValidateDensoSh705xEepromPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "Denso SH705x EEPROM plan requires a kernel image");
     }
-    EepromReadMode mode{};
-    DensoSecurityVariant security{};
+    EepromReadMode mode = EepromReadMode::kMode2; // overwritten below: the plan holds one of the two variants
+    DensoSecurityVariant security = DensoSecurityVariant::kStock;
     if (const auto *kline = std::get_if<DensoSh705xEepromKlinePlan>(&plan.FamilyPlan()))
     {
         mode = kline->mode;
