@@ -27,9 +27,9 @@ failure; a Close-only failure is returned. Non-opted-in families retain their
 existing path. Direct Colt Execute callers must supply the guard.
 
 Colt's read and comparison loops report cancellation through the next exchange,
-including its address in the warning. A precancelled call is refused in plan
-admission with `cancelled before setup`, before any events or I/O; an invalid
-plan still reports its validation error first. An accepted
+including its address in the warning. A precancelled direct Execute call is
+refused in plan admission with `cancelled before setup`, before any events or
+I/O; an invalid plan still reports its validation error first. An accepted
 erase reply can produce its completion event before the next request is refused.
 Complete ROM data and verification failures retain their meaning after late
 cancellation. Family abort returns and confirmations remain separate owners.
