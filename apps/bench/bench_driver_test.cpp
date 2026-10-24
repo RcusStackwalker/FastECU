@@ -1,6 +1,7 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "apps/bench/bench_driver.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <format>
@@ -21,6 +22,8 @@ namespace
 using testing::FakeBenchEnvironment;
 using testing::FakeBenchFiles;
 using testing::FakeBenchSession;
+using ::testing::IsEmpty;
+using ::testing::Not;
 
 struct Harness
 {
@@ -70,7 +73,7 @@ TEST(BenchDriver, JsonPortsIsOneObjectAndNeverRequestsASession)
     EXPECT_TRUE(harness.output.str().starts_with("{"));
     EXPECT_NE(harness.output.str().find("\"step\":\"ports\""), std::string::npos);
     EXPECT_NE(harness.output.str().find("op2-0"), std::string::npos);
-    EXPECT_TRUE(harness.diagnostics.str().empty());
+    EXPECT_THAT(harness.diagnostics.str(), IsEmpty());
 }
 
 TEST(BenchDriver, JsonPortsFailureIsAnObjectOnStdoutAndDiagnosticOnStderr)
@@ -147,7 +150,7 @@ TEST(BenchDriver, InvalidFirstStepIsRejectedBeforeRequestingASession)
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
     EXPECT_NE(harness.output.str().find("read 0x1000000 1"), std::string::npos);
 }
 
@@ -159,7 +162,7 @@ TEST(BenchDriver, InvalidLaterStepIsRejectedBeforeAnyEarlierDestructiveStep)
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
     EXPECT_NE(harness.output.str().find("read nonsense 1"), std::string::npos);
     EXPECT_NE(harness.diagnostics.str().find("not a number"), std::string::npos);
 }
@@ -173,7 +176,7 @@ TEST(BenchDriver, MissingLaterPayloadIsRejectedBeforeAnyEarlierDestructiveStep)
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
     EXPECT_NE(harness.output.str().find("download 0x8000 missing.bin"), std::string::npos);
     EXPECT_NE(harness.diagnostics.str().find("no such file"), std::string::npos);
 }
@@ -204,7 +207,7 @@ TEST(BenchDriver, InvalidLaterScriptLinePreventsEarlierDestructiveLine)
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
     EXPECT_NE(harness.output.str().find("script line 2: read nonsense 1"), std::string::npos);
 }
 
@@ -225,7 +228,7 @@ TEST(BenchDriver, ScriptLineGlobalOptionsAreRejectedInsteadOfDiscarded)
 // rejected on a script line rather than silently parsed and discarded.
 TEST(BenchDriver, EveryGlobalOptionIsRejectedOnAScriptLine)
 {
-    ASSERT_FALSE(GlobalOptionTable().empty());
+    ASSERT_THAT(GlobalOptionTable(), Not(IsEmpty()));
     for (const GlobalOptionSpec& option : GlobalOptionTable())
     {
         SCOPED_TRACE(::testing::PrintToString(option.name));
@@ -282,7 +285,7 @@ TEST(BenchDriver, EraseRequiresANamedEraseHelperRatherThanAnyRoutineUpload)
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchDriver, UnlockBeforeEraseHelperDoesNotQualifyForErase)
@@ -294,7 +297,7 @@ TEST(BenchDriver, UnlockBeforeEraseHelperDoesNotQualifyForErase)
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchDriver, ScriptUnlockBeforeEraseHelperDoesNotQualifyForErase)
@@ -307,7 +310,7 @@ TEST(BenchDriver, ScriptUnlockBeforeEraseHelperDoesNotQualifyForErase)
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchDriver, EraseHelperFromOverrideDoesNotQualifyForErase)
@@ -320,7 +323,7 @@ TEST(BenchDriver, EraseHelperFromOverrideDoesNotQualifyForErase)
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchDriver, DownloadBetweenEraseHelperAndUnlockInvalidatesThePlan)
@@ -341,7 +344,7 @@ TEST(BenchDriver, DownloadBetweenEraseHelperAndUnlockInvalidatesThePlan)
 
         EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
         EXPECT_EQ(harness.environment.session_calls, 0);
-        EXPECT_TRUE(harness.session.requests.empty());
+        EXPECT_THAT(harness.session.requests, IsEmpty());
     }
 }
 
@@ -357,7 +360,7 @@ TEST(BenchDriver, ScriptDownloadBetweenEraseHelperAndUnlockInvalidatesThePlan)
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchDriver, DestructiveRawSendBetweenEraseHelperAndUnlockInvalidatesThePlan)
@@ -369,7 +372,7 @@ TEST(BenchDriver, DestructiveRawSendBetweenEraseHelperAndUnlockInvalidatesThePla
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchDriver, NamedEraseHelperAndUnlockPermitEraseInTheSameSession)
@@ -415,7 +418,7 @@ TEST(BenchDriver, WriteHelperFromOverrideBetweenEraseHelperAndUnlockInvalidatesT
 
     EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
     EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchDriver, FailedEraseHelperUploadPreventsEraseUnderKeepGoing)
@@ -526,7 +529,7 @@ TEST(BenchDriver, ExplicitConnectMustBeTheFirstSessionStepAndAppearOnlyOnce)
         EXPECT_EQ(code, ExitCodeFor(ErrorKind::kInvalidConfig));
         EXPECT_EQ(harness.environment.session_calls, 0);
         EXPECT_EQ(harness.session.connect_calls, 0);
-        EXPECT_TRUE(harness.session.requests.empty());
+        EXPECT_THAT(harness.session.requests, IsEmpty());
     }
 }
 
