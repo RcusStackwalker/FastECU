@@ -22,6 +22,7 @@ namespace
 {
 
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
 using ::testing::Not;
 
 std::vector<std::uint8_t> Bytes(std::string_view text)
@@ -83,7 +84,7 @@ TEST(DefinitionWriterTest, CreatesSemanticEcuFlashDefinitionWithDeterministicUtf
     EXPECT_THAT(xml, HasSubstr("\n  <romid>\n    <xmlid>NEW_XML</xmlid>"));
     EXPECT_THAT(xml, HasSubstr("<notes>Réglage Ω</notes>"));
     EXPECT_THAT(xml, Not(HasSubstr("\t")));
-    ASSERT_FALSE(xml.empty());
+    ASSERT_THAT(xml, Not(IsEmpty()));
     EXPECT_EQ(xml.back(), '\n');
 }
 

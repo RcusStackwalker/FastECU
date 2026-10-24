@@ -2,7 +2,10 @@
 
 #include <string_view>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::Eq;
 
 namespace fastecu::definition
 {
@@ -20,7 +23,7 @@ TEST(ParseHexBytesTest, RejectsAnythingButWholeBareBytes)
     for (const std::string_view text : {"0", "070", "0x07", "0Z", " 7", "7 ", "-1", "+1", "07 08"})
     {
         SCOPED_TRACE(::testing::PrintToString(text));
-        EXPECT_FALSE(ParseHexBytes(text).has_value()) << text;
+        EXPECT_THAT(ParseHexBytes(text), Eq(std::nullopt)) << text;
     }
 }
 
@@ -53,11 +56,11 @@ TEST(ParseHexValueTest, TrimsVerticalTabAndFormFeed)
 
 TEST(ParseHexValueTest, RejectsMalformedInput)
 {
-    EXPECT_FALSE(ParseHexValue("").has_value());
-    EXPECT_FALSE(ParseHexValue("0x").has_value());
-    EXPECT_FALSE(ParseHexValue("nonsense").has_value());
-    EXPECT_FALSE(ParseHexValue("0xFFFF6004xyz").has_value()); // trailing junk
-    EXPECT_FALSE(ParseHexValue("-1").has_value());
+    EXPECT_THAT(ParseHexValue(""), Eq(std::nullopt));
+    EXPECT_THAT(ParseHexValue("0x"), Eq(std::nullopt));
+    EXPECT_THAT(ParseHexValue("nonsense"), Eq(std::nullopt));
+    EXPECT_THAT(ParseHexValue("0xFFFF6004xyz"), Eq(std::nullopt)); // trailing junk
+    EXPECT_THAT(ParseHexValue("-1"), Eq(std::nullopt));
 }
 
 TEST(ParseHexValueTest, RoundTripsWithHexText)

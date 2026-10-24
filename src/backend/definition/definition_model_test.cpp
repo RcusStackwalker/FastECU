@@ -7,6 +7,11 @@
 #include <string>
 #include <type_traits>
 
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Optional;
+
 using fastecu::ErrorKind;
 using fastecu::definition::AxisDefinition;
 using fastecu::definition::CalibrationMap;
@@ -44,27 +49,27 @@ DefinitionIndexEntry Entry(std::string definition_id, std::string source, std::v
 TEST(DefinitionModelTest, UnresolvedFieldsDistinguishOmittedFromExplicitDefaults)
 {
     const UnresolvedScaling omitted_scaling;
-    EXPECT_FALSE(omitted_scaling.from_byte);
-    EXPECT_FALSE(omitted_scaling.to_byte);
-    EXPECT_FALSE(omitted_scaling.format);
+    EXPECT_THAT(omitted_scaling.from_byte, Eq(std::nullopt));
+    EXPECT_THAT(omitted_scaling.to_byte, Eq(std::nullopt));
+    EXPECT_THAT(omitted_scaling.format, Eq(std::nullopt));
 
     UnresolvedAxisDefinition explicit_axis;
     explicit_axis.size = 1U;
     explicit_axis.from_byte = "x";
     explicit_axis.static_data = std::vector<std::string>{};
-    ASSERT_TRUE(explicit_axis.size);
+    ASSERT_THAT(explicit_axis.size, Optional(_));
     EXPECT_EQ(*explicit_axis.size, 1U);
-    ASSERT_TRUE(explicit_axis.from_byte);
+    ASSERT_THAT(explicit_axis.from_byte, Optional(_));
     EXPECT_EQ(*explicit_axis.from_byte, "x");
-    EXPECT_TRUE(explicit_axis.static_data);
-    EXPECT_TRUE(explicit_axis.static_data->empty());
+    EXPECT_THAT(explicit_axis.static_data, Optional(_));
+    EXPECT_THAT(*explicit_axis.static_data, IsEmpty());
 
     UnresolvedCalibrationMap explicit_map;
     explicit_map.x_size = 1U;
     explicit_map.swap_xy = false;
-    ASSERT_TRUE(explicit_map.x_size);
+    ASSERT_THAT(explicit_map.x_size, Optional(_));
     EXPECT_EQ(*explicit_map.x_size, 1U);
-    ASSERT_TRUE(explicit_map.swap_xy);
+    ASSERT_THAT(explicit_map.swap_xy, Optional(_));
     EXPECT_FALSE(*explicit_map.swap_xy);
 }
 
@@ -80,7 +85,7 @@ TEST(DefinitionModelTest, ResolvedValuesHaveConcreteDefaults)
     EXPECT_EQ(axis.to_byte, "x");
     EXPECT_EQ(axis.start_position, 1U);
     EXPECT_EQ(axis.interval, 1U);
-    EXPECT_FALSE(axis.storage_type.has_value());
+    EXPECT_THAT(axis.storage_type, Eq(std::nullopt));
 
     const CalibrationMap map;
     EXPECT_EQ(map.x_size, 1U);
@@ -90,11 +95,11 @@ TEST(DefinitionModelTest, ResolvedValuesHaveConcreteDefaults)
     EXPECT_FALSE(map.flip_y);
     EXPECT_EQ(map.start_position, 1U);
     EXPECT_EQ(map.interval, 1U);
-    EXPECT_FALSE(map.storage_type.has_value());
+    EXPECT_THAT(map.storage_type, Eq(std::nullopt));
 
     const RomDefinition definition{};
-    EXPECT_TRUE(definition.resolved_sources.empty());
-    EXPECT_TRUE(definition.resolved_definition_ids.empty());
+    EXPECT_THAT(definition.resolved_sources, IsEmpty());
+    EXPECT_THAT(definition.resolved_definition_ids, IsEmpty());
 }
 
 TEST(DefinitionModelTest, ResolvedDefinitionIsDistinctFromUnresolvedInput)
