@@ -9,6 +9,7 @@
 #include <vector>
 
 #include <gmock/gmock-matchers.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/calibration/calibration_service.h"
@@ -23,6 +24,7 @@ namespace
 using fastecu::testing::IsOk;
 using fastecu::testing::IsOkAnd;
 using ::testing::ElementsAre;
+using ::testing::IsEmpty;
 
 template <typename T>
 concept HasRvalueEditSpec = requires(T value) { std::move(value).EditSpec(); };
@@ -111,7 +113,7 @@ TEST(ResolveMapElement, UsesResolvedAxisFieldsAndScalingBounds)
     const auto resolved = internal::ResolveMapElement(definition, map, NumericTarget::kXAxis);
     EXPECT_EQ(resolved.address, memory::DefinitionAddress{12});
     EXPECT_EQ(resolved.storage_type, std::nullopt);
-    EXPECT_TRUE(resolved.Run().endian.empty());
+    EXPECT_THAT(resolved.Run().endian, IsEmpty());
     EXPECT_EQ(resolved.Run().from_byte, "x*2");
     EXPECT_EQ(resolved.EditSpec().to_byte, "x/2");
     EXPECT_EQ(resolved.EditSpec().min_value, "-10");
