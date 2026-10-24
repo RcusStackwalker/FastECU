@@ -2,10 +2,12 @@
 
 #include <expected>
 #include <string>
+#include <string_view>
 
 #include "src/backend/logging/logger_definition_service.h"
 #include "src/backend/logging/logger_model.h"
 #include "src/backend/ports/error.h"
+#include "src/backend/ports/result.h"
 
 namespace fastecu::logging
 {
@@ -38,8 +40,16 @@ struct InstallFailure
     Error error;
 };
 
-// Installs the logging definition into the model. The caller owns the
-// operator text, its settings, and the ECU identity.
+enum class RestoreOutcome
+{
+    kRestored,            // the ECU's pending logging selection was applied
+    kInitialized,         // no entry: the definition default was applied and persisted
+    kClearedNoDefinition, // no entry and an empty definition: IDs cleared, nothing persisted
+};
+
+// Installs the logging definition and restores or saves the pending logging
+// selection in the model. The caller owns the operator text, its settings,
+// and the ECU identity.
 class LoggingSelectionUseCase
 {
   public:
@@ -48,6 +58,15 @@ class LoggingSelectionUseCase
     // On success installs the definition and resets the selection to its
     // default for source.log_protocol. On failure the model is untouched.
     std::expected<InstallOutcome, InstallFailure> InstallDefinition(const DefinitionSource& source);
+
+    // An error means a conf read, or the initializing write, failed. A failed
+    // first read keeps the selection; any later failure leaves its IDs cleared.
+    Result<RestoreOutcome> RestorePendingSelection(std::string_view conf_handle, std::string_view ecu_id,
+                                                   std::string_view log_protocol);
+
+    // Applies `selection` to the model, then persists it for `ecu_id`. The
+    // model keeps the selection even when the save fails.
+    Status SavePendingSelection(std::string_view conf_handle, std::string_view ecu_id, LoggerSelection selection);
 
   private:
     LoggerDefinitionService& definitions_;

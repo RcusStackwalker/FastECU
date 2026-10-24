@@ -32,4 +32,40 @@ std::expected<InstallOutcome, InstallFailure> LoggingSelectionUseCase::InstallDe
                           .bundled_handle_used = source.configured_handle.empty() && !handle->empty()};
 }
 
+Result<RestoreOutcome> LoggingSelectionUseCase::RestorePendingSelection(std::string_view conf_handle,
+                                                                        std::string_view ecu_id,
+                                                                        std::string_view log_protocol)
+{
+    const auto stored = definitions_.LoadSelection(conf_handle, ecu_id);
+    if (!stored)
+    {
+        return std::unexpected(stored.error());
+    }
+    // A successful read clears IDs even if no ECU entry or definition exists.
+    model_.SetSelection({.protocol = model_.Selection().protocol});
+    if (stored->has_value())
+    {
+        model_.SetSelection(**stored);
+        return RestoreOutcome::kRestored;
+    }
+    if (model_.Definition().parameters.empty() && model_.Definition().switches.empty())
+    {
+        return RestoreOutcome::kClearedNoDefinition;
+    }
+    auto selected = definitions_.LoadOrInitializeSelection(conf_handle, ecu_id, model_.DefaultSelection(log_protocol));
+    if (!selected)
+    {
+        return std::unexpected(selected.error());
+    }
+    model_.SetSelection(std::move(*selected));
+    return RestoreOutcome::kInitialized;
+}
+
+Status LoggingSelectionUseCase::SavePendingSelection(std::string_view conf_handle, std::string_view ecu_id,
+                                                     LoggerSelection selection)
+{
+    model_.SetSelection(std::move(selection));
+    return definitions_.SaveSelection(conf_handle, ecu_id, model_.Selection());
+}
+
 } // namespace fastecu::logging
