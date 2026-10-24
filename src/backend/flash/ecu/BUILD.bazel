@@ -677,7 +677,6 @@ cc_library(
     hdrs = ["mitsu_colt_m32r_can_executor.h"],
     implementation_deps = [
         ":flash_phase_progress",
-        ":mitsu_colt_m32r_can_plan",
         ":uds_client_exchange_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
@@ -687,6 +686,7 @@ cc_library(
         "//src/backend/protocol/uds:uds_client",
     ],
     deps = [
+        ":mitsu_colt_m32r_can_plan",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:guarded_can_flash_transport",
     ],
@@ -964,11 +964,13 @@ cc_library(
     hdrs = ["subaru_unisia_jecs_m32r_kline_executor.h"],
     implementation_deps = [
         ":m32r_ssm_exchange",
-        ":subaru_unisia_jecs_m32r_kline_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_unisia_jecs_m32r_kline_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -1018,8 +1020,10 @@ cc_library(
     name = "subaru_unisia_jecs_m32r_bootmode_kernel_executor",
     srcs = ["subaru_unisia_jecs_m32r_bootmode_kernel_executor.cpp"],
     hdrs = ["subaru_unisia_jecs_m32r_bootmode_kernel_executor.h"],
-    implementation_deps = [":subaru_unisia_jecs_m32r_bootmode_plan"],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_unisia_jecs_m32r_bootmode_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -1044,11 +1048,13 @@ cc_library(
     hdrs = ["subaru_unisia_jecs_m32r_bootmode_program_executor.h"],
     implementation_deps = [
         ":m32r_ssm_exchange",
-        ":subaru_unisia_jecs_m32r_bootmode_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_unisia_jecs_m32r_bootmode_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 fastecu_portable_gtest(

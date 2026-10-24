@@ -301,8 +301,9 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancelledBeforeVoltageNeverRai
     ScriptedKlineFlashTransport transport;
     RunContext context;
     context.cancellation.SetCancelled(true);
-    EXPECT_THAT(RunScripted(plan, transport, context), IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(transport.control_line_trace, std::vector{Line::kDisableLecLines});
+    EXPECT_THAT(RunScripted(plan, transport, context),
+                IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_TRUE(transport.control_line_trace.empty());
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancelledMidProgrammingReportsCancelled)
@@ -360,7 +361,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancellationDuringEraseDropsTh
     // ICancellationToken::cancelled() call count at which cancellation lands:
     // 3 is the 500 ms post-AF-31 settle sleep (write_mem() :389), 4 is the
     // erase-started poll's first read, 9 is the erase-complete poll's first
-    // read. (Full call sequence: 1 before-voltage check, 2 before the AF 31
+    // read. (Full call sequence: 1 plan admission, 2 before the AF 31
     // write, 3 the settle sleep, 4/5 the erase-started poll's first read and
     // its post-read check, 6 that poll's retry sleep, 7/8 its second read and
     // post-read check, 9/10 the erase-complete poll's first read and

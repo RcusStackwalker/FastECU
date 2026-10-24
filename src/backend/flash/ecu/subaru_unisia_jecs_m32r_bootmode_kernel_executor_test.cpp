@@ -154,10 +154,11 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, RejectsAProgramPlan)
     EXPECT_THAT(SubaruUnisiaJecsM32rBootModeKernelExecutor{}.TransportSetup(*plan), IsErr(ErrorKind::kInvalidConfig));
 }
 
-// Check 1 precedes the lines, checks 2 and 3 precede each chunk.
+// Check 1 is plan admission (see CancelledAtEntryTouchesNoControlLine);
+// checks 2 and 3 precede each chunk.
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CancellationAtEachCheckpointDropsTheLines)
 {
-    for (const std::size_t check : {1U, 2U, 3U})
+    for (const std::size_t check : {2U, 3U})
     {
         SCOPED_TRACE(::testing::PrintToString(check));
         auto built_plan_4 = KernelPlan();
@@ -170,8 +171,8 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CancellationAtEachCheckpointDro
         EXPECT_THAT(RunScripted(plan, transport, context), IsErr(ErrorKind::kCancelled)) << "check " << check;
         ASSERT_FALSE(transport.control_line_trace.empty());
         EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines) << "check " << check;
-        // Check 1 stops before any chunk; check N >= 2 stops before chunk N-2.
-        EXPECT_EQ(transport.WritesConsumed(), check >= 2 ? check - 2 : 0U) << "check " << check;
+        // Check N stops before chunk N-2.
+        EXPECT_EQ(transport.WritesConsumed(), check - 2) << "check " << check;
     }
 }
 
@@ -199,5 +200,20 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CleanupFailureFailsAnOtherwiseG
     RunContext context;
     EXPECT_THAT(RunScripted(plan, transport, context), IsErr(ErrorKind::kDisconnected));
 }
+
+TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CancelledAtEntryTouchesNoControlLine)
+{
+    auto plan = KernelPlan();
+    ASSERT_THAT(plan, IsOk());
+    ScriptedKlineFlashTransport transport;
+    RunContext context;
+    context.cancellation.CancelOnCheck(1);
+
+    EXPECT_THAT(RunScripted(*plan, transport, context),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_TRUE(transport.control_line_trace.empty());
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+}
+
 } // namespace
 } // namespace fastecu::flash

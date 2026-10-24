@@ -6,15 +6,17 @@
 namespace fastecu::flash
 {
 
-class SubaruDensoSh7055_02Executor final : public IKlineFlashExecutor
+class SubaruDensoSh7055_02Executor final : public FamilyExecutor<SubaruDensoSh7055_02Plan, IKlineFlashExecutor>
 {
   public:
-    Result<KlineConfig> TransportSetup(const FlashPlan& plan) const override;
     Status BeforeTransportOpen(const ICancellationToken& cancellation) const override;
-    Result<FlashExecutionResult> Execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, IEventSink& events) override;
 
   private:
+    Result<KlineConfig> Setup(const SubaruDensoSh7055_02Plan& family) const override;
+    Result<FlashExecutionResult> Run(const SubaruDensoSh7055_02Plan& family_plan, const FlashPlan& plan,
+                                     IKlineFlashTransport& transport, IClock& clock,
+                                     const ICancellationToken& cancellation, IEventSink& events) override;
+
     Status ConnectBootloader(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                              IEventSink& events, const SubaruDensoSh7055_02Plan& family_plan, bool read_ecu_id,
                              bool& kernel_alive, std::optional<std::string>& ecu_id) const;

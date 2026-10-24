@@ -11,4 +11,12 @@ Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std:
                                                   std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                   KernelImage kernel);
 Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan);
+
+template <> struct PlanValidator<SubaruDensoSh705xKlinePlan>
+{
+    static Status Validate(const FlashPlan& plan)
+    {
+        return ValidateSubaruDensoSh705xKlinePlan(plan);
+    }
+};
 } // namespace fastecu::flash

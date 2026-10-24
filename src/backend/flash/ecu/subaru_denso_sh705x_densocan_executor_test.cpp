@@ -1840,5 +1840,24 @@ TEST(SubaruDensoSh705xDensoCanExecutor, BoundedAttemptClosesOnceAndPreservesExec
     EXPECT_TRUE(HasLog(events, LogLevel::kWarning, "close failed after execution error"));
 }
 
+TEST(SubaruDensoSh705xDensoCanExecutor, PrecancelledRunIsRefusedInAdmission)
+{
+    auto plan = ReadPlan(kCases.front());
+    ASSERT_THAT(plan, IsOk());
+    ScriptedMixedCanFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancellation{true};
+    RecordingEventSink events;
+    SubaruDensoSh705xDensoCanExecutor executor;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.reset_connection_call_count, 0);
+    EXPECT_EQ(transport.clear_receive_buffer_call_count, 0);
+    EXPECT_TRUE(events.logs.empty());
+}
+
 } // namespace
 } // namespace fastecu::flash

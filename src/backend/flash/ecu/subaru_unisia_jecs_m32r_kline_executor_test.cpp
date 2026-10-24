@@ -384,13 +384,15 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationBeforeAPageRequestPropagates
     ScriptedKlineFlashTransport transport;
     ScriptWarmEntry(transport);
     RunContext context;
-    // The probe's send and receive each check cancellation once (calls 1-2);
-    // trip on the third check, which is the first page request's send.
-    context.cancellation.CancelOnCheck(3);
+    // Plan admission is check 1; the probe checks cancellation before its
+    // send, in the transport read, and after the read (calls 2-4). Trip on the
+    // fifth check, which is the first page request's send.
+    context.cancellation.CancelOnCheck(5);
 
     auto built_plan_16 = ReadPlan();
     ASSERT_THAT(built_plan_16, fastecu::testing::IsOk());
-    EXPECT_THAT(RunScripted(std::move(*built_plan_16), transport, context), IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(RunScripted(std::move(*built_plan_16), transport, context),
+                IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before write")));
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
 
@@ -624,14 +626,16 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationBeforeRaisingProgrammingVolt
     ScriptedKlineFlashTransport transport;
     ScriptObkRunning(transport);
     RunContext context;
-    // The OBK probe's send and receive each check cancellation once (calls
-    // 1-2); trip on the third check, which is write_rom()'s own
-    // "before programming voltage" gate (write_mem() :440-441).
-    context.cancellation.CancelOnCheck(3);
+    // Plan admission is check 1; the OBK probe checks cancellation before its
+    // send, in the transport read, and after the read (calls 2-4). Trip on the
+    // fifth check, which is write_rom()'s own "before programming voltage"
+    // gate (write_mem() :440-441).
+    context.cancellation.CancelOnCheck(5);
 
     auto built_plan_24 = WritePlan();
     ASSERT_THAT(built_plan_24, fastecu::testing::IsOk());
-    EXPECT_THAT(RunScripted(std::move(*built_plan_24), transport, context), IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(RunScripted(std::move(*built_plan_24), transport, context),
+                IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before programming voltage")));
     EXPECT_EQ(transport.control_line_trace, std::vector<Line>{Line::kDisableLecLines});
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -928,6 +932,20 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, WriteFailureStopsBeforeReceiving)
     EXPECT_EQ(transport.read_calls, 0);
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(transport.control_line_trace, ::testing::ElementsAre(Line::kDisableLecLines));
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, CancelledAtEntryTouchesNoControlLine)
+{
+    ScriptedKlineFlashTransport transport;
+    RunContext context;
+    context.cancellation.SetCancelled(true);
+
+    auto plan = WritePlan();
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_THAT(RunScripted(std::move(*plan), transport, context),
+                IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_TRUE(transport.control_line_trace.empty());
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 
 } // namespace

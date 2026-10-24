@@ -1521,5 +1521,24 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadPreservesAbsentVersusPresentEmptyResp
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }
+
+TEST(SubaruDensoMc68hc16y5_02Executor, PrecancelledRunIsRefusedInAdmission)
+{
+    auto plan = StockPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancellation{true};
+    RecordingEventSink events;
+    SubaruDensoMc68hc16y5_02Executor executor;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_TRUE(transport.control_line_trace.empty());
+    EXPECT_TRUE(events.logs.empty());
+}
+
 } // namespace
 } // namespace fastecu::flash

@@ -17,4 +17,12 @@ Result<FlashPlan> BuildMitsuColtM32rCanPlan(FlashOperation operation, std::strin
 // Defensive executor boundary for plans assembled without the family builder.
 Status ValidateMitsuColtM32rCanPlan(const FlashPlan& plan);
 
+template <> struct PlanValidator<MitsuColtM32rCanPlan>
+{
+    static Status Validate(const FlashPlan& plan)
+    {
+        return ValidateMitsuColtM32rCanPlan(plan);
+    }
+};
+
 } // namespace fastecu::flash
