@@ -46,12 +46,12 @@ Result<RestoreOutcome> LoggingSelectionUseCase::RestorePendingSelection(std::str
     {
         return RestoreOutcome::kClearedNoDefinition;
     }
-    auto selected = definitions_.LoadOrInitializeSelection(conf_handle, ecu_id, model_.DefaultSelection(log_protocol));
-    if (!selected)
+    LoggerSelection initial = model_.DefaultSelection(log_protocol);
+    if (const Status saved = definitions_.SaveSelection(conf_handle, ecu_id, initial); !saved)
     {
-        return std::unexpected(selected.error());
+        return std::unexpected(saved.error());
     }
-    model_.SetSelection(std::move(*selected));
+    model_.SetSelection(std::move(initial));
     return RestoreOutcome::kInitialized;
 }
 

@@ -34,26 +34,13 @@ class LoggerDefinitionService
     Result<LoggerDefinition> LoadDefinition(std::string_view handle);
 
     // Reads the conf file's selection for `ecu_id`. Returns an empty optional
-    // when that ECU has no entry, and never writes -- a caller with no
-    // definition to initialize from can ask without persisting anything.
+    // when that ECU has no entry, and never writes. A caller that wants to
+    // initialize a missing entry persists the default with SaveSelection.
     Result<std::optional<LoggerSelection>> LoadSelection(std::string_view conf_handle, std::string_view ecu_id);
-
-    // LoadSelection, plus: when that ECU has no entry, composes the explicit
-    // fallback and persists it, so the write is an explicit step rather than
-    // a side effect of a read.
-    Result<LoggerSelection> LoadOrInitializeSelection(std::string_view conf_handle, std::string_view ecu_id,
-                                                      const LoggerSelection& fallback);
 
     Status SaveSelection(std::string_view conf_handle, std::string_view ecu_id, const LoggerSelection& selection);
 
   private:
-    // The one read both public loaders share. `conf_out` receives the bytes so
-    // LoadOrInitializeSelection can hand them to WriteSelection without a
-    // second trip through the repository -- WriteSelection appends to the
-    // document it was given, so it needs the same bytes the parse saw.
-    Result<std::optional<LoggerSelection>> LoadSelection(std::string_view conf_handle, std::string_view ecu_id,
-                                                         bytes::Bytes& conf_out);
-
     IFileRepository& repository_;
     IAtomicFileWriter& writer_;
 };
