@@ -74,26 +74,6 @@ class SerialBackend
 
     virtual QString GetOpenedSerialPort() = 0;
     virtual bool SetOpenedSerialPort(QString value) = 0;
-    virtual QString GetSubaru0216bitBootloaderBaudrate() = 0;
-    virtual bool SetSubaru0216bitBootloaderBaudrate(QString value) = 0;
-    virtual QString GetSubaru0416bitBootloaderBaudrate() = 0;
-    virtual bool SetSubaru0416bitBootloaderBaudrate(QString value) = 0;
-    virtual QString GetSubaru0232bitBootloaderBaudrate() = 0;
-    virtual bool SetSubaru0232bitBootloaderBaudrate(QString value) = 0;
-    virtual QString GetSubaru0432bitBootloaderBaudrate() = 0;
-    virtual bool SetSubaru0432bitBootloaderBaudrate(QString value) = 0;
-    virtual QString GetSubaru0532bitBootloaderBaudrate() = 0;
-    virtual bool SetSubaru0532bitBootloaderBaudrate(QString value) = 0;
-    virtual QString GetSubaru0216bitKernelBaudrate() = 0;
-    virtual bool SetSubaru0216bitKernelBaudrate(QString value) = 0;
-    virtual QString GetSubaru0416bitKernelBaudrate() = 0;
-    virtual bool SetSubaru0416bitKernelBaudrate(QString value) = 0;
-    virtual QString GetSubaru0232bitKernelBaudrate() = 0;
-    virtual bool SetSubaru0232bitKernelBaudrate(QString value) = 0;
-    virtual QString GetSubaru0432bitKernelBaudrate() = 0;
-    virtual bool SetSubaru0432bitKernelBaudrate(QString value) = 0;
-    virtual QString GetSubaru0532bitKernelBaudrate() = 0;
-    virtual bool SetSubaru0532bitKernelBaudrate(QString value) = 0;
     virtual QString GetCanSpeed() = 0;
     virtual bool SetCanSpeed(QString value) = 0;
     virtual QString GetSerialPortBaudrate() = 0;

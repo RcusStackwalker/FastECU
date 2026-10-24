@@ -90,26 +90,6 @@ class FakeBackend : public SerialPortActionsDirect
 
     MOCK_METHOD(QString, GetOpenedSerialPort, (), (override));
     MOCK_METHOD(bool, SetOpenedSerialPort, (QString value), (override));
-    MOCK_METHOD(QString, GetSubaru0216bitBootloaderBaudrate, (), (override));
-    MOCK_METHOD(bool, SetSubaru0216bitBootloaderBaudrate, (QString value), (override));
-    MOCK_METHOD(QString, GetSubaru0416bitBootloaderBaudrate, (), (override));
-    MOCK_METHOD(bool, SetSubaru0416bitBootloaderBaudrate, (QString value), (override));
-    MOCK_METHOD(QString, GetSubaru0232bitBootloaderBaudrate, (), (override));
-    MOCK_METHOD(bool, SetSubaru0232bitBootloaderBaudrate, (QString value), (override));
-    MOCK_METHOD(QString, GetSubaru0432bitBootloaderBaudrate, (), (override));
-    MOCK_METHOD(bool, SetSubaru0432bitBootloaderBaudrate, (QString value), (override));
-    MOCK_METHOD(QString, GetSubaru0532bitBootloaderBaudrate, (), (override));
-    MOCK_METHOD(bool, SetSubaru0532bitBootloaderBaudrate, (QString value), (override));
-    MOCK_METHOD(QString, GetSubaru0216bitKernelBaudrate, (), (override));
-    MOCK_METHOD(bool, SetSubaru0216bitKernelBaudrate, (QString value), (override));
-    MOCK_METHOD(QString, GetSubaru0416bitKernelBaudrate, (), (override));
-    MOCK_METHOD(bool, SetSubaru0416bitKernelBaudrate, (QString value), (override));
-    MOCK_METHOD(QString, GetSubaru0232bitKernelBaudrate, (), (override));
-    MOCK_METHOD(bool, SetSubaru0232bitKernelBaudrate, (QString value), (override));
-    MOCK_METHOD(QString, GetSubaru0432bitKernelBaudrate, (), (override));
-    MOCK_METHOD(bool, SetSubaru0432bitKernelBaudrate, (QString value), (override));
-    MOCK_METHOD(QString, GetSubaru0532bitKernelBaudrate, (), (override));
-    MOCK_METHOD(bool, SetSubaru0532bitKernelBaudrate, (QString value), (override));
     MOCK_METHOD(QString, GetCanSpeed, (), (override));
     MOCK_METHOD(bool, SetCanSpeed, (QString value), (override));
     MOCK_METHOD(QString, GetSerialPortBaudrate, (), (override));
@@ -254,56 +234,6 @@ class FakeBackend : public SerialPortActionsDirect
             .WillByDefault([this] { return SerialPortActionsDirect::GetOpenedSerialPort(); });
         ON_CALL(*this, SetOpenedSerialPort(::testing::_))
             .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetOpenedSerialPort(value); });
-        ON_CALL(*this, GetSubaru0216bitBootloaderBaudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0216bitBootloaderBaudrate(); });
-        ON_CALL(*this, SetSubaru0216bitBootloaderBaudrate(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::SetSubaru0216bitBootloaderBaudrate(value); });
-        ON_CALL(*this, GetSubaru0416bitBootloaderBaudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0416bitBootloaderBaudrate(); });
-        ON_CALL(*this, SetSubaru0416bitBootloaderBaudrate(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::SetSubaru0416bitBootloaderBaudrate(value); });
-        ON_CALL(*this, GetSubaru0232bitBootloaderBaudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0232bitBootloaderBaudrate(); });
-        ON_CALL(*this, SetSubaru0232bitBootloaderBaudrate(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::SetSubaru0232bitBootloaderBaudrate(value); });
-        ON_CALL(*this, GetSubaru0432bitBootloaderBaudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0432bitBootloaderBaudrate(); });
-        ON_CALL(*this, SetSubaru0432bitBootloaderBaudrate(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::SetSubaru0432bitBootloaderBaudrate(value); });
-        ON_CALL(*this, GetSubaru0532bitBootloaderBaudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0532bitBootloaderBaudrate(); });
-        ON_CALL(*this, SetSubaru0532bitBootloaderBaudrate(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::SetSubaru0532bitBootloaderBaudrate(value); });
-        ON_CALL(*this, GetSubaru0216bitKernelBaudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0216bitKernelBaudrate(); });
-        ON_CALL(*this, SetSubaru0216bitKernelBaudrate(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::SetSubaru0216bitKernelBaudrate(value); });
-        ON_CALL(*this, GetSubaru0416bitKernelBaudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0416bitKernelBaudrate(); });
-        ON_CALL(*this, SetSubaru0416bitKernelBaudrate(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::SetSubaru0416bitKernelBaudrate(value); });
-        ON_CALL(*this, GetSubaru0232bitKernelBaudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0232bitKernelBaudrate(); });
-        ON_CALL(*this, SetSubaru0232bitKernelBaudrate(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::SetSubaru0232bitKernelBaudrate(value); });
-        ON_CALL(*this, GetSubaru0432bitKernelBaudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0432bitKernelBaudrate(); });
-        ON_CALL(*this, SetSubaru0432bitKernelBaudrate(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::SetSubaru0432bitKernelBaudrate(value); });
-        ON_CALL(*this, GetSubaru0532bitKernelBaudrate())
-            .WillByDefault([this] { return SerialPortActionsDirect::GetSubaru0532bitKernelBaudrate(); });
-        ON_CALL(*this, SetSubaru0532bitKernelBaudrate(::testing::_))
-            .WillByDefault([this](QString value)
-                           { return SerialPortActionsDirect::SetSubaru0532bitKernelBaudrate(value); });
         ON_CALL(*this, GetCanSpeed()).WillByDefault([this] { return SerialPortActionsDirect::GetCanSpeed(); });
         ON_CALL(*this, SetCanSpeed(::testing::_))
             .WillByDefault([this](QString value) { return SerialPortActionsDirect::SetCanSpeed(value); });
