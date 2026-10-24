@@ -5,6 +5,7 @@
 // this table exists rather than a comment claiming compatibility.
 #include "src/backend/definition/text_format.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <QString>
@@ -12,6 +13,10 @@
 #include <array>
 #include <cstdint>
 #include <tuple>
+
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
 
 namespace
 {
@@ -32,7 +37,7 @@ TEST(HexParseQtCompat, AgreesWithQtOnEveryRealKernelAddr)
         ASSERT_TRUE(ok) << "Qt rejected a real kernel_addr: " << text;
 
         const auto parsed = fastecu::definition::ParseHexValue(text);
-        ASSERT_TRUE(parsed.has_value()) << "parse_hex_value rejected: " << text;
+        ASSERT_THAT(parsed, Optional(_)) << "parse_hex_value rejected: " << text;
         EXPECT_EQ(*parsed, static_cast<std::uint64_t>(qtValue)) << text;
     }
 }
@@ -52,7 +57,7 @@ TEST(HexParseQtCompat, AgreesWithQtOnVerticalTabAndFormFeed)
         ASSERT_TRUE(ok) << "Qt rejected: " << text;
 
         const auto parsed = fastecu::definition::ParseHexValue(text);
-        ASSERT_TRUE(parsed.has_value()) << "parse_hex_value rejected: " << text;
+        ASSERT_THAT(parsed, Optional(_)) << "parse_hex_value rejected: " << text;
         EXPECT_EQ(*parsed, static_cast<std::uint64_t>(qtValue)) << text;
     }
 }
@@ -65,7 +70,7 @@ TEST(HexParseQtCompat, AgreesWithQtOnRejectionCases)
         bool ok = true;
         std::ignore = QString(text).toUInt(&ok, 16);
         EXPECT_FALSE(ok) << "Qt unexpectedly accepted: " << text;
-        EXPECT_FALSE(fastecu::definition::ParseHexValue(text).has_value()) << text;
+        EXPECT_THAT(fastecu::definition::ParseHexValue(text), Eq(std::nullopt)) << text;
     }
 }
 
@@ -80,7 +85,7 @@ TEST(HexParseQtCompat, DivergesAboveUint32ByDesign)
     EXPECT_FALSE(ok); // Qt: overflow
 
     const auto parsed = fastecu::definition::ParseHexValue("0x1FFFFFFFF");
-    ASSERT_TRUE(parsed.has_value());
+    ASSERT_THAT(parsed, Optional(_));
     EXPECT_EQ(*parsed, 0x1FFFFFFFFULL);
 }
 

@@ -93,6 +93,12 @@
 #include "src/ui/desktop/hexedit/hexedit.h"
 #include "src/ui/desktop/menu/testing/menu_snapshot.h"
 
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Not;
+using ::testing::Optional;
+
 namespace
 {
 
@@ -1107,7 +1113,7 @@ class MainWindowTest : public ::testing::Test
 
 void MainWindowTest::SetUpTestSuite()
 {
-    ASSERT_TRUE(fastecu::config::CatalogProblems(kWindowCatalog).empty());
+    ASSERT_THAT(fastecu::config::CatalogProblems(kWindowCatalog), IsEmpty());
     if (config_root_)
     {
         return;
@@ -1305,8 +1311,8 @@ void MainWindowTest::checkHandledDensoTcuReadChoicesRunMainWindowCleanupAndStopV
 
     fastecu::testing::ProcessEventsFor(std::chrono::milliseconds(window.vbatt_timer_->interval() + 100));
     ASSERT_TRUE(!window.vbatt_timer_->isActive());
-    ASSERT_TRUE(window.calibrations_.empty());
-    ASSERT_TRUE(services.calibrations.Ids().empty());
+    ASSERT_THAT(window.calibrations_, IsEmpty());
+    ASSERT_THAT(services.calibrations.Ids(), IsEmpty());
     const QString expectedLine = choice.isEmpty() ? "No option selected" : "Attempting TCU relearn";
     ASSERT_THAT(logLines(infoLines),
                 ::testing::Contains(::testing::FieldsAre(expectedLine.toStdString(), ::testing::_, ::testing::_)));
@@ -1564,7 +1570,7 @@ void MainWindowTest::checkReadOfAnUnsupportedProtocolAddsNoCalibration()
 
     ASSERT_TRUE(!operationDriver.timedOut());
     ASSERT_EQ(window.calibrations_.size(), std::size_t{0});
-    ASSERT_TRUE(services.calibrations.Ids().empty());
+    ASSERT_THAT(services.calibrations.Ids(), IsEmpty());
     ASSERT_EQ(window.ui_->calibrationFilesTreeWidget->topLevelItemCount(), 0);
 }
 
@@ -1753,7 +1759,7 @@ void MainWindowTest::checkHexEditorOutlivesItsRom()
     window.closeCalibration();
 
     ASSERT_EQ(window.findChildren<HexEdit *>().size(), qsizetype{1});
-    ASSERT_TRUE(window.calibrations_.empty());
+    ASSERT_THAT(window.calibrations_, IsEmpty());
 }
 
 TEST_F(MainWindowTest, hexEditorOutlivesItsRom)
@@ -1874,7 +1880,7 @@ void MainWindowTest::checkWritePreparationRefreshesMetadataAndStatusLabel()
     driver.stop();
 
     ASSERT_TRUE(!driver.timedOut());
-    ASSERT_TRUE(prepared.has_value());
+    ASSERT_THAT(prepared, Optional(_));
     EXPECT_EQ(window.status_bar_ecu_label_->text().toStdString(), std::string{"Denso SH7058 K-Line "});
     EXPECT_EQ(services.config.SelectedVehicle()->make, std::string{"Nissan"});
     EXPECT_EQ(session.Protocol().flash_method, std::string{"sub_ecu_denso_sh7058"});
@@ -1937,8 +1943,8 @@ void MainWindowTest::checkChecksumAndSaveUseATemporaryImage()
             .rom_id = session->Protocol().rom_id,
         });
     ASSERT_EQ(correction.status, fastecu::checksum::ChecksumCorrectionOutcome::Status::kFamilyRan);
-    ASSERT_TRUE(correction.family_result.has_value());
-    ASSERT_TRUE(correction.corrected_file.has_value());
+    ASSERT_THAT(correction.family_result, Optional(_));
+    ASSERT_THAT(correction.corrected_file, Optional(_));
     const bytes::Bytes corrected = *correction.corrected_file;
     ASSERT_TRUE(corrected != original);
     ASSERT_TRUE(session->Dirty());
@@ -2259,7 +2265,7 @@ void MainWindowTest::checkFailedMapDecodeKeepsAnErrorView()
     EXPECT_FALSE(view->findChild<QTableWidget *>()->isEnabled());
     ASSERT_EQ(window.calibrations_.front().view.open_maps.size(), 1U);
     ASSERT_EQ(item->checkState(0), Qt::Checked);
-    ASSERT_TRUE(!errors.Snapshot().empty());
+    ASSERT_THAT(errors.Snapshot(), Not(IsEmpty()));
 }
 
 TEST_F(MainWindowTest, failedMapDecodeKeepsAnErrorView)
@@ -2396,7 +2402,7 @@ void MainWindowTest::checkLoggingCapturesTargetForEachRun()
         action->setChecked(false);
         ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
         ASSERT_TRUE(action->isChecked());
-        ASSERT_TRUE(window.logging_run_->view().active_snapshot.has_value());
+        ASSERT_THAT(window.logging_run_->view().active_snapshot, Optional(_));
         ASSERT_EQ(window.logging_run_->view().active_snapshot->Target() == fastecu::logging::LoggingTarget::kEcu,
                   target);
         services.logging_engine.Stop();
@@ -2472,7 +2478,7 @@ void MainWindowTest::checkLoggingDefinitionErrorShowsDetailAndLeavesStopped()
     EXPECT_TRUE(std::get<2>(loggedErrors.front()));
     EXPECT_EQ(factoryCalls, 0);
     EXPECT_FALSE(services.logging_engine.IsRunning());
-    EXPECT_FALSE(window.logging_run_->view().active_snapshot.has_value());
+    EXPECT_THAT(window.logging_run_->view().active_snapshot, Eq(std::nullopt));
     EXPECT_FALSE(action->isChecked());
     EXPECT_FALSE(window.logging_state_);
 }
@@ -3146,7 +3152,7 @@ void MainWindowTest::checkLoggingDefinitionErrorShowsContextAndLeavesStopped()
                                  ::testing::HasSubstr("expected")));
     EXPECT_EQ(factoryCalls, 0);
     EXPECT_FALSE(services.logging_engine.IsRunning());
-    EXPECT_FALSE(window.logging_run_->view().active_snapshot.has_value());
+    EXPECT_THAT(window.logging_run_->view().active_snapshot, Eq(std::nullopt));
     EXPECT_FALSE(action->isChecked());
     EXPECT_FALSE(window.logging_state_);
 }
@@ -3204,7 +3210,7 @@ void MainWindowTest::checkLoggingSwitchOnlyDefaultsAreSelectable()
                                                  return source;
                                              });
     window.continueStartLogging();
-    ASSERT_TRUE(window.logging_run_->view().active_snapshot.has_value());
+    ASSERT_THAT(window.logging_run_->view().active_snapshot, Optional(_));
     ASSERT_EQ(window.logging_run_->view().active_snapshot->Session().Channels().size(), 1U);
     emit services.logging_engine.valuesUpdated({{.channel_id = "switch:flag", .numeric_value = 1}});
     EXPECT_EQ(window.logging_run_->view().values.SwitchValue("SSM", "flag"), "1");
@@ -3248,7 +3254,7 @@ void MainWindowTest::checkLoggingUnknownMutSelectionNeedsNoRomMatch()
                                              });
     window.continueStartLogging();
     EXPECT_TRUE(services.logging_engine.IsRunning());
-    ASSERT_TRUE(window.logging_run_->view().active_snapshot.has_value());
+    ASSERT_THAT(window.logging_run_->view().active_snapshot, Optional(_));
     EXPECT_EQ(window.logging_run_->view().active_snapshot->Session().Channels().size(), 1U);
     services.logging_engine.Stop();
 }
@@ -3293,7 +3299,7 @@ void MainWindowTest::checkLoggingSelectionEditsWaitForNextRun()
                        });
     window.changeLogValues(1, "SSM");
     ASSERT_EQ(window.logger_model_->Selection().lower_panel_ids, (std::vector<std::string>{"temperature"}));
-    ASSERT_TRUE(window.logging_run_->view().active_snapshot.has_value());
+    ASSERT_THAT(window.logging_run_->view().active_snapshot, Optional(_));
     EXPECT_EQ(window.logging_run_->view().active_snapshot->Selection().lower_panel_ids,
               (std::vector<std::string>{"rpm"}));
     auto *box = window.findChild<QGroupBox *>("valueGroupBox0");
@@ -3306,11 +3312,11 @@ void MainWindowTest::checkLoggingSelectionEditsWaitForNextRun()
     const auto stored = services.logger_definitions.LoadSelection(window.config_session_->EffectivePaths().logger_file,
                                                                   "PENDING_SELECTION");
     ASSERT_THAT(stored, fastecu::testing::IsOk());
-    ASSERT_TRUE(stored->has_value());
+    ASSERT_THAT(*stored, Optional(_));
     EXPECT_EQ((**stored).lower_panel_ids, (std::vector<std::string>{"temperature"}));
     services.logging_engine.Stop();
     window.continueStartLogging();
-    ASSERT_TRUE(window.logging_run_->view().active_snapshot.has_value());
+    ASSERT_THAT(window.logging_run_->view().active_snapshot, Optional(_));
     EXPECT_EQ(window.logging_run_->view().active_snapshot->Selection().lower_panel_ids,
               (std::vector<std::string>{"temperature"}));
     EXPECT_TRUE(pending->isHidden());
@@ -3427,7 +3433,7 @@ void MainWindowTest::checkLoggingUnavailableSelectionCanBeReplaced(bool knownUns
     window.continueStartLogging();
     driver.stop();
     EXPECT_EQ(factories, 0);
-    EXPECT_FALSE(window.logging_run_->view().active_snapshot.has_value());
+    EXPECT_THAT(window.logging_run_->view().active_snapshot, Eq(std::nullopt));
     const auto lines = logLines(errors);
     ASSERT_EQ(lines.size(), 1U);
     EXPECT_THAT(std::get<0>(lines.front()),
@@ -3901,7 +3907,7 @@ void MainWindowTest::checkLoggingSelectionWiringAndSupportPreservation()
     window.savePendingLoggingSelection(window.logger_model_->Selection());
     const auto stored = services.logger_definitions.LoadSelection(cfg.toStdString(), "MODEL_TEST");
     ASSERT_THAT(stored, fastecu::testing::IsOk());
-    ASSERT_TRUE(stored->has_value());
+    ASSERT_THAT(*stored, Optional(_));
     ASSERT_TRUE(**stored == window.logger_model_->Selection());
     auto withCustomProtocol = window.logger_model_->Definition();
     withCustomProtocol.parameters.push_back({.protocol = "CUSTOM", .id = "other", .enabled = true});
@@ -4032,7 +4038,7 @@ void MainWindowTest::checkSsmLoggingStartsAfterStartupWhenFlashAndLogTransportsD
     ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
     driver.stop();
 
-    EXPECT_TRUE(window.logging_run_->view().active_snapshot.has_value());
+    EXPECT_THAT(window.logging_run_->view().active_snapshot, Optional(_));
     EXPECT_TRUE(driver.acceptedTexts().filter("filter is empty").isEmpty())
         << qPrintable(driver.acceptedTexts().join(" | "));
     services.logging_engine.Stop();
@@ -4073,8 +4079,8 @@ void MainWindowTest::checkLoggingDefinitionFailureIsNonfatal()
     TestServices services{config_root_->path()};
     services.config.Settings().romraider_logger_definition_file = "/missing/logger.xml";
     MainWindow window{services.services()};
-    ASSERT_TRUE(window.logger_model_->Definition().parameters.empty());
-    ASSERT_TRUE(window.logger_model_->Selection().lower_panel_ids.empty());
+    ASSERT_THAT(window.logger_model_->Definition().parameters, IsEmpty());
+    ASSERT_THAT(window.logger_model_->Selection().lower_panel_ids, IsEmpty());
     ASSERT_TRUE(window.ui_ != nullptr);
     driver.stop();
 }
@@ -4281,14 +4287,14 @@ void MainWindowTest::checkLoggingStartWaitsForIdentification(bool targetIsEcu)
     action->setChecked(false);
     ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
     ASSERT_TRUE(action->isChecked());
-    ASSERT_TRUE(!window.logging_run_->view().active_snapshot.has_value()); // still identifying
+    ASSERT_THAT(window.logging_run_->view().active_snapshot, Eq(std::nullopt)); // still identifying
     (targetIsEcu ? window.tcu_radio_button_ : window.ecu_radio_button_)->click();
     responseGate.release();
     ASSERT_TRUE(fastecu::testing::WaitUntil([&] { return window.logging_run_->view().active_snapshot.has_value(); },
                                             std::chrono::milliseconds(5000)));
     ASSERT_EQ(window.ecuid_, QString("123456789A"));
     ASSERT_TRUE(window.logger_model_->ParameterAvailable("SSM", "rpm"));
-    ASSERT_TRUE(window.logging_run_->view().active_snapshot.has_value());
+    ASSERT_THAT(window.logging_run_->view().active_snapshot, Optional(_));
     ASSERT_EQ(window.logging_run_->view().active_snapshot->Target() == fastecu::logging::LoggingTarget::kEcu,
               targetIsEcu);
     ASSERT_TRUE(targetFrozenInContinuation);
@@ -4515,7 +4521,7 @@ void MainWindowTest::checkConnectStopsAnActiveLoggingWorkerBeforeIdentification(
     ASSERT_TRUE(directory.isValid());
     window.logging_run_->setCsvEnabled(true, directory.path(), "run");
     ASSERT_THAT(window.logging_run_->start({{"SSM"}, *snapshot, directory.path(), "run"}), fastecu::testing::IsOk());
-    ASSERT_TRUE(window.logging_run_->view().active_snapshot.has_value());
+    ASSERT_THAT(window.logging_run_->view().active_snapshot, Optional(_));
     ASSERT_TRUE(window.logging_run_->view().csv_open);
     window.logging_state_ = true;
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
@@ -4523,7 +4529,7 @@ void MainWindowTest::checkConnectStopsAnActiveLoggingWorkerBeforeIdentification(
     ASSERT_TRUE(!services.logging_engine.IsRunning());
     ASSERT_TRUE(!window.logging_state_);
     EXPECT_FALSE(window.logging_run_->view().csv_open);
-    EXPECT_FALSE(window.logging_run_->view().active_snapshot.has_value());
+    EXPECT_THAT(window.logging_run_->view().active_snapshot, Eq(std::nullopt));
 }
 
 TEST_F(MainWindowTest, connectStopsAnActiveLoggingWorkerBeforeIdentification)
@@ -4671,11 +4677,11 @@ void MainWindowTest::checkNestedConnectDuringCapabilityNoticeKeepsEachContinuati
     ASSERT_TRUE(!window.ecu_radio_button_->isEnabled());
     ASSERT_TRUE(!window.tcu_radio_button_->isEnabled());
     ASSERT_TRUE(window.connection_coordinator_->identifying());
-    ASSERT_TRUE(firstResult.has_value());
+    ASSERT_THAT(firstResult, Optional(_));
     ASSERT_TRUE(!*firstResult);
-    ASSERT_TRUE(!secondResult.has_value());
+    ASSERT_THAT(secondResult, Eq(std::nullopt));
     window.connection_coordinator_->cancel();
-    ASSERT_TRUE(secondResult.has_value());
+    ASSERT_THAT(secondResult, Optional(_));
     ASSERT_TRUE(!*secondResult);
     ASSERT_TRUE(window.ecu_radio_button_->isEnabled());
     ASSERT_TRUE(window.tcu_radio_button_->isEnabled());

@@ -11,6 +11,8 @@
 #include "src/backend/config/catalog.h"
 #include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
 
+using ::testing::Eq;
+
 namespace fastecu::flash
 {
 namespace
@@ -86,7 +88,7 @@ TEST(FlashOperationControllerTest, unknownProtocolIsUnsupportedAndWarnsWithoutSe
     });
 
     ASSERT_EQ(outcome.status, FlashOperationStatus::kUnsupported);
-    ASSERT_TRUE(!outcome.read_bytes.has_value());
+    ASSERT_THAT(outcome.read_bytes, Eq(std::nullopt));
     ASSERT_EQ(driver.texts,
               QStringList{"Unknown flashmethod! Flashmethod \"sub_ecu_not_a_real_protocol\" not yet implemented!"});
 }

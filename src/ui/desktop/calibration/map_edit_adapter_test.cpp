@@ -16,6 +16,10 @@
 #include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
+
 namespace fastecu::ui
 {
 namespace
@@ -93,7 +97,7 @@ calibration::CalibrationSession sessionFrom(definition::RomDefinition def = twoB
 
 TEST(ParseMapWindowId, ReturnsNulloptForANullWindow)
 {
-    EXPECT_FALSE(parseMapWindowId(nullptr).has_value());
+    EXPECT_THAT(parseMapWindowId(nullptr), Eq(std::nullopt));
 }
 
 TEST(ParseMapWindowId, ParsesSessionAndMapNumberFromAWellFormedObjectName)
@@ -103,7 +107,7 @@ TEST(ParseMapWindowId, ParsesSessionAndMapNumberFromAWellFormedObjectName)
 
     const auto id = parseMapWindowId(&window);
 
-    ASSERT_TRUE(id.has_value());
+    ASSERT_THAT(id, Optional(_));
     EXPECT_EQ(id->session, calibration::SessionId{12});
     EXPECT_EQ(id->map_number, 7);
 }
@@ -113,7 +117,7 @@ TEST(ParseMapWindowId, ReturnsNulloptWhenTheSessionKeyIsNotDecimal)
     QMdiSubWindow window;
     window.setObjectName("x,7,Timing");
 
-    EXPECT_FALSE(parseMapWindowId(&window).has_value());
+    EXPECT_THAT(parseMapWindowId(&window), Eq(std::nullopt));
 }
 
 // Legacy read mapWindowString.at(0)/.at(1)/.at(2)/.at(3) unguarded; this is
@@ -124,7 +128,7 @@ TEST(ParseMapWindowId, ReturnsNulloptForATooShortObjectName)
     QMdiSubWindow window;
     window.setObjectName("5");
 
-    EXPECT_FALSE(parseMapWindowId(&window).has_value());
+    EXPECT_THAT(parseMapWindowId(&window), Eq(std::nullopt));
 }
 
 // Builds a map subwindow the way the legacy handlers found it: a
@@ -154,19 +158,19 @@ TEST(SelectedNumericTarget, TranslatesBodyAndAxisHeaderSelections)
 
     select(1, 1, 2, 2);
     const auto body = selectedNumericTarget(&window, session, 0);
-    ASSERT_TRUE(body.has_value());
+    ASSERT_THAT(body, Optional(_));
     EXPECT_EQ(body->target, calibration::NumericTarget::kMapBody);
     EXPECT_THAT(body->elements, ::testing::FieldsAre(0, 0, 1, 1));
 
     select(0, 1, 0, 2);
     const auto xAxis = selectedNumericTarget(&window, session, 0);
-    ASSERT_TRUE(xAxis.has_value());
+    ASSERT_THAT(xAxis, Optional(_));
     EXPECT_EQ(xAxis->target, calibration::NumericTarget::kXAxis);
     EXPECT_THAT(xAxis->elements, ::testing::FieldsAre(0, 0, 0, 1));
 
     select(1, 0, 2, 0);
     const auto yAxis = selectedNumericTarget(&window, session, 0);
-    ASSERT_TRUE(yAxis.has_value());
+    ASSERT_THAT(yAxis, Optional(_));
     EXPECT_EQ(yAxis->target, calibration::NumericTarget::kYAxis);
     EXPECT_THAT(yAxis->elements, ::testing::FieldsAre(0, 0, 1, 0));
 }
@@ -177,7 +181,7 @@ TEST(BodyWidgetRange, SkipsTheAxisRowAndColumnOfAThreeDimensionalTable)
 
     const auto range = bodyWidgetRange(session, 0, 3, 3);
 
-    ASSERT_TRUE(range.has_value());
+    ASSERT_THAT(range, Optional(_));
     EXPECT_THAT(*range, ::testing::FieldsAre(1, 1, 2, 2));
 }
 
@@ -190,7 +194,7 @@ TEST(BodyWidgetRange, SkipsOnlyTheAxisRowWhenTheMapHasNoYAxisColumn)
 
     const auto range = bodyWidgetRange(session, 0, 2, 3);
 
-    ASSERT_TRUE(range.has_value());
+    ASSERT_THAT(range, Optional(_));
     EXPECT_THAT(*range, ::testing::FieldsAre(1, 0, 1, 2));
 }
 
@@ -202,47 +206,47 @@ TEST(BodyWidgetRange, SkipsStaticAxisHeadersToo)
 
     const auto range = bodyWidgetRange(session, 0, 3, 3);
 
-    ASSERT_TRUE(range.has_value());
+    ASSERT_THAT(range, Optional(_));
     EXPECT_THAT(*range, ::testing::FieldsAre(1, 1, 2, 2));
 }
 
 TEST(BodyWidgetRange, IsEmptyWithoutADefinitionAMapOrAnyCells)
 {
     const auto session = sessionFrom();
-    EXPECT_FALSE(bodyWidgetRange(session, 1, 3, 3).has_value());
-    EXPECT_FALSE(bodyWidgetRange(session, -1, 3, 3).has_value());
-    EXPECT_FALSE(bodyWidgetRange(session, 0, 0, 0).has_value());
+    EXPECT_THAT(bodyWidgetRange(session, 1, 3, 3), Eq(std::nullopt));
+    EXPECT_THAT(bodyWidgetRange(session, -1, 3, 3), Eq(std::nullopt));
+    EXPECT_THAT(bodyWidgetRange(session, 0, 0, 0), Eq(std::nullopt));
     const calibration::CalibrationSession definitionless(
         calibration::SessionId{2}, calibration::SessionContents{.image = memory::testing::IdentityImage({0})});
-    EXPECT_FALSE(bodyWidgetRange(definitionless, 0, 3, 3).has_value());
+    EXPECT_THAT(bodyWidgetRange(definitionless, 0, 3, 3), Eq(std::nullopt));
 }
 
 TEST(SelectedNumericTarget, IsEmptyWithoutANumericSelection)
 {
     const auto session = sessionFrom();
-    EXPECT_FALSE(selectedNumericTarget(nullptr, session, 0).has_value());
+    EXPECT_THAT(selectedNumericTarget(nullptr, session, 0), Eq(std::nullopt));
 
     QMdiSubWindow bare;
     bare.setObjectName("0,0,Timing,uint16");
-    EXPECT_FALSE(selectedNumericTarget(&bare, session, 0).has_value());
+    EXPECT_THAT(selectedNumericTarget(&bare, session, 0), Eq(std::nullopt));
 
     QMdiSubWindow window;
     auto *table = buildMapWindow(window, 3, 3);
-    EXPECT_FALSE(selectedNumericTarget(&window, session, 0).has_value());
+    EXPECT_THAT(selectedNumericTarget(&window, session, 0), Eq(std::nullopt));
 
     table->setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 1), true);
-    EXPECT_FALSE(selectedNumericTarget(&window, session, 1).has_value());
-    EXPECT_FALSE(selectedNumericTarget(&window, session, -1).has_value());
+    EXPECT_THAT(selectedNumericTarget(&window, session, 1), Eq(std::nullopt));
+    EXPECT_THAT(selectedNumericTarget(&window, session, -1), Eq(std::nullopt));
     const calibration::CalibrationSession definitionless(
         calibration::SessionId{2}, calibration::SessionContents{.image = memory::testing::IdentityImage({0})});
-    EXPECT_FALSE(selectedNumericTarget(&window, definitionless, 0).has_value());
+    EXPECT_THAT(selectedNumericTarget(&window, definitionless, 0), Eq(std::nullopt));
 
     auto staticDef = twoByTwoDefinition();
     staticDef.maps[0].x_axis.type = "Static Y Axis";
     const auto staticSession = sessionFrom(std::move(staticDef));
     table->clearSelection();
     table->setRangeSelected(QTableWidgetSelectionRange(1, 0, 1, 0), true);
-    EXPECT_FALSE(selectedNumericTarget(&window, staticSession, 0).has_value());
+    EXPECT_THAT(selectedNumericTarget(&window, staticSession, 0), Eq(std::nullopt));
 }
 
 TEST(SplitPasteRows, SplitsTabSeparatedRowsAndDropsOneTerminalLf)

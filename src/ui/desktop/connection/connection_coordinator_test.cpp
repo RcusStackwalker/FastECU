@@ -6,9 +6,12 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/ui/desktop/connection/testing/fake_connection_ports.h"
+
+using ::testing::IsEmpty;
 
 namespace
 {
@@ -103,7 +106,7 @@ TEST_F(ConnectionCoordinatorTest, CancelTwiceFiresTheContinuationOnce)
     events_.clear();
     coordinator_.cancel();
 
-    EXPECT_TRUE(events_.empty());
+    EXPECT_THAT(events_, IsEmpty());
 }
 
 TEST_F(ConnectionCoordinatorTest, CompletionAfterCancelIsDropped)
@@ -113,13 +116,13 @@ TEST_F(ConnectionCoordinatorTest, CompletionAfterCancelIsDropped)
     events_.clear();
     launcher_.complete(1, success());
 
-    EXPECT_TRUE(events_.empty());
+    EXPECT_THAT(events_, IsEmpty());
 }
 
 TEST_F(ConnectionCoordinatorTest, CancelWhileIdleStillAdvancesTheGeneration)
 {
     coordinator_.cancel();
-    EXPECT_TRUE(events_.empty());
+    EXPECT_THAT(events_, IsEmpty());
 
     coordinator_.begin(SsmIdentifyRequest{}, continuation());
     launcher_.complete(1, success());
@@ -193,7 +196,7 @@ TEST_F(ConnectionCoordinatorTest, DuplicateCompletionIsIgnored)
     events_.clear();
     launcher_.complete(1, success());
 
-    EXPECT_TRUE(events_.empty());
+    EXPECT_THAT(events_, IsEmpty());
 }
 
 TEST_F(ConnectionCoordinatorTest, SequentialAttemptsOwnTheirContinuations)
@@ -226,7 +229,7 @@ TEST_F(ConnectionCoordinatorTest, CompletionAfterShutdownIsDropped)
     events_.clear();
     launcher_.complete(1, success());
 
-    EXPECT_TRUE(events_.empty());
+    EXPECT_THAT(events_, IsEmpty());
 }
 
 } // namespace

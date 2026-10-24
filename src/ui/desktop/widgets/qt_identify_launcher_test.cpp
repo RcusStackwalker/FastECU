@@ -1,6 +1,7 @@
 #include "src/ui/desktop/widgets/qt_identify_launcher.h"
 
 #include <QString>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -12,6 +13,9 @@
 #include "src/backend/protocol/testing/fake_diagnostic_link.h"
 #include "src/platform/desktop/common/testing/core_application_environment.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
+
+using ::testing::IsEmpty;
+using ::testing::Not;
 
 namespace
 {
@@ -83,8 +87,8 @@ TEST_F(QtIdentifyLauncherTest, ReportsAFailureWithItsDetail)
     ASSERT_TRUE(waitForCompletions(1));
 
     EXPECT_FALSE(completions_.at(0).outcome.success);
-    EXPECT_FALSE(completions_.at(0).outcome.error_detail.empty());
-    EXPECT_FALSE(logs_.empty()); // each failed attempt is logged
+    EXPECT_THAT(completions_.at(0).outcome.error_detail, Not(IsEmpty()));
+    EXPECT_THAT(logs_, Not(IsEmpty())); // each failed attempt is logged
 }
 
 // The coordinator's fence depends on this: a completion queued before
@@ -105,7 +109,7 @@ TEST_F(QtIdentifyLauncherTest, StopAndJoinWithoutARunIsANoOp)
 {
     launcher_.stopAndJoin();
     EXPECT_TRUE(launcher_.waitForWorker(std::chrono::milliseconds(1)));
-    EXPECT_TRUE(completions_.empty());
+    EXPECT_THAT(completions_, IsEmpty());
 }
 
 } // namespace

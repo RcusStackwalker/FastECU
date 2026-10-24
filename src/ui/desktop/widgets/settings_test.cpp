@@ -9,6 +9,7 @@
 #include <QFile>
 #include <QMessageBox>
 #include <QTemporaryDir>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <QTimer>
 
@@ -20,6 +21,8 @@
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/ui/desktop/widgets/settings.h"
+
+using ::testing::IsEmpty;
 
 namespace
 {
@@ -179,9 +182,9 @@ TEST_P(RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
                 list->setCurrentRow(0);
                 remove->click();
             }
-            ASSERT_TRUE(disk.session.Settings().romraider_definition_files.empty());
+            ASSERT_THAT(disk.session.Settings().romraider_definition_files, IsEmpty());
             remove->click();
-            ASSERT_TRUE(disk.session.Settings().romraider_definition_files.empty());
+            ASSERT_THAT(disk.session.Settings().romraider_definition_files, IsEmpty());
         }
     }
     SessionOnDisk reread{root.path()};

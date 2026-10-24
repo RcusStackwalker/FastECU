@@ -1,4 +1,5 @@
 #include "src/platform/desktop/common/testing/widgets_application_environment.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/config/testing/config_session_fixture.h"
@@ -7,6 +8,7 @@
 
 using fastecu::config::testing::ConfigSessionFixture;
 using fastecu::testing::IsOk;
+using ::testing::Eq;
 
 TEST(VehicleSelectTest, choosingRecordsTheRowWithoutTouchingTheSession)
 {
@@ -29,7 +31,7 @@ TEST(VehicleSelectTest, rejectingLeavesNoChoice)
     ASSERT_THAT(f.Initialize(), IsOk());
     VehicleSelect dialog{f.session};
     dialog.reject();
-    ASSERT_TRUE(!dialog.chosenRow().has_value());
+    ASSERT_THAT(dialog.chosenRow(), Eq(std::nullopt));
 }
 
 // The startup vehicle gate opens the dialog on a session with no vehicle.

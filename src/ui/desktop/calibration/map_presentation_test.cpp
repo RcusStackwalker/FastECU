@@ -2,7 +2,12 @@
 #include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
 
 namespace fastecu::ui
 {
@@ -36,8 +41,8 @@ TEST(MapPresentation, FormatsNumericCellsAndExplicitAbsentAxes)
                                                     ::testing::Field(&PresentedCell::text, QString("2.00")),
                                                     ::testing::Field(&PresentedCell::text, QString("3.00")),
                                                     ::testing::Field(&PresentedCell::text, QString("4.00"))));
-    EXPECT_FALSE(shown->x_axis.has_value());
-    EXPECT_FALSE(shown->y_axis.has_value());
+    EXPECT_THAT(shown->x_axis, Eq(std::nullopt));
+    EXPECT_THAT(shown->y_axis, Eq(std::nullopt));
     EXPECT_EQ(shown->name, "Fuel");
     EXPECT_EQ(shown->units, "rpm");
 }
@@ -57,7 +62,7 @@ TEST(MapPresentation, ColorBoundsStayAtOpeningValuesAfterEdit)
     auto shown = presentMap(rom, 0);
     ASSERT_THAT(shown, fastecu::testing::IsOk());
     const auto bounds = openingColorBounds(*shown);
-    ASSERT_TRUE(bounds.has_value());
+    ASSERT_THAT(bounds, Optional(_));
     EXPECT_EQ(bounds->minimum, 1.0);
     EXPECT_EQ(bounds->maximum, 4.0);
     ASSERT_THAT(rom.WriteBytes(0, bytes::Bytes{20}), fastecu::testing::IsOk());
@@ -66,7 +71,7 @@ TEST(MapPresentation, ColorBoundsStayAtOpeningValuesAfterEdit)
     EXPECT_EQ(shown->body[0].text, "20.00");
     EXPECT_EQ(mapCellColor(20, *bounds), mapCellColor(4, *bounds));
     const auto newBounds = openingColorBounds(*shown);
-    ASSERT_TRUE(newBounds.has_value());
+    ASSERT_THAT(newBounds, Optional(_));
     EXPECT_EQ(newBounds->maximum, 20.0);
 }
 
@@ -77,9 +82,9 @@ TEST(MapPresentation, ExcludesInvalidCellsFromColorBounds)
     ASSERT_THAT(shown, fastecu::testing::IsOk());
     EXPECT_EQ(shown->body[0].text, "NaN");
     EXPECT_FALSE(shown->body[0].diagnostic.isEmpty());
-    EXPECT_FALSE(shown->body[0].numeric_value.has_value());
+    EXPECT_THAT(shown->body[0].numeric_value, Eq(std::nullopt));
     const auto bounds = openingColorBounds(*shown);
-    ASSERT_TRUE(bounds.has_value());
+    ASSERT_THAT(bounds, Optional(_));
     EXPECT_DOUBLE_EQ(bounds->minimum, 1.0 / 3.0);
     EXPECT_DOUBLE_EQ(bounds->maximum, 1.0);
 }
@@ -89,7 +94,7 @@ TEST(MapPresentation, AllInvalidCellsHaveNoNumericColorBounds)
     const auto rom = session("1/0");
     const auto shown = presentMap(rom, 0);
     ASSERT_THAT(shown, fastecu::testing::IsOk());
-    EXPECT_FALSE(openingColorBounds(*shown).has_value());
+    EXPECT_THAT(openingColorBounds(*shown), Eq(std::nullopt));
 }
 
 TEST(MapPresentation, ColorsFiniteValuesAcrossExtremeBounds)

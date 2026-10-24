@@ -1,4 +1,5 @@
 #include "src/platform/desktop/common/testing/widgets_application_environment.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <QTreeWidget>
 
@@ -11,6 +12,7 @@
 
 using fastecu::config::testing::ConfigSessionFixture;
 using fastecu::testing::IsOk;
+using ::testing::Eq;
 
 TEST(ProtocolSelectTest, listsEachVehicleBackedProtocolOnce)
 {
@@ -44,7 +46,7 @@ TEST(ProtocolSelectTest, rejectingLeavesNoChoice)
     ASSERT_THAT(f.Initialize(), IsOk());
     ProtocolSelect dialog{f.session};
     dialog.reject();
-    ASSERT_TRUE(!dialog.acceptedProtocolName().has_value());
+    ASSERT_THAT(dialog.acceptedProtocolName(), Eq(std::nullopt));
 }
 
 namespace

@@ -12,6 +12,7 @@ using fastecu::ui::ICalibrationInteraction;
 using fastecu::ui::MockCalibrationInteraction;
 using ::testing::_;
 using ::testing::ElementsAre;
+using ::testing::Optional;
 using ::testing::Return;
 using ::testing::StrictMock;
 
@@ -33,7 +34,7 @@ TEST(MockCalibrationInteraction, DispatchesScriptedRepliesThroughInterface)
     EXPECT_FALSE(port.confirmWriteWithoutChecksum());
     const auto corrected = port.correctChecksums(
         fastecu::memory::testing::ImageAt(fastecu::memory::FlashAddress{0}, image), true, selection);
-    ASSERT_TRUE(corrected.corrected_rom_data.has_value());
+    ASSERT_THAT(corrected.corrected_rom_data, Optional(_));
     EXPECT_THAT(*corrected.corrected_rom_data, ElementsAre(4, 5, 6));
     EXPECT_EQ(port.chooseSavePath("/old/read.bin"), "/cal/new.bin");
     port.showNotice(CalibrationNotice::kNoSaveFilename);
