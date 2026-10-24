@@ -391,7 +391,7 @@ void ScriptCrcCommit(ScriptedCanFlashTransport& transport, std::uint32_t start, 
                        Response({0x74}));
 
     const std::uint16_t crc = mitsu_colt_can::Checksum(data);
-    const bytes::Bytes crc_data = crc_bytes.value_or(bytes::ComposeBe(crc));
+    const bytes::Bytes crc_data = crc_bytes.value_or(bytes::ComposeBeWithExtraCapacity(0, crc));
     transport.Exchange(Request(mitsu_colt_can::BuildTransferDataFrames(crc_data).front()), Response({0x76}));
 
     // [echo][status=0], the routine-id echo plus the CRC-match status byte
@@ -450,7 +450,7 @@ void ScriptWriteThroughEraseRoutineCrcCheck(ScriptedCanFlashTransport& transport
                                                                     mitsu_colt_can::kCrcTransferSize)),
                        Response({0x74}));
     const std::uint16_t crc = mitsu_colt_can::Checksum(mitsu_colt_can::kErasePageRoutine);
-    const bytes::Bytes crc_data = bytes::ComposeBe(crc);
+    const auto crc_data = bytes::ComposeBe(crc);
     transport.Exchange(Request(mitsu_colt_can::BuildTransferDataFrames(crc_data).front()), Response({0x76}));
     transport.Exchange(Request(mitsu_colt_can::BuildRoutineCheckCrc(mitsu_colt_can::kEraseRoutineRamAddr)));
 }
@@ -1723,7 +1723,7 @@ TEST_F(MitsuColtM32rCanWriteExecutor, BootstrapAbortsWhenTheChecksumTransferData
                        Response({0x74}));
     {
         const std::uint16_t crc = mitsu_colt_can::Checksum(mitsu_colt_can::kWriteRedirectRoutine);
-        const bytes::Bytes crc_data = bytes::ComposeBe(crc);
+        const auto crc_data = bytes::ComposeBe(crc);
         transport.Exchange(Request(mitsu_colt_can::BuildTransferDataFrames(crc_data).front()));
     }
     transport.QueueRead(Response({0x7f, 0x36, 0x22}));

@@ -64,8 +64,8 @@ std::uint64_t ElapsedMilliseconds(std::chrono::steady_clock::time_point start,
 
 bytes::Bytes IsoRequest(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes request = ComposeBe(kIsoRequestId, kStartComm, static_cast<std::uint16_t>(payload.size() + 1),
-                                     static_cast<bytes::Byte>(opcode));
+    bytes::Bytes request = bytes::ComposeBeWithExtraCapacity(
+        0, kIsoRequestId, kStartComm, static_cast<std::uint16_t>(payload.size() + 1), static_cast<bytes::Byte>(opcode));
     request.insert(request.end(), payload.begin(), payload.end());
     return request;
 }

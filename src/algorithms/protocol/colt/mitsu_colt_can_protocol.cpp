@@ -73,7 +73,7 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
     const std::uint16_t pk2 = bytes::ReadU16Be(seed, 2);
     const std::uint16_t sk1 = SeedKeyWord(pk1);
     const std::uint16_t sk2 = SeedKeyWord(pk2);
-    return ComposeBe(sk1, sk2);
+    return bytes::ComposeBeWithExtraCapacity(0, sk1, sk2);
 }
 
 std::uint16_t Checksum(bytes::ByteView data)

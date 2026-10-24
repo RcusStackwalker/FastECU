@@ -375,7 +375,7 @@ Status EraseFlash(Session& s)
 // unanswered.
 Status WriteBlock(Session& s, const bytes::Bytes& image, int block, int blocks)
 {
-    const bytes::Bytes done = ComposeBe(0xef_b, 0x52_b);
+    const auto done = ComposeBe(0xef_b, 0x52_b);
     const std::uint32_t address = static_cast<std::uint32_t>(block) * kPage;
     const bool last = block == blocks - 1;
     bytes::Bytes data(image.begin() + address, image.begin() + address + kPage);

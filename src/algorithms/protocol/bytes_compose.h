@@ -2,12 +2,13 @@
 
 #include "src/algorithms/protocol/bytes.h"
 
-#include <algorithm>
+#include <array>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <ranges>
+#include <span>
 #include <stdexcept>
 #include <string_view>
 #include <type_traits>
@@ -104,55 +105,101 @@ template <typename T> constexpr std::size_t WidthBe(const T& arg)
     }
 }
 
-template <typename T> void AppendBe(Bytes& out, const T& arg)
+// Only these range types carry a length in their type. Other sized ranges
+// still have a runtime length, even when their storage happens to be fixed.
+template <typename T>
+inline constexpr std::size_t kStaticExtent = std::is_bounded_array_v<T> ? std::extent_v<T> : std::dynamic_extent;
+template <typename T, std::size_t N> inline constexpr std::size_t kStaticExtent<std::array<T, N>> = N;
+template <typename T, std::size_t N> inline constexpr std::size_t kStaticExtent<std::span<T, N>> = N;
+
+template <typename T> consteval std::size_t StaticWidthBe()
 {
     using U = std::remove_cvref_t<T>;
-    if constexpr (std::same_as<U, Byte>)
+    if constexpr (std::same_as<U, Byte> || std::same_as<U, std::uint16_t> || std::same_as<U, std::uint32_t>)
     {
-        out.push_back(arg);
-    }
-    else if constexpr (std::same_as<U, std::uint16_t>)
-    {
-        AppendU16Be(out, arg);
+        return sizeof(U);
     }
     else if constexpr (std::same_as<U, U24>)
     {
-        AppendU24Be(out, arg.value);
+        return 3;
     }
-    else if constexpr (std::same_as<U, std::uint32_t>)
+    else if constexpr ((ByteRange<U> || WideIntegerRange<U>) && kStaticExtent<U> != std::dynamic_extent)
     {
-        AppendU32Be(out, arg);
+        return kStaticExtent<U> * sizeof(std::ranges::range_value_t<U>);
     }
-    else if constexpr (std::same_as<U, std::string_view>)
+    else
     {
-        std::ranges::transform(arg, std::back_inserter(out),
-                               [](const char character) { return static_cast<Byte>(character); });
+        return std::dynamic_extent;
     }
-    else if constexpr (ByteRange<U>)
+}
+
+template <typename... Args>
+inline constexpr bool kStaticComposition = ((StaticWidthBe<Args>() != std::dynamic_extent) && ...);
+
+template <std::size_t Width, typename Output, typename Integer> constexpr void EmitIntegerBe(Output& out, Integer value)
+{
+    for (std::size_t shift = Width; shift-- > 0;)
+    {
+        *out++ = static_cast<Byte>(value >> (8 * shift));
+    }
+}
+
+// Output is either an array iterator or a vector back inserter: the same
+// encoding law applies without an intermediate container on the static path.
+template <typename Output, typename T> constexpr void EmitBe(Output& out, const T& arg)
+{
+    using U = std::remove_cvref_t<T>;
+    if constexpr (std::same_as<U, Byte> || std::same_as<U, std::uint16_t> || std::same_as<U, std::uint32_t>)
+    {
+        EmitIntegerBe<sizeof(U)>(out, arg);
+    }
+    else if constexpr (std::same_as<U, U24>)
+    {
+        EmitIntegerBe<3>(out, arg.value);
+    }
+    else if constexpr (std::same_as<U, std::string_view> || ByteRange<U>)
+    {
+        for (const auto value : arg)
+        {
+            *out++ = static_cast<Byte>(value);
+        }
+    }
+    else if constexpr (WideIntegerRange<U>)
+    {
+        using Value = std::ranges::range_value_t<U>;
+        for (const auto value : arg)
+        {
+            EmitIntegerBe<sizeof(Value)>(out, static_cast<Value>(value));
+        }
+    }
+    else
+    {
+        static_assert(kDependentFalse<U>, "ComposeBe: unsupported field type; use Byte, std::uint16_t, U24, "
+                                          "std::uint32_t, std::string_view, or a supported unsigned integer range. "
+                                          "A bare integer literal is an int -- write 0x34_b instead.");
+    }
+}
+
+// Preserve bulk insertion and in-place wide-range encoding for dynamic
+// payloads; large ROM ranges should not pay a push_back check per byte.
+template <typename T> void AppendBe(Bytes& out, const T& arg)
+{
+    using U = std::remove_cvref_t<T>;
+    if constexpr (ByteRange<U>)
     {
         out.insert(out.end(), std::ranges::begin(arg), std::ranges::end(arg));
     }
     else if constexpr (WideIntegerRange<U>)
     {
-        constexpr std::size_t kWidth = sizeof(std::ranges::range_value_t<U>);
-        auto at = out.size();
-        out.resize(at + kWidth * std::ranges::size(arg));
-        for (const auto value : arg)
-        {
-            for (std::size_t shift = kWidth; shift-- > 0;)
-            {
-                out[at++] = static_cast<Byte>(value >> (8 * shift));
-            }
-        }
+        const auto offset = out.size();
+        out.resize(offset + WidthBe(arg));
+        auto next = out.begin() + static_cast<Bytes::difference_type>(offset);
+        EmitBe(next, arg);
     }
     else
     {
-        static_assert(
-            kDependentFalse<U>,
-            "composeBe: argument must be Byte, std::uint16_t, u24(), "
-            "std::uint32_t, std::string_view, or a range of Byte or "
-            "a range of std::uint16_t, std::uint32_t or std::uint64_t. A bare integer literal is an int -- write "
-            "0x34_b instead.");
+        auto next = std::back_inserter(out);
+        EmitBe(next, arg);
     }
 }
 
@@ -168,23 +215,50 @@ template <typename... Args> Bytes ComposeBeWithExtraCapacity(std::size_t extra_c
     return out;
 }
 
-template <typename... Args> Bytes ComposeBe(const Args&...args)
+// Type-known lengths produce an allocation-free array; runtime lengths
+// produce Bytes. A statically empty composition is a caller error.
+template <typename... Args> constexpr auto ComposeBe(const Args&...args)
 {
-    return ComposeBeWithExtraCapacity(0, args...);
+    if constexpr (detail::kStaticComposition<Args...>)
+    {
+        constexpr auto kSize = (std::size_t{0} + ... + detail::StaticWidthBe<Args>());
+        static_assert(kSize > 0, "ComposeBe: statically empty output is not supported");
+        std::array<Byte, kSize> out{};
+        auto next = out.begin();
+        (detail::EmitBe(next, args), ...);
+        return out;
+    }
+    else
+    {
+        return ComposeBeWithExtraCapacity(0, args...);
+    }
 }
 
 // Composes `args` big-endian, then appends `checksum(composed)` using the
 // same width law -- a Byte-returning function appends one byte, a
 // uint32_t-returning one appends four, most-significant first.
-template <typename ChecksumFn, typename... Args> Bytes ComposeBeWithChecksum(ChecksumFn checksum, const Args&...args)
+template <typename ChecksumFn, typename... Args>
+constexpr auto ComposeBeWithChecksum(ChecksumFn checksum, const Args&...args)
 {
     using Sum = std::invoke_result_t<ChecksumFn, ByteView>;
     static_assert(std::unsigned_integral<Sum> && sizeof(Sum) <= 4,
                   "composeBeWithChecksum: checksum function must return Byte, "
                   "std::uint16_t, or std::uint32_t -- appendBe has no wider width to give it");
-    Bytes out = ComposeBeWithExtraCapacity(sizeof(Sum), args...);
-    detail::AppendBe(out, static_cast<Sum>(checksum(ByteView(out))));
-    return out;
+    if constexpr (detail::kStaticComposition<Args...>)
+    {
+        constexpr auto kPayloadSize = (std::size_t{0} + ... + detail::StaticWidthBe<Args>());
+        std::array<Byte, kPayloadSize + sizeof(Sum)> out{};
+        auto next = out.begin();
+        (detail::EmitBe(next, args), ...);
+        detail::EmitBe(next, static_cast<Sum>(checksum(ByteView(out).first(kPayloadSize))));
+        return out;
+    }
+    else
+    {
+        Bytes out = ComposeBeWithExtraCapacity(sizeof(Sum), args...);
+        detail::AppendBe(out, static_cast<Sum>(checksum(ByteView(out))));
+        return out;
+    }
 }
 
 } // namespace bytes

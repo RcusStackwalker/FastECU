@@ -168,7 +168,7 @@ Result<bytes::Bytes> ReadRom(IKlineFlashTransport& transport, const ICancellatio
             return Fail(ErrorKind::kCancelled, "cancelled during ROM read");
         }
         const std::uint32_t address = region.start + offset;
-        const bytes::Bytes request = ComposeBe(0xa0_b, 0x00_b, 0x20_b, U24{address}, bytes::Byte(p.chunk_size - 1));
+        const auto request = ComposeBe(0xa0_b, 0x00_b, 0x20_b, U24{address}, bytes::Byte(p.chunk_size - 1));
         auto response = Exchange(transport, cancellation, request, p);
         if (!response.has_value())
         {

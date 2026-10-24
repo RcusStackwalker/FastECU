@@ -90,7 +90,8 @@ bytes::Bytes Sid31StartRoutineRequest()
 // request_kernel_id(), lines 964-994: NOT addHeader-framed.
 bytes::Bytes RequestKernelIdRequest()
 {
-    return ComposeBeWithChecksum(bytes::Sum8, std::uint16_t{0xBEEF}, std::uint16_t{1}, 0x01_b);
+    const auto frame = ComposeBeWithChecksum(bytes::Sum8, std::uint16_t{0xBEEF}, std::uint16_t{1}, 0x01_b);
+    return {frame.begin(), frame.end()};
 }
 
 // Anchors three helpers against hardcoded wire bytes -- each became the same

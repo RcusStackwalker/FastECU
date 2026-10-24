@@ -216,8 +216,8 @@ Result<FlashPlan> WritePlan(const Case& test_case, FlashOperation operation = Fl
 
 bytes::Bytes IsoRequest(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes message = ComposeBe(kIsoRequestId, std::uint16_t{0xBEEF},
-                                     static_cast<std::uint16_t>(payload.size() + 1), bytes::Byte(opcode));
+    bytes::Bytes message = bytes::ComposeBeWithExtraCapacity(
+        0, kIsoRequestId, std::uint16_t{0xBEEF}, static_cast<std::uint16_t>(payload.size() + 1), bytes::Byte(opcode));
     message.insert(message.end(), payload.begin(), payload.end());
     return message;
 }
@@ -231,8 +231,8 @@ bytes::Bytes KernelIdRequest()
 
 bytes::Bytes IsoResponse(std::uint8_t opcode, bytes::ByteView payload = {})
 {
-    bytes::Bytes message = ComposeBe(kIsoResponseId, std::uint16_t{0xBEEF},
-                                     static_cast<std::uint16_t>(payload.size() + 1), bytes::Byte(opcode));
+    bytes::Bytes message = bytes::ComposeBeWithExtraCapacity(
+        0, kIsoResponseId, std::uint16_t{0xBEEF}, static_cast<std::uint16_t>(payload.size() + 1), bytes::Byte(opcode));
     message.insert(message.end(), payload.begin(), payload.end());
     return message;
 }

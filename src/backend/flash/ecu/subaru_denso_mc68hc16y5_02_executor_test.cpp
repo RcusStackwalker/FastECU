@@ -228,7 +228,7 @@ void ScriptCrcCompare(ScriptedKlineFlashTransport& transport, const FlashDevice&
     for (unsigned block_no = 0; block_no < device.numblocks; ++block_no)
     {
         const auto& block = device.fblocks[block_no];
-        const bytes::Bytes request_payload = ComposeBe(block.start, 0x00_b, U24{block.len});
+        const auto request_payload = ComposeBe(block.start, 0x00_b, U24{block.len});
         transport.Exchange(Framed(0x02, request_payload));
 
         std::uint32_t ecu_crc = fastecu::checksum::Crc32(image.data() + image_offset, block.len);
@@ -278,7 +278,7 @@ void ScriptBlockTransfer(ScriptedKlineFlashTransport& transport, const FlashDevi
         // composeBe: production builds this frame as composeBe(address, subspan),
         // so folding would make both sides the same expression and a bug in the
         // splice would cancel out instead of failing the test.
-        bytes::Bytes write_payload = ComposeBe(address);
+        bytes::Bytes write_payload = bytes::ComposeBeWithExtraCapacity(0, address);
         write_payload.append_range(bytes::ByteView(image).subspan(block_image_offset + offset, kChunkSize));
         transport.Exchange(Framed(0x22, write_payload), Framed(0x62));
 
@@ -292,7 +292,7 @@ void ScriptBlockTransfer(ScriptedKlineFlashTransport& transport, const FlashDevi
             // std::uint16_t(kCommitBlockSize), so the width derivation is not
             // shared and a byte-order bug in appendU16Be would fail this test
             // rather than move both sides together.
-            const bytes::Bytes commit_payload = ComposeBe(commit_address, 0x10_b, 0x00_b, commit_crc);
+            const auto commit_payload = ComposeBe(commit_address, 0x10_b, 0x00_b, commit_crc);
             const std::uint8_t commit_opcode = test_write ? 0x23 : 0x24;
             transport.Exchange(Framed(commit_opcode, commit_payload),
                                Framed(static_cast<std::uint8_t>(commit_opcode | 0x40U)));
@@ -322,7 +322,7 @@ bytes::Bytes WriteChunkRequest(const FlashDevice& device, bytes::ByteView image,
     const auto& block = device.fblocks[block_no];
     // Raw insert, not a composeBe splice — see script_write_prefix for why the
     // image bytes must not share production's compose expression.
-    bytes::Bytes payload = ComposeBe(block.start + offset);
+    bytes::Bytes payload = bytes::ComposeBeWithExtraCapacity(0, block.start + offset);
     const std::size_t image_offset = PackedBlockOffset(device, block_no) + offset;
     payload.append_range(bytes::ByteView(image).subspan(image_offset, kChunkSize));
     return Framed(0x22, payload);

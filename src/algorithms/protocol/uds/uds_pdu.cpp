@@ -7,12 +7,12 @@ namespace uds
 
 bytes::Bytes BuildRequest(bytes::Byte sid)
 {
-    return bytes::ComposeBe(sid);
+    return bytes::ComposeBeWithExtraCapacity(0, sid);
 }
 
 bytes::Bytes BuildRequest(bytes::Byte sid, bytes::Byte subfunction)
 {
-    return bytes::ComposeBe(sid, subfunction);
+    return bytes::ComposeBeWithExtraCapacity(0, sid, subfunction);
 }
 
 bytes::Bytes BuildRequest(bytes::Byte sid, bytes::ByteView data)

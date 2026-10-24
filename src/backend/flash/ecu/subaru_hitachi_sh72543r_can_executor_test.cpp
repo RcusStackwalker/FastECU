@@ -121,7 +121,7 @@ class Sh72543rExecutor : public ::testing::Test
     }
     Bytes PageRequest(std::uint32_t a)
     {
-        return bytes::ComposeBe(0x23_b, 0x24_b, a, std::uint16_t{1024});
+        return bytes::ComposeBeWithExtraCapacity(0, 0x23_b, 0x24_b, a, std::uint16_t{1024});
     }
     Bytes Pages()
     {
@@ -483,7 +483,7 @@ class Sh72543rWrite : public Sh72543rExecutor
         for (std::uint32_t a = 0x6000; a < 0x200000; a += 0x100)
         {
             SCOPED_TRACE(::testing::PrintToString(a));
-            Bytes payload = bytes::ComposeBe(0xb6_b, bytes::U24{a});
+            Bytes payload = bytes::ComposeBeWithExtraCapacity(0, 0xb6_b, bytes::U24{a});
             for (unsigned offset = 0; offset < 0x100; offset += 4)
             {
                 bytes::AppendU32Be(payload, ReferenceCipher(0xdeadbeefU ^ (a + offset)));

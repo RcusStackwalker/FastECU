@@ -180,7 +180,7 @@ Status Upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
         return sent;
     }
     // kCrcTransferSize bytes by construction: checksum() is a uint16_t.
-    const bytes::Bytes checksum_bytes = bytes::ComposeBe(mitsu_colt_can::Checksum(payload));
+    const auto checksum_bytes = bytes::ComposeBe(mitsu_colt_can::Checksum(payload));
     if (const Status sent = transfer(mitsu_colt_can::kCrcTransferAddress, checksum_bytes); !sent.has_value())
     {
         return sent;

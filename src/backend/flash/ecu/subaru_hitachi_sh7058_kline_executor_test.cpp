@@ -63,7 +63,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
         for (std::uint32_t offset = 0; offset < 0x100000; offset += 0x80)
         {
             const std::uint32_t address = 0x100000 + offset;
-            const bytes::Bytes request =
+            const auto request =
                 bytes::ComposeBe(bytes::Byte{0xa0}, bytes::Byte{0}, bytes::U24{address}, bytes::Byte{0x7f});
             bytes::Bytes response(129, static_cast<bytes::Byte>(offset / 0x80));
             response[0] = 0xe0;

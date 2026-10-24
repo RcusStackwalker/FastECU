@@ -91,12 +91,31 @@ through [qt_bytes.h](../src/platform/desktop/common/bytes/qt_bytes.h).
 not hand-rolled shifts:
 
 ```cpp
-Bytes frame = ComposeBe(0x31_b, std::uint16_t(kReadPageSize), U24(address));
+auto frame = ComposeBe(0x31_b, std::uint16_t(kReadPageSize), U24(address));
 ```
 
 Each argument's C++ type sets its wire width: `Byte` 1, `std::uint16_t` 2,
 `U24` 3, `std::uint32_t` 4; `std::string_view` and `Byte` ranges splice inline.
-Byte literals take `_b`. Any other type is a compile error.
+Byte literals take `_b`. Wide unsigned-integer ranges emit each element at its
+own width, most-significant byte first. Any unsupported type is a compile error.
+
+`ComposeBe` returns `std::array<bytes::Byte, N>` when every argument has a
+statically known encoded width: supported scalars, `std::array`, built-in
+arrays, and fixed-extent `std::span`. Values can still come from runtime data.
+The fixed-size path allocates no temporary storage and supports `constexpr`.
+Statically empty output, including `ComposeBe()`, is a compile error; empty
+static ranges can participate in a nonempty composition.
+
+A dynamically sized argument, including `ByteView`, a vector, a dynamic span,
+or `std::string_view`, selects `Bytes`; dynamically empty output is allowed.
+`ComposeBeWithChecksum` uses the same return-type rule, counting the checksum
+in the output width and passing only the payload to the checksum function.
+Checksum-only output is allowed, and static composition is `constexpr` when
+the checksum callable permits it.
+
+Use `ComposeBeWithExtraCapacity(extra_capacity, ...)` when vector ownership or
+subsequent appending is required. It always returns `Bytes`, including with
+zero extra capacity or no fields.
 
 **Width is still your job.** Narrow explicitly to the wire field
 (`std::uint16_t(x)`, `U24(x)`): a `std::uint32_t` in a 3-byte field compiles and

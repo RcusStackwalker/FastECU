@@ -414,7 +414,8 @@ Status SubaruDensoSh7055_02Executor::UploadKernel(IKlineFlashTransport& transpor
     // bytes 6-9 below are a fixed transform of the literal 0x00, the checksum
     // placeholder overwritten at request[7], and the fixed 0x31/0x61 envelope
     // markers, none of which reference address.
-    bytes::Bytes request = ComposeBe(kDensoKlineOpUploadKernel, std::uint16_t(address >> 8U));
+    bytes::Bytes request =
+        bytes::ComposeBeWithExtraCapacity(0, kDensoKlineOpUploadKernel, std::uint16_t(address >> 8U));
     bytes::AppendU24Be(request, length);
     request.push_back(static_cast<bytes::Byte>((0x00U ^ 0x55U) + 0x10));
     request.push_back(0x00);
@@ -491,7 +492,7 @@ Result<bytes::Bytes> SubaruDensoSh7055_02Executor::ReadMem(IKlineFlashTransport&
         {
             return std::unexpected(cancelled.error());
         }
-        const bytes::Bytes payload = ComposeBe(0x00_b, U24{address}, std::uint16_t(kReadPageSize));
+        const auto payload = ComposeBe(0x00_b, U24{address}, std::uint16_t(kReadPageSize));
         // Legacy lines 415-421 settle for 10ms and use serial_read_extra_long_timeout (3000ms).
         Result<IKlineFlashTransport::OptionalBytes> response = DensoBeefKlineExchangeOptional(
             transport, &clock, cancellation, DensoBeefKlineFrame(kDensoKlineOpReadArea, payload), 10ms, 3000ms);
@@ -622,7 +623,7 @@ Status SubaruDensoSh7055_02Executor::FlashBlock(IKlineFlashTransport& transport,
         if (offset % kCommitBlockSize == 0)
         {
             const std::uint32_t commit_start = block.start + offset - kCommitBlockSize;
-            const bytes::Bytes commit_payload =
+            const auto commit_payload =
                 ComposeBe(commit_start, std::uint16_t(kCommitBlockSize),
                           fastecu::checksum::Crc32(image.subspan(commit_start, kCommitBlockSize)));
             if (Result<bytes::Bytes> committed = DensoBeefKlineExchangeAck(
