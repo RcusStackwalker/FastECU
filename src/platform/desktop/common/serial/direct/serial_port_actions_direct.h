@@ -84,7 +84,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     QString can_speed = "500000";
 
-    std::uint8_t serial_port_parity = (std::uint8_t)QSerialPort::NoParity;
+    std::uint8_t serial_port_parity = static_cast<std::uint8_t>(QSerialPort::NoParity);
     QString serial_port_baudrate = "4800";
     QString serial_port_linux = "/dev/ttyUSB0";
     QString serial_port_windows = "COM67";
@@ -140,7 +140,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     // long. Distinct overloads on LP64 — adapt explicitly.
     int SetJ2534Ioctl(std::uint32_t parameter, int value) override
     {
-        return SetJ2534Ioctl((unsigned long)parameter, value);
+        return SetJ2534Ioctl(static_cast<unsigned long>(parameter), value);
     }
 
     bool GetSerialPortAvailable() override

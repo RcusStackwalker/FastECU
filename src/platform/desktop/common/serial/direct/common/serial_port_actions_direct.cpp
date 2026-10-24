@@ -90,7 +90,7 @@ uint32_t PayloadLength(const QByteArray& header, bool is_iso14230)
     }
     if (header.startsWith("\x80\xf0"))
     {
-        return (uint8_t)header.at(3) + 1; // +1 for checksum
+        return static_cast<uint8_t>(header.at(3)) + 1; // +1 for checksum
     }
     return 0;
 }
@@ -201,7 +201,7 @@ QByteArray SerialPortActionsDirect::FiveBaudInit(QByteArray output)
 
         for (int i = 0; i < output.length(); i++)
         {
-            byte_ptr[i] = (uint8_t)output.at(i);
+            byte_ptr[i] = static_cast<uint8_t>(output.at(i));
         }
 
         result = j2534_->PassThruIoctl(chan_id_, kJ2534FiveBaudInit, &input_msg, &output_msg);
@@ -243,7 +243,7 @@ QByteArray SerialPortActionsDirect::FiveBaudInit(QByteArray output)
         // emit LOG_D("Read response", true, true);
         response = ReadSerialObdData(200);
         // emit LOG_D("Five baud init response: " + parse_message_to_hex(response), true, true);
-        if ((uint8_t)response.at(1) == 0x08 && (uint8_t)response.at(2) == 0x08)
+        if (static_cast<uint8_t>(response.at(1)) == 0x08 && static_cast<uint8_t>(response.at(2)) == 0x08)
         {
             // delay(30);
             output.clear();
@@ -287,7 +287,7 @@ int SerialPortActionsDirect::FastInit(QByteArray output)
 
         for (int i = 0; i < output.length(); i++)
         {
-            input_msg.data[i] = (uint8_t)output.at(i);
+            input_msg.data[i] = static_cast<uint8_t>(output.at(i));
         }
         input_msg.data_size = output.length();
 
@@ -540,7 +540,7 @@ QString SerialPortActionsDirect::OpenSerialPort()
             serial_->setDataBits(QSerialPort::Data8);
             serial_->setStopBits(QSerialPort::OneStop);
             // serial->setParity(QSerialPort::EvenParity);
-            serial_->setParity((QSerialPort::Parity)serial_port_parity);
+            serial_->setParity(static_cast<QSerialPort::Parity>(serial_port_parity));
             serial_->setFlowControl(QSerialPort::NoFlowControl);
 
             if (serial_->open(QIODevice::ReadWrite))
@@ -668,11 +668,11 @@ QByteArray SerialPortActionsDirect::SetError()
 
     received.append(static_cast<char>(0x80));
     received.append(static_cast<char>(0xf0));
-    received.append((uint8_t)0x10);
-    received.append((uint8_t)0x03);
-    received.append((uint8_t)0x7f);
+    received.append(static_cast<uint8_t>(0x10));
+    received.append(static_cast<uint8_t>(0x03));
+    received.append(static_cast<uint8_t>(0x7f));
     received.append('\0');
-    received.append((uint8_t)0x13);
+    received.append(static_cast<uint8_t>(0x13));
 
     return received;
 }
@@ -688,9 +688,9 @@ void SerialPortActionsDirect::WaitForBytesAvailable(const QTime& die_time)
 void SerialPortActionsDirect::ReadUntilLength(QByteArray& buffer, uint32_t length, const QTime& die_time,
                                               bool resync_header)
 {
-    while ((uint32_t)buffer.length() < length && QTime::currentTime() < die_time)
+    while (static_cast<uint32_t>(buffer.length()) < length && QTime::currentTime() < die_time)
     {
-        while (serial_->bytesAvailable() && (uint32_t)buffer.length() < length)
+        while (serial_->bytesAvailable() && static_cast<uint32_t>(buffer.length()) < length)
         {
             buffer.append(serial_->read(1));
         }
@@ -759,7 +759,8 @@ QByteArray SerialPortActionsDirect::ReadSerialData(uint16_t timeout_arg)
         msglen = PayloadLength(received, is_iso14230_connection);
         ReadUntilLength(req_bytes, msglen, die_time, false);
     }
-    if (!received.isEmpty() && (received.length() < kSerialHeaderLength || (uint32_t)req_bytes.length() < msglen))
+    if (!received.isEmpty() &&
+        (received.length() < kSerialHeaderLength || static_cast<uint32_t>(req_bytes.length()) < msglen))
     {
         received.insert(0, SetError());
     }
@@ -974,7 +975,7 @@ int SerialPortActionsDirect::WriteJ2534Data(QByteArray output)
 
         for (long i = 0; i < tx_msg_len; i++)
         {
-            txmsg.data[i] = (uint8_t)output.at(i);
+            txmsg.data[i] = static_cast<uint8_t>(output.at(i));
         }
         // Indicate that the PassThruMsg array contains just a single message.
         num_msgs = 1;
@@ -1006,7 +1007,7 @@ int SerialPortActionsDirect::SendPeriodicJ2534Data(QByteArray output, int timeou
 
         for (long i = 0; i < tx_msg_len; i++)
         {
-            txmsg.data[i] = (uint8_t)output.at(i);
+            txmsg.data[i] = static_cast<uint8_t>(output.at(i));
         }
         j2534_->PassThruStartPeriodicMsg(chan_id_, &txmsg, &msg_id_, timeout_arg);
         output.remove(0, tx_msg_len);
@@ -1577,7 +1578,7 @@ void SerialPortActionsDirect::ReportJ2534Error()
 {
     std::array<char, 512> err{};
     j2534_->PassThruGetLastError(err.data());
-    emit logD("J2534 error: " + (QString)err.data(), true, true);
+    emit logD("J2534 error: " + static_cast<QString>(err.data()), true, true);
 }
 
 void SerialPortActionsDirect::handleError(QSerialPort::SerialPortError error)
@@ -1639,7 +1640,7 @@ QString SerialPortActionsDirect::ParseMessageToHex(const QByteArray& received)
 
     for (int i = 0; i < received.length(); i++)
     {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUtf8());
+        msg.append(QString("%1 ").arg(static_cast<uint8_t>(received.at(i)), 2, 16, QLatin1Char('0')).toUtf8());
     }
 
     return msg;

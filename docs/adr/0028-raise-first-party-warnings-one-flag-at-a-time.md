@@ -75,7 +75,7 @@ just sized, two on a `back()` of a non-empty constant, and four inside libstdc++
 | `-Wmissing-field-initializers` | dropped: GCC-only, contradicts `readability-redundant-member-init` |
 | `-Wshadow` | landed |
 | `-Wnon-virtual-dtor`, `-Woverloaded-virtual`, `-Wformat=2`, `-Wimplicit-fallthrough`; MSVC C4263, C4265, C4296, C4826, C5262, C4062 | landed with `-Wshadow`: no sites on any compiler |
-| `-Wold-style-cast` | planned |
+| `-Wold-style-cast` | landed |
 | `-Wconversion`, `-Wsign-conversion` | planned |
 | `-Wnull-dereference` | dropped: GCC-only false positives, half inside libstdc++ |
 

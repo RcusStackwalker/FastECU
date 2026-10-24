@@ -93,9 +93,9 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
             chunkIdx += 1;
             qint64 count;
             qint64 chunkOfs = pos - chunk.abs_pos;
-            if (maxSize > ((qint64)chunk.data.size() - chunkOfs))
+            if (maxSize > (static_cast<qint64>(chunk.data.size()) - chunkOfs))
             {
-                count = (qint64)chunk.data.size() - chunkOfs;
+                count = static_cast<qint64>(chunk.data.size()) - chunkOfs;
                 ioDelta += kChunkSize - chunk.data.size();
             }
             else
@@ -104,12 +104,12 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
             }
             if (count > 0)
             {
-                buffer += chunk.data.mid(chunkOfs, (int)count);
+                buffer += chunk.data.mid(chunkOfs, static_cast<int>(count));
                 maxSize -= count;
                 pos += count;
                 if (highlighted)
                 {
-                    *highlighted += chunk.data_changed.mid(chunkOfs, (int)count);
+                    *highlighted += chunk.data_changed.mid(chunkOfs, static_cast<int>(count));
                 }
             }
         }
@@ -170,7 +170,7 @@ void Chunks::setDataChanged(qint64 pos, bool dataChanged)
     }
     int chunkIdx = getChunkIndex(pos);
     qint64 posInBa = pos - chunks_[chunkIdx].abs_pos;
-    chunks_[chunkIdx].data_changed[(int)posInBa] = char(dataChanged);
+    chunks_[chunkIdx].data_changed[static_cast<int>(posInBa)] = char(dataChanged);
 }
 
 bool Chunks::dataChanged(qint64 pos)
@@ -193,7 +193,7 @@ qint64 Chunks::indexOf(const QByteArray& ba, qint64 from)
         qsizetype findPos = buffer.indexOf(ba);
         if (findPos >= 0)
         {
-            result = pos + (qint64)findPos;
+            result = pos + static_cast<qint64>(findPos);
         }
     }
     return result;
@@ -206,7 +206,7 @@ qint64 Chunks::lastIndexOf(const QByteArray& ba, qint64 from)
 
     for (qint64 pos = from; (pos > 0) && (result < 0); pos -= kBufferSize)
     {
-        qint64 sPos = pos - kBufferSize - (qint64)ba.size() + 1;
+        qint64 sPos = pos - kBufferSize - static_cast<qint64>(ba.size()) + 1;
         if (sPos < 0)
         {
             sPos = 0;
@@ -215,7 +215,7 @@ qint64 Chunks::lastIndexOf(const QByteArray& ba, qint64 from)
         qsizetype findPos = buffer.lastIndexOf(ba);
         if (findPos >= 0)
         {
-            result = sPos + (qint64)findPos;
+            result = sPos + static_cast<qint64>(findPos);
         }
     }
     return result;
@@ -258,8 +258,8 @@ bool Chunks::overwrite(qint64 pos, char b)
     }
     int chunkIdx = getChunkIndex(pos);
     qint64 posInBa = pos - chunks_[chunkIdx].abs_pos;
-    chunks_[chunkIdx].data[(int)posInBa] = b;
-    chunks_[chunkIdx].data_changed[(int)posInBa] = char(1);
+    chunks_[chunkIdx].data[static_cast<int>(posInBa)] = b;
+    chunks_[chunkIdx].data_changed[static_cast<int>(posInBa)] = char(1);
     pos_ = pos;
     return true;
 }

@@ -29,10 +29,10 @@ TEST(TestDirectBackend, getSet_roundtrip_throughInterface)
     ASSERT_EQ(direct.serial_port_baudrate, QString("10400"));
 
     b->SetKlineStartbyte(0x80);
-    ASSERT_EQ(b->GetKlineStartbyte(), (uint8_t)0x80);
+    ASSERT_EQ(b->GetKlineStartbyte(), static_cast<uint8_t>(0x80));
 
     b->SetCanSourceAddress(0x7E0);
-    ASSERT_EQ(b->GetCanSourceAddress(), (uint32_t)0x7E0);
+    ASSERT_EQ(b->GetCanSourceAddress(), static_cast<uint32_t>(0x7E0));
 
     b->SetSerialPortList(QStringList() << "ttyUSB0");
     ASSERT_EQ(b->GetSerialPortList(), QStringList() << "ttyUSB0");

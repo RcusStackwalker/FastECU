@@ -379,7 +379,7 @@ QString frameError(const QByteArray& message)
     {
         return "invalid header";
     }
-    if ((byteAt(message, 0) & 0x7FU) != static_cast<unsigned>((uint8_t)message.length() - 4))
+    if ((byteAt(message, 0) & 0x7FU) != static_cast<unsigned>(static_cast<uint8_t>(message.length()) - 4))
     {
         return "invalid length";
     }
