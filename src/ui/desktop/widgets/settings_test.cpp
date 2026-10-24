@@ -83,8 +83,8 @@ class ProviderCheckboxesPersistBothDirectionsParameters
 INSTANTIATE_TEST_SUITE_P(Rows, ProviderCheckboxesPersistBothDirectionsParameters,
                          ::testing::Values(ProviderCheckboxesPersistBothDirectionsCase{"enabled_romraider", true},
                                            ProviderCheckboxesPersistBothDirectionsCase{"disabled_ecuflash", false}),
-                         [](const ::testing::TestParamInfo<ProviderCheckboxesPersistBothDirectionsCase>& info)
-                         { return info.param.name; });
+                         [](const ::testing::TestParamInfo<ProviderCheckboxesPersistBothDirectionsCase>& paramInfo)
+                         { return paramInfo.param.name; });
 
 TEST_P(ProviderCheckboxesPersistBothDirectionsParameters, providerCheckboxesPersistBothDirections)
 {
@@ -130,8 +130,8 @@ INSTANTIATE_TEST_SUITE_P(
     Rows, RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
     ::testing::Values(RemovingDefinitionsPreservesOrderAndPersistsEmptyListCase{"surviving_order", false},
                       RemovingDefinitionsPreservesOrderAndPersistsEmptyListCase{"empty_list", true}),
-    [](const ::testing::TestParamInfo<RemovingDefinitionsPreservesOrderAndPersistsEmptyListCase>& info)
-    { return info.param.name; });
+    [](const ::testing::TestParamInfo<RemovingDefinitionsPreservesOrderAndPersistsEmptyListCase>& paramInfo)
+    { return paramInfo.param.name; });
 
 TEST_P(RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
        removingDefinitionsPreservesOrderAndPersistsEmptyList)

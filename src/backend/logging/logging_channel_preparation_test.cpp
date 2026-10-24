@@ -114,7 +114,7 @@ INSTANTIATE_TEST_SUITE_P(
                       InvalidInput{"format", "0.0garbage0"}, InvalidInput{"format", "0.00.000"},
                       InvalidInput{"format", " 0.00 "}, InvalidInput{"format", "0." + std::string(16, '0')}),
     (
-        [](const auto& info)
+        [](const auto& param_info)
         {
             static constexpr std::array kNames{
                 "EmptyAddress",    "MissingHexAddress", "PositiveSignedAddress", "NegativeAddress",
@@ -123,7 +123,7 @@ INSTANTIATE_TEST_SUITE_P(
                 "LengthJunk",      "HexLength",         "LengthWhitespace",      "LengthOverflow",
                 "EmptyFormat",     "UnknownFormat",     "ZeroPrecision",         "FormatJunk",
                 "MultipleFormats", "NullFormat",        "StringFormat"};
-            return kNames[info.index];
+            return kNames[param_info.index];
         }));
 
 TEST(LoggingChannelPreparation, AcceptsHexadecimalAddressesAndAsciiWhitespace)

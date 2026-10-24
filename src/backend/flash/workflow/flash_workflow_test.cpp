@@ -2221,7 +2221,7 @@ struct SingleAttemptCase
     std::vector<FlashPromptKind> confirmations;
 };
 
-KernelImage CatalogKernel(std::string_view protocol, std::uint32_t load_address, bytes::Bytes bytes)
+KernelImage CatalogKernelImage(std::string_view protocol, std::uint32_t load_address, bytes::Bytes bytes)
 {
     return KernelImage{
         .id = std::format("{}-kernel", protocol), .load_address = load_address, .bytes = std::move(bytes)};
@@ -2258,43 +2258,43 @@ std::vector<SingleAttemptCase> SingleAttemptCases()
          "SH7055",
          kSubaruDensoSh705xDensoCan,
          kCanRawIso15765,
-         CatalogKernel("sub_ecu_denso_sh7055_densocan", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
+         CatalogKernelImage("sub_ecu_denso_sh7055_densocan", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
          {FlashPromptKind::kCycleIgnition}},
         {"sub_tcu_denso_sh7055_can",
          "SH7055",
          kSubaruTcuDensoSh705xCan,
          kCanIso15765,
-         CatalogKernel("sub_tcu_denso_sh7055_can", 0xFFFF9000, {0x10, 0x20, 0x30, 0x40}),
+         CatalogKernelImage("sub_tcu_denso_sh7055_can", 0xFFFF9000, {0x10, 0x20, 0x30, 0x40}),
          {}},
         {"sub_ecu_denso_sh7058_can",
          "SH7058",
          kSubaruDensoSh7058Can,
          kCanIso15765,
-         CatalogKernel("sub_ecu_denso_sh7058_can", 0xFFFF3000, {0x90, 0xa0, 0xb0, 0xc0}),
+         CatalogKernelImage("sub_ecu_denso_sh7058_can", 0xFFFF3000, {0x90, 0xa0, 0xb0, 0xc0}),
          {}},
         {"sub_ecu_denso_sh7058_can_diesel",
          "SH7058d",
          kSubaruDensoSh7058CanDiesel,
          kCanIso15765,
-         CatalogKernel("sub_ecu_denso_sh7058_can_diesel", 0xFFFF4000, {0xd0, 0xe0, 0xf0, 0x01}),
+         CatalogKernelImage("sub_ecu_denso_sh7058_can_diesel", 0xFFFF4000, {0xd0, 0xe0, 0xf0, 0x01}),
          {}},
         {"sub_ecu_denso_sh7055_04",
          "SH7055",
          kSubaruDensoSh705xKline,
          kKline,
-         CatalogKernel("sub_ecu_denso_sh7055_04", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
+         CatalogKernelImage("sub_ecu_denso_sh7055_04", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
          {}},
         {"sub_ecu_denso_sh7055_02",
          "SH7055",
          kSubaruDensoSh705502,
          kKline,
-         CatalogKernel("sub_ecu_denso_sh7055_02", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
+         CatalogKernelImage("sub_ecu_denso_sh7055_02", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
          {FlashPromptKind::kCycleIgnition}},
         {"sub_ecu_denso_mc68hc16y5_02",
          "MC68HC16Y5",
          kSubaruDensoMc68hc16y502,
          kKline,
-         CatalogKernel("sub_ecu_denso_mc68hc16y5_02", 0x20000, {0x11, 0x22, 0x33}),
+         CatalogKernelImage("sub_ecu_denso_mc68hc16y5_02", 0x20000, {0x11, 0x22, 0x33}),
          {}},
     };
 }

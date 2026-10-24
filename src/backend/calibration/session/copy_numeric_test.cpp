@@ -283,11 +283,11 @@ TEST_P(CopyIgnoresEditOnlyMetadataTest, CopyIgnoresEditOnlyMetadata)
 
 INSTANTIATE_TEST_SUITE_P(EditMetadata, CopyIgnoresEditOnlyMetadataTest, ::testing::Values(0, 1, 2, 3),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"InvalidToByte", "InvalidMinimum", "ReversedBounds",
                                                                     "InvalidIncrement"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 TEST_F(CopyNumericTest, ClosingAnotherSessionKeepsTheTargetIdStable)

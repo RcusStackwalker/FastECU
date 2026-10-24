@@ -1275,7 +1275,7 @@ INSTANTIATE_TEST_SUITE_P(
                                                     mitsu_colt_can::kEraseRoutineRamAddr,
                                                     mitsu_colt_can::kEraseRoutineRamAddr),
                                         "Erase page uploaded"}),
-    [](const ::testing::TestParamInfo<RoutineStatusCase>& info) { return info.param.name; });
+    [](const ::testing::TestParamInfo<RoutineStatusCase>& param_info) { return param_info.param.name; });
 
 TEST(MitsuColtM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal)
 {

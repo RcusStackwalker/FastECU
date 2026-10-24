@@ -112,11 +112,11 @@ INSTANTIATE_TEST_SUITE_P(
                          {0xff, 0x7f, 0xff, 0xff},
                          {0x7f, 0x7f, 0xff, 0xff}}),
     (
-        [](const auto& info)
+        [](const auto& param_info)
         {
             static constexpr std::array kNames{"Uint8", "Int8",   "Uint16", "Int16", "Uint24",
                                                "Int24", "Uint32", "Int32",  "Float"};
-            return kNames[info.index];
+            return kNames[param_info.index];
         }));
 
 struct LiteralCase
@@ -155,11 +155,11 @@ INSTANTIATE_TEST_SUITE_P(
         LiteralCase{StorageType::kUint8, "95", bytes::Bytes{95}},
         LiteralCase{StorageType::kUint8, "9.5", bytes::Bytes{10}}),
     (
-        [](const auto& info)
+        [](const auto& param_info)
         {
             static constexpr std::array kNames{"Zero", "One",   "Two",   "Three", "Four",       "Five",
                                                "Six",  "Seven", "Eight", "Nine",  "NinetyFive", "FractionalRoundUp"};
-            return kNames[info.index];
+            return kNames[param_info.index];
         }));
 
 INSTANTIATE_TEST_SUITE_P(RoundsHalfAwayFromZero, AssignedLiterals,
@@ -170,12 +170,12 @@ INSTANTIATE_TEST_SUITE_P(RoundsHalfAwayFromZero, AssignedLiterals,
                                            LiteralCase{StorageType::kInt16, "10.5", bytes::Bytes{0, 11}},
                                            LiteralCase{StorageType::kInt16, "-10.5", bytes::Bytes{0xff, 0xf5}}),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"PositiveHalf",       "NegativeHalf",
                                                                     "PositiveTwoAndHalf", "NegativeTwoAndHalf",
                                                                     "PositiveTenAndHalf", "NegativeTenAndHalf"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 INSTANTIATE_TEST_SUITE_P(FloatStorage, AssignedLiterals,
@@ -183,10 +183,10 @@ INSTANTIATE_TEST_SUITE_P(FloatStorage, AssignedLiterals,
                                            LiteralCase{StorageType::kFloat, "1e100", std::nullopt},
                                            LiteralCase{StorageType::kFloat, "1/0", std::nullopt}),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"FiniteFloat", "FloatOverflow", "DivisionByZero"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 struct DefinitionLimitCase
@@ -235,14 +235,14 @@ INSTANTIATE_TEST_SUITE_P(Bounds, DefinitionLimits,
                                            DefinitionLimitCase{"0", "broken", "1", std::nullopt},
                                            DefinitionLimitCase{"101", "100", "1", std::nullopt}),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{
                                      "WithinBounds",      "ClampAbove",       "AtMaximum",         "ClampBelow",
                                      "AtMinimum",         "EqualBoundsAbove", "EqualBoundsBelow",  "MissingMinimum",
                                      "WhitespaceMinimum", "MissingMaximum",   "WhitespaceMaximum", "NoBounds",
                                      "InvalidMinimum",    "InvalidMaximum",   "ReversedBounds"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 struct NoChangeCase
@@ -291,11 +291,11 @@ INSTANTIATE_TEST_SUITE_P(
         NoChangeCase{"100", "x", "", 1, {100, 100}, {100, 100}, NoChangeReason::kDefinitionLimit, 0},
         NoChangeCase{"", "x", "", 1, {5}, {5}, NoChangeReason::kNone, 1}),
     (
-        [](const auto& info)
+        [](const auto& param_info)
         {
             static constexpr std::array kNames{"DefinitionLimit", "StorageResolution",      "Unchanged",
                                                "MultipleCauses",  "EntireSelectionLimited", "ChangedValue"};
-            return kNames[info.index];
+            return kNames[param_info.index];
         }));
 
 struct IncrementCase
@@ -350,7 +350,7 @@ INSTANTIATE_TEST_SUITE_P(
                       IncrementCase{StorageType::kInt8, -1, IncrementStep::kFineUp, 2, 10, bytes::Bytes{1}},
                       IncrementCase{StorageType::kInt8, 0, IncrementStep::kFineDown, 1, 10, bytes::Bytes{0xff}}),
     (
-        [](const auto& info)
+        [](const auto& param_info)
         {
             static constexpr std::array kNames{"FineUp",
                                                "FineDown",
@@ -366,7 +366,7 @@ INSTANTIATE_TEST_SUITE_P(
                                                "UnsignedUnderflow",
                                                "CrossSignedZero",
                                                "SignedNegativeOne"};
-            return kNames[info.index];
+            return kNames[param_info.index];
         }));
 
 struct SelectionCase
@@ -422,7 +422,7 @@ INSTANTIATE_TEST_SUITE_P(
                       // One cell more than a 32-bit index can address.
                       SelectionCase{65537, 65536, {0, 0, 0, 0}, false}),
     (
-        [](const auto& info)
+        [](const auto& param_info)
         {
             static constexpr std::array kNames{"EmptyWidth",
                                                "EmptyHeight",
@@ -437,7 +437,7 @@ INSTANTIATE_TEST_SUITE_P(
                                                "LastColumnOutsideTwoColumnRun",
                                                "LastRowOutsideTwoRowRun",
                                                "TooManyAddressableCells"};
-            return kNames[info.index];
+            return kNames[param_info.index];
         }));
 
 INSTANTIATE_TEST_SUITE_P(Accepted, SelectionBounds,
@@ -447,11 +447,11 @@ INSTANTIATE_TEST_SUITE_P(Accepted, SelectionBounds,
                                            // Exactly as many cells as a 32-bit index can address.
                                            SelectionCase{65537, 65535, {0, 0, 0, 0}, true}),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"SingleCell", "FullGrid", "BottomRightCell",
                                                                     "MaximumAddressableGrid"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 struct PasteCase
@@ -496,11 +496,11 @@ INSTANTIATE_TEST_SUITE_P(
                   {CellWrite{4, 4, {1}}, CellWrite{5, 5, {2}}, CellWrite{7, 7, {4}}, CellWrite{8, 8, {5}}}},
         PasteCase{2, 2, {0, 0, 0, 0}, {}, {}}),
     (
-        [](const auto& info)
+        [](const auto& param_info)
         {
             static constexpr std::array kNames{"ClipExtraRowsAndColumns", "FirstRowControlsWidth", "VerticalClip",
                                                "HorizontalClip",          "OffsetRectangle",       "EmptyPaste"};
-            return kNames[info.index];
+            return kNames[param_info.index];
         }));
 
 class OffsetInterpolation : public ::testing::TestWithParam<std::tuple<InterpolationMode, int>>
@@ -611,13 +611,13 @@ INSTANTIATE_TEST_SUITE_P(ModesAndOrigins, OffsetInterpolation,
                                                               InterpolationMode::kBidirectional),
                                             ::testing::Values(0, 1)),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
-                                 const auto mode = std::get<0>(info.param);
+                                 const auto mode = std::get<0>(param_info.param);
                                  const std::string name = mode == InterpolationMode::kHorizontal ? "Horizontal"
                                                           : mode == InterpolationMode::kVertical ? "Vertical"
                                                                                                  : "Bidirectional";
-                                 return name + "Origin" + std::to_string(std::get<1>(info.param));
+                                 return name + "Origin" + std::to_string(std::get<1>(param_info.param));
                              }));
 
 struct CrossOperationCase
@@ -714,9 +714,9 @@ TEST_P(CrossOperationEncoding, EveryOperationWritesTheSameBytes)
 
 INSTANTIATE_TEST_SUITE_P(StoragesAndLimits, CrossOperationEncoding, ::testing::ValuesIn(CrossOperationCases()),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
-                                 const auto& example = info.param;
+                                 const auto& example = param_info.param;
                                  const std::string storage = [type = example.storage]
                                  {
                                      switch (type)

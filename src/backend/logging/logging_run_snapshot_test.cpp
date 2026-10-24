@@ -197,10 +197,10 @@ TEST_P(LoggingRunSnapshotInvalidEnum, RejectsUnknownProtocolAndTarget)
 
 INSTANTIATE_TEST_SUITE_P(UnknownInputs, LoggingRunSnapshotInvalidEnum, ::testing::Values(999),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"UnknownEnumValue"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 TEST(LoggingRunSnapshot, RejectsInvalidRunInputs)

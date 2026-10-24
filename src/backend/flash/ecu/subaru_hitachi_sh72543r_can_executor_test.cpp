@@ -577,10 +577,10 @@ TEST_P(Sh72543rWriteFault, EraseExhaustionNeverSendsData)
 }
 INSTANTIATE_TEST_SUITE_P(SilenceAndWrongReply, Sh72543rWriteFault, ::testing::Values(0, 1),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"Silence", "WrongReply"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 class Sh72543rWriteCancel : public Sh72543rWrite, public ::testing::WithParamInterface<int>
 {
@@ -605,11 +605,11 @@ TEST_P(Sh72543rWriteCancel, CancelAtEveryProgrammingPhaseStopsSubsequentIo)
 // After erase, first/middle/last frame, close, and checksum respectively.
 INSTANTIATE_TEST_SUITE_P(Boundaries, Sh72543rWriteCancel, ::testing::Values(6, 7, 100, 8102, 8103, 8104),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"AfterErase", "FirstFrame", "MiddleFrame",
                                                                     "LastFrame",  "Close",      "Checksum"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 TEST_F(Sh72543rWrite, CancelDuringErasePollingStopsBeforeData)
 {
@@ -685,11 +685,11 @@ TEST_P(Sh72543rFinalizeFault, BoundedFinalizationRetriesClassifyFailure)
 }
 INSTANTIATE_TEST_SUITE_P(CloseAndChecksum, Sh72543rFinalizeFault, ::testing::Values(0, 1, 2, 3),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"CloseSilence", "CloseWrongReply",
                                                                     "ChecksumSilence", "ChecksumWrongReply"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 TEST_F(Sh72543rWrite, LastRetrySucceedsWithoutEarlyCompletion)
 {

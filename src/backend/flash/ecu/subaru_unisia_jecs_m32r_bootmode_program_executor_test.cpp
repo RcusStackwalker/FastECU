@@ -170,11 +170,11 @@ INSTANTIATE_TEST_SUITE_P(BothBootmodeRoms, ProgramsTheWholeRom,
                          ::testing::Values(std::make_tuple("sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", 0x20000U),
                                            std::make_tuple("sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000U)),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"SubEcuUnisiaJecs20BootmodeM32R128KB0x20000U",
                                                                     "SubEcuUnisiaJecs30BootmodeM32R256KB0x40000U"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, SilenceAfterTheFinalBlockSucceedsWithAWarning)

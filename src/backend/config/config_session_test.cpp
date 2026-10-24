@@ -243,10 +243,10 @@ TEST_P(UnusableSavedVehicle, SelectsNothingAndForgetsIt)
 INSTANTIATE_TEST_SUITE_P(ConfigSessionInitialize, UnusableSavedVehicle,
                          ::testing::Values("", "0", "subaru-impreza-v9", "SUBARU-IMPREZA-V1"),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{"Empty", "Zero", "UnknownVersion", "WrongCase"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 TEST(ConfigSessionInitialize, ALegacyProtocolIdSelectsNothing)

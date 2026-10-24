@@ -1253,21 +1253,21 @@ class HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParamet
       public ::testing::WithParamInterface<HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase>
 {
 };
-INSTANTIATE_TEST_SUITE_P(
-    Rows, HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParameters,
-    ::testing::ValuesIn(handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingRows()),
-    [](const ::testing::TestParamInfo<HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase>& info)
-    {
-        auto name = info.param.name;
-        for (char& c : name)
-        {
-            if (!std::isalnum(static_cast<unsigned char>(c)))
-            {
-                c = '_';
-            }
-        }
-        return name;
-    });
+INSTANTIATE_TEST_SUITE_P(Rows, HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingParameters,
+                         ::testing::ValuesIn(handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingRows()),
+                         [](const ::testing::TestParamInfo<
+                             HandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePollingCase>& paramInfo)
+                         {
+                             auto name = paramInfo.param.name;
+                             for (char& c : name)
+                             {
+                                 if (!std::isalnum(static_cast<unsigned char>(c)))
+                                 {
+                                     c = '_';
+                                 }
+                             }
+                             return name;
+                         });
 void MainWindowTest::checkHandledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling(QString choice,
                                                                                               int expectedIgnitionCount)
 {
@@ -1344,9 +1344,9 @@ class FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoParameters
 INSTANTIATE_TEST_SUITE_P(
     Rows, FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoParameters,
     ::testing::ValuesIn(futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoRows()),
-    [](const ::testing::TestParamInfo<FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase>& info)
+    [](const ::testing::TestParamInfo<FutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIoCase>& paramInfo)
     {
-        auto name = info.param.name;
+        auto name = paramInfo.param.name;
         for (char& c : name)
         {
             if (!std::isalnum(static_cast<unsigned char>(c)))
@@ -1421,9 +1421,9 @@ class RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackParameters
 INSTANTIATE_TEST_SUITE_P(
     Rows, RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackParameters,
     ::testing::ValuesIn(representativePortableRoutesReachFactoryBeforeLegacyFallbackRows()),
-    [](const ::testing::TestParamInfo<RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackCase>& info)
+    [](const ::testing::TestParamInfo<RepresentativePortableRoutesReachFactoryBeforeLegacyFallbackCase>& paramInfo)
     {
-        auto name = info.param.name;
+        auto name = paramInfo.param.name;
         for (char& c : name)
         {
             if (!std::isalnum(static_cast<unsigned char>(c)))
@@ -2508,9 +2508,9 @@ class ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationParameters
 INSTANTIATE_TEST_SUITE_P(
     Rows, ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationParameters,
     ::testing::ValuesIn(chooserDialogsApplyAcceptedChoicesAndIgnoreCancellationRows()),
-    [](const ::testing::TestParamInfo<ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase>& info)
+    [](const ::testing::TestParamInfo<ChooserDialogsApplyAcceptedChoicesAndIgnoreCancellationCase>& paramInfo)
     {
-        auto name = info.param.name;
+        auto name = paramInfo.param.name;
         for (char& c : name)
         {
             if (!std::isalnum(static_cast<unsigned char>(c)))
@@ -4134,9 +4134,9 @@ class ChooserDuplicateLabelIdentityParameters : public MainWindowTest,
 };
 INSTANTIATE_TEST_SUITE_P(Rows, ChooserDuplicateLabelIdentityParameters,
                          ::testing::ValuesIn(chooserDuplicateLabelIdentityRows()),
-                         [](const ::testing::TestParamInfo<ChooserDuplicateLabelIdentityCase>& info)
+                         [](const ::testing::TestParamInfo<ChooserDuplicateLabelIdentityCase>& paramInfo)
                          {
-                             auto name = info.param.name;
+                             auto name = paramInfo.param.name;
                              for (char& c : name)
                              {
                                  if (!std::isalnum(static_cast<unsigned char>(c)))
@@ -4217,9 +4217,9 @@ class LoggingStartWaitsForIdentificationParameters
 };
 INSTANTIATE_TEST_SUITE_P(Rows, LoggingStartWaitsForIdentificationParameters,
                          ::testing::ValuesIn(loggingStartWaitsForIdentificationRows()),
-                         [](const ::testing::TestParamInfo<LoggingStartWaitsForIdentificationCase>& info)
+                         [](const ::testing::TestParamInfo<LoggingStartWaitsForIdentificationCase>& paramInfo)
                          {
-                             auto name = info.param.name;
+                             auto name = paramInfo.param.name;
                              for (char& c : name)
                              {
                                  if (!std::isalnum(static_cast<unsigned char>(c)))
@@ -4553,9 +4553,9 @@ class ConnectionEntryPointsStopIdentificationParameters
 };
 INSTANTIATE_TEST_SUITE_P(Rows, ConnectionEntryPointsStopIdentificationParameters,
                          ::testing::ValuesIn(connectionEntryPointsStopIdentificationRows()),
-                         [](const ::testing::TestParamInfo<ConnectionEntryPointsStopIdentificationCase>& info)
+                         [](const ::testing::TestParamInfo<ConnectionEntryPointsStopIdentificationCase>& paramInfo)
                          {
-                             auto name = info.param.name;
+                             auto name = paramInfo.param.name;
                              for (char& c : name)
                              {
                                  if (!std::isalnum(static_cast<unsigned char>(c)))

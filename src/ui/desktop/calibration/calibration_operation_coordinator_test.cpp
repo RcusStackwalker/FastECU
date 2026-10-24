@@ -456,8 +456,8 @@ TEST_P(UncorrectedWriteStillPrepares, WithOriginalBytes)
 }
 
 INSTANTIATE_TEST_SUITE_P(Outcomes, UncorrectedWriteStillPrepares, ::testing::ValuesIn(uncorrectedCases()),
-                         [](const ::testing::TestParamInfo<UncorrectedCase>& info)
-                         { return std::string{info.param.name}; });
+                         [](const ::testing::TestParamInfo<UncorrectedCase>& paramInfo)
+                         { return std::string{paramInfo.param.name}; });
 
 struct NoReselectCase
 {
@@ -502,8 +502,8 @@ INSTANTIATE_TEST_SUITE_P(Methods, DefinitionlessOrNonemptyMethodDoesNotReselect,
                          ::testing::Values(NoReselectCase{"DefinitionlessEmpty", false, ""},
                                            NoReselectCase{"DefinedDifferentProtocol", true, "different_protocol"},
                                            NoReselectCase{"DefinedPlaceholder", true, " "}),
-                         [](const ::testing::TestParamInfo<NoReselectCase>& info)
-                         { return std::string{info.param.name}; });
+                         [](const ::testing::TestParamInfo<NoReselectCase>& paramInfo)
+                         { return std::string{paramInfo.param.name}; });
 
 struct KernelDirectoryCase
 {
@@ -536,8 +536,8 @@ INSTANTIATE_TEST_SUITE_P(Directories, KernelDirectoryJoining,
                          ::testing::Values(KernelDirectoryCase{"NoTrailingSlash", "/kernels", "/kernels/a.bin"},
                                            KernelDirectoryCase{"TrailingSlash", "/kernels/", "/kernels/a.bin"},
                                            KernelDirectoryCase{"Empty", "", "a.bin"}),
-                         [](const ::testing::TestParamInfo<KernelDirectoryCase>& info)
-                         { return std::string{info.param.name}; });
+                         [](const ::testing::TestParamInfo<KernelDirectoryCase>& paramInfo)
+                         { return std::string{paramInfo.param.name}; });
 
 std::string_view modeName(SaveMode mode)
 {
@@ -613,8 +613,8 @@ TEST_P(UncorrectedSaveStillPersists, WithOriginalBytes)
 INSTANTIATE_TEST_SUITE_P(
     Outcomes, UncorrectedSaveStillPersists,
     ::testing::Combine(::testing::ValuesIn(uncorrectedCases()), ::testing::Values(SaveMode::kSave, SaveMode::kSaveAs)),
-    [](const ::testing::TestParamInfo<UncorrectedSaveParam>& info)
-    { return std::format("{}_{}", std::get<0>(info.param).name, modeName(std::get<1>(info.param))); });
+    [](const ::testing::TestParamInfo<UncorrectedSaveParam>& paramInfo)
+    { return std::format("{}_{}", std::get<0>(paramInfo.param).name, modeName(std::get<1>(paramInfo.param))); });
 
 class SaveDoesNotRefreshWriteMetadata : public CoordinatorHarness<::testing::TestWithParam<SaveMode>>
 {
@@ -733,8 +733,8 @@ TEST_P(SaveAsCancelledAfterCorrection, WritesNothing)
 INSTANTIATE_TEST_SUITE_P(Pickers, SaveAsCancelledAfterCorrection,
                          ::testing::Values(CancelledPickCase{"Dismissed", std::nullopt},
                                            CancelledPickCase{"EmptyPath", std::string{}}),
-                         [](const ::testing::TestParamInfo<CancelledPickCase>& info)
-                         { return std::string{info.param.name}; });
+                         [](const ::testing::TestParamInfo<CancelledPickCase>& paramInfo)
+                         { return std::string{paramInfo.param.name}; });
 
 struct FilenameCase
 {
@@ -783,7 +783,7 @@ INSTANTIATE_TEST_SUITE_P(
                       FilenameCase{"UppercaseBin", "/cal/renamed.BIN", "/cal/renamed.BIN.bin", "renamed.BIN.bin"},
                       FilenameCase{"Utf8", "/cal/tune-\xc3\xa9.bin", "/cal/tune-\xc3\xa9.bin", "tune-\xc3\xa9.bin"},
                       FilenameCase{"TwoTrailingDots", "/cal/renamed..", "/cal/renamed..bin", "renamed..bin"}),
-    [](const ::testing::TestParamInfo<FilenameCase>& info) { return std::string{info.param.name}; });
+    [](const ::testing::TestParamInfo<FilenameCase>& paramInfo) { return std::string{paramInfo.param.name}; });
 
 using FailedSaveParam = std::tuple<SaveMode, bool>; // mode, initially dirty
 
@@ -825,10 +825,10 @@ TEST_P(FailedSavePreservesState, AndReportsOnce)
 
 INSTANTIATE_TEST_SUITE_P(States, FailedSavePreservesState,
                          ::testing::Combine(::testing::Values(SaveMode::kSave, SaveMode::kSaveAs), ::testing::Bool()),
-                         [](const ::testing::TestParamInfo<FailedSaveParam>& info)
+                         [](const ::testing::TestParamInfo<FailedSaveParam>& paramInfo)
                          {
-                             return std::format("{}_{}", modeName(std::get<0>(info.param)),
-                                                std::get<1>(info.param) ? "Dirty" : "Clean");
+                             return std::format("{}_{}", modeName(std::get<0>(paramInfo.param)),
+                                                std::get<1>(paramInfo.param) ? "Dirty" : "Clean");
                          });
 
 } // namespace

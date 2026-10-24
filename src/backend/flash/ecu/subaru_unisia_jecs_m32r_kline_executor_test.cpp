@@ -423,12 +423,12 @@ INSTANTIATE_TEST_SUITE_P(AllVariants, SubaruUnisiaJecsM32rKlineReadSizes,
                                            std::tuple{"sub_ecu_unisia_jecs_40", "M32R_384KB", 0x60000U},
                                            std::tuple{"sub_ecu_unisia_jecs_70", "M32R_512KB", 0x80000U}),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{
                                      "SubEcuUnisiaJecs20M32R128KB0x20000U", "SubEcuUnisiaJecs30M32R256KB0x40000U",
                                      "SubEcuUnisiaJecs40M32R384KB0x60000U", "SubEcuUnisiaJecs70M32R512KB0x80000U"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsABootmodeProtocolWithTheSameWireSequence)

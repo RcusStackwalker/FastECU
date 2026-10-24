@@ -52,14 +52,14 @@ INSTANTIATE_TEST_SUITE_P(
                       ArithmeticCase{".5+1.", 0, 1.5}, ArithmeticCase{"1E+2", 0, 100},
                       ArithmeticCase{"1000000000000000+1-1000000000000000", 0, 1}),
     (
-        [](const auto& info)
+        [](const auto& param_info)
         {
             static constexpr std::array kNames{
                 "MultiplyThenAdd",           "NegatedParentheses",      "ScientificFraction",   "EmptyIdentity",
                 "WhitespaceIdentity",        "ParenthesizedArithmetic", "NegativeDivisor",      "NegatedVariable",
                 "NegativeMultiplier",        "DoubleNegation",          "DecimalWithoutDigits", "ScientificInteger",
                 "LargeMagnitudeCancellation"};
-            return kNames[info.index];
+            return kNames[param_info.index];
         }));
 
 class InvalidExpression : public ::testing::TestWithParam<std::string_view>
@@ -75,7 +75,7 @@ INSTANTIATE_TEST_SUITE_P(Grammar, InvalidExpression,
                          ::testing::Values("2junk", "(x", "x)", "()", "x+", "*x", "x x", "y", "sin(x)", "x^2", "1/0",
                                            "0/0", "1e309", "1e308*10", "nan", "inf", "0x10", "1e", "1e+", ".", "1..2"),
                          (
-                             [](const auto& info)
+                             [](const auto& param_info)
                              {
                                  static constexpr std::array kNames{
                                      "TrailingJunk",          "UnclosedParenthesis", "UnopenedParenthesis",
@@ -85,7 +85,7 @@ INSTANTIATE_TEST_SUITE_P(Grammar, InvalidExpression,
                                      "LiteralOverflow",       "ArithmeticOverflow",  "NanLiteral",
                                      "InfinityLiteral",       "HexadecimalLiteral",  "MissingExponent",
                                      "MissingSignedExponent", "DecimalPointOnly",    "MultipleDecimalPoints"};
-                                 return kNames[info.index];
+                                 return kNames[param_info.index];
                              }));
 
 TEST(CompiledExpression, OwnsSourceAndCanBeCopiedForRepeatedEvaluation)

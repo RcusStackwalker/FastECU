@@ -142,7 +142,8 @@ INSTANTIATE_TEST_SUITE_P(Rows, LayoutsAndRefreshParameters,
                                            LayoutsAndRefreshCase{"X_2D", "2D", 2, 1, 2, 2, 1, 0, "X Axis"},
                                            LayoutsAndRefreshCase{"Y_2D", "2D", 1, 2, 2, 2, 0, 1, "Y Axis"},
                                            LayoutsAndRefreshCase{"3D", "3D", 2, 2, 3, 3, 1, 1, "3D"}),
-                         [](const ::testing::TestParamInfo<LayoutsAndRefreshCase>& info) { return info.param.name; });
+                         [](const ::testing::TestParamInfo<LayoutsAndRefreshCase>& paramInfo)
+                         { return paramInfo.param.name; });
 
 TEST_P(LayoutsAndRefreshParameters, layoutsAndRefresh)
 {
@@ -216,7 +217,8 @@ class StaticAxisLabelsParameters : public ::testing::Test, public ::testing::Wit
 INSTANTIATE_TEST_SUITE_P(Rows, StaticAxisLabelsParameters,
                          ::testing::Values(StaticAxisLabelsCase{"static_X", "Static X Axis", "Static X Axis"},
                                            StaticAxisLabelsCase{"static_Y", "Static Y Axis", "Static Y Axis,X Axis"}),
-                         [](const ::testing::TestParamInfo<StaticAxisLabelsCase>& info) { return info.param.name; });
+                         [](const ::testing::TestParamInfo<StaticAxisLabelsCase>& paramInfo)
+                         { return paramInfo.param.name; });
 
 TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
 {

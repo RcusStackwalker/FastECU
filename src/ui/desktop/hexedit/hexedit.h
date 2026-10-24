@@ -35,7 +35,7 @@ class HexEdit : public QMainWindow
     Q_OBJECT
 
   public:
-    HexEdit(const QByteArray& data, const QString& fileName, QWidget *parent = nullptr);
+    HexEdit(const QByteArray& initialData, const QString& fileName, QWidget *parent = nullptr);
 
   protected:
     void closeEvent(QCloseEvent *event);

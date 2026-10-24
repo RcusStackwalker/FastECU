@@ -90,8 +90,8 @@ INSTANTIATE_TEST_SUITE_P(
                       ConfigureFailsAtEachRemainingSetterInTurnCase{"set_iso15765_source_address", 7},
                       ConfigureFailsAtEachRemainingSetterInTurnCase{"set_iso15765_destination_address", 8},
                       ConfigureFailsAtEachRemainingSetterInTurnCase{"set_add_iso14230_header", 9}),
-    [](const ::testing::TestParamInfo<ConfigureFailsAtEachRemainingSetterInTurnCase>& info)
-    { return info.param.name; });
+    [](const ::testing::TestParamInfo<ConfigureFailsAtEachRemainingSetterInTurnCase>& param_info)
+    { return param_info.param.name; });
 
 // Data-driven sibling of configureChecksEveryBooleanSetterInOrderAndStops-
 // AtFirstFailure() above (which only exercises the fifth setter's
