@@ -1495,12 +1495,6 @@ void MainWindow::loadLoggerDefinition()
     if (!installed.has_value())
     {
         const auto& failure = installed.error();
-        if (failure.step == fastecu::logging::InstallFailure::Step::kResolve)
-        {
-            services_.file_action_events.Notice("Logger file: Unable to resolve logger definition file: " +
-                                                failure.error.detail);
-            return;
-        }
         // The resolved handle is persisted before loading, so a failed load keeps it.
         if (failure.bundled_handle_used)
         {

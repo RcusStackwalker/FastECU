@@ -12,13 +12,11 @@
 #include "src/backend/logging/logger_model.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
-#include "src/backend/ports/testing/in_memory_resource_bundle.h"
 
 namespace
 {
 
 using fastecu::logging::DefinitionSource;
-using fastecu::logging::InstallFailure;
 using fastecu::logging::LoggerDefinition;
 using fastecu::logging::LoggerSelection;
 using fastecu::logging::LoggingSelectionUseCase;
@@ -55,9 +53,8 @@ class LoggingSelectionUseCaseTest : public ::testing::Test
 {
   protected:
     fastecu::InMemoryFileRepository repository_;
-    fastecu::InMemoryResourceBundle bundle_;
     fastecu::InMemoryAtomicFileWriter writer_;
-    fastecu::logging::LoggerDefinitionService definitions_{repository_, bundle_, writer_};
+    fastecu::logging::LoggerDefinitionService definitions_{repository_, writer_};
     fastecu::logging::LoggerModel model_;
 
     LoggingSelectionUseCase UseCase()
@@ -111,7 +108,6 @@ TEST_F(LoggingSelectionUseCaseInstall, BundledHandleIsReportedEvenWhenItsLoadFai
         {.configured_handle = "", .log_protocol = "CDBG", .config_files_directory = "/home/u/.FastECU/"});
 
     ASSERT_FALSE(installed.has_value());
-    EXPECT_EQ(installed.error().step, InstallFailure::Step::kLoad);
     EXPECT_TRUE(installed.error().bundled_handle_used);
     EXPECT_EQ(installed.error().handle, "/home/u/.FastECU/logger_cdbg_example.xml");
 }
@@ -135,7 +131,6 @@ TEST_F(LoggingSelectionUseCaseInstall, UnreadableDefinitionFailsAtLoadAndLeavesT
     const auto installed = UseCase().InstallDefinition({.configured_handle = "missing.xml", .log_protocol = "SSM"});
 
     ASSERT_FALSE(installed.has_value());
-    EXPECT_EQ(installed.error().step, InstallFailure::Step::kLoad);
     EXPECT_EQ(installed.error().handle, "missing.xml");
     EXPECT_EQ(model_.Definition(), definition);
     EXPECT_EQ(model_.Selection(), selection);
@@ -150,7 +145,6 @@ TEST_F(LoggingSelectionUseCaseInstall, EmptyHandleForANonCdbgProtocolInstallsNot
     const auto installed = UseCase().InstallDefinition({.configured_handle = "", .log_protocol = "SSM"});
 
     ASSERT_FALSE(installed.has_value());
-    EXPECT_EQ(installed.error().step, InstallFailure::Step::kLoad);
     EXPECT_EQ(installed.error().handle, "");
     EXPECT_EQ(model_.Selection(), selection);
 }

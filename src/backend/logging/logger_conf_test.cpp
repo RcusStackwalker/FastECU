@@ -12,7 +12,6 @@ namespace
 {
 
 using fastecu::logging::DefaultSelection;
-using fastecu::logging::InitialSelection;
 using fastecu::logging::LoggerDefinition;
 using fastecu::logging::LoggerParameter;
 using fastecu::logging::LoggerSelection;
@@ -103,31 +102,6 @@ TEST(ReadSelection, RejectsMalformedXml)
     const auto result = ReadSelection(View("<config><logger>"), "ECUID1", "broken.xml");
     ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, HasSubstr("broken.xml")));
-}
-
-TEST(InitialSelection, TakesTheFirstEntriesIgnoringEnabled)
-{
-    // Every parameter and switch disabled: initial_selection still fills to
-    // the caps -- the first-N walk does not gate on `enabled` for either.
-    LoggerDefinition definition = MakeDefinition(30, 30, false);
-    for (auto& p : definition.parameters)
-    {
-        p.enabled = false;
-    }
-    for (auto& s : definition.switches)
-    {
-        s.enabled = false;
-    }
-
-    const LoggerSelection selection = InitialSelection(definition);
-    EXPECT_EQ(selection.protocol, "SSM");
-    EXPECT_THAT(selection.gauge_ids, SizeIs(15));
-    EXPECT_THAT(selection.lower_panel_ids, SizeIs(12));
-    EXPECT_THAT(selection.switch_ids, SizeIs(20));
-    EXPECT_EQ(selection.gauge_ids.front(), "P0");
-    EXPECT_EQ(selection.gauge_ids.back(), "P14");
-    EXPECT_EQ(selection.lower_panel_ids.back(), "P11");
-    EXPECT_EQ(selection.switch_ids.back(), "S19");
 }
 
 TEST(DefaultSelection, WalksOnlyEnabledEntriesAndRespectsTheCaps)

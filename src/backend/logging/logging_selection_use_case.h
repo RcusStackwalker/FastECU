@@ -27,16 +27,10 @@ struct InstallOutcome
     bool bundled_handle_used = false;
 };
 
-// Install fails at one of two steps, and the operator text differs per step.
+// Install fails only when the resolved handle cannot be loaded.
 struct InstallFailure
 {
-    enum class Step
-    {
-        kResolve,
-        kLoad,
-    };
-    Step step;
-    std::string handle; // empty for kResolve
+    std::string handle;
     // As InstallOutcome's: the caller persists `handle` even though loading it
     // failed, as resolution already chose it.
     bool bundled_handle_used = false;
@@ -60,6 +54,10 @@ class LoggingSelectionUseCase
 
     // On success installs the definition and resets the selection to its
     // default for source.log_protocol. On failure the model is untouched.
+    // The model installs one definition only: if it already holds one, the
+    // install is refused and ignored, yet this still reports success and
+    // resets the selection. Production installs once at startup; a reload
+    // would need this to surface the refusal.
     std::expected<InstallOutcome, InstallFailure> InstallDefinition(const DefinitionSource& source);
 
     // An error means a conf read, or the initializing write, failed. A failed
