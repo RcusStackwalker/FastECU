@@ -92,6 +92,31 @@ MATCHER_P2(IsErrWith, kind, detail_matcher,
     return matched;
 }
 
+// Any std::expected, including those whose error is not a fastecu::Error:
+// matches when it holds an error that satisfies error_matcher.
+MATCHER_P(IsErrThat, error_matcher,
+          std::string(negation ? "is not an error that " : "is an error that ") +
+              ::testing::DescribeMatcher<typename std::remove_cvref_t<arg_type>::error_type>(error_matcher, negation))
+{
+    if (arg.has_value())
+    {
+        *result_listener << "which succeeded";
+        return false;
+    }
+    ::testing::StringMatchResultListener inner;
+    const bool matched = ::testing::ExplainMatchResult(error_matcher, arg.error(), &inner);
+    if (!matched)
+    {
+        *result_listener << "whose error is " << ::testing::PrintToString(arg.error());
+        if (!inner.str().empty())
+        {
+            *result_listener << ", ";
+        }
+    }
+    *result_listener << inner.str();
+    return matched;
+}
+
 // Renders a matcher's explanation for a value, so a test can assert on the
 // text a failure would print.
 template <typename Value, typename Matcher> std::string ExplainMatch(const Matcher& matcher, const Value& value)

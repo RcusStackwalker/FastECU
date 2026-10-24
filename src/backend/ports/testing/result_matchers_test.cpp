@@ -1,5 +1,6 @@
 #include "src/backend/ports/testing/result_matchers.h"
 
+#include <expected>
 #include <string>
 
 #include <gmock/gmock.h>
@@ -9,6 +10,7 @@ namespace fastecu::testing
 {
 namespace
 {
+using ::testing::_;
 using ::testing::AllOf;
 using ::testing::DescribeMatcher;
 using ::testing::Eq;
@@ -59,6 +61,18 @@ TEST(ResultMatchers, IsErrWithAlsoMatchesTheDetail)
 
     EXPECT_THAT(bad, IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("does not match this executor")));
     EXPECT_THAT(bad, Not(IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("wrong MCU"))));
+}
+
+TEST(ResultMatchers, IsErrThatMatchesAnyExpectedErrorType)
+{
+    const std::expected<int, std::string> bad = std::unexpected(std::string{"no reply"});
+    const std::expected<int, std::string> good = 7;
+
+    EXPECT_THAT(bad, IsErrThat(HasSubstr("reply")));
+    EXPECT_THAT(bad, Not(IsErrThat(HasSubstr("other"))));
+    EXPECT_THAT(good, Not(IsErrThat(_)));
+    EXPECT_THAT(ExplainMatch(IsErrThat(HasSubstr("other")), bad), HasSubstr("no reply"));
+    EXPECT_THAT(ExplainMatch(IsErrThat(_), good), HasSubstr("succeeded"));
 }
 
 // The whole point of the matchers: a failure has to say what the error was.
