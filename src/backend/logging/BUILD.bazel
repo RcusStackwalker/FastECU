@@ -99,6 +99,33 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "logging_selection_use_case",
+    srcs = ["logging_selection_use_case.cpp"],
+    hdrs = ["logging_selection_use_case.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":logger_definition_service",
+        ":logger_model",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "logging_selection_use_case_test",
+    srcs = ["logging_selection_use_case_test.cpp"],
+    deps = [
+        ":logger_definition_service",
+        ":logger_model",
+        ":logging_selection_use_case",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_resource_bundle",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "logging_session",
     srcs = ["logging_session.cpp"],
     hdrs = ["logging_session.h"],

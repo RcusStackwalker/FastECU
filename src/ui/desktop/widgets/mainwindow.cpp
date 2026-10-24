@@ -20,7 +20,7 @@
 #include <utility>
 #include <variant>
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
-#include "src/backend/logging/logger_definition_service.h"
+#include "src/backend/logging/logging_selection_use_case.h"
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/backend/flash/workflow/flash_workflow.h"
 #include "src/platform/desktop/common/serial/serial_idle.h"
@@ -1495,78 +1495,73 @@ void MainWindow::updateLogboxValues(const QString& protocolArg)
 
 void MainWindow::loadLoggerDefinition()
 {
-    auto& settings = config_session_->Settings();
-    auto& service = services_.logger_definitions;
-    const auto handle =
-        service.ResolveDefinitionHandle(settings.romraider_logger_definition_file, settings.selected_log_protocol,
-                                        config_session_->EffectivePaths().config_files_directory);
-    if (!handle.has_value())
+    const auto& settings = config_session_->Settings();
+    const auto installed = services_.logging_selection.InstallDefinition({
+        .configured_handle = settings.romraider_logger_definition_file,
+        .log_protocol = settings.selected_log_protocol,
+        .config_files_directory = config_session_->EffectivePaths().config_files_directory,
+    });
+    if (!installed.has_value())
     {
-        services_.file_action_events.Notice("Logger file: Unable to resolve logger definition file: " +
-                                            handle.error().detail);
+        const auto& failure = installed.error();
+        if (failure.step == fastecu::logging::InstallFailure::Step::kResolve)
+        {
+            services_.file_action_events.Notice("Logger file: Unable to resolve logger definition file: " +
+                                                failure.error.detail);
+            return;
+        }
+        // The resolved handle is persisted before loading, so a failed load keeps it.
+        if (failure.bundled_handle_used)
+        {
+            useBundledLoggerDefinition(failure.handle);
+        }
+        services_.file_action_events.Notice("Logger file: Unable to open logger definition file '" + failure.handle +
+                                            "' for reading: " + failure.error.detail);
         return;
     }
-    if (settings.romraider_logger_definition_file.empty() && !handle->empty())
+    if (installed->bundled_handle_used)
     {
-        settings.romraider_logger_definition_file = *handle;
-        emit logD("Using bundled CDBG logger definition: " + qs(*handle), true, true);
+        useBundledLoggerDefinition(installed->resolved_handle);
     }
-    auto definition = service.LoadDefinition(*handle);
-    if (!definition.has_value())
-    {
-        services_.file_action_events.Notice("Logger file: Unable to open logger definition file '" + *handle +
-                                            "' for reading: " + definition.error().detail);
-        return;
-    }
-    logger_model_->InstallDefinition(std::move(*definition));
-    logger_model_->SetSelection(logger_model_->DefaultSelection(settings.selected_log_protocol));
+}
+
+void MainWindow::useBundledLoggerDefinition(const std::string& handle)
+{
+    config_session_->Settings().romraider_logger_definition_file = handle;
+    emit logD("Using bundled CDBG logger definition: " + qs(handle), true, true);
 }
 
 void MainWindow::loadLoggerSelection()
 {
     const auto& handle = config_session_->EffectivePaths().logger_file;
-    auto& service = services_.logger_definitions;
-    const auto stored = service.LoadSelection(handle, ecuid_.toStdString());
-    if (!stored.has_value())
+    const auto restored = services_.logging_selection.RestorePendingSelection(
+        handle, ecuid_.toStdString(), config_session_->Settings().selected_log_protocol);
+    if (!restored.has_value())
     {
         services_.file_action_events.Notice("Logger file: Unable to open logger config file '" + handle +
                                             "' for reading");
         return;
     }
-    // A successful read clears IDs even if no ECU entry or definition exists.
-    logger_model_->SetSelection({.protocol = logger_model_->Selection().protocol});
-    if (stored->has_value())
-    {
-        logger_model_->SetSelection(**stored);
-        return;
-    }
-    if (logger_model_->Definition().parameters.empty() && logger_model_->Definition().switches.empty())
+    if (*restored == fastecu::logging::RestoreOutcome::kClearedNoDefinition)
     {
         services_.file_action_events.Notice("Logger definition file: No logger definition file selected, returning "
                                             "without initializing log parameters!");
-        return;
     }
-    const auto selected = service.LoadOrInitializeSelection(
-        handle, ecuid_.toStdString(),
-        logger_model_->DefaultSelection(config_session_->Settings().selected_log_protocol));
-    if (!selected.has_value())
-    {
-        services_.file_action_events.Notice("Logger file: Unable to open logger config file '" + handle +
-                                            "' for reading");
-        return;
-    }
-    logger_model_->SetSelection(*selected);
 }
 
 void MainWindow::saveLoggerSelection()
 {
+    savePendingLoggingSelection(logger_model_->Selection());
+}
+
+void MainWindow::savePendingLoggingSelection(fastecu::logging::LoggerSelection selection)
+{
     const auto& handle = config_session_->EffectivePaths().logger_file;
-    const auto saved =
-        services_.logger_definitions.SaveSelection(handle, ecuid_.toStdString(), logger_model_->Selection());
-    if (!saved.has_value())
+    if (const auto saved =
+            services_.logging_selection.SavePendingSelection(handle, ecuid_.toStdString(), std::move(selection));
+        !saved.has_value())
     {
-        services_.file_action_events.Notice("Logger file: Unable to open logger config file '" + handle +
-                                            "' for reading");
+        services_.file_action_events.Notice("Logger file: Unable to save logger config file '" + handle + "'");
     }
 }
 

@@ -127,6 +127,12 @@ _Avoid_: Live logger configuration
 The operator's choices of measurements for gauges, Digital displays, and switches.
 A measurement can appear in several display positions.
 
+**Logging definition**:
+The set of measurements and switches a protocol can log, with their request
+references and conversions. Every logging run draws its measurement definitions
+from it.
+_Avoid_: Logger file
+
 **Definition enabled**:
 A logging definition's declaration that a measurement is eligible for default
 selection.
@@ -147,6 +153,7 @@ The measurement and display choices captured for the current logging run.
 
 **Pending logging selection**:
 Saved measurement and display choices that take effect on the next logging run.
+Each identified ECU keeps its own.
 
 **Unavailable reading**:
 A selected measurement that has no usable value for the current update. A previous

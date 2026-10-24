@@ -115,7 +115,7 @@ MainWindowServices DesktopComposition::Services()
         .calibrations = *calibration_workspace_,
         .rom_save = rom_save_,
         .logger_model = logger_model_,
-        .logger_definitions = logger_definitions_,
+        .logging_selection = logging_selection_,
         .config_repository = file_repository_,
         .file_action_events = file_action_events_,
         .log = log_channel_,

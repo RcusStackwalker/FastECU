@@ -57,6 +57,7 @@
 #include "src/ui/desktop/widgets/mainwindow.h"
 #include "src/backend/definition/definition_catalog_session.h"
 #include "src/backend/logging/logger_definition_service.h"
+#include "src/backend/logging/logging_selection_use_case.h"
 #include "ui_mainwindow.h"
 
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
@@ -648,7 +649,7 @@ struct TestServices
             .calibrations = calibrations,
             .rom_save = rom_save,
             .logger_model = logger_model,
-            .logger_definitions = logger_definitions,
+            .logging_selection = logging_selection,
             .config_repository = file_repository,
             .file_action_events = events,
             .log = log_channel,
@@ -674,6 +675,7 @@ struct TestServices
     fastecu::calibration::RomSaveUseCase rom_save{file_repository, events};
     fastecu::logging::LoggerModel logger_model;
     fastecu::logging::LoggerDefinitionService logger_definitions{file_repository, resource_bundle, file_writer};
+    fastecu::logging::LoggingSelectionUseCase logging_selection{logger_definitions, logger_model};
     fastecu::ui::LogChannel log_channel;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
     FakeBackend *fake = adapter.Fake(); // null if the fake backend failed to start
@@ -1023,7 +1025,8 @@ class MainWindowTest : public ::testing::Test
     void checkSubaruKlineConnectIdentifiesOffTheUiThread();
     void checkSubaruConnectThatNeverAnswersDisconnectsAndRestoresControls();
     void checkDisconnectDuringIdentificationCancelsAndDropsTheResult();
-    void checkLoggingSelectionFailureSemanticsAndSupportPreservation();
+    void checkLoggingSelectionWiringAndSupportPreservation();
+    void checkSavingASelectionThatCannotBePersistedNoticesTheOperator();
     void checkTargetChangeInvalidatesIdentificationAndSupport();
     void checkLoggingDefinitionFailureIsNonfatal();
     void checkUnresolvedDisplaySlotsRemainVisibleAndUpdateTheirOriginalLabels();
@@ -3725,7 +3728,7 @@ TEST_F(MainWindowTest, disconnectDuringIdentificationCancelsAndDropsTheResult)
     ASSERT_NO_FATAL_FAILURE(checkDisconnectDuringIdentificationCancelsAndDropsTheResult());
 }
 
-void MainWindowTest::checkLoggingSelectionFailureSemanticsAndSupportPreservation()
+void MainWindowTest::checkLoggingSelectionWiringAndSupportPreservation()
 {
     ModalDriver driver{QString()};
     driver.start();
@@ -3739,20 +3742,9 @@ void MainWindowTest::checkLoggingSelectionFailureSemanticsAndSupportPreservation
         {.parameters = {{.protocol = "SSM", .id = "rpm", .ecu_byte_index = "0", .ecu_bit = "0", .enabled = true}},
          .switches = {{.protocol = "SSM", .id = "flag", .ecu_byte_index = "5", .enabled = true}}},
         {.protocol = "SSM", .gauge_ids = {"old"}, .lower_panel_ids = {"old"}, .switch_ids = {"old"}});
-    const auto previous = window.logger_model_->Selection();
-    ASSERT_TRUE(QFile::remove(cfg));
-    window.loadLoggerSelection();
-    ASSERT_TRUE(window.logger_model_->Selection() == previous);
-    window.logger_model_->SetSelection({.protocol = "SSM", .gauge_ids = {"operator-edit", "unresolved"}});
-    const auto edited = window.logger_model_->Selection();
-    window.saveLoggerSelection();
-    ASSERT_TRUE(window.logger_model_->Selection() == edited);
-    ASSERT_TRUE(writeTextFile(cfg, "<config><logger/></config>"));
+    // Restore and save policy is owned by LoggingSelectionUseCase's tests; this
+    // pins that the window reaches it and that restoring keeps ECU support.
     window.logger_model_->SetParameterSupport("SSM", "rpm", fastecu::logging::EcuSupport::kUnsupported);
-    window.loadLoggerSelection();
-    ASSERT_TRUE(window.logger_model_->Selection().gauge_ids.empty());
-    ASSERT_EQ(window.logger_model_->Selection().switch_ids, (std::vector<std::string>{"flag"}));
-    ASSERT_TRUE(!window.logger_model_->ParameterAvailable("SSM", "rpm"));
     ASSERT_TRUE(writeTextFile(
         cfg,
         R"(<config><logger><ecu id="MODEL_TEST"><protocol id="SSM"><parameters><gauges><parameter id="unknown"/></gauges><lower_panel><parameter id="rpm"/></lower_panel></parameters><switches><switch id="flag"/></switches></protocol></ecu></logger></config>)"));
@@ -3779,20 +3771,35 @@ void MainWindowTest::checkLoggingSelectionFailureSemanticsAndSupportPreservation
     ASSERT_EQ(window.logger_model_->ParameterSupport("SSM", "rpm"), fastecu::logging::EcuSupport::kUnknown);
     ASSERT_EQ(window.logger_model_->SwitchSupport("SSM", "flag"), fastecu::logging::EcuSupport::kUnknown);
     EXPECT_EQ(window.logger_model_->ParameterSupport("CUSTOM", "other"), fastecu::logging::EcuSupport::kUnknown);
-    // Missing definitions clear stale IDs after a successful read and never persist defaults.
-    installLoggingFixture(window, {}, {.protocol = "SSM", .lower_panel_ids = {"stale"}});
-    ASSERT_TRUE(writeTextFile(cfg, "<config><logger/></config>"));
-    window.loadLoggerSelection();
-    ASSERT_TRUE(window.logger_model_->Selection().lower_panel_ids.empty());
-    QFile conf{cfg};
-    ASSERT_TRUE(conf.open(QIODevice::ReadOnly));
-    ASSERT_EQ(conf.readAll(), QByteArray("<config><logger/></config>"));
     driver.stop();
 }
 
-TEST_F(MainWindowTest, loggingSelectionFailureSemanticsAndSupportPreservation)
+TEST_F(MainWindowTest, loggingSelectionWiringAndSupportPreservation)
 {
-    ASSERT_NO_FATAL_FAILURE(checkLoggingSelectionFailureSemanticsAndSupportPreservation());
+    ASSERT_NO_FATAL_FAILURE(checkLoggingSelectionWiringAndSupportPreservation());
+}
+
+void MainWindowTest::checkSavingASelectionThatCannotBePersistedNoticesTheOperator()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    window.vbatt_timer_->stop();
+    const auto cfg = QString::fromStdString(services.config.EffectivePaths().logger_file);
+    window.ecuid_ = "MODEL_TEST";
+    QFile::remove(cfg);
+    QStringList notices;
+    QObject::connect(&services.events, &QtEventSink::noticed, &window,
+                     [&notices](const QString& message) { notices.append(message); });
+    window.saveLoggerSelection();
+    ASSERT_EQ(notices, QStringList{"Logger file: Unable to save logger config file '" + cfg + "'"});
+    driver.stop();
+}
+
+TEST_F(MainWindowTest, savingASelectionThatCannotBePersistedNoticesTheOperator)
+{
+    ASSERT_NO_FATAL_FAILURE(checkSavingASelectionThatCannotBePersistedNoticesTheOperator());
 }
 
 void MainWindowTest::checkLoggingDefinitionFailureIsNonfatal()
