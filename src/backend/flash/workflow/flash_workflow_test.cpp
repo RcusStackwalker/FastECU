@@ -1,6 +1,7 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/workflow/flash_workflow.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <gmock/gmock-matchers.h>
@@ -31,6 +32,12 @@
 #include "src/backend/ports/testing/null_event_sink.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/result_matchers.h"
+
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Not;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -155,9 +162,9 @@ struct PreflightTransportObservers
 
     void ExpectNoIo() const
     {
-        EXPECT_FALSE(kline->last_config.has_value());
-        EXPECT_FALSE(can->last_config.has_value());
-        EXPECT_FALSE(mixed->last_config.has_value());
+        EXPECT_THAT(kline->last_config, Eq(std::nullopt));
+        EXPECT_THAT(can->last_config, Eq(std::nullopt));
+        EXPECT_THAT(mixed->last_config, Eq(std::nullopt));
         EXPECT_THAT(kline->lifecycle_calls, ::testing::SizeIs(0));
         EXPECT_THAT(can->lifecycle_calls, ::testing::SizeIs(0));
         EXPECT_EQ(mixed->ConfigureCallCount(), 0);
@@ -564,8 +571,8 @@ TEST(FlashWorkflowTest, routesSh72543rAliasesAndPreservesImageAndIdentity)
             }
             else
             {
-                ASSERT_TRUE(!done.accepted_read_bytes);
-                ASSERT_TRUE(!done.rom_id);
+                ASSERT_THAT(done.accepted_read_bytes, Eq(std::nullopt));
+                ASSERT_THAT(done.rom_id, Eq(std::nullopt));
             }
         }
     }
@@ -643,7 +650,7 @@ TEST(FlashWorkflowTest, sh72543rRejectsPreflightAndDeclinedBegin)
         workflow->Submit(FlashPromptResponse::kDecline);
         auto done = std::get<FlashCompletedStep>(workflow->Next());
         ASSERT_EQ(done.outcome, FlashWorkflowOutcome::kCancelled);
-        ASSERT_TRUE(!done.accepted_read_bytes);
+        ASSERT_THAT(done.accepted_read_bytes, Eq(std::nullopt));
     }
 }
 TEST(FlashWorkflowTest, sh72543rPropagatesFailureAndAbsentIdentity)
@@ -671,7 +678,7 @@ TEST(FlashWorkflowTest, sh72543rPropagatesFailureAndAbsentIdentity)
         else
         {
             auto done = std::get<FlashCompletedStep>(step);
-            ASSERT_TRUE(!done.rom_id);
+            ASSERT_THAT(done.rom_id, Eq(std::nullopt));
             ASSERT_EQ(done.outcome, outcome == 0 ? FlashWorkflowOutcome::kSucceeded : FlashWorkflowOutcome::kCancelled);
         }
     }
@@ -702,7 +709,7 @@ TEST(FlashWorkflowTest, mc68BdmReadRoutesThroughBeginToAttempt)
     ASSERT_EQ(plan.Family(), FlashFamily::kSubaruDensoMc68hc16y502Bdm);
     ASSERT_EQ(plan.Transport(), TransportKind::kKline);
     ASSERT_EQ(plan.TransferRegion(), (MemoryRegion{0, 0x30000}));
-    ASSERT_TRUE(!plan.Image().has_value());
+    ASSERT_THAT(plan.Image(), Eq(std::nullopt));
 }
 
 TEST(FlashWorkflowTest, mc68BdmWriteBootstrapsTheCatalogKernelNotTheRom)
@@ -734,7 +741,7 @@ TEST(FlashWorkflowTest, mc68BdmWriteBootstrapsTheCatalogKernelNotTheRom)
     expected[2] = 0x33;
     ASSERT_EQ(plan.Image(), std::optional<bytes::Bytes>(expected));
     ASSERT_EQ(plan.TransferRegion(), (MemoryRegion{0x20000, 0x20}));
-    ASSERT_TRUE(!plan.Kernel().has_value());
+    ASSERT_THAT(plan.Kernel(), Eq(std::nullopt));
 }
 
 TEST(FlashWorkflowTest, mc68BdmDeclinedBootstrapConfirmationCancels)
@@ -860,7 +867,7 @@ TEST(FlashWorkflowTest, densoCanResolvesKernelPromptsAndPropagatesAttemptResult)
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
     ASSERT_EQ(plan.Transport(), TransportKind::kCanRawIso15765);
-    ASSERT_TRUE(plan.Kernel().has_value());
+    ASSERT_THAT(plan.Kernel(), Optional(_));
     ASSERT_EQ(plan.Kernel()->bytes, bytes::Bytes({0xaa, 0xbb, 0xcc, 0xdd}));
 
     workflow->Submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
@@ -998,8 +1005,8 @@ TEST(FlashWorkflowTest, petrolSupportedOperationsResolveSecurityAndCatalogKernel
         ASSERT_EQ(plan.TargetId(), std::string_view(test.protocol));
         ASSERT_EQ(plan.McuName(), std::string_view("SH7058"));
         ASSERT_EQ(plan.Operation(), test.operation);
-        ASSERT_TRUE(plan.Confirmations().empty());
-        ASSERT_TRUE(plan.Kernel().has_value());
+        ASSERT_THAT(plan.Confirmations(), IsEmpty());
+        ASSERT_THAT(plan.Kernel(), Optional(_));
         ASSERT_EQ(plan.Kernel()->load_address, 0xFFFF3000U);
         ASSERT_EQ(plan.Kernel()->bytes, bytes::Bytes({0x90, 0xA0, 0xB0, 0xC0}));
         const auto *family_plan = std::get_if<SubaruDensoSh7058CanPlan>(&plan.FamilyPlan());
@@ -1064,7 +1071,7 @@ TEST(FlashWorkflowTest, petrolReadResolvesKernelBeforeBeginAndBindsCanTransport)
     ASSERT_EQ(plan.Family(), FlashFamily::kSubaruDensoSh7058Can);
     ASSERT_EQ(plan.Transport(), TransportKind::kCanIso15765);
     ASSERT_EQ(plan.TargetId(), std::string_view("sub_ecu_denso_sh7058_can"));
-    ASSERT_TRUE(plan.Kernel().has_value());
+    ASSERT_THAT(plan.Kernel(), Optional(_));
     ASSERT_EQ(plan.Kernel()->bytes, bytes::Bytes({0x90, 0xA0, 0xB0, 0xC0}));
 
     FakeCancellationToken cancellation;
@@ -1074,7 +1081,7 @@ TEST(FlashWorkflowTest, petrolReadResolvesKernelBeforeBeginAndBindsCanTransport)
     const auto result = attempt.attempt->Run(clock, cancellation, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_THAT(test_ports.transports->RequestedKinds(), ::testing::ElementsAre(TransportKind::kCanIso15765));
-    ASSERT_TRUE(can_observer->last_config.has_value());
+    ASSERT_THAT(can_observer->last_config, Optional(_));
     EXPECT_EQ(can_observer->last_config->bitrate, 500000);
     EXPECT_EQ(can_observer->last_config->request_id, 0x7E0U);
     EXPECT_EQ(can_observer->last_config->response_id, 0x7E8U);
@@ -1157,8 +1164,8 @@ TEST(FlashWorkflowTest, dieselSupportedOperationsResolveGenerationCatalogKernels
         ASSERT_EQ(plan.McuName(), std::string_view(test.mcu));
         ASSERT_EQ(plan.Operation(), test.operation);
         ASSERT_EQ(plan.TransferRegion().length, static_cast<std::uint32_t>(test.rom_size));
-        ASSERT_TRUE(plan.Confirmations().empty());
-        ASSERT_TRUE(plan.Kernel().has_value());
+        ASSERT_THAT(plan.Confirmations(), IsEmpty());
+        ASSERT_THAT(plan.Kernel(), Optional(_));
         ASSERT_EQ(plan.Kernel()->load_address, test.kernel_address);
         ASSERT_EQ(plan.Kernel()->bytes, test.kernel_bytes);
         const auto *family_plan = std::get_if<SubaruDensoSh7058CanDieselPlan>(&plan.FamilyPlan());
@@ -1187,7 +1194,7 @@ TEST(FlashWorkflowTest, dieselSuccessfulReadPropagatesKernelSnapshotBytesAndRomI
     const auto attempt_step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(attempt_step));
     const FlashPlan& snapshot = std::get<FlashAttempt>(attempt_step).attempt->Plan();
-    ASSERT_TRUE(snapshot.Kernel().has_value());
+    ASSERT_THAT(snapshot.Kernel(), Optional(_));
     ASSERT_EQ(snapshot.Kernel()->load_address, 0xFFFEE000U);
     ASSERT_EQ(snapshot.Kernel()->bytes, bytes::Bytes({0xD0, 0xE0, 0xF0, 0x02}));
 
@@ -1230,7 +1237,7 @@ TEST(FlashWorkflowTest, dieselReadResolvesKernelBeforeBeginAndBindsCanTransport)
     ASSERT_EQ(plan.Transport(), TransportKind::kCanIso15765);
     ASSERT_EQ(plan.TargetId(), std::string_view("sub_ecu_denso_sh7059_can_diesel"));
     ASSERT_EQ(plan.McuName(), std::string_view("SH7059d"));
-    ASSERT_TRUE(plan.Kernel().has_value());
+    ASSERT_THAT(plan.Kernel(), Optional(_));
     ASSERT_EQ(plan.Kernel()->load_address, 0xFFFEE000U);
     ASSERT_EQ(plan.Kernel()->bytes, bytes::Bytes({0xD0, 0xE0, 0xF0, 0x02}));
 
@@ -1241,7 +1248,7 @@ TEST(FlashWorkflowTest, dieselReadResolvesKernelBeforeBeginAndBindsCanTransport)
     const auto result = attempt.attempt->Run(clock, cancellation, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_THAT(test_ports.transports->RequestedKinds(), ::testing::ElementsAre(TransportKind::kCanIso15765));
-    ASSERT_TRUE(can_observer->last_config.has_value());
+    ASSERT_THAT(can_observer->last_config, Optional(_));
     EXPECT_EQ(can_observer->last_config->bitrate, 500000);
     EXPECT_EQ(can_observer->last_config->request_id, 0x7E0U);
     EXPECT_EQ(can_observer->last_config->response_id, 0x7E8U);
@@ -1318,7 +1325,7 @@ TEST(FlashWorkflowTest, tcuSupportedOperationsResolveTheirCatalogKernelAndReachA
         ASSERT_EQ(plan.TargetId(), std::string_view(test.protocol));
         ASSERT_TRUE(plan.Operation() == test.operation);
         ASSERT_EQ(plan.Transport(), TransportKind::kCanIso15765);
-        ASSERT_TRUE(plan.Kernel().has_value());
+        ASSERT_THAT(plan.Kernel(), Optional(_));
         ASSERT_EQ(plan.Kernel()->load_address, test.kernel_address);
         ASSERT_EQ(plan.Kernel()->bytes, test.kernel_bytes);
     }
@@ -1386,7 +1393,7 @@ TEST(FlashWorkflowTest, tcuReadResolvesKernelBeforeBeginAndBindsCanTransport)
     auto& attempt = std::get<FlashAttempt>(step);
     const FlashPlan& plan = attempt.attempt->Plan();
     ASSERT_EQ(plan.Transport(), TransportKind::kCanIso15765);
-    ASSERT_TRUE(plan.Kernel().has_value());
+    ASSERT_THAT(plan.Kernel(), Optional(_));
     ASSERT_EQ(plan.Kernel()->bytes, bytes::Bytes({0x10, 0x20, 0x30, 0x40}));
 
     FakeCancellationToken cancellation;
@@ -1396,7 +1403,7 @@ TEST(FlashWorkflowTest, tcuReadResolvesKernelBeforeBeginAndBindsCanTransport)
     const auto result = attempt.attempt->Run(clock, cancellation, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_THAT(test_ports.transports->RequestedKinds(), ::testing::ElementsAre(TransportKind::kCanIso15765));
-    ASSERT_TRUE(can_observer->last_config.has_value());
+    ASSERT_THAT(can_observer->last_config, Optional(_));
     EXPECT_EQ(can_observer->last_config->bitrate, 500000);
     EXPECT_EQ(can_observer->last_config->request_id, 0x7E1U);
     EXPECT_EQ(can_observer->last_config->response_id, 0x7E9U);
@@ -1450,7 +1457,7 @@ TEST(FlashWorkflowTest, mc68ResolvesKernelThroughCatalogBeforePromptAndAttempt)
     step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
-    ASSERT_TRUE(plan.Kernel().has_value());
+    ASSERT_THAT(plan.Kernel(), Optional(_));
     ASSERT_EQ(plan.Kernel()->load_address, 0x20000U);
     ASSERT_EQ(plan.Kernel()->bytes, bytes::Bytes({0x11, 0x22, 0x33}));
 }
@@ -1493,7 +1500,7 @@ TEST(FlashWorkflowTest, sh7055IteratesConfirmationsAndPropagatesAttemptResult)
     step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
-    ASSERT_TRUE(plan.Kernel().has_value());
+    ASSERT_THAT(plan.Kernel(), Optional(_));
     ASSERT_EQ(plan.Kernel()->load_address, 0xFFFF6004U);
     ASSERT_EQ(plan.Kernel()->bytes, bytes::Bytes({0xaa, 0xbb, 0xcc, 0xdd}));
 
@@ -1527,14 +1534,14 @@ TEST(FlashWorkflowTest, sh7055EcutekResolvesWithoutCarModelReference)
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
     ASSERT_EQ(plan.TargetId(), std::string_view("sub_ecu_denso_sh7055_02_ecutek"));
-    ASSERT_TRUE(plan.Kernel().has_value());
+    ASSERT_THAT(plan.Kernel(), Optional(_));
     ASSERT_EQ(plan.Kernel()->load_address, 0xFFFF6004U);
 }
 
 TEST(FlashWorkflowTest, portableImageCopiesRomForEveryNonReadOperation)
 {
     const bytes::Bytes rom{0x11, 0x22};
-    ASSERT_TRUE(!PortableImageForOperation(FlashOperation::kRead, rom).has_value());
+    ASSERT_THAT(PortableImageForOperation(FlashOperation::kRead, rom), Eq(std::nullopt));
     ASSERT_EQ(PortableImageForOperation(FlashOperation::kWrite, rom), rom);
     ASSERT_EQ(PortableImageForOperation(FlashOperation::kTestWrite, rom), rom);
 }
@@ -1583,7 +1590,7 @@ TEST(FlashWorkflowTest, mc68FullFileIsPlacedByItsCatalogMap)
     const FlashPlan& plan = std::get<FlashAttempt>(step).attempt->Plan();
     // Handed over as the file it is, with the map for its size; not packed.
     ASSERT_EQ(plan.Image(), full_file);
-    ASSERT_TRUE(plan.RomImage().has_value());
+    ASSERT_THAT(plan.RomImage(), Optional(_));
     EXPECT_EQ(plan.RomImage()->Map().FileSize(), memory::ByteCount{0x30000});
     EXPECT_THAT(RenderedFlash(plan, 0x00000, 0x20000),
                 ::testing::AllOf(::testing::SizeIs(0x20000), test_bytes::BytesFilledWith(0x11)));
@@ -1627,7 +1634,7 @@ TEST(FlashWorkflowTest, mc68FullAndPackedFilesRenderTheSameFlash)
     {
         SCOPED_TRACE(start);
         EXPECT_EQ(RenderedFlash(packed_plan, start, size), RenderedFlash(full_plan, start, size));
-        EXPECT_FALSE(RenderedFlash(packed_plan, start, size).empty());
+        EXPECT_THAT(RenderedFlash(packed_plan, start, size), Not(IsEmpty()));
     }
 }
 
@@ -1681,7 +1688,7 @@ TEST(FlashWorkflowTest, mc68TpuReadResolvesCatalogAndReachesAttempt)
     auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
     const auto& kernel = std::get<FlashAttempt>(step).attempt->Plan().Kernel();
-    ASSERT_TRUE(kernel.has_value());
+    ASSERT_THAT(kernel, Optional(_));
     ASSERT_EQ(kernel->load_address, 0x20000U);
     ASSERT_EQ(kernel->bytes, bytes::Bytes({0x44, 0x55, 0x66}));
 }
@@ -1735,7 +1742,7 @@ TEST(FlashWorkflowTest, densoSh705xKlineRoutesExactProtocolsThroughBeginToAttemp
         const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.Family(), FlashFamily::kSubaruDensoSh705xKline);
         ASSERT_EQ(plan.TargetId(), std::string(c.protocol));
-        ASSERT_TRUE(plan.Kernel().has_value());
+        ASSERT_THAT(plan.Kernel(), Optional(_));
         ASSERT_EQ(plan.Kernel()->bytes, c.kernel);
         ASSERT_EQ(std::get<SubaruDensoSh705xKlinePlan>(plan.FamilyPlan()).seed_key, c.seed_key);
     }
@@ -1830,7 +1837,7 @@ TEST(FlashWorkflowTest, unisiaBootmodeReadUsesTheKlineReadFamily)
         const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.Family(), FlashFamily::kSubaruUnisiaJecsM32rKline);
         ASSERT_EQ(plan.TransferRegion(), (MemoryRegion{0x100000, variant.rom_size}));
-        ASSERT_TRUE(plan.Confirmations().empty());
+        ASSERT_THAT(plan.Confirmations(), IsEmpty());
         workflow->Submit(
             FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{1}, .rom_id = std::string("123456789A_")});
         const auto done = workflow->Next();
@@ -2099,7 +2106,7 @@ TEST(FlashWorkflowTest, unisiaJecsM32rAdapterSuppliedVppSkipsBothPrompts)
     workflow->Submit(FlashPromptResponse::kAccept);
     auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step));
-    ASSERT_TRUE(std::get<FlashAttempt>(step).attempt->Plan().Confirmations().empty());
+    ASSERT_THAT(std::get<FlashAttempt>(step).attempt->Plan().Confirmations(), IsEmpty());
     workflow->Submit(FlashAttemptResult{.success = true});
     const auto done = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
@@ -2461,8 +2468,8 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesCancelWhenAnyPromptIsDeclined)
                 ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
                 const auto& done = std::get<FlashCompletedStep>(step);
                 EXPECT_EQ(done.outcome, FlashWorkflowOutcome::kCancelled);
-                EXPECT_FALSE(done.accepted_read_bytes.has_value());
-                EXPECT_FALSE(done.rom_id.has_value());
+                EXPECT_THAT(done.accepted_read_bytes, Eq(std::nullopt));
+                EXPECT_THAT(done.rom_id, Eq(std::nullopt));
             }
         }
     }
@@ -2525,7 +2532,7 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesReportEveryAttemptOutcome)
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
         EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kSucceeded);
         EXPECT_EQ(std::get<FlashCompletedStep>(step).accepted_read_bytes, bytes::Bytes({0x01}));
-        EXPECT_FALSE(std::get<FlashCompletedStep>(step).rom_id.has_value());
+        EXPECT_THAT(std::get<FlashCompletedStep>(step).rom_id, Eq(std::nullopt));
 
         auto failed = SingleAttemptAtAttempt(test, paths);
         ASSERT_TRUE(failed != nullptr);
@@ -2547,8 +2554,8 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesReportEveryAttemptOutcome)
         step = cancelled->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
         EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kCancelled);
-        EXPECT_FALSE(std::get<FlashCompletedStep>(step).accepted_read_bytes.has_value());
-        EXPECT_FALSE(std::get<FlashCompletedStep>(step).rom_id.has_value());
+        EXPECT_THAT(std::get<FlashCompletedStep>(step).accepted_read_bytes, Eq(std::nullopt));
+        EXPECT_THAT(std::get<FlashCompletedStep>(step).rom_id, Eq(std::nullopt));
     }
 }
 
@@ -2637,7 +2644,7 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesKeepTheirKernelSnapshotAfterFilesAre
         EXPECT_THAT(PromptKinds(prompts), ::testing::ElementsAreArray(test.confirmations));
         const auto& attempt = std::get<FlashAttempt>(step);
         const auto& kernel = attempt.attempt->Plan().Kernel();
-        ASSERT_TRUE(kernel.has_value());
+        ASSERT_THAT(kernel, Optional(_));
         EXPECT_EQ(kernel->id, test.kernel->id);
         EXPECT_EQ(kernel->load_address, test.kernel->load_address);
         EXPECT_EQ(test_ports.files->ReadCount(handle), 1);
@@ -2671,7 +2678,7 @@ TEST(FlashWorkflowTest, sh7058WriteBindsTheCanExecutorAfterBeginAlone)
     EXPECT_EQ(plan.Transport(), TransportKind::kCanIso15765);
     EXPECT_EQ(plan.Operation(), FlashOperation::kWrite);
     EXPECT_EQ(plan.Image(), std::optional<bytes::Bytes>(bytes::Bytes(0x100000, 0x5a)));
-    EXPECT_TRUE(plan.Confirmations().empty());
+    EXPECT_THAT(plan.Confirmations(), IsEmpty());
 
     // The K-Line executor's transport_setup() rejects a Write plan as
     // Unsupported, so reaching the pre-configure cancellation proves the CAN
@@ -2782,7 +2789,7 @@ TEST(FlashWorkflowTest, mc68BdmWriteBindsItsExecutorAndReportsEveryOutcome)
         EXPECT_EQ(plan.Operation(), FlashOperation::kWrite);
         EXPECT_EQ(plan.Image(), std::optional<bytes::Bytes>(BdmCatalogKernelImage()));
         EXPECT_EQ(plan.TransferRegion(), (MemoryRegion{0x20000, 0x20}));
-        EXPECT_FALSE(plan.Kernel().has_value());
+        EXPECT_THAT(plan.Kernel(), Eq(std::nullopt));
 
         // transport_setup() validates the plan, so reaching the pre-configure
         // cancellation proves the BDM executor owns it.
@@ -2799,7 +2806,7 @@ TEST(FlashWorkflowTest, mc68BdmWriteBindsItsExecutorAndReportsEveryOutcome)
             step = workflow->Next();
             ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
             EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kSucceeded);
-            EXPECT_FALSE(std::get<FlashCompletedStep>(step).accepted_read_bytes.has_value());
+            EXPECT_THAT(std::get<FlashCompletedStep>(step).accepted_read_bytes, Eq(std::nullopt));
         }
         else
         {
@@ -2885,7 +2892,7 @@ TEST(FlashWorkflowTest, mc68BdmWriteKeepsItsKernelSnapshotAfterFilesAreRemoved)
     EXPECT_EQ(std::get<FlashAttempt>(step).attempt->Plan().Image(),
               std::optional<bytes::Bytes>(BdmCatalogKernelImage()));
     EXPECT_EQ(test_ports.files->ReadCount(handle), 1);
-    EXPECT_FALSE(std::get<FlashAttempt>(step).attempt->Plan().Kernel().has_value());
+    EXPECT_THAT(std::get<FlashAttempt>(step).attempt->Plan().Kernel(), Eq(std::nullopt));
 }
 
 struct ColtWriteCase
@@ -2966,8 +2973,8 @@ TEST(FlashWorkflowTest, coltWritePromptsCarryTheirCapacityArgumentsInOrder)
         step = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
         EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::kSucceeded);
-        EXPECT_FALSE(std::get<FlashCompletedStep>(step).accepted_read_bytes.has_value());
-        EXPECT_FALSE(std::get<FlashCompletedStep>(step).rom_id.has_value());
+        EXPECT_THAT(std::get<FlashCompletedStep>(step).accepted_read_bytes, Eq(std::nullopt));
+        EXPECT_THAT(std::get<FlashCompletedStep>(step).rom_id, Eq(std::nullopt));
     }
 }
 

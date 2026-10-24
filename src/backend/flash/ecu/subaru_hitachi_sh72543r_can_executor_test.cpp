@@ -8,9 +8,14 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <functional>
 #include <array>
+
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Not;
 
 namespace
 {
@@ -199,8 +204,8 @@ TEST_F(Sh72543rExecutor, PrecancelledRunIsRefusedInAdmission)
     EXPECT_THAT(ExecutePlan(),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport_.writes, 0U);
-    EXPECT_TRUE(events_.logs.empty());
-    EXPECT_TRUE(events_.phase_progress_calls.empty());
+    EXPECT_THAT(events_.logs, IsEmpty());
+    EXPECT_THAT(events_.phase_progress_calls, IsEmpty());
 }
 TEST_F(Sh72543rExecutor, CompleteReadPinsBytesTimingAndKernelShortcut)
 {
@@ -211,7 +216,7 @@ TEST_F(Sh72543rExecutor, CompleteReadPinsBytesTimingAndKernelShortcut)
     auto result = ExecutePlan();
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->read_bytes, expected);
-    EXPECT_FALSE(result->rom_id);
+    EXPECT_THAT(result->rom_id, Eq(std::nullopt));
     EXPECT_TRUE(transport_.ScriptConsumed());
     EXPECT_EQ(transport_.writes, 2053U);
     EXPECT_EQ(clock_.Elapsed(), 850ms);
@@ -223,7 +228,7 @@ TEST_F(Sh72543rExecutor, CompleteReadPinsBytesTimingAndKernelShortcut)
         SCOPED_TRACE(::testing::PrintToString(i));
         EXPECT_EQ(transport_.ReadTimeouts()[i], 2000ms);
     }
-    ASSERT_FALSE(events_.phase_progress_calls.empty());
+    ASSERT_THAT(events_.phase_progress_calls, Not(IsEmpty()));
     EXPECT_EQ(events_.phase_progress_calls.back().done, events_.phase_progress_calls.back().total);
 }
 TEST_F(Sh72543rExecutor, FullInitializationReturnsIdentityAndRecoveryAlias)
@@ -263,7 +268,7 @@ TEST_F(Sh72543rExecutor, ToleratedSessionAndMissingIdentityStillRead)
     Stop();
     auto result = ExecutePlan();
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_FALSE(result->rom_id);
+    EXPECT_THAT(result->rom_id, Eq(std::nullopt));
     EXPECT_EQ(result->read_bytes, expected);
 }
 TEST_F(Sh72543rExecutor, ShortSeedStopsBeforeKey)
@@ -536,8 +541,8 @@ TEST_F(Sh72543rWrite, CompleteWriteUsesAbsoluteOffsetsAndImmediateEraseReply)
     auto result = Write();
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes);
-    EXPECT_FALSE(result->rom_id);
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
+    EXPECT_THAT(result->rom_id, Eq(std::nullopt));
     EXPECT_TRUE(transport_.ScriptConsumed());
     EXPECT_EQ(transport_.writes, 8105U);
     EXPECT_EQ(transport_.reads, 8105U);
@@ -745,8 +750,8 @@ TEST_F(Sh72543rWrite, ReusedExecutorDoesNotLeakReadMetadataIntoWrite)
     Finish();
     auto result = Write();
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_FALSE(result->read_bytes);
-    EXPECT_FALSE(result->rom_id);
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
+    EXPECT_THAT(result->rom_id, Eq(std::nullopt));
     EXPECT_TRUE(transport_.ScriptConsumed());
 }
 } // namespace

@@ -15,6 +15,8 @@
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
+using ::testing::Eq;
+
 namespace fastecu::flash::testing
 {
 
@@ -111,7 +113,7 @@ TYPED_TEST_P(CanExecutorConformance, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
                                                     ::testing::HasSubstr("does not match this executor")));
     EXPECT_THAT(events.logs, ::testing::IsEmpty());
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
 }
 
 TYPED_TEST_P(CanExecutorConformance, RefusesATestWritePlanRatherThanWritingForReal)
@@ -129,7 +131,7 @@ TYPED_TEST_P(CanExecutorConformance, RefusesATestWritePlanRatherThanWritingForRe
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kUnsupported));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
     EXPECT_THAT(events.logs, ::testing::IsEmpty());
 }
 

@@ -2,10 +2,13 @@
 #include "src/backend/flash/ecu/denso_beef_kline_common.h"
 
 #include <array>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/mock_clock.h"
+
+using ::testing::IsEmpty;
 
 namespace fastecu::flash
 {
@@ -280,7 +283,7 @@ TEST(DensoBeefKlineCommonTest, SettleAndOptionalPresenceRemainDistinct)
             EXPECT_EQ(result->has_value(), scenario == 1);
             if (scenario == 1)
             {
-                EXPECT_TRUE((**result).empty());
+                EXPECT_THAT((**result), IsEmpty());
             }
             EXPECT_EQ(transport.trace, (scenario < 3 ? std::vector<std::string>{"write", "sleep", "read"}
                                                      : std::vector<std::string>{"write", "read"}));

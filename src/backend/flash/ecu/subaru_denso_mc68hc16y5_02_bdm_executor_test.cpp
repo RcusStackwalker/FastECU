@@ -31,6 +31,9 @@ using fastecu::testing::IsOk;
 using ::testing::_;
 using ::testing::Contains;
 using ::testing::Each;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 using ::testing::Pair;
 using ::testing::StartsWith;
 
@@ -228,7 +231,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ReadsTheAddressSpaceImageWithTheRamHol
 
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     const bytes::Bytes& image = *result->read_bytes;
     ASSERT_EQ(image.size(), 0x30000U);
     for (const std::uint32_t address : PageAddresses())
@@ -264,7 +267,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, AssemblesAPageDeliveredAcrossPolls)
 
     ASSERT_THAT(result, IsOk());
     const auto& read_bytes = result->read_bytes;
-    ASSERT_TRUE(read_bytes.has_value());
+    ASSERT_THAT(read_bytes, Optional(_));
     EXPECT_THAT(bytes::ByteView(*read_bytes).first(0x400), test_bytes::BytesEq(PageBytes(0)));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -426,7 +429,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, BootstrapsTheKernelWithTheLegacySequen
 
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), writes);
     EXPECT_EQ(transport.framed_calls, 0);
@@ -579,7 +582,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, RawWriteFailuresDuringReadStopBeforeAn
 
         EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
         EXPECT_EQ(transport.WritesConsumed(), 0U);
-        EXPECT_TRUE(events.progress_calls.empty());
+        EXPECT_THAT(events.progress_calls, IsEmpty());
     }
 }
 
@@ -601,7 +604,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, RawWriteFailuresDuringBootstrapStopBef
 
         EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
         EXPECT_EQ(transport.WritesConsumed(), 0U);
-        EXPECT_TRUE(events.progress_calls.empty());
+        EXPECT_THAT(events.progress_calls, IsEmpty());
     }
 }
 
@@ -623,7 +626,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorMidPagePropagatesUnchang
 
     EXPECT_THAT(result, IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(transport.WritesConsumed(), 1U);
-    EXPECT_TRUE(events.progress_calls.empty());
+    EXPECT_THAT(events.progress_calls, IsEmpty());
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorMidAckPropagatesUnchanged)
@@ -684,8 +687,8 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, PrecancelledRunIsRefusedInAdmission)
     EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.Execute(*plan, transport, clock, cancellation, events),
                 IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(events.logs.empty());
-    EXPECT_TRUE(events.progress_calls.empty());
+    EXPECT_THAT(events.logs, IsEmpty());
+    EXPECT_THAT(events.progress_calls, IsEmpty());
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorOnWpcspReplyPropagates)

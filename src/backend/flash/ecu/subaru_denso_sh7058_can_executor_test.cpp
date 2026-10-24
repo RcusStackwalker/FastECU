@@ -50,6 +50,9 @@ using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 using ::testing::StrEq;
 
 constexpr std::uint32_t kRomSize = 0x00100000;
@@ -607,7 +610,7 @@ TEST(SubaruDensoSh7058CanExecutor, StartupCancellationBeforeResetTouchesNoLifecy
     const auto result = attempt->Run(clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
-    EXPECT_TRUE(observed->lifecycle.empty());
+    EXPECT_THAT(observed->lifecycle, IsEmpty());
 }
 
 TEST(SubaruDensoSh7058CanExecutor, StartupCancellationAfterResetSkipsConfigureOpenAndClose)
@@ -712,7 +715,7 @@ TEST(SubaruDensoSh7058CanExecutor, AlreadyRunningKernelReadsFirstAndLastBoundary
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
     EXPECT_THAT(*result->read_bytes, test_bytes::BytesFilledWith(0));
     EXPECT_EQ(result->rom_id, std::nullopt);
@@ -756,7 +759,7 @@ TEST(SubaruDensoSh7058CanExecutor, ReadKeepsRawBeefBoundaryPayloadsForEveryPetro
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsOk());
-        ASSERT_TRUE(result->read_bytes.has_value());
+        ASSERT_THAT(result->read_bytes, Optional(_));
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(8),
                     ElementsAre(0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B));
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(8),
@@ -788,7 +791,7 @@ TEST(SubaruDensoSh7058CanExecutor, ProbeTimeoutUploadsLiteral129ByteKernelThenRe
 
     ASSERT_THAT(result, IsOk());
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
     EXPECT_EQ(result->rom_id, "CALID_123456789A_");
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
@@ -914,7 +917,7 @@ TEST(SubaruDensoSh7058CanExecutor, KernelStartRejectsWrongSidShortTimeoutCancell
         }
         else
         {
-            ASSERT_TRUE(start.frame.has_value());
+            ASSERT_THAT(start.frame, Optional(_));
             transport.QueueRead(*start.frame);
         }
         FakeCancellationToken cancellation;
@@ -1053,7 +1056,7 @@ TEST(SubaruDensoSh7058CanExecutor, DisconnectAtAnyReadOfAColdWriteIsReportedAsDi
 
         ColdWriteOutcome clean;
         run(std::nullopt, clean);
-        ASSERT_FALSE(clean.error.has_value());
+        ASSERT_THAT(clean.error, Eq(std::nullopt));
         for (std::size_t index = 0; index < clean.reads; ++index)
         {
             SCOPED_TRACE(std::format("{} read {}", variant.protocol, index));

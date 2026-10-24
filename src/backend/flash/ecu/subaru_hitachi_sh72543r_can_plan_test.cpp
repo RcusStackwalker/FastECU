@@ -1,12 +1,16 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/result_matchers.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <array>
 #include <functional>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+using ::testing::Eq;
+using ::testing::IsEmpty;
 
 namespace fastecu::flash
 {
@@ -37,8 +41,8 @@ TEST(Sh72543rPlan, BothAliasesHaveDistinctReadAndWriteWindows)
         ASSERT_THAT(read, fastecu::testing::IsOk());
         EXPECT_EQ(read->TransferRegion().start, 0U);
         EXPECT_EQ(read->TransferRegion().length, 0x200000U);
-        EXPECT_TRUE(read->EraseRegions().empty());
-        EXPECT_FALSE(read->Kernel());
+        EXPECT_THAT(read->EraseRegions(), IsEmpty());
+        EXPECT_THAT(read->Kernel(), Eq(std::nullopt));
         auto write = BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kWrite, protocol, "SH72543R",
                                                        bytes::Bytes(0x200000, 0xa5));
         ASSERT_THAT(write, fastecu::testing::IsOk());

@@ -32,6 +32,10 @@
 using ::testing::_;
 using ::testing::DoAll;
 using ::testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Not;
+using ::testing::Optional;
 using ::testing::Return;
 
 namespace fastecu::flash
@@ -398,9 +402,9 @@ TEST(SubaruDensoMc68hc16y5_02Executor, BoundAttemptPreservesConfigureToOpenCance
     RecordingEventSink events;
 
     ASSERT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_TRUE(observed_transport->last_config.has_value());
+    EXPECT_THAT(observed_transport->last_config, Optional(_));
     EXPECT_EQ(observed_transport->close_call_count, 0);
-    EXPECT_TRUE(observed_transport->control_line_trace.empty());
+    EXPECT_THAT(observed_transport->control_line_trace, IsEmpty());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
@@ -435,9 +439,9 @@ TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
 
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_FALSE(transport.last_config.has_value());
-    EXPECT_TRUE(transport.read_timeouts.empty());
-    EXPECT_TRUE(transport.control_line_trace.empty());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
+    EXPECT_THAT(transport.read_timeouts, IsEmpty());
+    EXPECT_THAT(transport.control_line_trace, IsEmpty());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKernel)
@@ -688,7 +692,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBoot
 
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_TRUE(transport.write_attempts.empty());
+    EXPECT_THAT(transport.write_attempts, IsEmpty());
     EXPECT_EQ(transport.read_timeouts, (std::vector<std::chrono::milliseconds>{10ms}));
 }
 
@@ -722,7 +726,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(*result->read_bytes, expected);
     ASSERT_EQ(result->read_bytes->size(), 0x28000U);
     // Packed output joins the final byte before the physical RAM hole to the
@@ -752,7 +756,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TpuReadHonorsDeclaredPackedRomSize)
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), device->romsize);
     EXPECT_THAT(*result->read_bytes, test_bytes::BytesFilledWith(0x6a));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -853,7 +857,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteSkipsWhenNoBlockDiffers)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 3U + device->numblocks);
     EXPECT_EQ(transport.programming_voltage_line_write_index, 3U + device->numblocks);
@@ -1516,7 +1520,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadPreservesAbsentVersusPresentEmptyResp
         EXPECT_THAT(result, fastecu::testing::IsErrWith(present ? ErrorKind::kBadResponse : ErrorKind::kTimeout,
                                                         ::testing::Eq(present ? "Wrong response from ECU during read"
                                                                               : "no response from ECU")));
-        ASSERT_FALSE(transport.read_timeouts.empty());
+        ASSERT_THAT(transport.read_timeouts, Not(IsEmpty()));
         EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
         EXPECT_TRUE(transport.ScriptConsumed());
     }
@@ -1536,8 +1540,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, PrecancelledRunIsRefusedInAdmission)
 
     ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(transport.control_line_trace.empty());
-    EXPECT_TRUE(events.logs.empty());
+    EXPECT_THAT(transport.control_line_trace, IsEmpty());
+    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 } // namespace

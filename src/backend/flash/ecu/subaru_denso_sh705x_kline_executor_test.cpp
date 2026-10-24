@@ -42,7 +42,10 @@ using bytes::U24;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using ::testing::Eq;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
+using ::testing::Not;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
@@ -346,7 +349,7 @@ TEST(SubaruDensoSh705xKlineExecutor, HeaderFlagFailurePropagatesBeforeAnyWrite)
     ASSERT_THAT(built_plan_4, fastecu::testing::IsOk());
     EXPECT_THAT(h.Run(std::move(*built_plan_4)), IsErr(ErrorKind::kDisconnected));
     EXPECT_EQ(h.transport.header_mode_calls, std::vector<bool>{false});
-    EXPECT_TRUE(h.transport.baud_calls.empty());
+    EXPECT_THAT(h.transport.baud_calls, IsEmpty());
     EXPECT_EQ(h.transport.WritesConsumed(), 0U);
 }
 
@@ -594,7 +597,7 @@ TEST(SubaruDensoSh705xKlineExecutor, NegativeHandshakeReplyLogsTheNrc)
     auto built_plan_14 = MakePlan(FlashOperation::kRead);
     ASSERT_THAT(built_plan_14, fastecu::testing::IsOk());
     EXPECT_THAT(h.Run(std::move(*built_plan_14)), IsErr(ErrorKind::kBadResponse));
-    ASSERT_FALSE(h.events.logs.empty());
+    ASSERT_THAT(h.events.logs, Not(IsEmpty()));
     EXPECT_EQ(h.events.logs.back().first, LogLevel::kError);
     EXPECT_EQ(h.events.logs.back().second, "Wrong response from ECU: Subfunction not supported");
 }
@@ -785,7 +788,7 @@ TEST(SubaruDensoSh705xKlineExecutor, ReadWithLiveKernelHasNoRomId)
     ASSERT_THAT(built_plan_22, fastecu::testing::IsOk());
     const auto result = h.Run(std::move(*built_plan_22));
     ASSERT_THAT(result, IsOk());
-    EXPECT_FALSE(result->rom_id.has_value());
+    EXPECT_THAT(result->rom_id, Eq(std::nullopt));
 }
 
 TEST(SubaruDensoSh705xKlineExecutor, ReadRejectsShortBadChecksumAndWrongOpcodePages)
@@ -917,7 +920,7 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteWithNoDifferencesFlashesNothing)
     const auto result = h.Run(std::move(*built_plan_27));
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_TRUE(h.transport.ScriptConsumed());
     EXPECT_THAT(
         h.events.logs,
@@ -1173,7 +1176,7 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteLogsTheLegacyStrings)
         {L::kInfo, "\tYES"},
     };
     const auto head = std::ranges::search(h.events.logs, compare_head);
-    EXPECT_FALSE(head.empty());
+    EXPECT_THAT(head, Not(IsEmpty()));
 
     // write_mem():671-680, 695; init_flash_write():893-1008;
     // reflash_block():1065-1089, 1115; flash_block():1148-1310; write_mem():709.
@@ -1215,7 +1218,7 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteLogsTheLegacyStrings)
                           {L::kInfo, "--- Comparing ECU flash memory pages to image file after reflash ---"},
                       });
     const auto body = std::ranges::search(h.events.logs, write_body);
-    EXPECT_FALSE(body.empty());
+    EXPECT_THAT(body, Not(IsEmpty()));
     EXPECT_EQ(h.events.logs.back(), (Entry{L::kInfo, " (total: 0)"}));
     EXPECT_THAT(h.events.notices, ::testing::ElementsAre("Writing ROM, please wait..."));
 }
@@ -1279,7 +1282,7 @@ TEST(SubaruDensoSh705xKlineExecutor, PrecancelledRunIsRefusedBeforeTheHeaderMode
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
-    EXPECT_TRUE(transport.header_mode_calls.empty());
+    EXPECT_THAT(transport.header_mode_calls, IsEmpty());
     EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 

@@ -54,8 +54,10 @@ using fastecu::flash::SubaruTcuCvtMitsuMh8104CanPlan;
 using namespace fastecu::flash::testing;
 using testing::_;
 using testing::AtLeast;
+using ::testing::Eq;
 using testing::HasSubstr;
 using testing::IsEmpty;
+using ::testing::Optional;
 
 constexpr std::string_view kProtocol = "sub_tcu_cvt_mitsu_mh8104_can";
 constexpr std::string_view kMcu = "MH8104";
@@ -365,7 +367,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSucceedsEvenWhenEveryDiagnosticR
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), kWindowStart + kWindowLength);
 }
 
@@ -420,7 +422,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadReturnsTheWindowPaddedWithFF)
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     ASSERT_EQ(result->read_bytes->size(), kWindowStart + kWindowLength);
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(kWindowStart), test_bytes::BytesFilledWith(0xFF));
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(kWindowStart), test_bytes::BytesFilledWith(0x5A));
@@ -532,7 +534,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryCont
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
 }
 

@@ -18,6 +18,7 @@ namespace
 {
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::Eq;
 
 struct Variant
 {
@@ -50,7 +51,7 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, KernelPlanPadsToWholeChunks)
         EXPECT_EQ(plan->Image(), std::optional<bytes::Bytes>(expected));
         EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0, 256}));
         EXPECT_EQ(plan->Family(), FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel);
-        EXPECT_FALSE(plan->Kernel().has_value());
+        EXPECT_THAT(plan->Kernel(), Eq(std::nullopt));
         EXPECT_TRUE(CarriesOnlyVoltageConfirmation(*plan));
         EXPECT_THAT(ValidateSubaruUnisiaJecsM32rBootmodePlan(*plan), IsOk());
     }

@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_can_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
@@ -11,6 +12,8 @@
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/result_matchers.h"
+
+using ::testing::IsEmpty;
 
 namespace fastecu::flash
 {
@@ -105,7 +108,7 @@ TEST(SubaruHitachiSh7058CanExecutor, PrecancelledRunIsRefusedInAdmission)
     EXPECT_THAT(SubaruHitachiSh7058CanExecutor{}.Execute(*plan, transport, clock, cancel, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(events.logs.empty());
+    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 TEST(SubaruHitachiSh7058CanExecutor, ReadOperationIsRefusedBeforeThePrecancelCheck)

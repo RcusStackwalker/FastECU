@@ -41,8 +41,11 @@ using fastecu::flash::SubaruHitachiM32rCanPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
+using ::testing::_;
+using ::testing::Eq;
 using testing::HasSubstr;
 using testing::IsEmpty;
+using ::testing::Optional;
 
 constexpr std::string_view kProtocol = "sub_ecu_hitachi_m32r_can";
 constexpr std::string_view kMcu = "M32R_512KB_1block";
@@ -309,7 +312,7 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectAndReadReturnsTheFullRomFromAddressZer
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_THAT(*result->read_bytes, test_bytes::BytesFilledWith(0x5A));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -383,7 +386,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteErasesAndWritesTheFullRomInOneReflashBlo
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
 }
 
@@ -406,7 +409,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBef
 
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x80000")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
     EXPECT_THAT(events.logs, IsEmpty());
 }
 

@@ -28,6 +28,9 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
+using ::testing::_;
+using ::testing::Optional;
+
 namespace fastecu::flash::testing
 {
 
@@ -134,7 +137,7 @@ void ExpectPaddedRead(const Result<FlashPlan>& plan, ScriptedCanFlashTransport& 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     auto run = ExecutorRun<Executor>(*plan, transport);
     ASSERT_THAT(run.result, fastecu::testing::IsOk());
-    ASSERT_TRUE(run.result->read_bytes.has_value());
+    ASSERT_THAT(run.result->read_bytes, Optional(_));
     const bytes::Bytes& rom = *run.result->read_bytes;
     ASSERT_EQ(rom.size(), image_size);
     EXPECT_THAT(bytes::ByteView(rom).first(lead_pad), test_bytes::BytesFilledWith(0xFF));
@@ -177,7 +180,7 @@ void ExpectShortPageRead(const FlashPlan& plan, ScriptedCanFlashTransport& trans
 {
     auto [clock, events, cancellation, result] = ExecutorRun<Executor, RecordingClock>(plan, transport);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     const std::size_t pages = expect.block_length / expect.page_size;
     ASSERT_EQ(result->read_bytes->size(), expect.lead_pad + pages * 4 + 0x100);
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(expect.lead_pad), test_bytes::BytesFilledWith(0xFF));

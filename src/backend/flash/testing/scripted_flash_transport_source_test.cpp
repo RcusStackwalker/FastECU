@@ -1,10 +1,13 @@
 #include "src/backend/flash/testing/scripted_flash_transport_source.h"
 
 #include <gmock/gmock-matchers.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <memory>
 #include <utility>
+
+using ::testing::Eq;
 
 namespace fastecu::flash
 {
@@ -14,20 +17,20 @@ namespace
 void ExpectUntouched(const ScriptedKlineFlashTransport& transport)
 {
     EXPECT_FALSE(transport.IsOpen());
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
     EXPECT_THAT(transport.lifecycle_calls, ::testing::SizeIs(0));
 }
 
 void ExpectUntouched(const ScriptedCanFlashTransport& transport)
 {
     EXPECT_FALSE(transport.IsOpen());
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
     EXPECT_THAT(transport.lifecycle_calls, ::testing::SizeIs(0));
 }
 
 void ExpectUntouched(const ScriptedMixedCanFlashTransport& transport)
 {
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
     EXPECT_EQ(transport.ConfigureCallCount(), 0);
     EXPECT_EQ(transport.OpenCallCount(), 0);
     EXPECT_EQ(transport.CloseCallCount(), 0);

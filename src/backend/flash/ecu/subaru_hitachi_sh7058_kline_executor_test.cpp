@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_kline_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/bytes_compose.h"
@@ -11,6 +12,10 @@
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/result_matchers.h"
+
+using ::testing::_;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -36,8 +41,8 @@ TEST(SubaruHitachiSh7058KlineExecutor, PrecancelledRunIsRefusedInAdmission)
     EXPECT_THAT(SubaruHitachiSh7058KlineExecutor{}.Execute(*plan, transport, clock, cancel, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(transport.header_mode_calls.empty());
-    EXPECT_TRUE(events.logs.empty());
+    EXPECT_THAT(transport.header_mode_calls, IsEmpty());
+    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 TEST(SubaruHitachiSh7058KlineExecutor, WriteOperationIsRefusedBeforeThePrecancelCheck)
@@ -116,7 +121,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
         RecordingEventSink events;
         auto result = executor.Execute(*plan, transport, clock, cancel, events);
         ASSERT_THAT(result, fastecu::testing::IsOk());
-        ASSERT_TRUE(result->read_bytes.has_value());
+        ASSERT_THAT(result->read_bytes, Optional(_));
         EXPECT_EQ(result->read_bytes->size(), 0x100000U);
         if (!already_active)
         {

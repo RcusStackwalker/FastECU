@@ -45,6 +45,8 @@ using namespace bytes::literals;
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::Eq;
+using ::testing::Optional;
 
 constexpr std::uint32_t kRequestId = 0x7E1;
 constexpr std::uint32_t kResponseId = 0x7E9;
@@ -872,10 +874,10 @@ TEST(SubaruTcuDensoSh705xCanExecutor, AlreadyRunningKernelReadsBothMcuGeometries
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsOk()) << test_case.protocol;
-        ASSERT_TRUE(result->read_bytes.has_value());
+        ASSERT_THAT(result->read_bytes, Optional(_));
         EXPECT_EQ(result->read_bytes->size(), test_case.rom_size);
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(4), ElementsAre(0x00, 0x00, 0x00, 0x00));
-        EXPECT_FALSE(result->rom_id.has_value());
+        EXPECT_THAT(result->rom_id, Eq(std::nullopt));
         EXPECT_TRUE(transport.scripted.ScriptConsumed());
         EXPECT_EQ(events.logs, ExpectedReadLogs(test_case));
         EXPECT_THAT(events.notices, ElementsAre("Reading ROM, please wait..."));
@@ -912,7 +914,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ReadKeepsRawBeefBoundaryPayloadsForBothTcu
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsOk());
-        ASSERT_TRUE(result->read_bytes.has_value());
+        ASSERT_THAT(result->read_bytes, Optional(_));
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(8),
                     ElementsAre(0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B));
         EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(8),
@@ -1300,7 +1302,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartRejectsWrongSidShortTimeoutCanc
         }
         else
         {
-            ASSERT_TRUE(start.frame.has_value());
+            ASSERT_THAT(start.frame, Optional(_));
             transport.QueueRead(*start.frame);
         }
         FakeCancellationToken cancellation;
@@ -1378,9 +1380,9 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), 0x00080000U);
-    ASSERT_TRUE(result->rom_id.has_value());
+    ASSERT_THAT(result->rom_id, Optional(_));
     EXPECT_EQ(*result->rom_id, "CAL_4543553031_");
     ASSERT_EQ(transport.restart_configs.size(), 1U);
     EXPECT_EQ(transport.restart_configs.front().bitrate, 500000);
@@ -1891,7 +1893,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, DisconnectAtAnyReadOfAColdWriteIsReportedA
 
     ColdWriteOutcome clean;
     run(std::nullopt, clean);
-    ASSERT_FALSE(clean.error.has_value());
+    ASSERT_THAT(clean.error, Eq(std::nullopt));
     for (std::size_t index = 0; index < clean.reads; ++index)
     {
         SCOPED_TRACE(index);

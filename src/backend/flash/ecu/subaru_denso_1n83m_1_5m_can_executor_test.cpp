@@ -40,8 +40,11 @@ using fastecu::flash::SubaruDenso1n83m_1_5mCanPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
+using ::testing::_;
 using testing::Each;
+using ::testing::Eq;
 using testing::IsEmpty;
+using ::testing::Optional;
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_1n83m_1_5m_can";
 constexpr std::string_view kMcu = "N83M_1_5MB";
@@ -320,7 +323,7 @@ TEST_F(SubaruDenso1n83m_1_5mCanExecutorWrite, WriteErasesThenFlashesBlockOne)
         ExecutorRun<SubaruDenso1n83m_1_5mCanExecutor, fastecu::RecordingClock>(*plan, transport);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
     // The write path's own identity line, the third of the three legacy named
@@ -579,7 +582,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationAtTheReadStopIsSwallowed)
     const auto result = SubaruDenso1n83m_1_5mCanExecutor{}.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), kImageSize);
     EXPECT_TRUE(cancellation.Cancelled());
     EXPECT_TRUE(transport.ScriptConsumed());

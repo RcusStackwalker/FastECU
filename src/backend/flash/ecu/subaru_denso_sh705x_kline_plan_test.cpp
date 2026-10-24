@@ -25,6 +25,8 @@ namespace
 {
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::Eq;
+using ::testing::IsEmpty;
 
 KernelImage KernelFor(std::string_view mcu)
 {
@@ -69,8 +71,8 @@ TEST(SubaruDensoSh705xKlinePlan, MapsAllSixPairsWithLegacyWireParameters)
         EXPECT_EQ(plan->Family(), FlashFamily::kSubaruDensoSh705xKline);
         EXPECT_EQ(plan->Transport(), TransportKind::kKline);
         EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0, Romsize(pair.mcu)}));
-        EXPECT_TRUE(plan->EraseRegions().empty());
-        EXPECT_TRUE(plan->Confirmations().empty());
+        EXPECT_THAT(plan->EraseRegions(), IsEmpty());
+        EXPECT_THAT(plan->Confirmations(), IsEmpty());
         const auto& family = std::get<SubaruDensoSh705xKlinePlan>(plan->FamilyPlan());
         // execute():67-76 -- 4800 baud, tester 0xF0, target 0x10.
         EXPECT_EQ(family.initial_baud, 4800);
@@ -86,7 +88,7 @@ TEST(SubaruDensoSh705xKlinePlan, ReadCarriesNoImage)
     const auto plan = BuildSubaruDensoSh705xKlinePlan(FlashOperation::kRead, "sub_ecu_denso_sh7058", "SH7058",
                                                       ImageFor("SH7058"), KernelFor("SH7058"));
     ASSERT_THAT(plan, IsOk());
-    EXPECT_FALSE(plan->Image().has_value());
+    EXPECT_THAT(plan->Image(), Eq(std::nullopt));
 }
 
 TEST(SubaruDensoSh705xKlinePlan, CobbIsTestWriteOnly)

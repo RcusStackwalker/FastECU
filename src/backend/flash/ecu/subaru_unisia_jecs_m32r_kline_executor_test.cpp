@@ -32,6 +32,9 @@ using fastecu::testing::IsOk;
 using Line = ScriptedKlineFlashTransport::ControlLineAction;
 using ::testing::_;
 using ::testing::Contains;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 using ::testing::Pair;
 
 constexpr std::string_view kProtocol = "sub_ecu_unisia_jecs_20";
@@ -146,7 +149,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, BeforeConfigureClearsTheIso14230Header)
     FakeCancellationToken cancellation;
     ASSERT_THAT(SubaruUnisiaJecsM32rKlineExecutor{}.BeforeTransportConfigure(transport, clock, cancellation), IsOk());
     EXPECT_EQ(transport.header_mode_calls, std::vector<bool>{false});
-    EXPECT_TRUE(transport.lifecycle_calls.empty());
+    EXPECT_THAT(transport.lifecycle_calls, IsEmpty());
 }
 
 TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsTheRomWhenAlreadyInReadMode)
@@ -162,7 +165,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsTheRomWhenAlreadyInReadMode)
 
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     ASSERT_EQ(result->read_bytes->size(), kRomSize);
     for (std::uint32_t page = 0; page < kRomSize / 0x80; ++page)
     {
@@ -175,7 +178,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsTheRomWhenAlreadyInReadMode)
     EXPECT_EQ(result->rom_id, std::optional<std::string>(std::string(kEcuId) + "_"));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.baud_calls, std::vector<int>{38400});
-    EXPECT_TRUE(transport.control_line_trace.empty()) << "legacy read touched no LEC line";
+    EXPECT_THAT(transport.control_line_trace, IsEmpty()) << "legacy read touched no LEC line";
     EXPECT_EQ(transport.read_timeouts.front(), 2000ms);
     EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
     EXPECT_EQ(context.events.progress_calls.back(), (std::pair<int, int>{1024, 1024}));
@@ -414,7 +417,7 @@ TEST_P(SubaruUnisiaJecsM32rKlineReadSizes, ReadsEveryPageOfTheVariant)
     auto result = RunScripted(std::move(*built_plan_17), transport, context);
 
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), rom_size);
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -443,7 +446,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsABootmodeProtocolWithTheSameWireSeq
     ASSERT_THAT(built_plan_18, fastecu::testing::IsOk());
     const auto result = RunScripted(std::move(*built_plan_18), transport, context);
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), 0x40000U);
     EXPECT_EQ(result->rom_id, std::optional<std::string>("123456789A_"));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -538,8 +541,8 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, WritesWhenTheKernelIsAlreadyRunning)
 
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
-    EXPECT_FALSE(result->rom_id.has_value()) << "legacy set RomId only on read";
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
+    EXPECT_THAT(result->rom_id, Eq(std::nullopt)) << "legacy set RomId only on read";
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.baud_calls, std::vector<int>{19200});
     EXPECT_EQ(transport.control_line_trace,
@@ -944,7 +947,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancelledAtEntryTouchesNoControlLine)
     ASSERT_THAT(plan, IsOk());
     EXPECT_THAT(RunScripted(std::move(*plan), transport, context),
                 IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
-    EXPECT_TRUE(transport.control_line_trace.empty());
+    EXPECT_THAT(transport.control_line_trace, IsEmpty());
     EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 

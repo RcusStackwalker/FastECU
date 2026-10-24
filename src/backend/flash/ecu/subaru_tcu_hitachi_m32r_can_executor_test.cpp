@@ -50,10 +50,14 @@ using fastecu::flash::FlashPlan;
 using fastecu::flash::ScriptedCanFlashTransport;
 using fastecu::flash::ScriptedTransportInitialState;
 using fastecu::flash::SubaruTcuHitachiM32rCanExecutor;
+using ::testing::_;
 using testing::Contains;
 using testing::DoAll;
+using ::testing::Eq;
 using testing::HasSubstr;
+using ::testing::IsEmpty;
 using testing::Not;
+using ::testing::Optional;
 using testing::Pair;
 
 constexpr std::string_view kProtocol = "sub_tcu_hitachi_m32r_can";
@@ -777,7 +781,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, SuccessfulReadRebuildsTheFullRomImage)
     // 8 connect frames + window setup + 1920 pages + stop.
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + kPageCount + 1);
     EXPECT_EQ(result->operation, FlashOperation::kRead);
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     ASSERT_EQ(result->read_bytes->size(), kRomSize);
     // I2: legacy composes ecuCalDef->RomId as "<CALID>_<TCUID>_"
     // (operation.cpp:170, 207); scriptIdentity's fixture bytes decode to TCU
@@ -945,7 +949,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, StopFrameMismatchIsNotFatal)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     ExpectBytesEqual(*result->read_bytes, ExpectedImage());
     EXPECT_THAT(events.logs,
                 Contains(Pair(fastecu::LogLevel::kError, HasSubstr("Wrong response from TCU for dump stop"))));
@@ -968,7 +972,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, StopFrameSilenceIsNotFatal)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
     EXPECT_THAT(events.logs,
                 Contains(Pair(fastecu::LogLevel::kError, HasSubstr("No valid response from TCU for dump stop"))));
@@ -1458,7 +1462,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WriteFlashesBlocksThreeThroughTenAndNothin
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kFullWriteWrites);
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     // I2: legacy only assigns ecuCalDef->RomId when cmd_type == "read"
     // (operation.cpp:168, 205); connect_bootloader() decodes the TCU/CAL ID
     // identically on every connect, but the write result must not surface it.
@@ -1492,7 +1496,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WriteFlashesBlocksThreeThroughTenAndNothin
     EXPECT_THAT(written, Not(Contains(0x00000000U)));
     EXPECT_THAT(written, Not(Contains(kRegionStart - kWriteFrameSize)));
 
-    ASSERT_FALSE(events.progress_calls.empty());
+    ASSERT_THAT(events.progress_calls, Not(IsEmpty()));
     EXPECT_EQ(events.progress_calls.back(),
               std::make_pair(static_cast<int>(kRegionLength), static_cast<int>(kRegionLength)));
 }

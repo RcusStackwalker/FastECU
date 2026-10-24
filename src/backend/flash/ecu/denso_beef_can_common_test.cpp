@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
@@ -27,6 +28,9 @@ using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
 using ::testing::StrEq;
 
 TEST(DensoBeefCanCommonTest, BeefRequestFramesOpcodeAndPayloadLength)
@@ -474,9 +478,9 @@ TEST(DensoBeefCanCommonTest, BeefKernelPayloadReplacesThePaddedLastWordWithTheCh
     // kernel's fifth byte) becomes 0x5AA5A55A minus the sum of the others.
     const auto payload = BeefKernelPayload(bytes::Bytes{0x00, 0x00, 0x00, 0x01, 0xAA}, 8);
 
-    ASSERT_TRUE(payload.has_value());
+    ASSERT_THAT(payload, Optional(_));
     EXPECT_EQ(*payload, EncryptPayload(bytes::Bytes{0x00, 0x00, 0x00, 0x01, 0x5A, 0xA5, 0xA5, 0x59}));
-    EXPECT_FALSE(BeefKernelPayload({}, 8).has_value());
+    EXPECT_THAT(BeefKernelPayload({}, 8), Eq(std::nullopt));
 }
 
 TEST(DensoBeefCanCommonTest, UploadBeefKernelBlocksEndsWithAnAddressOnlyBlock)

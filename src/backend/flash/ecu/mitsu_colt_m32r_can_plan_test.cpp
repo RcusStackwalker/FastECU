@@ -16,8 +16,12 @@ using fastecu::flash::BuildMitsuColtM32rCanPlan;
 using fastecu::flash::ConfirmationSpec;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::MitsuColtM32rCanPlan;
+using ::testing::_;
+using ::testing::Eq;
 using testing::Field;
 using testing::HasSubstr;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 constexpr std::string_view kDefaultProtocol = "mitsu_ecu_m32r_can";
 constexpr std::string_view kMcu384 = "M32R_384KB_1block";
@@ -71,9 +75,9 @@ TEST(MitsuColtM32rCanPlan, ReadPlansSnapshotProtocolCapacityAndVendorChallenge)
         EXPECT_EQ(family.response_id, 0x7e8U) << test.id;
         EXPECT_EQ(family.bitrate, 500000) << test.id;
         EXPECT_FALSE(family.extended_id) << test.id;
-        EXPECT_TRUE(plan->EraseRegions().empty()) << test.id;
-        EXPECT_FALSE(plan->Kernel().has_value()) << test.id;
-        EXPECT_TRUE(plan->Confirmations().empty()) << test.id;
+        EXPECT_THAT(plan->EraseRegions(), IsEmpty()) << test.id;
+        EXPECT_THAT(plan->Kernel(), Eq(std::nullopt)) << test.id;
+        EXPECT_THAT(plan->Confirmations(), IsEmpty()) << test.id;
     }
 }
 
@@ -89,7 +93,7 @@ TEST(MitsuColtM32rCanPlan, WritePlansUseTheCapacitySpecificRangeAndConfirmations
         ASSERT_THAT(plan, fastecu::testing::IsOk()) << test.id;
         EXPECT_EQ(plan->TransferRegion().start, 0x8000U) << test.id;
         EXPECT_EQ(plan->TransferRegion().length, test.size - 0x8000U) << test.id;
-        ASSERT_TRUE(plan->Image().has_value()) << test.id;
+        ASSERT_THAT(plan->Image(), Optional(_)) << test.id;
         EXPECT_EQ(plan->Image()->size(), test.size) << test.id;
         if (test.size == 0x80000)
         {

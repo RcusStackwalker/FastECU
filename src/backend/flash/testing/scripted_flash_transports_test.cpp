@@ -23,6 +23,8 @@ using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Optional;
 
 TEST(ScriptedKlineFlashTransport, RawExpectationsRejectFramedCalls)
 {
@@ -37,7 +39,7 @@ TEST(ScriptedKlineFlashTransport, RawExpectationsRejectFramedCalls)
     EXPECT_THAT(transport.Read(10ms, cancellation), IsErr(ErrorKind::kInternal));
     const auto result = transport.ReadRaw(10ms, cancellation);
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->has_value());
+    ASSERT_THAT(*result, Optional(_));
     EXPECT_THAT(result->value(), ::testing::ElementsAre(0x00, 0xff));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -69,7 +71,7 @@ TEST(ScriptedCanFlashTransport, RestartUsesMandatoryResetThenExactConfigurationT
 
     EXPECT_THAT(result, IsOk());
     EXPECT_THAT(transport.lifecycle_calls, ::testing::ElementsAre("reset_connection", "configure", "open"));
-    ASSERT_TRUE(transport.last_config.has_value());
+    ASSERT_THAT(transport.last_config, Optional(_));
     EXPECT_EQ(transport.last_config->bitrate, 500000);
     EXPECT_EQ(transport.last_config->request_id, 0x7e1U);
     EXPECT_EQ(transport.last_config->response_id, 0x7e9U);
@@ -225,7 +227,7 @@ TEST(ScriptedMixedCanFlashTransport, ScriptsIsoAndRawFramesInTheirRespectiveMode
     ASSERT_THAT(transport.WriteIso15765(iso_request, cancellation), IsOk());
     const auto iso_reply = transport.ReadIso15765(10ms, cancellation);
     ASSERT_THAT(iso_reply, IsOk());
-    ASSERT_TRUE(iso_reply->has_value());
+    ASSERT_THAT(*iso_reply, Optional(_));
     EXPECT_THAT(**iso_reply, ::testing::ElementsAre(0x00, 0x00, 0x07, 0xe8, 0xbe, 0xef, 0x00, 0x00, 0x41));
 
     ASSERT_THAT(transport.EnterRawBootloaderMode(), IsOk());
@@ -233,7 +235,7 @@ TEST(ScriptedMixedCanFlashTransport, ScriptsIsoAndRawFramesInTheirRespectiveMode
     ASSERT_THAT(transport.WriteRaw(cdbg::CanFrame{0x000ffffe, {0x7a, 0x90, 0, 0, 0, 0, 0, 0}}, cancellation), IsOk());
     const auto raw_reply = transport.ReadRaw(10ms, cancellation);
     ASSERT_THAT(raw_reply, IsOk());
-    ASSERT_TRUE(raw_reply->has_value());
+    ASSERT_THAT(*raw_reply, Optional(_));
     EXPECT_EQ((*raw_reply)->id, 0x000fffffU);
     EXPECT_THAT((*raw_reply)->payload, ::testing::ElementsAre(0x7a, 0x91));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -318,7 +320,7 @@ TEST(ScriptedCanFlashTransport, ExchangePairsARequestWithItsReply)
     const auto reply = transport.Read(std::chrono::milliseconds{100}, cancellation);
 
     ASSERT_THAT(reply, IsOk());
-    ASSERT_TRUE(reply->has_value());
+    ASSERT_THAT(*reply, Optional(_));
     EXPECT_THAT(**reply, test_bytes::BytesEq(bytes::Bytes{0x50, 0x43}));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -398,7 +400,7 @@ TEST(ScriptedKlineFlashTransport, ExchangePairsARequestWithItsReply)
     const auto reply = transport.Read(std::chrono::milliseconds{100}, cancellation);
 
     ASSERT_THAT(reply, IsOk());
-    ASSERT_TRUE(reply->has_value());
+    ASSERT_THAT(*reply, Optional(_));
     EXPECT_THAT(**reply, test_bytes::BytesEq(bytes::Bytes{0x50, 0x43}));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
