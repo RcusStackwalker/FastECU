@@ -125,13 +125,13 @@ FlashPlanFields ForeignCanReadFields()
 // validation passes, and can tell whether it ran at all.
 struct CountingValidator
 {
-    static inline int calls = 0;
-    static inline Status result = {};
+    static inline int calls_ = 0;
+    static inline Status result_ = {};
 
     static Status Validate(const FlashPlan& /*plan*/)
     {
-        ++calls;
-        return result;
+        ++calls_;
+        return result_;
     }
 };
 
@@ -164,20 +164,20 @@ class FamilyExecutorTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        CountingValidator::calls = 0;
-        CountingValidator::result = {};
+        CountingValidator::calls_ = 0;
+        CountingValidator::result_ = {};
     }
 
     Result<FlashExecutionResult> Execute(const FlashPlan& plan)
     {
-        return executor.Execute(plan, transport, clock, cancellation, events);
+        return executor_.Execute(plan, transport_, clock_, cancellation_, events_);
     }
 
-    ProbeExecutor executor;
-    ScriptedKlineFlashTransport transport;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
+    ProbeExecutor executor_;
+    ScriptedKlineFlashTransport transport_;
+    FakeClock clock_;
+    FakeCancellationToken cancellation_;
+    RecordingEventSink events_;
 };
 
 TEST_F(FamilyExecutorTest, TransportSetupRejectsForeignFamily)
@@ -185,12 +185,12 @@ TEST_F(FamilyExecutorTest, TransportSetupRejectsForeignFamily)
     auto foreign = ValidateAndBuild(ForeignCanReadFields());
     ASSERT_THAT(foreign, fastecu::testing::IsOk());
 
-    const auto config = executor.TransportSetup(*foreign);
+    const auto config = executor_.TransportSetup(*foreign);
 
     ASSERT_THAT(config, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                                     ::testing::Eq("plan family does not match this executor")));
-    EXPECT_EQ(CountingValidator::calls, 0);
-    EXPECT_EQ(executor.setup_family, nullptr);
+    EXPECT_EQ(CountingValidator::calls_, 0);
+    EXPECT_EQ(executor_.setup_family, nullptr);
 }
 
 TEST_F(FamilyExecutorTest, ForeignFamilyNeverReachesValidator)
@@ -202,22 +202,22 @@ TEST_F(FamilyExecutorTest, ForeignFamilyNeverReachesValidator)
 
     ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                                     ::testing::Eq("plan family does not match this executor")));
-    EXPECT_EQ(CountingValidator::calls, 0);
-    EXPECT_EQ(executor.run_plan, nullptr);
-    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_EQ(CountingValidator::calls_, 0);
+    EXPECT_EQ(executor_.run_plan, nullptr);
+    EXPECT_EQ(transport_.WritesConsumed(), 0U);
 }
 
 TEST_F(FamilyExecutorTest, TransportSetupReturnsValidatorError)
 {
     auto plan = ValidateAndBuild(KlineReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    CountingValidator::result = Fail(ErrorKind::kInvalidConfig, "probe invalid");
+    CountingValidator::result_ = Fail(ErrorKind::kInvalidConfig, "probe invalid");
 
-    const auto config = executor.TransportSetup(*plan);
+    const auto config = executor_.TransportSetup(*plan);
 
     ASSERT_THAT(config, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("probe invalid")));
-    EXPECT_EQ(CountingValidator::calls, 1);
-    EXPECT_EQ(executor.setup_family, nullptr);
+    EXPECT_EQ(CountingValidator::calls_, 1);
+    EXPECT_EQ(executor_.setup_family, nullptr);
 }
 
 TEST_F(FamilyExecutorTest, TransportSetupHandsFamilyPlanToSetup)
@@ -225,10 +225,10 @@ TEST_F(FamilyExecutorTest, TransportSetupHandsFamilyPlanToSetup)
     auto plan = ValidateAndBuild(KlineReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const auto config = executor.TransportSetup(*plan);
+    const auto config = executor_.TransportSetup(*plan);
 
     ASSERT_THAT(config, fastecu::testing::IsOk());
-    EXPECT_EQ(executor.setup_family, &std::get<DensoSh705xEepromKlinePlan>(plan->FamilyPlan()));
+    EXPECT_EQ(executor_.setup_family, &std::get<DensoSh705xEepromKlinePlan>(plan->FamilyPlan()));
     EXPECT_EQ(config->baud, 4800);
     EXPECT_EQ(config->target_id, 0x10);
 }
@@ -237,28 +237,28 @@ TEST_F(FamilyExecutorTest, ExecuteValidatesBeforeCheckingCancellation)
 {
     auto plan = ValidateAndBuild(KlineReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    CountingValidator::result = Fail(ErrorKind::kInvalidConfig, "probe invalid");
-    cancellation.SetCancelled(true);
+    CountingValidator::result_ = Fail(ErrorKind::kInvalidConfig, "probe invalid");
+    cancellation_.SetCancelled(true);
 
     const auto result = Execute(*plan);
 
     ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("probe invalid")));
-    EXPECT_EQ(cancellation.CheckCount(), 0U);
+    EXPECT_EQ(cancellation_.CheckCount(), 0U);
 }
 
 TEST_F(FamilyExecutorTest, ExecuteCancelledAfterAdmissionChecks)
 {
     auto plan = ValidateAndBuild(KlineReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    cancellation.SetCancelled(true);
+    cancellation_.SetCancelled(true);
 
     const auto result = Execute(*plan);
 
     ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
-    EXPECT_EQ(CountingValidator::calls, 1);
-    EXPECT_EQ(executor.run_plan, nullptr);
-    EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_THAT(events.logs, ::testing::IsEmpty());
+    EXPECT_EQ(CountingValidator::calls_, 1);
+    EXPECT_EQ(executor_.run_plan, nullptr);
+    EXPECT_EQ(transport_.WritesConsumed(), 0U);
+    EXPECT_THAT(events_.logs, ::testing::IsEmpty());
 }
 
 TEST_F(FamilyExecutorTest, ExecuteHandsFamilyAndFlashPlanToRun)
@@ -270,19 +270,19 @@ TEST_F(FamilyExecutorTest, ExecuteHandsFamilyAndFlashPlanToRun)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
-    EXPECT_EQ(executor.run_family, &std::get<DensoSh705xEepromKlinePlan>(plan->FamilyPlan()));
-    EXPECT_EQ(executor.run_plan, &*plan);
+    EXPECT_EQ(executor_.run_family, &std::get<DensoSh705xEepromKlinePlan>(plan->FamilyPlan()));
+    EXPECT_EQ(executor_.run_plan, &*plan);
 }
 
 TEST_F(FamilyExecutorTest, AdmissionReachedThroughInterface)
 {
     auto plan = ValidateAndBuild(KlineReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    IKlineFlashExecutor& through_interface = executor;
+    IKlineFlashExecutor& through_interface = executor_;
 
     EXPECT_THAT(through_interface.TransportSetup(*plan), fastecu::testing::IsOk());
-    EXPECT_THAT(through_interface.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
-    EXPECT_EQ(CountingValidator::calls, 2);
+    EXPECT_THAT(through_interface.Execute(*plan, transport_, clock_, cancellation_, events_), fastecu::testing::IsOk());
+    EXPECT_EQ(CountingValidator::calls_, 2);
 }
 
 } // namespace
