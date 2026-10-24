@@ -102,7 +102,7 @@ Status DesktopCanFlashTransport::Open()
         {
             // Real sentinel, confirmed by reading the body (step 5c Task
             // 12): SerialPortActionsDirect::open_serial_port()
-            // (serial_port_actions_direct.cpp:519-644) returns
+            // (serial_port_actions_direct.cpp) returns
             // `openedSerialPort` (non-empty) on every success path and
             // `{}` (an empty/null QString) on every failure path.
             const QString open_result = serial_->OpenSerialPort();

@@ -64,11 +64,19 @@ package. Quote its before and after survivors from a scoped run
 suppressions. Remaining packages, in order of what a missed defect could do to
 an ECU:
 
-- **Flash executors, shared guards** (`backend/flash/ecu`). Add the shared
-  boundary cases to `CanExecutorConformance` and `SingleWindowPlanContract`:
-  image offset plus block length against the image size, a page against the
-  region's remaining length, and block-count rounding. Then record pulling the
-  copied guards into a shared helper here.
+- **Flash executors, shared guards** (`backend/flash/ecu`). The copied
+  0x200/0x1000 window-alignment guard lives in five executors, and none of them
+  instantiates `CanExecutorConformance` or `SingleWindowPlanContract`:
+  `subaru_denso_mc68hc16y5_02`, `subaru_denso_sh7055_02` and
+  `subaru_denso_sh705x_densocan` (their image-bounds check is byte-identical),
+  `FlashBeefBlock` in `denso_beef_can_common.h`, and
+  `subaru_tcu_denso_sh705x_can`. The TCU executor checks alignment only and has
+  no image-bounds check; treat that as a correction that needs local evidence
+  first. No test references their "not represented by the image" messages.
+  Name per-family suites, or a guard-level test, for image offset plus block
+  length against the image size, a page against the region's remaining length,
+  and block-count rounding. Then record pulling the copied guards into a
+  shared helper here.
 - **Flash executors, per family.** Cover what the shared cases leave, including
   the flash-voltage log line in `subaru_denso_sh7058_can_executor.cpp`.
 - **Flash plans**, including `flash_validation.cpp`.
@@ -88,9 +96,10 @@ Actions:
 - Treat multi-stage EEPROM inspect/ignition retries, bootmode kernel/program
   attempts, and programming-voltage notices separately from single-attempt
   workflows. Preserve their operator and connection boundaries.
-- Investigate the two Denso BEEF CAN `nonfatal_query` implementations in
-  `subaru_denso_sh7058_can_executor.cpp` and its diesel sibling against
-  `uds_client_exchange_common.h`'s `non_fatal_query`. Their reply-returning
+- Investigate the three Denso BEEF CAN `NonfatalQuery` implementations in
+  `subaru_denso_sh7058_can_executor.cpp`, its diesel sibling and
+  `subaru_tcu_denso_sh705x_can_executor.cpp` against
+  `uds_client_exchange_common.h`'s `NonFatalQuery`. Their reply-returning
   behavior differs; this is a protocol change requiring characterization,
   not a mechanical replacement.
 - Recheck family-aware response-validator/block-planning duplication. Helpers
@@ -139,7 +148,14 @@ Order cleanup by risk:
   outcomes. A proposed zero-High program becomes a scheduling commitment only
   after its own approval.
 - Remeasure duplication in definition-authoring validate/write tails and transport
-  read/write guards before extracting it.
+  read/write guards before extracting it. The echo-checked write guard (check
+  `IsSerialPortOpen`, then `WriteSerialDataEchoCheck`, then check
+  `IsSerialPortOpen` again) has five copies: `desktop_can_flash_transport.cpp`,
+  `desktop_kline_flash_transport.cpp`, `desktop_mixed_can_flash_transport.cpp`,
+  `fastecu_ssm_transport.cpp` and `fastecu_can_transport.cpp`.
+  `fastecu_kline_transport.cpp` and K-Line `WriteRaw` use the same checks around
+  a plain `WriteSerialData`. The candidate is an `EchoCheckedWrite(serial, label)`
+  beside `ReadSerial` in `serial_read.h`.
 
 Keep Clean-as-You-Code enforcement. Passing a new-code gate does not establish
 that old findings are resolved; avoid separate permanent ratchet machinery unless

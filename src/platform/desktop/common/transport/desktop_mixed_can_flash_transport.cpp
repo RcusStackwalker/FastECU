@@ -257,7 +257,7 @@ Status DesktopMixedCanFlashTransport::ConfigureIso(const MixedCanConfig& config)
             }
             // Deliberate, not a copy-paste slip against DesktopCanFlashTransport::
             // configure(): while ISO-15765 is selected, set_j2534_can_filters()
-            // (serial_port_actions_direct.cpp:1532-1600) reads only the
+            // (serial_port_actions_direct.cpp) reads only the
             // iso15765_source/destination_address pair set below, so the raw
             // can_source/destination_address values are inert here. They are set
             // anyway to mirror the legacy DensoCAN path, which configures ISO
