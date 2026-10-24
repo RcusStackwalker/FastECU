@@ -339,7 +339,7 @@ class MainWindow : public QMainWindow
     void flashTransportChanged();
     void checkSerialPorts();
     void openSerialPort();
-    int startEcuOperations(const QString& cmdType);
+    void startEcuOperations(const QString& cmdType);
     void closeCalibration();
     void closeCalibrationMap(QObject *obj);
     void changeGaugeValues();
