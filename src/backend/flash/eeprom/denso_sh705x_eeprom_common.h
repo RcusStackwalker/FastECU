@@ -68,7 +68,8 @@ Result<FlashPlan> BuildDensoSh705xEepromPlan(DensoSh705xEepromInput input);
 
 // Re-runs the builder's constraints (ValidateDensoSh705xEepromPreflight, with
 // the kernel's byte count) on a finished plan, so an executor refuses a plan
-// that did not come from the builder before any I/O.
+// the builder's preflight would refuse before any I/O. It does not re-check
+// what the builder hard-codes (wire parameters, per-mode confirmations).
 Status ValidateDensoSh705xEepromPlan(const FlashPlan& plan);
 
 template <> struct PlanValidator<DensoSh705xEepromKlinePlan>

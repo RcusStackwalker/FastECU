@@ -259,6 +259,18 @@ TEST(DensoSh705xEepromCommonTest, PlanValidatorRejectsHandBuiltPlans)
                                         ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
     }
     {
+        // Fits the RAM region by its start address, but the upload footprint (kernel bytes plus
+        // trailer) runs past its end; only the kernel size passed to the preflight catches it.
+        auto fields = HandBuiltKlineFields();
+        fields.kernel->load_address = kSh7055KernelRamEnd - 4;
+        const auto plan = ValidateAndBuild(std::move(fields));
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_THAT(
+            ValidateDensoSh705xEepromPlan(*plan),
+            fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                        ::testing::Eq("kernel upload footprint is outside the SH705x RAM region")));
+    }
+    {
         auto fields = HandBuiltKlineFields();
         fields.kernel->load_address = kSh7055KernelRamEnd;
         const auto plan = ValidateAndBuild(std::move(fields));

@@ -50,9 +50,9 @@ copying it. `TransportSetup` and `Execute` run the same checks in the same order
 `cancelled before setup`. No event, control line or transport call precedes
 admission, so a refused run leaves the ECU and the adapter as it found them.
 
-A validator no longer checks the plan's family or transport, because
-`ValidateAndBuild` already ties both to the plan's variant. A mode guard (SH7058
-CAN is write only, SH7058 K-Line is read only) lives in the family's
+Family validators do not repeat the family and transport check, because
+`ValidateAndBuild` already ties both to the plan's variant. A mode guard (Hitachi
+SH7058 CAN is write only, Hitachi SH7058 K-Line is read only) lives in the family's
 `PlanValidator` specialization, so `TransportSetup` and `Execute` refuse an
 unsupported operation alike. The shared plan builder stays free of the guard. An
 invalid plan reports its validation error even when the run is also cancelled.
