@@ -7,15 +7,17 @@
 namespace fastecu::flash
 {
 
-class SubaruDensoMc68hc16y5_02Executor final : public IKlineFlashExecutor
+class SubaruDensoMc68hc16y5_02Executor final : public FamilyExecutor<SubaruDensoMc68hc16y5_02Plan, IKlineFlashExecutor>
 {
   public:
-    Result<KlineConfig> TransportSetup(const FlashPlan& plan) const override;
     Status BeforeTransportOpen(const ICancellationToken& cancellation) const override;
-    Result<FlashExecutionResult> Execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, IEventSink& events) override;
 
   private:
+    Result<KlineConfig> Setup(const SubaruDensoMc68hc16y5_02Plan& family) const override;
+    Result<FlashExecutionResult> Run(const SubaruDensoMc68hc16y5_02Plan& family_plan, const FlashPlan& plan,
+                                     IKlineFlashTransport& transport, IClock& clock,
+                                     const ICancellationToken& cancellation, IEventSink& events) override;
+
     Status ConnectBootloader(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                              IEventSink& events, const SubaruDensoMc68hc16y5_02Plan& family_plan,
                              bool& kernel_alive) const;

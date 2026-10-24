@@ -968,17 +968,8 @@ Status StartKernel(IMixedCanFlashTransport& transport, const std::optional<Kerne
 
 } // namespace
 
-Result<MixedCanConfig> SubaruDensoSh705xDensoCanExecutor::TransportSetup(const FlashPlan& plan) const
+Result<MixedCanConfig> SubaruDensoSh705xDensoCanExecutor::Setup(const SubaruDensoSh705xDensoCanPlan& wire) const
 {
-    if (Status family = CheckFamily(plan, FlashFamily::kSubaruDensoSh705xDensoCan); !family)
-    {
-        return std::unexpected(family.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705xDensocanPlan(plan); !valid)
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& wire = std::get<SubaruDensoSh705xDensoCanPlan>(plan.FamilyPlan());
     return MixedCanConfig{
         .kernel = {.bitrate = wire.bitrate,
                    .request_id = wire.iso_request_id,
@@ -1014,23 +1005,12 @@ Status SubaruDensoSh705xDensoCanExecutor::BeforeTransportOpen(const ICancellatio
     return CheckCancelled(cancellation, "cancelled before opening mixed CAN transport");
 }
 
-Result<FlashExecutionResult>
-SubaruDensoSh705xDensoCanExecutor::Execute(const FlashPlan& plan, IMixedCanFlashTransport& transport, IClock& clock,
-                                           const ICancellationToken& cancellation, IEventSink& events)
+Result<FlashExecutionResult> SubaruDensoSh705xDensoCanExecutor::Run(const SubaruDensoSh705xDensoCanPlan& /*family*/,
+                                                                    const FlashPlan& plan,
+                                                                    IMixedCanFlashTransport& transport, IClock& clock,
+                                                                    const ICancellationToken& cancellation,
+                                                                    IEventSink& events)
 {
-    if (Status family = CheckFamily(plan, FlashFamily::kSubaruDensoSh705xDensoCan); !family)
-    {
-        return std::unexpected(family.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705xDensocanPlan(plan); !valid)
-    {
-        return std::unexpected(valid.error());
-    }
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before DensoCAN execution"); !cancelled)
-    {
-        return std::unexpected(cancelled.error());
-    }
-
     PhaseSequence phases(events, plan.Operation() == FlashOperation::kRead ? 2 : 4);
     auto kernel_phase = phases.Start("Kernel", 1);
     Result<bool> kernel_alive = ProbeKernel(transport, clock, cancellation, events);

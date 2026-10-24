@@ -728,17 +728,8 @@ Status SubaruDensoSh7055_02Executor::WriteMem(IKlineFlashTransport& transport, I
     return {};
 }
 
-Result<KlineConfig> SubaruDensoSh7055_02Executor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruDensoSh7055_02Executor::Setup(const SubaruDensoSh7055_02Plan& family_plan) const
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kSubaruDensoSh705502); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705502Plan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& family_plan = std::get<SubaruDensoSh7055_02Plan>(plan.FamilyPlan());
     return KlineConfig{
         .baud = 62500, .iso14230 = false, .tester_id = family_plan.tester_id, .target_id = family_plan.target_id};
 }
@@ -753,24 +744,12 @@ Status SubaruDensoSh7055_02Executor::BeforeTransportOpen(const ICancellationToke
     return CheckCancelled(cancellation, "cancelled before opening transport");
 }
 
-Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::Execute(const FlashPlan& plan, IKlineFlashTransport& kline,
-                                                                   IClock& clock,
-                                                                   const ICancellationToken& cancellation,
-                                                                   IEventSink& events)
+Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::Run(const SubaruDensoSh7055_02Plan& family_plan,
+                                                               const FlashPlan& plan, IKlineFlashTransport& kline,
+                                                               IClock& clock, const ICancellationToken& cancellation,
+                                                               IEventSink& events)
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kSubaruDensoSh705502); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705502Plan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& family_plan = std::get<SubaruDensoSh7055_02Plan>(plan.FamilyPlan());
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before disabling LEC lines"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
+    // Plan admission is the cancellation checkpoint before the LEC lines.
     if (Status disabled = kline.DisableLecLines(); !disabled.has_value())
     {
         return std::unexpected(disabled.error());

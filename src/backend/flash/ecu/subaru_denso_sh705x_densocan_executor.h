@@ -6,15 +6,19 @@
 namespace fastecu::flash
 {
 
-class SubaruDensoSh705xDensoCanExecutor final : public IMixedCanFlashExecutor
+class SubaruDensoSh705xDensoCanExecutor final
+    : public FamilyExecutor<SubaruDensoSh705xDensoCanPlan, IMixedCanFlashExecutor>
 {
   public:
-    Result<MixedCanConfig> TransportSetup(const FlashPlan& plan) const override;
     Status BeforeTransportConfigure(IMixedCanFlashTransport& transport, IClock& clock,
                                     const ICancellationToken& cancellation) const override;
     Status BeforeTransportOpen(const ICancellationToken& cancellation) const override;
-    Result<FlashExecutionResult> Execute(const FlashPlan& plan, IMixedCanFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, IEventSink& events) override;
+
+  private:
+    Result<MixedCanConfig> Setup(const SubaruDensoSh705xDensoCanPlan& family) const override;
+    Result<FlashExecutionResult> Run(const SubaruDensoSh705xDensoCanPlan& family, const FlashPlan& plan,
+                                     IMixedCanFlashTransport& transport, IClock& clock,
+                                     const ICancellationToken& cancellation, IEventSink& events) override;
 };
 
 } // namespace fastecu::flash
