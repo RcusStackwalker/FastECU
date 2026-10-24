@@ -146,6 +146,13 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "null_event_sink",
+    testonly = True,
+    hdrs = ["null_event_sink.h"],
+    deps = ["//src/backend/ports"],
+)
+
+cc_library(
     name = "recording_event_sink",
     hdrs = ["recording_event_sink.h"],
     deps = ["//src/backend/ports"],

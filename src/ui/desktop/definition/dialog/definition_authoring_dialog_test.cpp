@@ -23,6 +23,7 @@
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/ports/event_sink.h"
+#include "src/backend/ports/testing/null_event_sink.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"

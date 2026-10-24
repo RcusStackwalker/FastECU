@@ -33,11 +33,11 @@ enum class NumericByteOrder
 struct LoggingChannel
 {
     std::string id;
-    std::uint32_t address;
-    std::size_t length;
+    std::uint32_t address{};
+    std::size_t length{};
     std::string from_byte_expression;
     std::string unit;
-    std::uint8_t decimal_precision;
+    std::uint8_t decimal_precision{};
     std::vector<std::uint32_t> byte_addresses;
     std::optional<std::uint8_t> sample_bit;
     NumericStorage storage{NumericStorage::kUnsignedInteger};
@@ -46,10 +46,10 @@ struct LoggingChannel
 
 struct LoggingPolicy
 {
-    std::chrono::milliseconds poll_timeout;
-    int car_silence_miss_threshold;
-    int reconnect_attempt_threshold;
-    int reconnect_retry_period;
+    std::chrono::milliseconds poll_timeout{};
+    int car_silence_miss_threshold{};
+    int reconnect_attempt_threshold{};
+    int reconnect_retry_period{};
 };
 
 struct ProtocolSample

@@ -29,7 +29,7 @@ struct LoggingMeasurement
     std::string channel_id;
     std::string name;
     std::string unit;
-    std::uint8_t decimal_precision;
+    std::uint8_t decimal_precision{};
     EcuSupport support;
 };
 

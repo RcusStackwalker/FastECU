@@ -15,10 +15,10 @@ enum class LogLevel
 struct PhaseProgressEvent
 {
     std::string_view phase_name;
-    int phase_index;
-    int phase_count;
-    int done;
-    int total;
+    int phase_index{};
+    int phase_count{};
+    int done{};
+    int total{};
 };
 
 // Replaces backend Qt signals and every backend QMessageBox. Interactive
@@ -35,22 +35,6 @@ class IEventSink
         Progress(event.done, event.total);
     }
     virtual void Notice(std::string_view message) = 0;
-};
-
-// A no-op sink for call sites that do not yet have anywhere to route
-// progress/log events.
-class NullEventSink : public IEventSink
-{
-  public:
-    void Log(LogLevel, std::string_view) override
-    {
-    }
-    void Progress(int, int) override
-    {
-    }
-    void Notice(std::string_view) override
-    {
-    }
 };
 
 } // namespace fastecu
