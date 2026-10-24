@@ -715,7 +715,7 @@ struct TestServices
     fastecu::calibration::CalibrationWorkspace calibrations{rom_open};
     fastecu::calibration::RomSaveUseCase rom_save{file_repository, events};
     fastecu::logging::LoggerModel logger_model;
-    fastecu::logging::LoggerDefinitionService logger_definitions{file_repository, file_writer};
+    fastecu::logging::LoggerDefinitionService logger_definitions{file_system, file_repository, file_writer};
     fastecu::logging::LoggingSelectionUseCase logging_selection{logger_definitions, logger_model};
     fastecu::ui::LogChannel log_channel;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;

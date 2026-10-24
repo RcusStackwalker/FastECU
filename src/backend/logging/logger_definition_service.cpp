@@ -13,8 +13,9 @@ constexpr std::string_view kBundledCdbgExample = ":/config/logger_cdbg_example.x
 
 } // namespace
 
-LoggerDefinitionService::LoggerDefinitionService(IFileRepository& repository, IAtomicFileWriter& writer)
-    : repository_(repository), writer_(writer)
+LoggerDefinitionService::LoggerDefinitionService(IFileSystem& file_system, IFileRepository& repository,
+                                                 IAtomicFileWriter& writer)
+    : file_system_(file_system), repository_(repository), writer_(writer)
 {
 }
 
@@ -32,7 +33,7 @@ std::string LoggerDefinitionService::ResolveDefinitionHandle(std::string_view co
     }
 
     if (const std::string user_copy = std::format("{}{}", config_files_directory, kCdbgExampleName);
-        repository_.Read(user_copy).has_value())
+        file_system_.Exists(user_copy))
     {
         return user_copy;
     }

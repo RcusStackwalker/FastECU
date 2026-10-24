@@ -10,6 +10,7 @@
 #include "src/backend/logging/logger_definition_parser.h"
 #include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/ports/file_repository.h"
+#include "src/backend/ports/file_system.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::logging
@@ -21,13 +22,16 @@ namespace fastecu::logging
 class LoggerDefinitionService
 {
   public:
-    LoggerDefinitionService(IFileRepository&, IAtomicFileWriter&);
+    LoggerDefinitionService(IFileSystem&, IFileRepository&, IAtomicFileWriter&);
 
     // Returns `configured_handle` unchanged when it is non-empty. When it is
     // empty and `log_protocol` is "CDBG", prefers
     // <config_files_directory>logger_cdbg_example.xml and falls back to the
-    // bundled resource. Otherwise returns an empty handle -- the caller
-    // reports "no logger definition file selected". Resolution cannot fail.
+    // bundled resource. The user copy is probed with IFileSystem::Exists, so an
+    // existing but unreadable copy is still chosen and fails loudly at
+    // LoadDefinition instead of silently yielding the bundled example.
+    // Otherwise returns an empty handle -- the caller reports "no logger
+    // definition file selected". Resolution cannot fail.
     std::string ResolveDefinitionHandle(std::string_view configured_handle, std::string_view log_protocol,
                                         std::string_view config_files_directory);
 
@@ -41,6 +45,7 @@ class LoggerDefinitionService
     Status SaveSelection(std::string_view conf_handle, std::string_view ecu_id, const LoggerSelection& selection);
 
   private:
+    IFileSystem& file_system_;
     IFileRepository& repository_;
     IAtomicFileWriter& writer_;
 };

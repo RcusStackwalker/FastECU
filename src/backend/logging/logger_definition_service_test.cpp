@@ -11,6 +11,7 @@
 #include "src/backend/logging/testing/logger_xml_fixtures.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
+#include "src/backend/ports/testing/in_memory_file_system.h"
 
 namespace
 {
@@ -26,12 +27,13 @@ using ::testing::SizeIs;
 class LoggerDefinitionServiceTest : public ::testing::Test
 {
   protected:
+    fastecu::InMemoryFileSystem file_system_;
     fastecu::InMemoryFileRepository repository_;
     fastecu::InMemoryAtomicFileWriter writer_;
 
     LoggerDefinitionService Service()
     {
-        return LoggerDefinitionService(repository_, writer_);
+        return LoggerDefinitionService(file_system_, repository_, writer_);
     }
 };
 
@@ -57,10 +59,22 @@ TEST_F(LoggerDefinitionServiceTest, ResolvesTheConfiguredHandleUnchanged)
 
 TEST_F(LoggerDefinitionServiceTest, PrefersTheConfigDirCdbgExampleWhenPresent)
 {
-    repository_.files["/home/u/.FastECU/logger_cdbg_example.xml"] = BytesOf(kDefinition);
+    file_system_.files["/home/u/.FastECU/logger_cdbg_example.xml"] = BytesOf(kDefinition);
 
     EXPECT_EQ(Service().ResolveDefinitionHandle("", "CDBG", "/home/u/.FastECU/"),
               "/home/u/.FastECU/logger_cdbg_example.xml");
+}
+
+TEST_F(LoggerDefinitionServiceTest, ChoosesAnExistingConfigDirCopyEvenWhenItCannotBeRead)
+{
+    // Exists but unreadable through the repository: it must still be chosen,
+    // so loading it reports the failure instead of silently using the bundle.
+    file_system_.files["/home/u/.FastECU/logger_cdbg_example.xml"] = BytesOf(kDefinition);
+
+    const std::string handle = Service().ResolveDefinitionHandle("", "CDBG", "/home/u/.FastECU/");
+
+    EXPECT_EQ(handle, "/home/u/.FastECU/logger_cdbg_example.xml");
+    EXPECT_THAT(Service().LoadDefinition(handle), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST_F(LoggerDefinitionServiceTest, FallsBackToTheBundledCdbgExample)
