@@ -177,12 +177,11 @@ Remaining behavior and code gaps:
   never reach the ECU identified next.
 - Choosing a different logging definition in Settings takes effect only after a
   restart; nothing reinstalls it.
-- The restored log transport is not applied to the adapter until the operator
-  changes the toolbar combo: `ApplyLogTransport` runs only from
-  `logTransportChanged`, so CDBG vehicles start with the facade's default
-  (non-CAN) flags. Qualify on the
-  [Colt CAN checklist](checklists/colt_czt_47110032_can_bench_checklist.md)
-  before applying it at startup.
+- `ApplyLogTransport` runs only from `logTransportChanged`, so a restored log
+  transport is not applied at startup. The CDBG and SSM-over-CAN paths
+  configure the adapter themselves; what startup skips is the K-Line 4800-baud
+  switch for SSM and the connection reset. No failure has been demonstrated;
+  obtain one before applying the transport at startup.
 - Live channel/interval/protocol reconfiguration requires an explicit path through
   session config and worker; saved selection edits remain pending with a visible
   restart-needed state and current acquisition/display/CSV bindings stay frozen.

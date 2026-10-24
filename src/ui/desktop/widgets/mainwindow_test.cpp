@@ -1031,6 +1031,7 @@ class MainWindowTest : public ::testing::Test
                                                           const QString& logTransport, const QString& logProtocol,
                                                           int expectedIndex);
     void checkVehicleChangeKeepsTheSavedLogProtocol();
+    void checkSsmLoggingStartsAfterStartupWhenFlashAndLogTransportsDiffer();
     void checkSavingASelectionThatCannotBePersistedNoticesTheOperator();
     void checkTargetChangeInvalidatesIdentificationAndSupport();
     void checkLoggingDefinitionFailureIsNonfatal();
@@ -3852,6 +3853,53 @@ void MainWindowTest::checkVehicleChangeKeepsTheSavedLogProtocol()
 TEST_F(MainWindowTest, vehicleChangeKeepsTheSavedLogProtocol)
 {
     ASSERT_NO_FATAL_FAILURE(checkVehicleChangeKeepsTheSavedLogProtocol());
+}
+
+// Before the fix, startup left protocol_ empty here, and pressing Logging was
+// refused with "SSM logging protocol filter is empty" until the operator
+// touched the Log combo.
+void MainWindowTest::checkSsmLoggingStartsAfterStartupWhenFlashAndLogTransportsDiffer()
+{
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can"));
+    auto& settings = window.config_session_->Settings();
+    settings.selected_flash_transport = "iso15765";
+    settings.selected_log_transport = "K-Line";
+    settings.selected_log_protocol = "SSM";
+    QAction *action = prepareLogging(window, "SSM");
+    // The constructor's state: nothing has set protocol_ yet.
+    window.protocol_.clear();
+    {
+        const QSignalBlocker blocker(window.log_transport_list_);
+        window.createLogTransportsList();
+    }
+    services.logging_engine.RegisterProtocol("SSM",
+                                             [](const auto&)
+                                             {
+                                                 auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                                                 protocol->BlockPollUntilCancelled();
+                                                 return protocol;
+                                             });
+    window.connection_presentation_.identified({.ecu_id = "ECU"});
+
+    ModalDriver driver{QString()};
+    driver.start();
+    action->setChecked(false);
+    ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
+    driver.stop();
+
+    EXPECT_TRUE(window.logging_run_->view().active_snapshot.has_value());
+    EXPECT_TRUE(driver.acceptedTexts().filter("filter is empty").isEmpty())
+        << qPrintable(driver.acceptedTexts().join(" | "));
+    services.logging_engine.Stop();
+}
+
+TEST_F(MainWindowTest, ssmLoggingStartsAfterStartupWhenFlashAndLogTransportsDiffer)
+{
+    ASSERT_NO_FATAL_FAILURE(checkSsmLoggingStartsAfterStartupWhenFlashAndLogTransportsDiffer());
 }
 
 void MainWindowTest::checkSavingASelectionThatCannotBePersistedNoticesTheOperator()
