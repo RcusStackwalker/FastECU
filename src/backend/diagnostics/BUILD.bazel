@@ -27,6 +27,7 @@ fastecu_portable_gtest(
     srcs = ["obd_frames_test.cpp"],
     deps = [
         ":obd_frames",
+        "//src/algorithms/protocol/testing:byte_test_utils",
         "@googletest//:gtest",
     ],
 )
@@ -50,6 +51,7 @@ fastecu_portable_gtest(
     deps = [
         ":dtc_session",
         "//src/algorithms/diagnostics",
+        "//src/algorithms/protocol/testing:byte_test_utils",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
@@ -95,6 +97,7 @@ fastecu_portable_gtest(
     srcs = ["ssm_identify_test.cpp"],
     deps = [
         ":ssm_identify",
+        "//src/algorithms/protocol/testing:byte_test_utils",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",

@@ -7,19 +7,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/protocol/testing/byte_test_utils.h"
+
 using namespace fastecu::diagnostics;
+using test_bytes::B;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
 using ::testing::Optional;
-
-namespace
-{
-bytes::Bytes B(std::initializer_list<int> values)
-{
-    return values | std::views::transform([](int v) { return static_cast<bytes::Byte>(v); }) |
-           std::ranges::to<bytes::Bytes>();
-}
-} // namespace
 
 TEST(ObdFrames, RequestsCarryTheCanIdPrefixOnlyOnIso15765)
 {
