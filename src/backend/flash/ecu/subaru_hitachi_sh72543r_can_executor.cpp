@@ -472,23 +472,16 @@ class Session
     IEventSink& events_;
 };
 } // namespace
-Result<Iso15765Config> SubaruHitachiSh72543rCanExecutor::TransportSetup(const FlashPlan& plan) const
+Result<Iso15765Config> SubaruHitachiSh72543rCanExecutor::Setup(const SubaruHitachiSh72543rCanPlan& family) const
 {
-    if (auto valid = ValidateSubaruHitachiSh72543rCanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return Iso15765ConfigFrom(std::get<SubaruHitachiSh72543rCanPlan>(plan.FamilyPlan()));
+    return Iso15765ConfigFrom(family);
 }
-Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::Execute(const FlashPlan& plan,
-                                                                       ICanFlashTransport& transport, IClock& clock,
-                                                                       const ICancellationToken& cancellation,
-                                                                       IEventSink& events)
+Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::Run(const SubaruHitachiSh72543rCanPlan& /*family*/,
+                                                                   const FlashPlan& plan, ICanFlashTransport& transport,
+                                                                   IClock& clock,
+                                                                   const ICancellationToken& cancellation,
+                                                                   IEventSink& events)
 {
-    if (auto valid = ValidateSubaruHitachiSh72543rCanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
     Session session(transport, clock, cancellation, events);
     PhaseSequence phases(events, plan.Operation() == FlashOperation::kRead ? 2 : 4);
     auto connecting = phases.Start("Connecting", 1);

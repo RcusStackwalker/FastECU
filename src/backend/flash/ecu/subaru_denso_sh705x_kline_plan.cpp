@@ -156,10 +156,6 @@ Result<const FlashDevice *> FindDevice(std::string_view mcu)
 
 Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan)
 {
-    if (plan.Family() != FlashFamily::kSubaruDensoSh705xKline || plan.Transport() != TransportKind::kKline)
-    {
-        return Fail(kInvalidConfig, "plan is not for Denso SH705x K-Line");
-    }
     Result<const Variant *> variant = FindVariant(plan.TargetId(), plan.McuName());
     if (!variant.has_value())
     {

@@ -14,4 +14,12 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502BdmPlan(FlashOperation operation, 
                                                       std::string_view mcu_type, std::optional<bytes::Bytes> rom_image,
                                                       std::optional<KernelImage> kernel);
 Status ValidateSubaruDensoMc68hc16y502BdmPlan(const FlashPlan& plan);
+
+template <> struct PlanValidator<SubaruDensoMc68hc16y5_02BdmPlan>
+{
+    static Status Validate(const FlashPlan& plan)
+    {
+        return ValidateSubaruDensoMc68hc16y502BdmPlan(plan);
+    }
+};
 } // namespace fastecu::flash

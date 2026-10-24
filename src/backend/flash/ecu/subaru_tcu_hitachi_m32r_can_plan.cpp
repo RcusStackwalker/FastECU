@@ -97,10 +97,6 @@ Status ValidateImage(const FlashPlan& plan)
 
 Status ValidateSubaruTcuHitachiM32rCanPlan(const FlashPlan& plan)
 {
-    if (plan.Family() != FlashFamily::kSubaruTcuHitachiM32rCan || plan.Transport() != TransportKind::kCanIso15765)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru TCU Hitachi M32R CAN");
-    }
     const FlashDevice *device = nullptr;
     if (Status identity = ValidateIdentity(plan.TargetId(), plan.McuName(), device); !identity.has_value())
     {

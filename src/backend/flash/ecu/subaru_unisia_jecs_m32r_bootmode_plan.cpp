@@ -141,11 +141,6 @@ Result<FlashPlan> Build(FlashFamily family, const Variant& variant, bytes::Bytes
 Status ValidateSubaruUnisiaJecsM32rBootmodePlan(const FlashPlan& plan)
 {
     const bool kernel = plan.Family() == FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel;
-    if ((!kernel && plan.Family() != FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram) ||
-        plan.Transport() != TransportKind::kKline)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Unisia Jecs M32R bootmode");
-    }
     const auto variant = FindVariant(plan.TargetId(), plan.McuName());
     if (!variant.has_value())
     {

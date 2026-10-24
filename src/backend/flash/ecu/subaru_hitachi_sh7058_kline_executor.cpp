@@ -135,28 +135,16 @@ Result<Bytes> ReadRom(IKlineFlashTransport& transport, IClock& clock, const ICan
 }
 } // namespace
 
-Result<KlineConfig> SubaruHitachiSh7058KlineExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruHitachiSh7058KlineExecutor::Setup(const SubaruHitachiSh7058KlinePlan& family) const
 {
-    if (auto status = ValidateSubaruHitachiSh7058Plan(plan); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (plan.Operation() != FlashOperation::kRead)
-    {
-        return Fail(ErrorKind::kUnsupported, "SH7058 K-Line supports read only");
-    }
-    return NonIso14230KlineConfigFrom(std::get<SubaruHitachiSh7058KlinePlan>(plan.FamilyPlan()));
+    return NonIso14230KlineConfigFrom(family);
 }
 
-Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::Execute(const FlashPlan& plan,
-                                                                       IKlineFlashTransport& transport, IClock& clock,
-                                                                       const ICancellationToken& cancel,
-                                                                       IEventSink& events)
+Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::Run(const SubaruHitachiSh7058KlinePlan& /*family*/,
+                                                                   const FlashPlan& /*plan*/,
+                                                                   IKlineFlashTransport& transport, IClock& clock,
+                                                                   const ICancellationToken& cancel, IEventSink& events)
 {
-    if (auto setup = TransportSetup(plan); !setup.has_value())
-    {
-        return std::unexpected(setup.error());
-    }
     if (auto status = transport.SetAddIso14230Header(false); !status.has_value())
     {
         return std::unexpected(status.error());

@@ -37,11 +37,13 @@ cc_library(
     srcs = ["subaru_hitachi_sh7058_kline_executor.cpp"],
     hdrs = ["subaru_hitachi_sh7058_kline_executor.h"],
     implementation_deps = [
-        ":subaru_hitachi_sh7058_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_hitachi_sh7058_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -50,6 +52,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_hitachi_sh7058_kline_executor",
         ":subaru_hitachi_sh7058_plan",
+        ":subaru_hitachi_sh72543r_can_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -66,11 +69,13 @@ cc_library(
     srcs = ["subaru_hitachi_sh7058_can_executor.cpp"],
     hdrs = ["subaru_hitachi_sh7058_can_executor.h"],
     implementation_deps = [
-        ":subaru_hitachi_sh7058_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_hitachi_sh7058_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -79,6 +84,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_hitachi_sh7058_can_executor",
         ":subaru_hitachi_sh7058_plan",
+        ":subaru_hitachi_sh72543r_can_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -858,14 +864,17 @@ cc_library(
     name = "subaru_unisia_jecs_executor",
     srcs = ["subaru_unisia_jecs_executor.cpp"],
     hdrs = ["subaru_unisia_jecs_executor.h"],
-    implementation_deps = [":subaru_unisia_jecs_plan"],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_unisia_jecs_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "subaru_unisia_jecs_executor_test",
     srcs = ["subaru_unisia_jecs_executor_test.cpp"],
     deps = [
+        ":subaru_denso_mc68hc16y5_02_bdm_plan",
         ":subaru_unisia_jecs_executor",
         ":subaru_unisia_jecs_plan",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -909,8 +918,10 @@ cc_library(
     name = "subaru_denso_mc68hc16y5_02_bdm_executor",
     srcs = ["subaru_denso_mc68hc16y5_02_bdm_executor.cpp"],
     hdrs = ["subaru_denso_mc68hc16y5_02_bdm_executor.h"],
-    implementation_deps = [":subaru_denso_mc68hc16y5_02_bdm_plan"],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_denso_mc68hc16y5_02_bdm_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -1219,12 +1230,14 @@ cc_library(
     hdrs = ["subaru_tcu_hitachi_m32r_kline_executor.h"],
     implementation_deps = [
         ":m32r_ssm_exchange",
-        ":subaru_tcu_hitachi_m32r_kline_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/uds:uds_service_ids",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_tcu_hitachi_m32r_kline_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -1855,12 +1868,14 @@ cc_library(
     hdrs = ["subaru_hitachi_sh72543r_can_executor.h"],
     implementation_deps = [
         ":flash_phase_progress",
-        ":subaru_hitachi_sh72543r_can_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:transfer_progress",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_hitachi_sh72543r_can_plan",
+        "//src/backend/flash:flash_executor",
+    ],
 )
 
 cc_library(

@@ -588,6 +588,22 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsAPlanBuiltForAnotherFamily)
     EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 
+TEST(SubaruTcuHitachiM32rKlineExecutor, PrecancelledRunIsRefusedInAdmission)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    cancellation.Cancel();
+    RecordingEventSink events;
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    EXPECT_THAT(SubaruTcuHitachiM32rKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_TRUE(transport.header_mode_calls.empty());
+}
+
 TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheSeedResponseIsTooShort)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};

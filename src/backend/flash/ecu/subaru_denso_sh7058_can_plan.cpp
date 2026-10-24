@@ -89,10 +89,6 @@ Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
 
 Status ValidateSubaruDensoSh7058CanPlan(const FlashPlan& plan)
 {
-    if (plan.Family() != FlashFamily::kSubaruDensoSh7058Can || plan.Transport() != TransportKind::kCanIso15765)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "plan is not for Subaru Denso SH7058 petrol CAN");
-    }
     const auto entry = GetCatalogEntry(plan.TargetId(), plan.McuName());
     if (!entry.has_value())
     {

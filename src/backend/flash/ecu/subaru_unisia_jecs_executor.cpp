@@ -132,12 +132,8 @@ Result<bytes::Byte> ReadAddress(std::uint16_t address, RawReadState& state, IKli
 }
 } // namespace
 
-Result<KlineConfig> SubaruUnisiaJecsExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruUnisiaJecsExecutor::Setup(const SubaruUnisiaJecsPlan& /*family*/) const
 {
-    if (auto valid = ValidateSubaruUnisiaJecsPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
     return KlineConfig{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::kEven};
 }
 
@@ -165,18 +161,11 @@ Result<bytes::Bytes> SubaruUnisiaJecsExecutor::ReadRange(std::uint32_t begin, st
     return image;
 }
 
-Result<FlashExecutionResult> SubaruUnisiaJecsExecutor::Execute(const FlashPlan& plan, IKlineFlashTransport& transport,
-                                                               IClock& clock, const ICancellationToken& cancellation,
-                                                               IEventSink& events)
+Result<FlashExecutionResult> SubaruUnisiaJecsExecutor::Run(const SubaruUnisiaJecsPlan& /*family*/,
+                                                           const FlashPlan& /*plan*/, IKlineFlashTransport& transport,
+                                                           IClock& clock, const ICancellationToken& cancellation,
+                                                           IEventSink& events)
 {
-    if (auto valid = ValidateSubaruUnisiaJecsPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
     if (auto written = WriteExact(transport, kWakeup, false); !written.has_value())
     {
         return std::unexpected(written.error());

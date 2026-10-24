@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
@@ -82,6 +83,44 @@ void ScriptInactiveConnect(ScriptedCanFlashTransport& transport, bool bench)
                        Response(bytes::Bytes{0x74, 0x20, 0x01, 0x04}));
 }
 } // namespace
+TEST(SubaruHitachiSh7058CanExecutor, TransportSetupRejectsForeignFamily)
+{
+    const auto foreign = BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, "sub_ecu_hitachi_sh72543r_can",
+                                                           "SH72543R", std::nullopt);
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
+    EXPECT_THAT(SubaruHitachiSh7058CanExecutor{}.TransportSetup(*foreign),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                            ::testing::Eq("plan family does not match this executor")));
+}
+
+TEST(SubaruHitachiSh7058CanExecutor, PrecancelledRunIsRefusedInAdmission)
+{
+    const auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can",
+                                                   "SH7058_1block", bytes::Bytes(0x100000));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancel{true};
+    RecordingEventSink events;
+    EXPECT_THAT(SubaruHitachiSh7058CanExecutor{}.Execute(*plan, transport, clock, cancel, events),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_TRUE(events.logs.empty());
+}
+
+TEST(SubaruHitachiSh7058CanExecutor, ReadOperationIsRefusedBeforeThePrecancelCheck)
+{
+    const auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+                                                   std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancel{true};
+    RecordingEventSink events;
+    EXPECT_THAT(SubaruHitachiSh7058CanExecutor{}.Execute(*plan, transport, clock, cancel, events),
+                fastecu::testing::IsErrWith(ErrorKind::kUnsupported, ::testing::Eq("SH7058 CAN supports write only")));
+}
+
 TEST(SubaruHitachiSh7058CanExecutor, MissingProbeStopsBeforeErase)
 {
     auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
