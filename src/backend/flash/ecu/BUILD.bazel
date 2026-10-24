@@ -1351,6 +1351,7 @@ cc_library(
     hdrs = ["subaru_denso_sh72531_can_executor.h"],
     deps = [
         ":denso_iso15765_bootloader_executor",
+        ":subaru_denso_sh72531_can_plan",
         ":subaru_denso_sh72531_can_types",
     ],
 )
@@ -1360,6 +1361,7 @@ cc_library(
     hdrs = ["subaru_denso_sh72543_can_diesel_executor.h"],
     deps = [
         ":denso_iso15765_bootloader_executor",
+        ":subaru_denso_sh72543_can_diesel_plan",
         ":subaru_denso_sh72543_can_diesel_types",
     ],
 )
@@ -1388,6 +1390,7 @@ cc_library(
     hdrs = ["subaru_denso_1n83m_4m_can_executor.h"],
     deps = [
         ":denso_iso15765_bootloader_executor",
+        ":subaru_denso_1n83m_4m_can_plan",
         ":subaru_denso_1n83m_4m_can_types",
     ],
 )
@@ -1717,6 +1720,7 @@ cc_library(
     hdrs = ["subaru_denso_1n83m_1_5m_can_executor.h"],
     deps = [
         ":denso_iso15765_bootloader_executor",
+        ":subaru_denso_1n83m_1_5m_can_plan",
         ":subaru_denso_1n83m_1_5m_can_types",
     ],
 )
