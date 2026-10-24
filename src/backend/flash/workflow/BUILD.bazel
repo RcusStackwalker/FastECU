@@ -100,6 +100,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:null_event_sink",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],

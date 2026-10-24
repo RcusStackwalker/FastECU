@@ -28,6 +28,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
 #include "src/backend/flash/flash_transport_source.h"
 #include "src/backend/ports/event_sink.h"
+#include "src/backend/ports/testing/null_event_sink.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/result_matchers.h"
 

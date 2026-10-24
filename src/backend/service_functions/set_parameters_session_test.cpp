@@ -7,6 +7,7 @@
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/ports/event_sink.h"
+#include "src/backend/ports/testing/null_event_sink.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/protocol/testing/scripted_ssm_transport.h"
