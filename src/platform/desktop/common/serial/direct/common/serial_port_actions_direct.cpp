@@ -82,7 +82,7 @@ uint32_t PayloadLength(const QByteArray& header, bool is_iso14230)
         {
             return format & 0x3fU; // Byte in index 3 is payload, no +1 for checksum
         }
-        return header.at(3) + 1; // +1 for checksum
+        return static_cast<uint32_t>(header.at(3) + 1); // +1 for checksum
     }
     if (header.startsWith("\xbe\xef"))
     {
@@ -127,14 +127,14 @@ bool SerialPortActionsDirect::IsSerialPortOpen()
 
 bool SerialPortActionsDirect::SetKlineTimings(uint32_t, int value)
 {
-    p1_max_ms = value;
+    p1_max_ms = static_cast<std::uint8_t>(value);
     return kSerialSuccess;
 }
 
 int SerialPortActionsDirect::ChangePortSpeed(QString port_speed)
 {
     serial_port_baudrate = port_speed;
-    baudrate_ = port_speed.toInt();
+    baudrate_ = static_cast<unsigned int>(port_speed.toInt());
 
     emit logD("Changing baudrate, checking if port is open...", true, true);
     if (IsSerialPortOpen())
@@ -201,10 +201,11 @@ QByteArray SerialPortActionsDirect::FiveBaudInit(QByteArray output)
 
         for (int i = 0; i < output.length(); i++)
         {
-            byte_ptr[i] = static_cast<uint8_t>(output.at(i));
+            byte_ptr[static_cast<std::size_t>(i)] = static_cast<uint8_t>(output.at(i));
         }
 
-        result = j2534_->PassThruIoctl(chan_id_, kJ2534FiveBaudInit, &input_msg, &output_msg);
+        result =
+            static_cast<unsigned long>(j2534_->PassThruIoctl(chan_id_, kJ2534FiveBaudInit, &input_msg, &output_msg));
         if (result)
         {
             ReportJ2534Error();
@@ -289,12 +290,12 @@ int SerialPortActionsDirect::FastInit(QByteArray output)
         {
             input_msg.data[i] = static_cast<uint8_t>(output.at(i));
         }
-        input_msg.data_size = output.length();
+        input_msg.data_size = static_cast<unsigned long>(output.length());
 
         /* Set timeout to 350ms before init */
         accurateDelay(350);
 
-        result = j2534_->PassThruIoctl(chan_id_, kJ2534FastInit, &input_msg, &output_msg);
+        result = static_cast<unsigned long>(j2534_->PassThruIoctl(chan_id_, kJ2534FastInit, &input_msg, &output_msg));
         if (result)
         {
             ReportJ2534Error();
@@ -329,7 +330,7 @@ int SerialPortActionsDirect::ClearRxBuffer()
     {
         unsigned long status;
 
-        status = j2534_->PassThruIoctl(chan_id_, kJ2534ClearRxBuffer, nullptr, nullptr);
+        status = static_cast<unsigned long>(j2534_->PassThruIoctl(chan_id_, kJ2534ClearRxBuffer, nullptr, nullptr));
         if (status)
         {
             ReportJ2534Error();
@@ -358,7 +359,7 @@ int SerialPortActionsDirect::ClearTxBuffer()
     {
         unsigned long status;
 
-        status = j2534_->PassThruIoctl(chan_id_, kJ2534ClearTxBuffer, nullptr, nullptr);
+        status = static_cast<unsigned long>(j2534_->PassThruIoctl(chan_id_, kJ2534ClearTxBuffer, nullptr, nullptr));
         if (status)
         {
             ReportJ2534Error();
@@ -880,7 +881,7 @@ QByteArray SerialPortActionsDirect::WriteSerialDataEchoCheck(QByteArray output)
 QByteArray SerialPortActionsDirect::AppendSsmHeader(QByteArray output)
 {
     uint8_t chk_sum = 0;
-    uint8_t msglength = output.length();
+    uint8_t msglength = static_cast<uint8_t>(output.length());
 
     output.insert(0, static_cast<char>(kline_startbyte));
     output.insert(1, static_cast<char>(kline_target_id));
@@ -889,7 +890,7 @@ QByteArray SerialPortActionsDirect::AppendSsmHeader(QByteArray output)
 
     for (int i = 0; i < output.length(); i++)
     {
-        chk_sum = chk_sum + output.at(i);
+        chk_sum = static_cast<uint8_t>(chk_sum + output.at(i));
     }
 
     output.append(static_cast<char>(chk_sum));
@@ -909,7 +910,7 @@ QByteArray SerialPortActionsDirect::AppendIso9141Header(QByteArray output)
 
     for (int i = 0; i < output.length(); i++)
     {
-        chk_sum = chk_sum + output.at(i);
+        chk_sum = static_cast<uint8_t>(chk_sum + output.at(i));
     }
 
     output.append(static_cast<char>(chk_sum));
@@ -922,7 +923,7 @@ QByteArray SerialPortActionsDirect::AppendIso9141Header(QByteArray output)
 QByteArray SerialPortActionsDirect::AppendIso14230Header(QByteArray output)
 {
     uint8_t chk_sum = 0;
-    uint8_t msglength = output.length();
+    uint8_t msglength = static_cast<uint8_t>(output.length());
 
     // emit LOG_D("Adding iso14230 header to message", true, true);
 
@@ -940,7 +941,7 @@ QByteArray SerialPortActionsDirect::AppendIso14230Header(QByteArray output)
 
     for (int i = 0; i < output.length(); i++)
     {
-        chk_sum = chk_sum + output.at(i);
+        chk_sum = static_cast<uint8_t>(chk_sum + output.at(i));
     }
 
     output.append(static_cast<char>(chk_sum));
@@ -970,7 +971,7 @@ int SerialPortActionsDirect::WriteJ2534Data(QByteArray output)
         }
         txmsg.tx_flags |= kIso15765FramePad;
         txmsg.timestamp = 0;
-        txmsg.data_size = tx_msg_len;
+        txmsg.data_size = static_cast<unsigned long>(tx_msg_len);
         txmsg.extra_data_index = 0;
 
         for (long i = 0; i < tx_msg_len; i++)
@@ -1002,14 +1003,14 @@ int SerialPortActionsDirect::SendPeriodicJ2534Data(QByteArray output, int timeou
         txmsg.rx_status = 0;
         txmsg.tx_flags = 0;
         txmsg.timestamp = 0;
-        txmsg.data_size = tx_msg_len;
+        txmsg.data_size = static_cast<unsigned long>(tx_msg_len);
         txmsg.extra_data_index = 0;
 
         for (long i = 0; i < tx_msg_len; i++)
         {
             txmsg.data[i] = static_cast<uint8_t>(output.at(i));
         }
-        j2534_->PassThruStartPeriodicMsg(chan_id_, &txmsg, &msg_id_, timeout_arg);
+        j2534_->PassThruStartPeriodicMsg(chan_id_, &txmsg, &msg_id_, static_cast<unsigned long>(timeout_arg));
         output.remove(0, tx_msg_len);
         tx_msg_len = NextPassThruChunkLength(output);
     }
@@ -1626,12 +1627,12 @@ void SerialPortActionsDirect::accurateDelay(double timeout_arg)
 
 void SerialPortActionsDirect::fastDelay(int timeout_arg)
 {
-    QThread::msleep(timeout_arg);
+    QThread::msleep(static_cast<unsigned long>(timeout_arg));
 }
 
 void SerialPortActionsDirect::delay(int timeout_arg)
 {
-    QThread::msleep(timeout_arg);
+    QThread::msleep(static_cast<unsigned long>(timeout_arg));
 }
 
 QString SerialPortActionsDirect::ParseMessageToHex(const QByteArray& received)

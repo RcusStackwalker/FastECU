@@ -112,8 +112,8 @@ Status ValidateSubaruDensoSh705502Plan(const FlashPlan& plan)
     {
         return Fail(kInvalidConfig, "Unknown MCU type");
     }
-    const std::uint32_t romsize = kFlashDevices[index].romsize;
-    if (!detail::TransferMatchesDevice(plan.TransferRegion(), kFlashDevices[index]))
+    const std::uint32_t romsize = kFlashDevices[static_cast<std::size_t>(index)].romsize;
+    if (!detail::TransferMatchesDevice(plan.TransferRegion(), kFlashDevices[static_cast<std::size_t>(index)]))
     {
         return Fail(kInvalidConfig, "SH7055_02 transfer region does not match the MCU");
     }
@@ -133,7 +133,7 @@ Result<FlashPlan> BuildSubaruDensoSh705502Plan(FlashOperation operation, std::st
     {
         return Fail(ErrorKind::kInvalidConfig, "Unknown MCU type");
     }
-    const std::uint32_t romsize = kFlashDevices[index].romsize;
+    const std::uint32_t romsize = kFlashDevices[static_cast<std::size_t>(index)].romsize;
     if ((operation == FlashOperation::kWrite || operation == FlashOperation::kTestWrite) &&
         (!image.has_value() || image->size() != romsize))
     {
@@ -150,7 +150,7 @@ Result<FlashPlan> BuildSubaruDensoSh705502Plan(FlashOperation operation, std::st
         .transport = TransportKind::kKline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
-        .transfer_region = MemoryRegion{kFlashDevices[index].fblocks[0].start, romsize},
+        .transfer_region = MemoryRegion{kFlashDevices[static_cast<std::size_t>(index)].fblocks[0].start, romsize},
         .erase_regions = {},
         .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
         .kernel = std::move(kernel),

@@ -34,7 +34,7 @@ Status ValidateIdentity(const SingleWindowPlanSpec& spec, std::string_view proto
     {
         return Fail(kInvalidConfig, std::format("Protocol {} expects MCU {}; got {}", protocol, spec.mcu, mcu));
     }
-    if (!spec.geometry_ok(kFlashDevices[index]))
+    if (!spec.geometry_ok(kFlashDevices[static_cast<std::size_t>(index)]))
     {
         return Fail(kInvalidConfig, std::format("{} flash geometry is invalid", spec.mcu));
     }

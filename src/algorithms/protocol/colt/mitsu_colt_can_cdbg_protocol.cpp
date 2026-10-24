@@ -23,7 +23,7 @@ std::uint32_t SeedToKey(std::uint32_t seed)
 
     for (int i = 0; i < 4; ++i)
     {
-        bytes::Byte x = data[i];
+        bytes::Byte x = data[static_cast<std::size_t>(i)];
         switch (x & 0x03U)
         {
         case 0:
@@ -41,7 +41,7 @@ std::uint32_t SeedToKey(std::uint32_t seed)
         default:
             break;
         }
-        data[i] = std::rotl(x, 3);
+        data[static_cast<std::size_t>(i)] = std::rotl(x, 3);
     }
 
     const auto parity = (data[0] & 1U) + (data[1] & 1U) + (data[2] & 1U) + (data[3] & 1U);

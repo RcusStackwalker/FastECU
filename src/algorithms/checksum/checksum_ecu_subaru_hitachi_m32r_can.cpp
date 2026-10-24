@@ -102,7 +102,8 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rCan::CalculateChecksumResult(Rom rom)
             checksum_6_value_lo_calculated ^= rom_data[static_cast<std::size_t>(i)];
         }
     }
-    const uint16_t checksum_6_value_calculated = (checksum_6_value_hi_calculated << 8) + checksum_6_value_lo_calculated;
+    const uint16_t checksum_6_value_calculated =
+        static_cast<uint16_t>((checksum_6_value_hi_calculated << 8) + checksum_6_value_lo_calculated);
     const uint16_t checksum_6_value_stored = bytes::ReadU16Be(rom_data, kChecksum6Address);
     if (checksum_6_value_calculated != checksum_6_value_stored)
     {

@@ -80,7 +80,7 @@ class MockOpenPort : public QObject
             }
             // A short write surfaces as a missing reply, which the caller's
             // read timeout reports.
-            std::ignore = ::write(fd_, resp.constData(), resp.size());
+            std::ignore = ::write(fd_, resp.constData(), static_cast<std::size_t>(resp.size()));
         }
     }
 

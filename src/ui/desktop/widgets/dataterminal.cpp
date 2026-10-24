@@ -235,8 +235,8 @@ void DataTerminal::sendKline(const std::vector<fastecu::diagnostics::TerminalSte
                   QByteArray output = bytes::ToQByteArray(payload);
                   if (ui_->klineProtocol->currentText() == "SSM")
                   {
-                      output = addSsmHeader(output, ui_->klineTesterId->text().toUInt(&ok, 16),
-                                            ui_->klineTargetId->text().toUInt(&ok, 16), false);
+                      output = addSsmHeader(output, static_cast<uint8_t>(ui_->klineTesterId->text().toUInt(&ok, 16)),
+                                            static_cast<uint8_t>(ui_->klineTargetId->text().toUInt(&ok, 16)), false);
                   }
                   return output;
               });
@@ -312,7 +312,7 @@ void DataTerminal::runScript(const std::vector<fastecu::diagnostics::TerminalSte
  */
 QByteArray DataTerminal::addSsmHeader(QByteArray output, uint8_t testerId, uint8_t targetId, bool dec0x100)
 {
-    uint8_t length = output.length();
+    uint8_t length = static_cast<uint8_t>(output.length());
 
     emit logD("Append SSM header for message: " + parseMessageToHex(output) + " length: " + QString::number(length),
               true, true);

@@ -45,7 +45,7 @@ std::uint32_t ChallengeTransform(std::uint32_t secret)
     std::uint32_t x = secret;
     for (int i = 0; i < 4; ++i)
     {
-        x = SwapNibbles(PermuteBits(x) + kRoundConstants[i]);
+        x = SwapNibbles(PermuteBits(x) + kRoundConstants[static_cast<std::size_t>(i)]);
     }
     return x;
 }
@@ -55,7 +55,7 @@ std::uint32_t ChallengeInverseTransform(std::uint32_t seed)
     std::uint32_t x = seed;
     for (int i = 3; i >= 0; --i)
     {
-        x = PermuteBits(SwapNibbles(x) - kRoundConstants[i]);
+        x = PermuteBits(SwapNibbles(x) - kRoundConstants[static_cast<std::size_t>(i)]);
     }
     return x;
 }

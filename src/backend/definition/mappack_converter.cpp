@@ -156,7 +156,7 @@ void Scaling(pugi::xml_node table, std::string_view units, std::string factor, i
     factor = Decimal(std::move(factor));
     Attribute(node, "expression", "x*" + factor);
     Attribute(node, "to_byte", "x/" + factor);
-    Attribute(node, "format", precision == 0 ? "#" : "#0." + std::string(precision, '0'));
+    Attribute(node, "format", precision == 0 ? "#" : "#0." + std::string(static_cast<std::size_t>(precision), '0'));
     Attribute(node, "fineincrement", "1");
     Attribute(node, "coarseincrement", "1");
 }

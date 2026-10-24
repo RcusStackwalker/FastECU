@@ -110,8 +110,9 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_setup_failure_stops_at_failed_
         ASSERT_THAT(data, fastecu::testing::IsOk());
         const auto result = engine.Start({.protocol_id = "CDBG"}, *data);
         ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-        ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig,
-                                                        ::testing::Eq(std::string("failed to ") + details[failure])));
+        ASSERT_THAT(result, fastecu::testing::IsErrWith(
+                                fastecu::ErrorKind::kInvalidConfig,
+                                ::testing::Eq(std::string("failed to ") + details[static_cast<std::size_t>(failure)])));
         ASSERT_TRUE(!engine.IsRunning());
     }
 }
@@ -171,10 +172,12 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_success_preserves_start_sequen
         {
             SCOPED_TRACE(::testing::PrintToString(i));
             EXPECT_CALL(serial.Fake(),
-                        WriteSerialDataEchoCheck(QByteArray::fromHex("00000630") + QByteArray::fromHex(requests[i])))
+                        WriteSerialDataEchoCheck(QByteArray::fromHex("00000630") +
+                                                 QByteArray::fromHex(requests[static_cast<std::size_t>(i)])))
                 .WillOnce(Return(QByteArray{}));
             EXPECT_CALL(serial.Fake(), ReadSerialData(250))
-                .WillOnce(Return(QByteArray::fromHex("00000631") + QByteArray::fromHex(replies[i])));
+                .WillOnce(Return(QByteArray::fromHex("00000631") +
+                                 QByteArray::fromHex(replies[static_cast<std::size_t>(i)])));
         }
     }
     fastecu::testing::SignalRecorder status(&engine, &LoggingEngine::statusChanged);

@@ -119,7 +119,7 @@ class MockOpenPort final : public QObject
         f.append(char(0x00));               // NORM_MSG
         f.append(4, char(0x00));            // 4-byte timestamp (ignored here)
         f.append(payload);
-        EXPECT_EQ(::write(fd_, f.constData(), f.size()), f.size());
+        EXPECT_EQ(::write(fd_, f.constData(), static_cast<std::size_t>(f.size())), f.size());
     }
 
   private:

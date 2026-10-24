@@ -73,7 +73,7 @@ struct MapFixture
         std::copy(identity.begin(), identity.end(), bytes.begin());
         for (int i = 0; i < 4; ++i)
         {
-            bytes[32 + i] = static_cast<std::uint8_t>(constant ? 10 : 10 + 10 * i);
+            bytes[32 + static_cast<std::size_t>(i)] = static_cast<std::uint8_t>(constant ? 10 : 10 + 10 * i);
         }
         bytes[64] = 1;
         bytes[65] = 2;

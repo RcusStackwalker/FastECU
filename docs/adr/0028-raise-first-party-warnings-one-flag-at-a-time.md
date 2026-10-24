@@ -35,7 +35,8 @@ just sized, two on a `back()` of a non-empty constant, and four inside libstdc++
   code at once. Every site is fixed on all compilers in the same change, and
   the flag's line in `bazel/warnings.bazelrc` is added last. There is no list
   of exempt directories, so new code is held to every flag that has landed.
-- A clang/GCC flag lands together with the closest MSVC warning. A flag with no
+- A clang/GCC flag lands together with the closest MSVC warning, with one
+  exception: C4242 and C4365 (conversion, sign conversion) are deferred. A flag with no
   MSVC counterpart (`-Wold-style-cast`, `-Wextra-semi`) is left out of the MSVC
   line. `/W4 /permissive-` is the first change because it has no clang/GCC
   counterpart.
@@ -76,8 +77,20 @@ just sized, two on a `back()` of a non-empty constant, and four inside libstdc++
 | `-Wshadow` | landed |
 | `-Wnon-virtual-dtor`, `-Woverloaded-virtual`, `-Wformat=2`, `-Wimplicit-fallthrough`; MSVC C4263, C4265, C4296, C4826, C5262, C4062 | landed with `-Wshadow`: no sites on any compiler |
 | `-Wold-style-cast` | landed |
-| `-Wconversion`, `-Wsign-conversion` | planned |
+| `-Wconversion`, `-Wsign-conversion` | landed on clang and GCC |
+| MSVC C4242, C4365 | deferred: about 140 sites, see below |
 | `-Wnull-dereference` | dropped: GCC-only false positives, half inside libstdc++ |
+
+## Deferred: MSVC C4242 and C4365
+
+The measurement of the candidate set found about 140 sites for these two
+warnings once the diagnostics MSVC reports inside standard-library headers are
+traced back to the line that instantiated them. About 30 are the same sites
+clang and GCC report; the rest are `char` to `unsigned char` conversions that
+happen inside `std::ranges::transform`, range constructors and `std::copy`
+when text is turned into bytes, mostly in parsers and test fixtures. Each has
+to be rewritten and can only be checked by a Windows run. They are taken up
+separately so that `-Wconversion` and `-Wsign-conversion` are not held back.
 
 ## Alternatives
 

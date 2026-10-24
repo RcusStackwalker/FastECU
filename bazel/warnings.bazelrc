@@ -21,7 +21,7 @@ build --features=external_include_paths
 # -Wextra also brings -Wsign-compare (in GCC's -Wall but not clang's) and
 # -Wunused-parameter, which pairs with C4100 in /W4. -Wmissing-field-initializers is
 # left out of -Wextra: see ADR 0028.
-build:macos --per_file_copt=^(bazel-out/[^/]+/bin/)?(src|apps|tests|bazel)/.*[.](cc|cpp|cxx|mm)$@-Wextra,-Wno-missing-field-initializers,-Wextra-semi,-Wcast-qual,-Wshadow,-Wold-style-cast,-Wnon-virtual-dtor,-Woverloaded-virtual,-Wformat=2,-Wimplicit-fallthrough
-build:linux --per_file_copt=^(bazel-out/[^/]+/bin/)?(src|apps|tests|bazel)/.*[.](cc|cpp|cxx|mm)$@-Wextra,-Wno-missing-field-initializers,-Wextra-semi,-Wcast-qual,-Wshadow,-Wold-style-cast,-Wnon-virtual-dtor,-Woverloaded-virtual,-Wformat=2,-Wimplicit-fallthrough
+build:macos --per_file_copt=^(bazel-out/[^/]+/bin/)?(src|apps|tests|bazel)/.*[.](cc|cpp|cxx|mm)$@-Wextra,-Wno-missing-field-initializers,-Wextra-semi,-Wcast-qual,-Wshadow,-Wold-style-cast,-Wconversion,-Wsign-conversion,-Wnon-virtual-dtor,-Woverloaded-virtual,-Wformat=2,-Wimplicit-fallthrough
+build:linux --per_file_copt=^(bazel-out/[^/]+/bin/)?(src|apps|tests|bazel)/.*[.](cc|cpp|cxx|mm)$@-Wextra,-Wno-missing-field-initializers,-Wextra-semi,-Wcast-qual,-Wshadow,-Wold-style-cast,-Wconversion,-Wsign-conversion,-Wnon-virtual-dtor,-Woverloaded-virtual,-Wformat=2,-Wimplicit-fallthrough
 
 build:windows --per_file_copt=^(bazel-out/[^/]+/bin/)?(apps|src|tests)/.*@/W4,/permissive-,/w14263,/w14265,/w14296,/w14826,/w15262,/w14062
