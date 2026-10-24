@@ -230,17 +230,8 @@ Result<bytes::Bytes> ReadRom(IKlineFlashTransport& transport, IClock& clock, con
                              IEventSink& events, const SubaruTcuHitachiM32rKlinePlan& p);
 } // namespace
 
-Result<KlineConfig> SubaruTcuHitachiM32rKlineExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruTcuHitachiM32rKlineExecutor::Setup(const SubaruTcuHitachiM32rKlinePlan& p) const
 {
-    if (const Status match = CheckFamily(plan, FlashFamily::kSubaruTcuHitachiM32rKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (const Status valid = ValidateSubaruTcuHitachiM32rKlinePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& p = std::get<SubaruTcuHitachiM32rKlinePlan>(plan.FamilyPlan());
     // Unlike the ECU sibling, this family sets is_iso14230_connection(true),
     // so non_iso14230_kline_config_from() must not be used here.
     return KlineConfig{
@@ -251,28 +242,12 @@ Result<KlineConfig> SubaruTcuHitachiM32rKlineExecutor::TransportSetup(const Flas
     };
 }
 
-Result<FlashExecutionResult> SubaruTcuHitachiM32rKlineExecutor::Execute(const FlashPlan& plan,
-                                                                        IKlineFlashTransport& transport, IClock& clock,
-                                                                        const ICancellationToken& cancellation,
-                                                                        IEventSink& events)
+Result<FlashExecutionResult> SubaruTcuHitachiM32rKlineExecutor::Run(const SubaruTcuHitachiM32rKlinePlan& p,
+                                                                    const FlashPlan& /*plan*/,
+                                                                    IKlineFlashTransport& transport, IClock& clock,
+                                                                    const ICancellationToken& cancellation,
+                                                                    IEventSink& events)
 {
-    if (const Status match = CheckFamily(plan, FlashFamily::kSubaruTcuHitachiM32rKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (const Status valid = ValidateSubaruTcuHitachiM32rKlinePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (plan.Operation() != FlashOperation::kRead)
-    {
-        return Fail(ErrorKind::kUnsupported, "Subaru TCU Hitachi M32R K-Line supports read only");
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-    const auto& p = std::get<SubaruTcuHitachiM32rKlinePlan>(plan.FamilyPlan());
     if (auto header = transport.SetAddIso14230Header(false); !header.has_value())
     {
         return std::unexpected(header.error());
