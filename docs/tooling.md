@@ -139,8 +139,9 @@ Generated headers retain their exclusions; vendor headers stay outside the scope
 # Required real-dependency positive and permitted-counterexample fixtures.
 # No application build or compilation database is needed.
 bazel test --config=release //tools/clang-tidy/scripts:clang_tidy_check_fixtures
-# Select individual fixtures with lit's filter (or list them with --show-tests).
-bazel run --config=release //:clang_tidy_check_fixtures -- --filter template-type
+# Select individual fixtures with lit's filter.
+bazel test --config=release //tools/clang-tidy/scripts:clang_tidy_check_fixtures \
+  --test_arg=--filter --test_arg=template-type
 ```
 
 The [module test suite](../tools/clang-tidy/plugin/test/) follows
@@ -171,10 +172,7 @@ including Git for Windows installations registered outside `PATH`.
 Fixtures require the registered checks and do not silently skip when an
 extension is missing. They are a manual, local Bazel test because they require
 the selected host LLVM installation; the analysis CI job runs them explicitly
-with `bazel test` so unchanged successful results can be cached. `bazel run`
-always executes the fixtures and remains useful for interactive lit filtering.
-Use the concrete test label above with `bazel test`: the root alias builds the
-runner but does not select a test for execution.
+with `bazel test` so unchanged successful results can be cached.
 The analysis job also runs
 `bazel test --config=release //tools/clang-tidy/aspect/tests:transition_outputs_test`.
 This manual regression executes linting through a configured forwarding rule

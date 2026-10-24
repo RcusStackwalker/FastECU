@@ -127,13 +127,6 @@ exports_files([
     "sonar-project.properties",
 ])
 
-# Kept so CI and the tooling guide can still run `bazel run //:clang_tidy_check_fixtures`.
-alias(
-    name = "clang_tidy_check_fixtures",
-    actual = "//tools/clang-tidy/scripts:clang_tidy_check_fixtures",
-    tags = ["manual"],
-)
-
 alias(
     name = "fastecu",
     actual = "//apps/desktop:fastecu",
