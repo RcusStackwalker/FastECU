@@ -336,6 +336,19 @@ std::string SelectionName(std::string name)
     return name;
 }
 
+void AppendDataSelections(pugi::xml_node parent, UnresolvedScaling& scaling)
+{
+    for (pugi::xml_node data : parent.children("data"))
+    {
+        std::string value = ValueOrEmpty(data.attribute("value"));
+        if (value.empty())
+        {
+            value = ValueOrEmpty(data.attribute("data"));
+        }
+        scaling.selections.emplace_back(SelectionName(ValueOrEmpty(data.attribute("name"))), std::move(value));
+    }
+}
+
 Result<std::optional<std::uint64_t>> OptionalHexAttribute(pugi::xml_node node, std::string_view attribute_name,
                                                           std::string_view source, std::string_view definition_id)
 {
