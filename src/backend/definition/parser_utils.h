@@ -55,6 +55,9 @@ Result<std::uint64_t> ParseHexUnsigned(std::string_view value, std::string_view 
                                        std::string_view definition_id);
 std::string ValueOrEmpty(pugi::xml_attribute attribute);
 std::string SelectionName(std::string name);
+// Appends one selection per <data> child of `parent`, both formats' shared shape: the
+// value comes from the `value` attribute, falling back to `data`.
+void AppendDataSelections(pugi::xml_node parent, UnresolvedScaling& scaling);
 Result<std::optional<std::uint64_t>> OptionalHexAttribute(pugi::xml_node node, std::string_view attribute_name,
                                                           std::string_view source, std::string_view definition_id);
 Result<std::optional<memory::DefinitionAddress>> OptionalAddress(pugi::xml_node node, std::string_view source,

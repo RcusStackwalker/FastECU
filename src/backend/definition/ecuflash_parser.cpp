@@ -85,19 +85,6 @@ std::string FineIncrementFrom(std::string_view coarse_increment)
     return result.str();
 }
 
-void AppendSelections(pugi::xml_node parent, UnresolvedScaling& scaling)
-{
-    for (pugi::xml_node data : parent.children("data"))
-    {
-        std::string value = ValueOrEmpty(data.attribute("value"));
-        if (value.empty())
-        {
-            value = ValueOrEmpty(data.attribute("data"));
-        }
-        scaling.selections.emplace_back(SelectionName(ValueOrEmpty(data.attribute("name"))), std::move(value));
-    }
-}
-
 Result<UnresolvedScaling> ParseScaling(pugi::xml_node node, std::string fallback_name, std::string_view source,
                                        std::string_view definition_id)
 {
@@ -131,7 +118,7 @@ Result<UnresolvedScaling> ParseScaling(pugi::xml_node node, std::string fallback
     }
     scaling.storage_type = *storage_type;
     scaling.endian = ValueOrEmpty(node.attribute("endian"));
-    AppendSelections(node, scaling);
+    AppendDataSelections(node, scaling);
     return scaling;
 }
 
