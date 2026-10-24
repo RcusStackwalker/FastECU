@@ -12,13 +12,14 @@ namespace fastecu::flash
 // DensoIso15765BootloaderProfileOf<Plan>. Instantiated in the .cpp for the
 // four bootloader-dialect plan types; each family's executor header names its
 // instantiation.
-template <typename Plan> class DensoIso15765BootloaderExecutor final : public ICanFlashExecutor
+template <typename Plan> class DensoIso15765BootloaderExecutor final : public FamilyExecutor<Plan, ICanFlashExecutor>
 {
-  public:
-    Result<Iso15765Config> TransportSetup(const FlashPlan& plan) const override;
+  private:
+    Result<Iso15765Config> Setup(const Plan& family) const override;
 
-    Result<FlashExecutionResult> Execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, IEventSink& events) override;
+    Result<FlashExecutionResult> Run(const Plan& family, const FlashPlan& plan, ICanFlashTransport& transport,
+                                     IClock& clock, const ICancellationToken& cancellation,
+                                     IEventSink& events) override;
 };
 
 } // namespace fastecu::flash

@@ -705,17 +705,9 @@ Status WriteMemory(Context& context, const FlashPlan& plan, PhaseSequence& phase
 
 } // namespace
 
-Result<Iso15765Config> SubaruDensoSh7058CanExecutor::TransportSetup(const FlashPlan& plan) const
+Result<Iso15765Config> SubaruDensoSh7058CanExecutor::Setup(const SubaruDensoSh7058CanPlan& family) const
 {
-    if (const Status matched = CheckFamily(plan, FlashFamily::kSubaruDensoSh7058Can); !matched.has_value())
-    {
-        return std::unexpected(matched.error());
-    }
-    if (const Status valid = ValidateSubaruDensoSh7058CanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return Iso15765ConfigFrom(std::get<SubaruDensoSh7058CanPlan>(plan.FamilyPlan()));
+    return Iso15765ConfigFrom(family);
 }
 
 Status SubaruDensoSh7058CanExecutor::BeforeTransportConfigure(ICanFlashTransport& transport, IClock&,
@@ -745,25 +737,11 @@ Status SubaruDensoSh7058CanExecutor::BeforeTransportOpen(const ICancellationToke
     return {};
 }
 
-Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::Execute(const FlashPlan& plan, ICanFlashTransport& transport,
-                                                                   IClock& clock,
-                                                                   const ICancellationToken& cancellation,
-                                                                   IEventSink& events)
+Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::Run(const SubaruDensoSh7058CanPlan& family,
+                                                               const FlashPlan& plan, ICanFlashTransport& transport,
+                                                               IClock& clock, const ICancellationToken& cancellation,
+                                                               IEventSink& events)
 {
-    if (const Status matched = CheckFamily(plan, FlashFamily::kSubaruDensoSh7058Can); !matched.has_value())
-    {
-        return std::unexpected(matched.error());
-    }
-    if (const Status valid = ValidateSubaruDensoSh7058CanPlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-
-    const auto& family = std::get<SubaruDensoSh7058CanPlan>(plan.FamilyPlan());
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
     Context context{cancellation,       events,          clock,      transport, family.request_id,

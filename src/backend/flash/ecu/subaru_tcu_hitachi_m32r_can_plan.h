@@ -13,4 +13,12 @@ Result<FlashPlan> BuildSubaruTcuHitachiM32rCanPlan(FlashOperation operation, std
 
 Status ValidateSubaruTcuHitachiM32rCanPlan(const FlashPlan& plan);
 
+template <> struct PlanValidator<SubaruTcuHitachiM32rCanPlan>
+{
+    static Status Validate(const FlashPlan& plan)
+    {
+        return ValidateSubaruTcuHitachiM32rCanPlan(plan);
+    }
+};
+
 } // namespace fastecu::flash

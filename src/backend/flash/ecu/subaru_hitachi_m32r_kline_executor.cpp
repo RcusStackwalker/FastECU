@@ -404,38 +404,16 @@ Status WriteRom(IKlineFlashTransport& transport, IClock& clock, const ICancellat
 }
 } // namespace
 
-Result<KlineConfig> SubaruHitachiM32rKlineExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig> SubaruHitachiM32rKlineExecutor::Setup(const SubaruHitachiM32rKlinePlan& family) const
 {
-    if (const Status match = CheckFamily(plan, FlashFamily::kSubaruHitachiM32rKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (const Status valid = ValidateSubaruHitachiM32rKlinePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto& p = std::get<SubaruHitachiM32rKlinePlan>(plan.FamilyPlan());
-    return NonIso14230KlineConfigFrom(p);
+    return NonIso14230KlineConfigFrom(family);
 }
 
-Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::Execute(const FlashPlan& plan,
-                                                                     IKlineFlashTransport& transport, IClock& clock,
-                                                                     const ICancellationToken& cancellation,
-                                                                     IEventSink& events)
+Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::Run(const SubaruHitachiM32rKlinePlan& p,
+                                                                 const FlashPlan& plan, IKlineFlashTransport& transport,
+                                                                 IClock& clock, const ICancellationToken& cancellation,
+                                                                 IEventSink& events)
 {
-    if (const Status match = CheckFamily(plan, FlashFamily::kSubaruHitachiM32rKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (const Status valid = ValidateSubaruHitachiM32rKlinePlan(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-    const auto& p = std::get<SubaruHitachiM32rKlinePlan>(plan.FamilyPlan());
     Result<FlashExecutionResult> outcome = Fail(ErrorKind::kInternal, "unreachable");
     if (auto header = transport.SetAddIso14230Header(false); !header.has_value())
     {

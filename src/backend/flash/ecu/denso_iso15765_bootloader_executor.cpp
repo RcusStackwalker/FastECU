@@ -36,53 +36,6 @@ namespace
 using Ctx = CanExecutorContext;
 using Profile = DensoIso15765BootloaderProfile;
 
-template <typename Plan> struct FamilyOf;
-
-template <> struct FamilyOf<SubaruDenso1n83m_1_5mCanPlan>
-{
-    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDenso1n83m15mCan;
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruDenso1n83m15mCanPlan(plan);
-    }
-};
-
-template <> struct FamilyOf<SubaruDenso1n83m_4mCanPlan>
-{
-    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDenso1n83m4mCan;
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruDenso1n83m4mCanPlan(plan);
-    }
-};
-
-template <> struct FamilyOf<SubaruDensoSh72531CanPlan>
-{
-    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh72531Can;
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruDensoSh72531CanPlan(plan);
-    }
-};
-
-template <> struct FamilyOf<SubaruDensoSh72543CanDieselPlan>
-{
-    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh72543CanDiesel;
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruDensoSh72543CanDieselPlan(plan);
-    }
-};
-
-template <typename Plan> Status CheckPlan(const FlashPlan& plan)
-{
-    if (const Status match = CheckFamily(plan, FamilyOf<Plan>::kFamily); !match.has_value())
-    {
-        return match;
-    }
-    return FamilyOf<Plan>::Validate(plan);
-}
-
 // SH72543 diesel's ECU ID query: a ReadDataByIdentifier of DID F182 read at
 // serial_read_timeout. It needs a two-byte reply check (`F1 82`) where the
 // shared NonFatalQuery checks one subfunction byte. Same shape otherwise:
@@ -289,32 +242,17 @@ Status WriteMemory(const Ctx& ctx, const Profile& profile, bytes::ByteView image
 
 } // namespace
 
-template <typename Plan>
-Result<Iso15765Config> DensoIso15765BootloaderExecutor<Plan>::TransportSetup(const FlashPlan& plan) const
+template <typename Plan> Result<Iso15765Config> DensoIso15765BootloaderExecutor<Plan>::Setup(const Plan& family) const
 {
-    if (const Status valid = CheckPlan<Plan>(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return Iso15765ConfigFrom(std::get<Plan>(plan.FamilyPlan()));
+    return Iso15765ConfigFrom(family);
 }
 
 template <typename Plan>
 Result<FlashExecutionResult>
-DensoIso15765BootloaderExecutor<Plan>::Execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
-                                               const ICancellationToken& cancellation, IEventSink& events)
+DensoIso15765BootloaderExecutor<Plan>::Run(const Plan& family, const FlashPlan& plan, ICanFlashTransport& transport,
+                                           IClock& clock, const ICancellationToken& cancellation, IEventSink& events)
 {
     constexpr const Profile& kProfile = DensoIso15765BootloaderProfileOf<Plan>::kValue;
-    if (const Status valid = CheckPlan<Plan>(plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-
-    const auto& family = std::get<Plan>(plan.FamilyPlan());
 
     const bool read = plan.Operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : 3);
