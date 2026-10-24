@@ -39,6 +39,27 @@ preserved cases and mutation evidence. This is a Colt-only ownership change;
 test compression needs separate assessment and expansion needs reviewed results
 and the recorded Colt bench checklist. Hardware status remains unchanged.
 
+## Plan admission
+
+Every flash executor derives from
+[FamilyExecutor](../../src/backend/flash/flash_executor.h), which owns
+[plan admission](../../src/backend/flash/GLOSSARY.md) once instead of each family
+copying it. `TransportSetup` and `Execute` run the same checks in the same order:
+`CheckFamily` (`plan family does not match this executor`), then the family's
+`PlanValidator`. `Execute` then refuses a cancelled run with
+`cancelled before setup`. No event, control line or transport call precedes
+admission, so a refused run leaves the ECU and the adapter as it found them.
+
+A validator no longer checks the plan's family or transport, because
+`ValidateAndBuild` already ties both to the plan's variant. A mode guard (SH7058
+CAN is write only, SH7058 K-Line is read only) lives in the family's
+`PlanValidator` specialization, so `TransportSetup` and `Execute` refuse an
+unsupported operation alike. The shared plan builder stays free of the guard. An
+invalid plan reports its validation error even when the run is also cancelled.
+
+Later cancellation checkpoints inside a family's `Run` keep their own texts.
+Colt's in-flight cancellation stays with the guarded transport described above.
+
 ## Plan predicates
 
 [Plan primitives](../../src/backend/flash/ecu/plan_primitives.h) share only
