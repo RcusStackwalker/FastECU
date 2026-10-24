@@ -46,13 +46,7 @@ class BiuOperationsSubaru : public QDialog
     ~BiuOperationsSubaru();
 
   private:
-    uint16_t receive_timeout_ = 500;
-    uint16_t serial_read_extra_short_timeout_ = 50;
-    uint16_t serial_read_short_timeout_ = 200;
-    uint16_t serial_read_medium_timeout_ = 500;
     uint16_t serial_read_long_timeout_ = 800;
-    uint16_t serial_read_extra_long_timeout_ = 3000;
-    uint16_t serial_read_timeout_ = 2000;
 
     enum BiuCommands
     {
@@ -315,8 +309,6 @@ class BiuOperationsSubaru : public QDialog
     QStringList dtcRows(const QByteArray& message);
     QStringList canDataRows(const QByteArray& message) const;
     QStringList timeTempRows(const QByteArray& message);
-    QString parseMessageToHex(const QByteArray& received);
-    void delay(int timeout);
     BiuOpsSubaruSwitches *updateBiuOpsSubaruSwitchesWindow(BiuOpsSubaruSwitches *biuOpsSubaruSwitches);
     BiuOpsSubaruData *updateBiuOpsSubaruDataWindow(BiuOpsSubaruData *biuOpsSubaruData);
     void closeResultsWindows();

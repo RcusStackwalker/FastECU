@@ -9,13 +9,6 @@
 #include <QBoxLayout>
 #include <QDebug>
 
-QT_BEGIN_NAMESPACE
-namespace Ui
-{
-class Settings;
-}
-QT_END_NAMESPACE
-
 class LogBox : public QWidget
 {
     Q_OBJECT
@@ -28,8 +21,6 @@ class LogBox : public QWidget
                                 const QString& value);
     QGroupBox *drawLogValueBox(int index, int logBoxCount, const QString& title, const QString& unit,
                                const QString& value);
-    void updateSwitchBox();
-    void updateLogBox();
 
   private:
   signals:

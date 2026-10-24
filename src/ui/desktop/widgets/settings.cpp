@@ -78,14 +78,6 @@ int Settings::saveConfigFile()
 QVBoxLayout *Settings::createFilesConfigPage()
 {
     QGroupBox *romraiderDefinitionsGroup = new QGroupBox(tr("RomRaider Definition Files"));
-    /*
-    qDebug() << "Calibration path:" << qs(config.settings().calibration_files_directory);
-    qDebug() << "Romraider definition files:" <<
-    fastecu::ui::qstring_list(config.settings().romraider_definition_files); qDebug() << "EcuFlash definition path:" <<
-    qs(config.settings().ecuflash_definition_files_directory); qDebug() << "Log files path:" <<
-    qs(config.settings().datalog_files_directory);
-*/
-
     QCheckBox *romraiderDefsEnabled = new QCheckBox("Enabled");
     if (config_.Settings().use_romraider_definitions == "enabled")
     {

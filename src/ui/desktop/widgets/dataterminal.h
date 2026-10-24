@@ -51,12 +51,7 @@ class DataTerminal : public QDialog
     ~DataTerminal();
 
   private:
-    uint16_t receive_timeout_ = 500;
-    uint16_t serial_read_extra_short_timeout_ = 50;
     uint16_t serial_read_short_timeout_ = 200;
-    uint16_t serial_read_medium_timeout_ = 500;
-    uint16_t serial_read_long_timeout_ = 800;
-    uint16_t serial_read_extra_long_timeout_ = 3000;
 
     QVBoxLayout *v_box_layout_{};
 

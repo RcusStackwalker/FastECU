@@ -668,24 +668,3 @@ QStringList BiuOperationsSubaru::timeTempRows(const QByteArray& message)
     }
     return rows;
 }
-
-QString BiuOperationsSubaru::parseMessageToHex(const QByteArray& received)
-{
-    QByteArray msg;
-
-    for (qsizetype i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUtf8());
-    }
-
-    return msg;
-}
-
-void BiuOperationsSubaru::delay(int timeout)
-{
-    QTime dieTime = QTime::currentTime().addMSecs(timeout);
-    while (QTime::currentTime() < dieTime)
-    {
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 100);
-    }
-}

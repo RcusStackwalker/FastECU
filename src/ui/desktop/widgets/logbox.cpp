@@ -109,11 +109,3 @@ QGroupBox *LogBox::drawLogValueBox(int index, int logBoxCount, const QString& ti
 
     return logGroupBox;
 }
-
-void LogBox::updateLogBox()
-{
-}
-
-void LogBox::updateSwitchBox()
-{
-}
