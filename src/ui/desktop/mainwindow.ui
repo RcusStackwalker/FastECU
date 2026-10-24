@@ -793,7 +793,7 @@
   </action>
   <action name="actionEcuDefinitionManager">
    <property name="text">
-    <string>ECU definition manager...</string>
+    <string>ECU definition manager</string>
    </property>
    <property name="toolTip">
     <string>Add or remove RomRaider definition files.</string>

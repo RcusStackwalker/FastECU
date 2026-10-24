@@ -526,6 +526,24 @@ constexpr auto kWindowProtocols = std::to_array<ProtocolSpec>({
      .kernel = "test-kernel.bin",
      .kernel_load_address = 0xFFFF3000U,
      .description = "Denso SH7058 CAN"},
+    {.name = "sub_ecu_test_cdbg",
+     .ecu = "Denso SH7058",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .read = true,
+     .flash_transport = "K-Line",
+     .log_transport = "K-Line",
+     .log_protocol = "CDBG",
+     .description = "Test CDBG"},
+    {.name = "sub_ecu_test_two_log_transports",
+     .ecu = "Denso SH7058",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .read = true,
+     .flash_transport = "K-Line",
+     .log_transport = "K-Line,CAN",
+     .log_protocol = "SSM",
+     .description = "Test two log transports"},
 });
 
 constexpr auto kWindowVehicles = std::to_array<VehicleSpec>({
@@ -629,6 +647,26 @@ constexpr auto kWindowVehicles = std::to_array<VehicleSpec>({
      .fuel = "",
      .year = "",
      .protocol = ProtocolIn(kWindowProtocols, "sub_ecu_denso_sh7058")},
+    {.id = "subaru-cdbg-test--sub-ecu-test-cdbg",
+     .make = "Subaru",
+     .model = "Cdbg",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = ProtocolIn(kWindowProtocols, "sub_ecu_test_cdbg")},
+    {.id = "subaru-twotransports-test--sub-ecu-test-two-log-transports",
+     .make = "Subaru",
+     .model = "TwoTransports",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = ProtocolIn(kWindowProtocols, "sub_ecu_test_two_log_transports")},
 });
 
 constexpr fastecu::config::Catalog kWindowCatalog{kWindowProtocols, kWindowVehicles};
@@ -3928,6 +3966,12 @@ TEST_F(MainWindowTest, logTransportListFallsBackToTheFirstTransportForAStaleSave
                                                                              "NoSuchTransport", "SSM", 0));
 }
 
+TEST_F(MainWindowTest, logTransportListRestoresTheSecondOfTwoSavedTransports)
+{
+    ASSERT_NO_FATAL_FAILURE(
+        checkLogTransportListRestoresTheSavedLogProtocol("sub_ecu_test_two_log_transports", "K-Line", "CAN", "SSM", 1));
+}
+
 void MainWindowTest::checkVehicleChangeKeepsTheSavedLogProtocol()
 {
     ModalDriver driver{QString()};
@@ -3936,12 +3980,11 @@ void MainWindowTest::checkVehicleChangeKeepsTheSavedLogProtocol()
     MainWindow window{services.services()};
     window.vbatt_timer_->stop();
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058"));
-    auto& settings = window.config_session_->Settings();
-    settings.selected_flash_transport = "K-Line";
-    settings.selected_log_transport = "K-Line";
-    settings.selected_log_protocol = "CDBG";
+    window.protocol_.clear();
 
-    // Rebuilding the list after a vehicle change also fires logTransportChanged.
+    // SelectRow supplies the CDBG row's log protocol; rebuilding the list after
+    // the change also fires logTransportChanged.
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_test_cdbg"));
     window.selectVehicleFinished(QDialog::Accepted);
     driver.stop();
 
