@@ -256,8 +256,10 @@ TEST_F(Sh72543rExecutor, ShortSeedStopsBeforeKey)
         Transport t;
         t.Exchange(Req(Bytes{0xb7}), Reply(Bytes{0x7f, 0xb7, 0x13}));
         t.Exchange(Req(Bytes{0x10, 3}), Reply(Bytes{0x50, 3}));
-        Bytes s{0x67, 1};
-        s.resize(2 + count, 0xde);
+        // Sized up front: GCC 15 -Warray-bounds misfires on resize() from {0x67, 1}.
+        Bytes s(2 + count, 0xde);
+        s[0] = 0x67;
+        s[1] = 1;
         t.Exchange(Req(Bytes{0x27, 1}), Reply(s));
         auto built_plan_4 = Plan();
         ASSERT_THAT(built_plan_4, fastecu::testing::IsOk());
