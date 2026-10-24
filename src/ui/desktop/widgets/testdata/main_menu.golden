@@ -11,7 +11,7 @@
   Paste | keys=Ctrl+V | checkable=0 | icon=1 | tip=Paste selected cell(s).
   ---
   Settings | keys= | checkable=0 | icon=1 | tip=Application settings.
-  ECU definition manager... | keys= | checkable=0 | icon=0 | tip=Add or remove ECU definition files.
+  ECU definition manager... | keys= | checkable=0 | icon=0 | tip=Add or remove RomRaider definition files.
 [Tune]
   Inc coarse value | keys=+ | checkable=0 | icon=1 | tip=Inc coarse value
   Dec coarse value | keys=- | checkable=0 | icon=1 | tip=Dec coarse value

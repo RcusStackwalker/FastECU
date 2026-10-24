@@ -796,7 +796,7 @@
     <string>ECU definition manager...</string>
    </property>
    <property name="toolTip">
-    <string>Add or remove ECU definition files.</string>
+    <string>Add or remove RomRaider definition files.</string>
    </property>
   </action>
   <action name="actionCoarseIncrement">
