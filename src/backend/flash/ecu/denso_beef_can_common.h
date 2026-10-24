@@ -555,7 +555,7 @@ Status FlashBeefBlock(C& ctx, bytes::ByteView image, std::uint32_t image_base, c
         const TransferRate rate = ComputeTransferRate(kBeefFlashBufferSize, elapsed, flash_bytes_count - next_index);
         LogInfo(ctx, FormatWriteProgress(address, percent, rate));
 
-        remaining -= kBeefFlashBufferSize;
+        remaining -= static_cast<std::uint32_t>(kBeefFlashBufferSize);
         address += kBeefFlashBufferSize;
         flash_bytes_index += kBeefFlashBufferSize;
         progress.Update(static_cast<int>(std::min(flash_bytes_index, flash_bytes_count)));

@@ -76,10 +76,10 @@ TEST(FindFlashDevice, IndexAndPointerAgree)
 
     ASSERT_GE(index, 0);
     ASSERT_NE(device, nullptr);
-    EXPECT_STREQ(kFlashDevices[index].name, "M32R_384KB_1block");
+    EXPECT_STREQ(kFlashDevices[static_cast<std::size_t>(index)].name, "M32R_384KB_1block");
     EXPECT_STREQ(device->name, "M32R_384KB_1block");
-    EXPECT_EQ(device->romsize, kFlashDevices[index].romsize);
-    EXPECT_EQ(device->fblocks[0].start, kFlashDevices[index].fblocks[0].start);
+    EXPECT_EQ(device->romsize, kFlashDevices[static_cast<std::size_t>(index)].romsize);
+    EXPECT_EQ(device->fblocks[0].start, kFlashDevices[static_cast<std::size_t>(index)].fblocks[0].start);
 }
 
 TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)

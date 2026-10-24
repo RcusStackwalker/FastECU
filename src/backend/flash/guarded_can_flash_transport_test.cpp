@@ -123,11 +123,11 @@ TEST_P(GuardedCanFlashTransportReadOutcomes, ReadOutcomesPassThrough)
     ProbeCanTransport inner;
     GuardedCanFlashTransport guard(inner);
     ManualCancellationToken token;
-    inner.read_result = outcomes.at(outcome);
+    inner.read_result = outcomes.at(static_cast<std::size_t>(outcome));
     inner.cancel_inside = cancel ? &token : nullptr;
     const auto actual = guard.Read(37ms, token);
     ASSERT_THAT(actual, IsOk());
-    EXPECT_EQ(*actual, outcomes.at(outcome));
+    EXPECT_EQ(*actual, outcomes.at(static_cast<std::size_t>(outcome)));
     EXPECT_EQ(token.Cancelled(), cancel);
     EXPECT_EQ(inner.read_calls, 1);
 }
@@ -137,7 +137,7 @@ INSTANTIATE_TEST_SUITE_P(GuardedCanFlashTransport, GuardedCanFlashTransportReadO
                              [](const auto& param_info)
                              {
                                  const std::array<std::string, 3> names{"Absent", "Empty", "Data"};
-                                 return names.at(std::get<0>(param_info.param)) +
+                                 return names.at(static_cast<std::size_t>(std::get<0>(param_info.param))) +
                                         (std::get<1>(param_info.param) ? "CancelledInside" : "Live");
                              }));
 

@@ -575,9 +575,9 @@ TEST(SubaruDensoSh705xKlineExecutor, EachNegativeHandshakeReplyStopsTheSession)
         ScriptProbeDead(h.transport);
         for (int i = 0; i < c.step; ++i)
         {
-            h.transport.Exchange(requests[i], good[i]);
+            h.transport.Exchange(requests[static_cast<std::size_t>(i)], good[static_cast<std::size_t>(i)]);
         }
-        h.transport.Exchange(requests[c.step], SsmReply(c.reply_payload));
+        h.transport.Exchange(requests[static_cast<std::size_t>(c.step)], SsmReply(c.reply_payload));
         auto built_plan_13 = MakePlan(FlashOperation::kRead);
         ASSERT_THAT(built_plan_13, fastecu::testing::IsOk());
         EXPECT_THAT(h.Run(std::move(*built_plan_13)), IsErr(ErrorKind::kBadResponse));

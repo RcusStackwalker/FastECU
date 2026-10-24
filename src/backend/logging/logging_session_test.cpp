@@ -172,7 +172,8 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
     std::vector<LoggingChannel> too_many_cdbg_channels;
     for (int i = 0; i < 57; ++i)
     {
-        too_many_cdbg_channels.push_back(Channel("cdbg-" + std::to_string(i), 0x804000 + i));
+        too_many_cdbg_channels.push_back(
+            Channel("cdbg-" + std::to_string(i), static_cast<std::uint32_t>(0x804000 + i)));
         too_many_cdbg_channels.back().length = 1;
     }
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kCdbg, std::move(too_many_cdbg_channels), ValidPolicy()),
@@ -181,7 +182,7 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
     std::vector<LoggingChannel> too_many_ssm_channels;
     for (int i = 0; i < 85; ++i)
     {
-        too_many_ssm_channels.push_back(Channel("ssm-" + std::to_string(i), i));
+        too_many_ssm_channels.push_back(Channel("ssm-" + std::to_string(i), static_cast<std::uint32_t>(i)));
         too_many_ssm_channels.back().length = 1;
     }
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kSsm, std::move(too_many_ssm_channels), ValidPolicy()),
@@ -190,7 +191,7 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
     std::vector<LoggingChannel> too_many_mut_channels;
     for (int i = 0; i < 256; ++i)
     {
-        too_many_mut_channels.push_back(Channel("mut-" + std::to_string(i), i));
+        too_many_mut_channels.push_back(Channel("mut-" + std::to_string(i), static_cast<std::uint32_t>(i)));
         too_many_mut_channels.back().length = 1;
     }
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kMutDma, std::move(too_many_mut_channels), ValidPolicy()),

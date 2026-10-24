@@ -1464,9 +1464,10 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCa
         const std::array details{"probe write failed",     "short K-Line write",   "cancelled after write",
                                  "probe read failed",      "cancelled after read", "cancelled before read",
                                  "cancelled before write", "probe sleep failed"};
-        ASSERT_THAT(result, fastecu::testing::IsErr(kinds[scenario]));
-        EXPECT_THAT(result, fastecu::testing::IsErr(kinds[scenario]));
-        EXPECT_THAT(result, fastecu::testing::IsErrWith(kinds[scenario], ::testing::Eq(details[scenario])));
+        ASSERT_THAT(result, fastecu::testing::IsErr(kinds[static_cast<std::size_t>(scenario)]));
+        EXPECT_THAT(result, fastecu::testing::IsErr(kinds[static_cast<std::size_t>(scenario)]));
+        EXPECT_THAT(result, fastecu::testing::IsErrWith(kinds[static_cast<std::size_t>(scenario)],
+                                                        ::testing::Eq(details[static_cast<std::size_t>(scenario)])));
         std::vector<std::string> expected{"drain"};
         if (scenario != 6)
         {
@@ -1482,7 +1483,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, FirstExchangePreservesTransportErrorAndCa
         }
         EXPECT_EQ(transport.trace, expected);
         const std::array<std::size_t, 8> counts{8, 8, 9, 10, 11, 10, 8, 9};
-        EXPECT_EQ(cancellation.CheckCount(), counts[scenario]);
+        EXPECT_EQ(cancellation.CheckCount(), counts[static_cast<std::size_t>(scenario)]);
     }
 }
 

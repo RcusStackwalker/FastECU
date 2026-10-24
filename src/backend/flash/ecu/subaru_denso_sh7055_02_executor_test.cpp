@@ -95,7 +95,7 @@ Result<FlashPlan> WritePlan(FlashOperation operation = FlashOperation::kWrite, b
     }
     if (image.empty())
     {
-        image.resize(kFlashDevices[index].romsize, bytes::Byte{0});
+        image.resize(kFlashDevices[static_cast<std::size_t>(index)].romsize, bytes::Byte{0});
     }
     return BuildSubaruDensoSh705502Plan(
         operation, "sub_ecu_denso_sh7055_02", "SH7055", std::move(image),
@@ -115,7 +115,8 @@ Result<FlashPlan> MalformedPlan(std::vector<ConfirmationSpec> confirmations, std
         .transport = TransportKind::kKline,
         .target_id = "sub_ecu_denso_sh7055_02",
         .mcu_name = "SH7055",
-        .transfer_region = {kFlashDevices[index].fblocks[0].start, kFlashDevices[index].romsize},
+        .transfer_region = {kFlashDevices[static_cast<std::size_t>(index)].fblocks[0].start,
+                            kFlashDevices[static_cast<std::size_t>(index)].romsize},
         .erase_regions = {},
         .image = std::nullopt,
         .kernel = KernelImage{.id = "k", .load_address = 0xFFFF6004, .bytes = {0x01}},
@@ -464,7 +465,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
     ScriptUpload(transport);
     const int device_index = FindFlashDeviceIndex("SH7055");
     ASSERT_GE(device_index, 0);
-    const auto& device = kFlashDevices[device_index];
+    const auto& device = kFlashDevices[static_cast<std::size_t>(device_index)];
     for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
     {
         ScriptReadPage(transport, device.fblocks[0].start + offset, 0x5A);
@@ -532,7 +533,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
     ScriptUpload(transport);
     const int device_index = FindFlashDeviceIndex("SH7055");
     ASSERT_GE(device_index, 0);
-    const auto& device = kFlashDevices[device_index];
+    const auto& device = kFlashDevices[static_cast<std::size_t>(device_index)];
 
     bytes::Bytes expected;
     for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
@@ -634,7 +635,7 @@ TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
     ScriptUpload(transport);
     const int device_index = FindFlashDeviceIndex("SH7055");
     ASSERT_GE(device_index, 0);
-    const auto& device = kFlashDevices[device_index];
+    const auto& device = kFlashDevices[static_cast<std::size_t>(device_index)];
     for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
     {
         ScriptReadPage(transport, device.fblocks[0].start + offset, 0x5A);
@@ -1358,9 +1359,10 @@ TEST(SubaruDensoSh7055_02Executor, FirstExchangePreservesTransportErrorAndCancel
         const std::array details{"probe write failed",     "short K-Line write",   "cancelled after write",
                                  "probe read failed",      "cancelled after read", "cancelled before read",
                                  "cancelled before write", "probe sleep failed"};
-        ASSERT_THAT(result, fastecu::testing::IsErr(kinds[scenario]));
-        EXPECT_THAT(result, fastecu::testing::IsErr(kinds[scenario]));
-        EXPECT_THAT(result, fastecu::testing::IsErrWith(kinds[scenario], ::testing::Eq(details[scenario])));
+        ASSERT_THAT(result, fastecu::testing::IsErr(kinds[static_cast<std::size_t>(scenario)]));
+        EXPECT_THAT(result, fastecu::testing::IsErr(kinds[static_cast<std::size_t>(scenario)]));
+        EXPECT_THAT(result, fastecu::testing::IsErrWith(kinds[static_cast<std::size_t>(scenario)],
+                                                        ::testing::Eq(details[static_cast<std::size_t>(scenario)])));
         std::vector<std::string> expected{"drain"};
         if (scenario != 6)
         {
@@ -1376,7 +1378,7 @@ TEST(SubaruDensoSh7055_02Executor, FirstExchangePreservesTransportErrorAndCancel
         }
         EXPECT_EQ(transport.trace, expected);
         const std::array<std::size_t, 8> counts{6, 6, 7, 8, 9, 8, 6, 7};
-        EXPECT_EQ(cancellation.CheckCount(), counts[scenario]);
+        EXPECT_EQ(cancellation.CheckCount(), counts[static_cast<std::size_t>(scenario)]);
     }
 }
 

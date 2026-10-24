@@ -29,11 +29,13 @@ FlashPlanFields ValidSh705502Fields(FlashOperation operation = FlashOperation::k
         .transport = TransportKind::kKline,
         .target_id = "sub_ecu_denso_sh7055_02",
         .mcu_name = "SH7055",
-        .transfer_region = {kFlashDevices[index].fblocks[0].start, kFlashDevices[index].romsize},
+        .transfer_region = {kFlashDevices[static_cast<std::size_t>(index)].fblocks[0].start,
+                            kFlashDevices[static_cast<std::size_t>(index)].romsize},
         .erase_regions = {},
         .image = operation == FlashOperation::kRead
                      ? std::nullopt
-                     : std::optional<bytes::Bytes>{bytes::Bytes(kFlashDevices[index].romsize, bytes::Byte{0})},
+                     : std::optional<bytes::Bytes>{bytes::Bytes(kFlashDevices[static_cast<std::size_t>(index)].romsize,
+                                                                bytes::Byte{0})},
         .kernel = TestKernel(),
         .family_plan =
             SubaruDensoSh7055_02Plan{
@@ -59,8 +61,9 @@ TEST(SubaruDensoSh7055_02Plan, BuildsBareReadAndWritePlansWithOperationSpecificE
 
     const int index = FindFlashDeviceIndex("SH7055");
     ASSERT_GE(index, 0);
-    auto write = BuildSubaruDensoSh705502Plan(FlashOperation::kWrite, "sub_ecu_denso_sh7055_02", "SH7055",
-                                              bytes::Bytes(kFlashDevices[index].romsize, bytes::Byte{0}), TestKernel());
+    auto write = BuildSubaruDensoSh705502Plan(
+        FlashOperation::kWrite, "sub_ecu_denso_sh7055_02", "SH7055",
+        bytes::Bytes(kFlashDevices[static_cast<std::size_t>(index)].romsize, bytes::Byte{0}), TestKernel());
     ASSERT_THAT(write, fastecu::testing::IsOk());
     EXPECT_FALSE(std::get<SubaruDensoSh7055_02Plan>(write->FamilyPlan()).read_ecu_id);
 }
@@ -95,7 +98,8 @@ TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmatio
                 operation, protocol, "SH7055",
                 operation == FlashOperation::kRead
                     ? std::nullopt
-                    : std::optional<bytes::Bytes>{bytes::Bytes(kFlashDevices[index].romsize, bytes::Byte{0})},
+                    : std::optional<bytes::Bytes>{bytes::Bytes(kFlashDevices[static_cast<std::size_t>(index)].romsize,
+                                                               bytes::Byte{0})},
                 TestKernel());
             ASSERT_THAT(plan, fastecu::testing::IsOk());
             ASSERT_EQ(plan->Confirmations().size(), 1U);
@@ -137,22 +141,24 @@ TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
     for (const auto operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
         SCOPED_TRACE(::testing::PrintToString(operation));
-        ASSERT_THAT(BuildSubaruDensoSh705502Plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
-                                                 bytes::Bytes(kFlashDevices[index].romsize - 1, bytes::Byte{0}),
-                                                 TestKernel()),
+        ASSERT_THAT(BuildSubaruDensoSh705502Plan(
+                        operation, "sub_ecu_denso_sh7055_02", "SH7055",
+                        bytes::Bytes(kFlashDevices[static_cast<std::size_t>(index)].romsize - 1, bytes::Byte{0}),
+                        TestKernel()),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 
-        ASSERT_THAT(BuildSubaruDensoSh705502Plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
-                                                 bytes::Bytes(kFlashDevices[index].romsize + 1, bytes::Byte{0}),
-                                                 TestKernel()),
+        ASSERT_THAT(BuildSubaruDensoSh705502Plan(
+                        operation, "sub_ecu_denso_sh7055_02", "SH7055",
+                        bytes::Bytes(kFlashDevices[static_cast<std::size_t>(index)].romsize + 1, bytes::Byte{0}),
+                        TestKernel()),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 
-        auto exact =
-            BuildSubaruDensoSh705502Plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
-                                         bytes::Bytes(kFlashDevices[index].romsize, bytes::Byte{0}), TestKernel());
+        auto exact = BuildSubaruDensoSh705502Plan(
+            operation, "sub_ecu_denso_sh7055_02", "SH7055",
+            bytes::Bytes(kFlashDevices[static_cast<std::size_t>(index)].romsize, bytes::Byte{0}), TestKernel());
         ASSERT_THAT(exact, fastecu::testing::IsOk());
         ASSERT_TRUE(exact->Image().has_value());
-        EXPECT_EQ(exact->Image()->size(), kFlashDevices[index].romsize);
+        EXPECT_EQ(exact->Image()->size(), kFlashDevices[static_cast<std::size_t>(index)].romsize);
     }
 }
 
@@ -205,8 +211,10 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTransferRegion)
 {
     const int index = FindFlashDeviceIndex("SH7055");
     ASSERT_GE(index, 0);
-    for (const auto region : {MemoryRegion{kFlashDevices[index].fblocks[0].start + 1, kFlashDevices[index].romsize},
-                              MemoryRegion{kFlashDevices[index].fblocks[0].start, kFlashDevices[index].romsize - 1}})
+    for (const auto region : {MemoryRegion{kFlashDevices[static_cast<std::size_t>(index)].fblocks[0].start + 1,
+                                           kFlashDevices[static_cast<std::size_t>(index)].romsize},
+                              MemoryRegion{kFlashDevices[static_cast<std::size_t>(index)].fblocks[0].start,
+                                           kFlashDevices[static_cast<std::size_t>(index)].romsize - 1}})
     {
         SCOPED_TRACE(::testing::PrintToString(region));
         auto fields = ValidSh705502Fields();

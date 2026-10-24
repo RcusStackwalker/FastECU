@@ -716,8 +716,9 @@ void MainWindow::winolsCsvToRomraiderXml()
     }
     // Preserve the legacy filename convention: remove the four-character prefix.
     const auto ecuId = QFileInfo(source).fileName().section('.', 0, 0).mid(4).toUtf8();
-    const auto xml = fastecu::definition::ConvertMappackCsv(std::string_view(csv.constData(), csv.size()),
-                                                            std::string_view(ecuId.constData(), ecuId.size()));
+    const auto xml = fastecu::definition::ConvertMappackCsv(
+        std::string_view(csv.constData(), static_cast<std::size_t>(csv.size())),
+        std::string_view(ecuId.constData(), static_cast<std::size_t>(ecuId.size())));
     if (!xml.has_value())
     {
         QMessageBox::warning(this, tr("MapPack CSV file"), QString::fromStdString(xml.error().detail));

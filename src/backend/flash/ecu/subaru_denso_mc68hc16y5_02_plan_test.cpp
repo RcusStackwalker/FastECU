@@ -114,7 +114,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, WriteRequiresAnImage)
 
     const int index = FindFlashDeviceIndex("MC68HC16Y5");
     ASSERT_GE(index, 0);
-    bytes::Bytes rom(kFlashDevices[index].romsize, bytes::Byte{0});
+    bytes::Bytes rom(kFlashDevices[static_cast<std::size_t>(index)].romsize, bytes::Byte{0});
     EXPECT_THAT(BuildSubaruDensoMc68hc16y502Plan(FlashOperation::kWrite, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5",
                                                  testing::PackedMc68Image(rom),
                                                  KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
@@ -128,13 +128,13 @@ TEST(SubaruDensoMc68hc16y5_02Plan, StockAndEcutekTestWritesCarryExactImage)
     for (const auto *protocol : {"sub_ecu_denso_mc68hc16y5_02", "sub_ecu_denso_mc68hc16y5_02_ecutek"})
     {
         SCOPED_TRACE(::testing::PrintToString(protocol));
-        bytes::Bytes rom(kFlashDevices[index].romsize, bytes::Byte{0});
+        bytes::Bytes rom(kFlashDevices[static_cast<std::size_t>(index)].romsize, bytes::Byte{0});
         auto plan = BuildSubaruDensoMc68hc16y502Plan(FlashOperation::kTestWrite, protocol, "MC68HC16Y5",
                                                      testing::PackedMc68Image(std::move(rom)),
                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         ASSERT_TRUE(plan->Image().has_value());
-        EXPECT_EQ(plan->Image()->size(), kFlashDevices[index].romsize);
+        EXPECT_EQ(plan->Image()->size(), kFlashDevices[static_cast<std::size_t>(index)].romsize);
     }
 }
 
@@ -178,7 +178,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, TpuRejectsWriteAndTestWrite)
     for (const auto operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
         SCOPED_TRACE(::testing::PrintToString(operation));
-        bytes::Bytes rom(kFlashDevices[index].romsize, bytes::Byte{0});
+        bytes::Bytes rom(kFlashDevices[static_cast<std::size_t>(index)].romsize, bytes::Byte{0});
         ASSERT_THAT(BuildSubaruDensoMc68hc16y502Plan(operation, "sub_ecu_denso_mc68hc16y5_02_tpu", "MC68HC16Y5_TPU",
                                                      fastecu::memory::testing::IdentityImage(std::move(rom)),
                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),

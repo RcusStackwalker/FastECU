@@ -19,7 +19,7 @@ const FlashDevice *FindFlashDevice(std::string_view mcu_type)
     {
         return nullptr;
     }
-    return &kFlashDevices[index];
+    return &kFlashDevices[static_cast<std::size_t>(index)];
 }
 
 } // namespace fastecu::flash

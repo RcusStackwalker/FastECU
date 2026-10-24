@@ -121,7 +121,7 @@ Status ValidateRomPlacement(const FlashPlan& plan)
     {
         return Fail(kInvalidConfig, "Unknown MCU type");
     }
-    if (!detail::TransferMatchesDevice(plan.TransferRegion(), kFlashDevices[index]))
+    if (!detail::TransferMatchesDevice(plan.TransferRegion(), kFlashDevices[static_cast<std::size_t>(index)]))
     {
         return Fail(kInvalidConfig, "MC68HC16Y5_02 transfer region does not match the MCU");
     }
@@ -138,7 +138,7 @@ Status ValidateRomPlacement(const FlashPlan& plan)
     {
         return Fail(kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
     }
-    return CheckFlashBlocksPlaced(*image, kFlashDevices[index]);
+    return CheckFlashBlocksPlaced(*image, kFlashDevices[static_cast<std::size_t>(index)]);
 }
 
 } // namespace
@@ -203,7 +203,7 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
     {
         return Fail(ErrorKind::kInvalidConfig, "Unknown MCU type");
     }
-    const std::uint32_t romsize = kFlashDevices[index].romsize;
+    const std::uint32_t romsize = kFlashDevices[static_cast<std::size_t>(index)].romsize;
     std::optional<bytes::Bytes> file;
     std::optional<memory::MemoryMap> file_map;
     if (operation == FlashOperation::kWrite || operation == FlashOperation::kTestWrite)
@@ -212,7 +212,8 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
         {
             return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
         }
-        if (auto placed = CheckFlashBlocksPlaced(*image, kFlashDevices[index]); !placed.has_value())
+        if (auto placed = CheckFlashBlocksPlaced(*image, kFlashDevices[static_cast<std::size_t>(index)]);
+            !placed.has_value())
         {
             return std::unexpected(placed.error());
         }
@@ -230,7 +231,7 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
         // size, not the ECU range the write spans (0x0-0x2FFFF with RAM at
         // 0x20000-0x27FFF). The executor writes the flash blocks through the
         // plan's RomImage(), which ValidateAndBuild places by image_map.
-        .transfer_region = MemoryRegion{kFlashDevices[index].fblocks[0].start, romsize},
+        .transfer_region = MemoryRegion{kFlashDevices[static_cast<std::size_t>(index)].fblocks[0].start, romsize},
         .erase_regions = {}, // per-block erase happens inside the write executor
                              // (blank-page-per-modified-block, legacy
                              // flash_block():950-992), not a fixed up-front set

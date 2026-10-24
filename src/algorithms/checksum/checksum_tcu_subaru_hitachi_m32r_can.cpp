@@ -13,9 +13,9 @@ std::uint32_t Checksum2Field(bytes::ByteView rom)
 {
     const std::uint32_t sum = fastecu::checksum::internal::FoldU32Be(rom.first<0x8000>(), rom.subspan(0x8008)).sum;
     std::array<uint8_t, 4> field_bytes{};
-    field_bytes[3] = 0xffU - ((sum >> 24U) & 0xffU);
-    field_bytes[2] = 0xffU - ((sum >> 16U) & 0xffU);
-    field_bytes[1] = 0xffU - ((sum >> 8U) & 0xffU);
+    field_bytes[3] = static_cast<std::uint8_t>(0xffU - ((sum >> 24U) & 0xffU));
+    field_bytes[2] = static_cast<std::uint8_t>(0xffU - ((sum >> 16U) & 0xffU));
+    field_bytes[1] = static_cast<std::uint8_t>(0xffU - ((sum >> 8U) & 0xffU));
     field_bytes[0] = static_cast<std::uint8_t>(0x100U - (sum & 0xffU)); // 0x100 wraps to 0
     return bytes::ReadU32Le(field_bytes);
 }

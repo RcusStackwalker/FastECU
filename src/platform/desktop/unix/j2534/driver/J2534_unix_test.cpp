@@ -52,7 +52,7 @@ class J2534UnixTest : public ::testing::Test
 
     void Send(const QByteArray& bytes) const
     {
-        ASSERT_EQ(::write(master_, bytes.constData(), bytes.size()), bytes.size());
+        ASSERT_EQ(::write(master_, bytes.constData(), static_cast<std::size_t>(bytes.size())), bytes.size());
     }
 
     // Everything the driver wrote, once it has been quiet for 100 ms.
@@ -177,7 +177,8 @@ TEST_F(J2534UnixTest, fiveBaudInit_sendsAddressAndReturnsReplyLine)
 
     ASSERT_EQ(j2534_.PassThruIoctl(3, kJ2534FiveBaudInit, &input, &output), kJ2534StatusNoerror);
     adapter.join();
-    EXPECT_EQ(QByteArray(reinterpret_cast<const char *>(reply.data()), output.num_of_bytes), "arw3 8f\r\n");
+    EXPECT_EQ(QByteArray(reinterpret_cast<const char *>(reply.data()), static_cast<qsizetype>(output.num_of_bytes)),
+              "arw3 8f\r\n");
 }
 
 TEST_F(J2534UnixTest, setConfig_sendsOneLinePerParameter)

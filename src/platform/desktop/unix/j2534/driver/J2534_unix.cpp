@@ -280,7 +280,7 @@ long J2534::PassThruReadMsgs(unsigned long /*channel_id*/, PassThruMsg *p_msg, u
                              unsigned long timeout)
 {
     RxState state{.msg = p_msg, .timeout = timeout};
-    QByteArray received = ReadSerialData(3, timeout);
+    QByteArray received = ReadSerialData(3, static_cast<std::uint16_t>(timeout));
     while (received.length() > 0 && IsSerialPortOpen())
     {
         FrameOutcome outcome = FrameOutcome::kContinue;
@@ -296,7 +296,7 @@ long J2534::PassThruReadMsgs(unsigned long /*channel_id*/, PassThruMsg *p_msg, u
         {
             break;
         }
-        const QByteArray response = ReadSerialData(3, timeout);
+        const QByteArray response = ReadSerialData(3, static_cast<std::uint16_t>(timeout));
         if (response.isEmpty())
         {
             received.clear();
@@ -318,7 +318,7 @@ J2534::FrameOutcome J2534::HandleAdapterFrame(QByteArray& received, RxState& sta
     switch (received.at(2))
     {
     case 'o': // ACK
-        ReadSerialData(2, state.timeout);
+        ReadSerialData(2, static_cast<std::uint16_t>(state.timeout));
         received.clear();
         msg_ack_ = true;
         return FrameOutcome::kContinue;
@@ -326,20 +326,20 @@ J2534::FrameOutcome J2534::HandleAdapterFrame(QByteArray& received, RxState& sta
         received.clear();
         return FrameOutcome::kContinue;
     case 'm': // periodic message started
-        ReadSerialData(2, state.timeout);
+        ReadSerialData(2, static_cast<std::uint16_t>(state.timeout));
         periodic_msg_id_ = ReadUntil(' ', state.timeout).chopped(1).toULong();
         ReadUntil('\n', state.timeout);
-        ReadSerialData(state.msg_byte_cnt, state.timeout);
+        ReadSerialData(static_cast<std::uint32_t>(state.msg_byte_cnt), static_cast<std::uint16_t>(state.timeout));
         state.msg_index = 0;
         return FrameOutcome::kContinue;
     case 'r': // battery voltage
     case 'w': // five-baud init
         while (static_cast<uint8_t>(received.back()) != 0x0a)
         {
-            received.append(ReadSerialData(1, state.timeout));
+            received.append(ReadSerialData(1, static_cast<std::uint16_t>(state.timeout)));
         }
         std::copy(received.cbegin(), received.cend(), state.msg->data);
-        state.msg->data_size = received.length();
+        state.msg->data_size = static_cast<unsigned long>(received.length());
         return FrameOutcome::kReturn;
     case 'y': // fast init
         ReadFastInitReply(state);
@@ -359,17 +359,18 @@ QByteArray J2534::ReadUntil(char terminator, unsigned long timeout)
     QByteArray field;
     while (field.isEmpty() || field.back() != terminator)
     {
-        field.append(ReadSerialData(1, timeout));
+        field.append(ReadSerialData(1, static_cast<std::uint16_t>(timeout)));
     }
     return field;
 }
 
 void J2534::ReadFastInitReply(RxState& state)
 {
-    ReadSerialData(2, state.timeout);
-    state.msg_byte_cnt = ReadUntil(' ', state.timeout).chopped(1).toInt();
+    ReadSerialData(2, static_cast<std::uint16_t>(state.timeout));
+    state.msg_byte_cnt = static_cast<unsigned long>(ReadUntil(' ', state.timeout).chopped(1).toInt());
     ReadUntil('\n', state.timeout);
-    const QByteArray reply = ReadSerialData(state.msg_byte_cnt, state.timeout);
+    const QByteArray reply =
+        ReadSerialData(static_cast<std::uint32_t>(state.msg_byte_cnt), static_cast<std::uint16_t>(state.timeout));
 
     state.msg_index = 0;
     CopyPayload(reply, 0, state);
@@ -381,8 +382,8 @@ void J2534::ReadFastInitReply(RxState& state)
 // "ar3".."ar6": a received-message frame with a length byte and an RxMsgType.
 J2534::FrameOutcome J2534::HandleRxFrame(QByteArray& received, RxState& state)
 {
-    received.append(ReadSerialData(2, state.timeout));
-    state.msg_byte_cnt = received.at(3) - 1;
+    received.append(ReadSerialData(2, static_cast<std::uint16_t>(state.timeout)));
+    state.msg_byte_cnt = static_cast<unsigned long>(received.at(3) - 1);
     const auto msg_type = static_cast<uint8_t>(received.at(4));
     switch (msg_type)
     {
@@ -393,14 +394,14 @@ J2534::FrameOutcome J2534::HandleRxFrame(QByteArray& received, RxState& state)
     case kTxLbMsg:
     case kLbMsgEndInd:
         state.msg->rx_status = msg_type;
-        ReadSerialData(state.msg_byte_cnt, state.timeout);
+        ReadSerialData(static_cast<std::uint32_t>(state.msg_byte_cnt), static_cast<std::uint16_t>(state.timeout));
         state.msg_index = 0;
         state.msg_cnt = 0;
         received.clear();
         return FrameOutcome::kContinue;
     case kNormMsgStartInd:
         state.msg->rx_status = msg_type;
-        ReadSerialData(state.msg_byte_cnt, state.timeout);
+        ReadSerialData(static_cast<std::uint32_t>(state.msg_byte_cnt), static_cast<std::uint16_t>(state.timeout));
         state.msg_index = 0;
         state.msg_cnt++;
         state.chunk_cnt = 0;
@@ -414,7 +415,8 @@ J2534::FrameOutcome J2534::HandleRxFrame(QByteArray& received, RxState& state)
         return HandleNormFrame(received, state);
     case kRxMsgEndInd:
         state.msg->rx_status = kRxMsgEndInd;
-        received.append(ReadSerialData(state.msg_byte_cnt, state.timeout));
+        received.append(
+            ReadSerialData(static_cast<std::uint32_t>(state.msg_byte_cnt), static_cast<std::uint16_t>(state.timeout)));
         if (received.at(2) == '6')
         {
             CopyTimestampedPayload(received, state);
@@ -428,7 +430,8 @@ J2534::FrameOutcome J2534::HandleRxFrame(QByteArray& received, RxState& state)
 J2534::FrameOutcome J2534::HandleNormFrame(QByteArray& received, RxState& state)
 {
     state.msg->rx_status = kNormMsg;
-    received.append(ReadSerialData(state.msg_byte_cnt, state.timeout));
+    received.append(
+        ReadSerialData(static_cast<std::uint32_t>(state.msg_byte_cnt), static_cast<std::uint16_t>(state.timeout)));
     const char kind = received.at(2);
     if (kind == '5' || kind == '6')
     {
@@ -607,7 +610,8 @@ long J2534::PassThruReadVersion(char *p_api_version, char *p_dll_version, char *
     // dangle (the temporary QByteArray is destroyed at the semicolon), leaving
     // pFirmwareVersion empty or holding garbage.
     const QByteArray fw_ver_bytes = fw_ver.at(0).toUtf8();
-    const std::size_t fw_len = std::min<std::size_t>(fw_ver_bytes.size(), kVersionBufferSize - 1);
+    const std::size_t fw_len =
+        std::min<std::size_t>(static_cast<std::size_t>(fw_ver_bytes.size()), kVersionBufferSize - 1);
     std::memcpy(p_firmware_version, fw_ver_bytes.constData(), fw_len);
     p_firmware_version[fw_len] = '\0';
 
@@ -710,7 +714,7 @@ void J2534::SendFastInit(unsigned long channel_id, const PassThruMsg& request)
 
 void J2534::Delay(int n)
 {
-    QThread::msleep(n);
+    QThread::msleep(static_cast<unsigned long>(n));
 }
 
 void J2534::handleError(QSerialPort::SerialPortError error)
