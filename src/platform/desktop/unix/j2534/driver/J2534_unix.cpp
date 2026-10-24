@@ -150,25 +150,6 @@ int J2534::WriteSerialData(const QByteArray& output)
     return kJ2534StatusNoerror;
 }
 
-QByteArray J2534::WriteSerialIso14230Data(QByteArray output)
-{
-    uint8_t chk_sum = 0;
-    uint8_t msglength = output.length();
-
-    output.insert(0, static_cast<char>(0x80));
-    output.insert(1, 0x10);
-    output.insert(2, static_cast<char>(0xFC));
-    output.insert(3, static_cast<char>(msglength));
-
-    for (int i = 0; i < output.length(); i++)
-    {
-        chk_sum = chk_sum + output.at(i);
-    }
-    output.append(static_cast<char>(chk_sum));
-
-    return output;
-}
-
 bool J2534::GetIsTxDone()
 {
     return is_tx_done_;

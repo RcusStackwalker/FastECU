@@ -5,12 +5,6 @@
 #include <string_view>
 #include "src/platform/desktop/windows/j2534/J2534_win.h"
 #include "src/platform/desktop/windows/j2534/pe_bitness.h"
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-#else
-#include <dlfcn.h>
-#include <CoreFoundation/CFBundle.h>
-#include <unistd.h>
-#endif
 
 namespace
 {
@@ -30,11 +24,7 @@ J2534::J2534()
     h_dll_ = nullptr;
     is_library_initialized_ = false;
     // default to the Openport 2.0 J2534 DLL
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     CopyCString(dll_name_, "j2534.dll");
-#else
-    CopyCString(dll_name_, "op20pt32.dylib");
-#endif
 }
 
 void J2534::SetDllName(const char *name)
@@ -62,11 +52,6 @@ void J2534::Disable()
     }
 }
 
-char *J2534::GetLastError()
-{
-    return last_error_.data();
-}
-
 bool J2534::Valid()
 {
     if (bridge_client_)
@@ -78,25 +63,12 @@ bool J2534::Valid()
 
 J2534::~J2534()
 {
-#if defined(OP20PT32_USE_LIB)
-    //	if (h_dll_)
-    //		::OP20PT32_Stop();
-    // #else
-
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     if (h_dll_)
+    {
         FreeLibrary(h_dll_);
-#else
-    if (h_dll_)
-        dlclose(h_dll_);
-#endif
-#endif
+    }
 }
 
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-#if defined(OP20PT32_USE_LIB)
-#define GET_PT_FN(name) pf##name = ::name;
-#else
 #define GET_PT_FN(name)                                                                                                \
     do                                                                                                                 \
     {                                                                                                                  \
@@ -106,22 +78,6 @@ J2534::~J2534()
             return false;                                                                                              \
         }                                                                                                              \
     } while (false)
-#endif
-#else
-#if defined(OP20PT32_USE_LIB)
-#define GET_PT_FN(name) pf##name = ::name;
-#else
-#define GET_PT_FN(name)                                                                                                \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        pf##name = (Pf##name *)dlsym(h_dll_, "" #name);                                                                \
-        if (!pf##name)                                                                                                 \
-        {                                                                                                              \
-            return false;                                                                                              \
-        }                                                                                                              \
-    } while (false)
-#endif
-#endif
 
 bool J2534::GetPTfns()
 {
@@ -150,18 +106,6 @@ bool J2534::GetPTfns()
 
 long J2534::LoadJ2534DLL(const char *sz_dll)
 {
-#if defined(OP20PT32_USE_LIB)
-//    szDLL; // unused
-//	if (!h_dll_)
-//		::OP20PT32_Start();
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    h_dll_ = (HINSTANCE)1;
-#else
-    h_dll_ = (void *)1;
-#endif
-    GetPTfns();
-#else
-
     if (sz_dll == nullptr)
     {
         return (1);
@@ -170,11 +114,9 @@ long J2534::LoadJ2534DLL(const char *sz_dll)
     FreeLibrary(h_dll_);
     h_dll_ = nullptr;
 
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     h_dll_ = LoadLibraryA(sz_dll);
     if (!h_dll_)
     {
-        CopyCString(last_error_, "error loading J2534 DLL");
         return false;
     }
     else if (!GetPTfns())
@@ -182,47 +124,8 @@ long J2534::LoadJ2534DLL(const char *sz_dll)
         // assume unusable if we don't have everything we need
         FreeLibrary(h_dll_);
         h_dll_ = nullptr;
-        CopyCString(last_error_, "error loading J2534 DLL function pointers");
         return false;
     }
-#else
-    CFURLRef app_url_ref = CFBundleCopyBundleURL(CFBundleGetMainBundle());
-    CFStringRef mac_path = CFURLCopyFileSystemPath(app_url_ref, kCFURLPOSIXPathStyle);
-    const char *path_ptr = CFStringGetCStringPtr(mac_path, CFStringGetSystemEncoding());
-
-    char lib_path[1024];
-    char old_path[1024];
-
-    getcwd(old_path, 1024);
-    strcpy(lib_path, path_ptr);
-    strcat(lib_path, "/Contents/Frameworks");
-    chdir(lib_path); // change to this dir so J2534 .dylib can find any other needed dylibs in the same dir
-    strcat(lib_path,"/"");
-    strcat(lib_path,sz_dll);
-
-    CFRelease(app_url_ref);
-    CFRelease(mac_path);
-
-    if (!(h_dll_ = dlopen(lib_path, RTLD_LOCAL|RTLD_LAZY)))
-    {
-        strcpy(last_error_.data(), "error loading ");
-        strcat(last_error_.data(), lib_path);
-        chdir(old_path);
-        return false;
-    }
-    else if (!GetPTfns())
-    {
-        // assume unusable if we don't have everything we need
-        dlclose(h_dll_);
-        h_dll_ = nullptr;
-        strcpy(last_error_.data(), "error loading J2534 dylib function pointers");
-        chdir(old_path);
-        return false;
-    }
-    chdir(old_path);
-#endif
-
-#endif
     return true;
 }
 
@@ -247,7 +150,6 @@ bool J2534::CheckDll()
             use_bridge_ = true;
             return true;
         }
-        CopyCString(last_error_, "error starting 32-bit J2534 bridge helper");
         return false;
     }
 
