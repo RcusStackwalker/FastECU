@@ -4,9 +4,12 @@
 #include "src/backend/ports/testing/in_memory_file_system.h"
 #include "src/backend/ports/testing/in_memory_resource_bundle.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <map>
+
+using ::testing::IsEmpty;
 
 using fastecu::DirEntry;
 using fastecu::ErrorKind;
@@ -119,7 +122,7 @@ TEST(ProvisionConfigDirectories, DoesNotOverwriteAnExistingUserFile)
     ASSERT_THAT(ProvisionConfigDirectories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
 
     EXPECT_EQ(fs.files[paths.config_files_directory + "fastecu.cfg"], (std::vector<std::uint8_t>{1, 2, 3}));
-    EXPECT_TRUE(repo.write_calls.empty());
+    EXPECT_THAT(repo.write_calls, IsEmpty());
 }
 
 TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
@@ -231,7 +234,7 @@ TEST(ProvisionConfigDirectories, BundleReadFailureNamesTheTarget)
         fastecu::testing::IsErrWith(ErrorKind::kInternal,
                                     ::testing::AllOf(::testing::HasSubstr(paths.config_files_directory + "menu.cfg"),
                                                      ::testing::HasSubstr("resource unreadable"))));
-    EXPECT_TRUE(repo.write_calls.empty());
+    EXPECT_THAT(repo.write_calls, IsEmpty());
 }
 
 TEST(ProvisionConfigDirectories, RepositoryWriteFailureNamesTheTarget)

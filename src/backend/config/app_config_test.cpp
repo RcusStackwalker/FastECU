@@ -1,6 +1,7 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/config/app_config.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <map>
 
@@ -12,6 +13,7 @@ using fastecu::config::ParseAppConfig;
 using fastecu::config::SaveAppConfig;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::IsEmpty;
 
 namespace
 {
@@ -89,15 +91,15 @@ TEST(ParseAppConfig, ParsesEveryShippedDefaultSetting)
     EXPECT_EQ(config->window_height, "maximized");
     EXPECT_EQ(config->toolbar_iconsize, "32");
     EXPECT_EQ(config->serial_port, "ttyACM0 - OpenPort 2.0");
-    EXPECT_TRUE(config->selected_vehicle_id.empty());
+    EXPECT_THAT(config->selected_vehicle_id, IsEmpty());
     EXPECT_EQ(config->selected_flash_transport, "iso15765");
     EXPECT_EQ(config->selected_log_transport, "K-Line");
     EXPECT_EQ(config->selected_log_protocol, "SSM");
     EXPECT_EQ(config->primary_definition_base, "romraider");
-    EXPECT_TRUE(config->calibration_files.empty());
+    EXPECT_THAT(config->calibration_files, IsEmpty());
     EXPECT_EQ(config->calibration_files_directory, "calibrations/");
     EXPECT_EQ(config->use_romraider_definitions, "disabled");
-    EXPECT_TRUE(config->romraider_definition_files.empty()); // single empty-string entry is dropped
+    EXPECT_THAT(config->romraider_definition_files, IsEmpty()); // single empty-string entry is dropped
     EXPECT_EQ(config->use_ecuflash_definitions, "disabled");
     EXPECT_EQ(config->ecuflash_definition_files_directory, "");
     EXPECT_EQ(config->romraider_logger_definition_file, "config/logger_cdbg_example.xml");
@@ -116,7 +118,7 @@ TEST(ParseAppConfig, ALegacyProtocolIdIsNotRead)
     auto config = ParseAppConfig(paths, repo);
 
     ASSERT_THAT(config, fastecu::testing::IsOk());
-    EXPECT_TRUE(config->selected_vehicle_id.empty());
+    EXPECT_THAT(config->selected_vehicle_id, IsEmpty());
 }
 
 TEST(ParseAppConfig, InvalidPrimaryDefinitionBaseValueIsDiscarded)
@@ -253,7 +255,7 @@ TEST(ParseAppConfig, ReadsWithoutWritingAndKeepsTheParserContract)
     ASSERT_THAT(parsed, IsOk());
     EXPECT_EQ(parsed->calibration_files_directory, "/cal"); // unnormalized
     EXPECT_EQ(parsed->serial_port, "");                     // absent stays empty
-    EXPECT_TRUE(repo.write_calls.empty());
+    EXPECT_THAT(repo.write_calls, IsEmpty());
 }
 
 TEST(ParseAppConfig, MissingFileIsAnError)

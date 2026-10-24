@@ -13,6 +13,7 @@
 #include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
 #include "src/algorithms/protocol/bytes.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 namespace
 {
@@ -41,6 +42,9 @@ using fastecu::memory::FlashAddress;
 using fastecu::memory::MemoryBlock;
 using fastecu::memory::MemoryErrorKind;
 using fastecu::memory::Writability;
+using fastecu::testing::IsErrThat;
+using fastecu::testing::IsOk;
+using ::testing::_;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::IsEmpty;
@@ -172,7 +176,7 @@ TEST(SelectMemoryMap, GivesTheIdentityMapWhenTheProtocolDeclaresNone)
 {
     const auto map = SelectMemoryMap(&kPlain, 0x1234);
 
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
     ASSERT_EQ(map->Blocks().size(), 1U);
     EXPECT_EQ(map->Blocks()[0].range.Start(), FlashAddress{0});
     EXPECT_EQ(map->Blocks()[0].range.Size(), ByteCount{0x1234});
@@ -184,8 +188,8 @@ TEST(SelectMemoryMap, PicksTheDeclaredMapOfExactlyTheFileSize)
     const auto large = SelectMemoryMap(&kMapped, 0x200);
     const auto small = SelectMemoryMap(&kMapped, 0x100);
 
-    ASSERT_TRUE(large.has_value());
-    ASSERT_TRUE(small.has_value());
+    ASSERT_THAT(large, IsOk());
+    ASSERT_THAT(small, IsOk());
     EXPECT_EQ(large->Blocks().size(), 2U);
     ASSERT_EQ(small->Blocks().size(), 1U);
     EXPECT_EQ(small->Blocks()[0].range.Start(), FlashAddress{0x100});
@@ -197,7 +201,7 @@ TEST(SelectMemoryMap, RejectsAFileSizeNoDeclaredMapHas)
 {
     const auto map = SelectMemoryMap(&kMapped, 0x180);
 
-    ASSERT_FALSE(map.has_value());
+    ASSERT_THAT(map, IsErrThat(_));
     EXPECT_EQ(map.error().kind, MemoryErrorKind::kFileSizeMismatch);
     EXPECT_EQ(map.error().detail, "protocol 'mapped' has no memory map for 0x180-byte ROM files");
 }
@@ -236,8 +240,8 @@ TEST(SelectMemoryMap, CarriesTheDeclaredDefinitionBase)
     const auto based = SelectMemoryMap(&kBased, 0x100);
     const auto plain = SelectMemoryMap(&kPlain, 0x100);
 
-    ASSERT_TRUE(based.has_value());
-    ASSERT_TRUE(plain.has_value());
+    ASSERT_THAT(based, IsOk());
+    ASSERT_THAT(plain, IsOk());
     EXPECT_EQ(based->DefinitionBase(), FlashAddress{0x1000});
     EXPECT_EQ(plain->DefinitionBase(), FlashAddress{0});
 }
@@ -283,7 +287,7 @@ TEST(SelectMemoryMapForAFile, GivesTheIdentityMapWithoutAProtocol)
 {
     const auto map = SelectMemoryMap(nullptr, 0x40);
 
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
     ASSERT_EQ(map->Blocks().size(), 1U);
     EXPECT_EQ(map->Blocks()[0].range.Start(), FlashAddress{0});
     EXPECT_EQ(map->FileSize(), ByteCount{0x40});
@@ -296,7 +300,7 @@ TEST(SelectMemoryMapForAFile, RejectsAnEmptyFile)
         SCOPED_TRACE(::testing::PrintToString(protocol));
         const auto map = SelectMemoryMap(protocol, 0);
 
-        ASSERT_FALSE(map.has_value());
+        ASSERT_THAT(map, IsErrThat(_));
         EXPECT_EQ(map.error().kind, MemoryErrorKind::kFileSizeMismatch);
         EXPECT_EQ(map.error().detail, "the ROM file is empty");
     }
@@ -306,7 +310,7 @@ TEST(SelectMemoryMapForAFile, RejectsAFileOver4GiB)
 {
     const auto map = SelectMemoryMap(&kPlain, std::size_t{1} << 32);
 
-    ASSERT_FALSE(map.has_value());
+    ASSERT_THAT(map, IsErrThat(_));
     EXPECT_EQ(map.error().kind, MemoryErrorKind::kFileSizeMismatch);
     EXPECT_EQ(map.error().detail, "the 4294967296-byte ROM file is larger than 4 GiB");
 }
@@ -318,11 +322,11 @@ TEST(PlaceRomFile, PlacesTheFileByItsProtocolsMap)
 
     const auto image = PlaceRomFile(&kMapped, file);
 
-    ASSERT_TRUE(image.has_value());
+    ASSERT_THAT(image, IsOk());
     EXPECT_THAT(image->File(), ElementsAreArray(file));
     const auto view = image->Render(
         fastecu::memory::AddressRange<fastecu::memory::FlashSpace>::Make(FlashAddress{0x100}, ByteCount{1}).value());
-    ASSERT_TRUE(view.has_value());
+    ASSERT_THAT(view, IsOk());
     EXPECT_EQ(view->Data()[0], 0xAB);
 }
 
@@ -330,7 +334,7 @@ TEST(PlaceRomFile, CarriesTheSelectionError)
 {
     const auto image = PlaceRomFile(&kMapped, bytes::Bytes(0x180, 0x00));
 
-    ASSERT_FALSE(image.has_value());
+    ASSERT_THAT(image, IsErrThat(_));
     EXPECT_EQ(image.error().detail, "protocol 'mapped' has no memory map for 0x180-byte ROM files");
 }
 
@@ -367,7 +371,7 @@ TEST(LinearBlocks, MakesAValidMap)
 {
     const auto map = fastecu::memory::MemoryMap::Create(kLinearBasedBlocks, ByteCount{0x100}, FlashAddress{0x1000});
 
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
     EXPECT_EQ(map->FileOffsetOf(*fastecu::memory::AddressRange<fastecu::memory::FlashSpace>::Make(FlashAddress{0x1080},
                                                                                                   ByteCount{0x10})),
               FileOffset{0x80});
