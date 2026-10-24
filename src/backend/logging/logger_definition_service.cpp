@@ -49,51 +49,15 @@ Result<LoggerDefinition> LoggerDefinitionService::LoadDefinition(std::string_vie
     return ParseLoggerDefinition(*contents, handle);
 }
 
-Result<std::optional<LoggerSelection>>
-LoggerDefinitionService::LoadSelection(std::string_view conf_handle, std::string_view ecu_id, bytes::Bytes& conf_out)
+Result<std::optional<LoggerSelection>> LoggerDefinitionService::LoadSelection(std::string_view conf_handle,
+                                                                              std::string_view ecu_id)
 {
     auto contents = repository_.Read(conf_handle);
     if (!contents)
     {
         return std::unexpected(contents.error());
     }
-    conf_out = std::move(*contents);
-    return ReadSelection(conf_out, ecu_id, conf_handle);
-}
-
-Result<std::optional<LoggerSelection>> LoggerDefinitionService::LoadSelection(std::string_view conf_handle,
-                                                                              std::string_view ecu_id)
-{
-    bytes::Bytes conf;
-    return LoadSelection(conf_handle, ecu_id, conf);
-}
-
-Result<LoggerSelection> LoggerDefinitionService::LoadOrInitializeSelection(std::string_view conf_handle,
-                                                                           std::string_view ecu_id,
-                                                                           const LoggerSelection& fallback)
-{
-    bytes::Bytes contents;
-    auto stored = LoadSelection(conf_handle, ecu_id, contents);
-    if (!stored)
-    {
-        return std::unexpected(stored.error());
-    }
-    if (stored->has_value())
-    {
-        return std::move(**stored);
-    }
-
-    LoggerSelection selection = fallback;
-    auto written = WriteSelection(contents, ecu_id, selection, conf_handle);
-    if (!written)
-    {
-        return std::unexpected(written.error());
-    }
-    if (auto replaced = writer_.Replace(conf_handle, *written); !replaced)
-    {
-        return std::unexpected(replaced.error());
-    }
-    return selection;
+    return ReadSelection(*contents, ecu_id, conf_handle);
 }
 
 Status LoggerDefinitionService::SaveSelection(std::string_view conf_handle, std::string_view ecu_id,
