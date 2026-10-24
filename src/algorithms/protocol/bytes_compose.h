@@ -107,9 +107,9 @@ template <typename T> constexpr std::size_t WidthBe(const T& arg)
 
 // Only these range types carry a length in their type. Other sized ranges
 // still have a runtime length, even when their storage happens to be fixed.
-template <typename T> inline constexpr std::size_t kStaticExtent = std::dynamic_extent;
+template <typename T>
+inline constexpr std::size_t kStaticExtent = std::is_bounded_array_v<T> ? std::extent_v<T> : std::dynamic_extent;
 template <typename T, std::size_t N> inline constexpr std::size_t kStaticExtent<std::array<T, N>> = N;
-template <typename T, std::size_t N> inline constexpr std::size_t kStaticExtent<T[N]> = N;
 template <typename T, std::size_t N> inline constexpr std::size_t kStaticExtent<std::span<T, N>> = N;
 
 template <typename T> consteval std::size_t StaticWidthBe()
@@ -166,9 +166,10 @@ template <typename Output, typename T> constexpr void EmitBe(Output& out, const 
     }
     else if constexpr (WideIntegerRange<U>)
     {
+        using Value = std::ranges::range_value_t<U>;
         for (const auto value : arg)
         {
-            EmitIntegerBe<sizeof(value)>(out, value);
+            EmitIntegerBe<sizeof(Value)>(out, static_cast<Value>(value));
         }
     }
     else

@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <ranges>
@@ -20,6 +21,47 @@ using bytes::ComposeBeWithExtraCapacity;
 using bytes::U24;
 using namespace bytes::literals;
 
+namespace
+{
+
+// A range reference can be larger than the integer value it represents.
+struct WordProxy
+{
+    std::uint32_t value;
+    operator std::uint16_t() const
+    {
+        return static_cast<std::uint16_t>(value);
+    }
+};
+
+struct ProxyWordIterator : std::indirectly_readable_traits<std::uint16_t *>, std::incrementable_traits<std::uint16_t *>
+{
+    explicit ProxyWordIterator(const std::uint16_t *position = nullptr) : current(position)
+    {
+    }
+
+    const std::uint16_t *current;
+    WordProxy operator*() const
+    {
+        return {*current};
+    }
+    ProxyWordIterator& operator++()
+    {
+        ++current;
+        return *this;
+    }
+    void operator++(int)
+    {
+        ++current;
+    }
+    bool operator==(const ProxyWordIterator& other) const
+    {
+        return current == other.current;
+    }
+};
+
+} // namespace
+
 // Rejected at compile time by the width law; kept as documentation because
 // gtest cannot assert a static_assert failure:
 //   composeBe(0x34);                      // int
@@ -31,25 +73,25 @@ using namespace bytes::literals;
 
 TEST(ComposeBe, ComposesScalarsIntoAConstexprArray)
 {
-    constexpr auto frame = ComposeBe(0x12_b, std::uint16_t{0x3456}, U24{0xFF789ABC}, std::uint32_t{0xDEF01234});
-    static_assert(std::same_as<std::remove_cv_t<decltype(frame)>, std::array<bytes::Byte, 10>>);
-    static_assert(frame == std::array<bytes::Byte, 10>{0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12, 0x34});
-    EXPECT_THAT(frame, ElementsAre(0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12, 0x34));
+    constexpr auto kFrame = ComposeBe(0x12_b, std::uint16_t{0x3456}, U24{0xFF789ABC}, std::uint32_t{0xDEF01234});
+    static_assert(std::same_as<std::remove_cv_t<decltype(kFrame)>, std::array<bytes::Byte, 10>>);
+    static_assert(kFrame == std::array<bytes::Byte, 10>{0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12, 0x34});
+    EXPECT_THAT(kFrame, ElementsAre(0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12, 0x34));
 }
 
 TEST(ComposeBe, ComposesFixedRangesIntoAConstexprArray)
 {
-    constexpr std::array<bytes::Byte, 2> prefix{0x12, 0x34};
-    constexpr std::uint16_t words[]{0x5678, 0x9ABC};
-    constexpr auto frame = ComposeBe(prefix, std::span<const std::uint16_t, 2>{words});
-    static_assert(std::same_as<std::remove_cv_t<decltype(frame)>, std::array<bytes::Byte, 6>>);
-    static_assert(frame == std::array<bytes::Byte, 6>{0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC});
-    EXPECT_THAT(ComposeBe(words), ElementsAre(0x56, 0x78, 0x9A, 0xBC));
+    constexpr std::array<bytes::Byte, 2> kPrefix{0x12, 0x34};
+    constexpr std::array<std::uint16_t, 2> kWords{0x5678, 0x9ABC};
+    constexpr auto kFrame = ComposeBe(kPrefix, std::span<const std::uint16_t, 2>{kWords});
+    static_assert(std::same_as<std::remove_cv_t<decltype(kFrame)>, std::array<bytes::Byte, 6>>);
+    static_assert(kFrame == std::array<bytes::Byte, 6>{0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC});
+    EXPECT_THAT(ComposeBe(kWords), ElementsAre(0x56, 0x78, 0x9A, 0xBC));
 }
 
 TEST(ComposeBe, UsesRuntimeValuesFromMutableFixedRanges)
 {
-    bytes::Byte prefix[]{0x12};
+    std::array<bytes::Byte, 1> prefix{0x12};
     std::array<std::uint32_t, 1> word{0x3456789A};
     auto frame = ComposeBe(prefix, std::span{word});
     static_assert(std::same_as<decltype(frame), std::array<bytes::Byte, 5>>);
@@ -58,9 +100,9 @@ TEST(ComposeBe, UsesRuntimeValuesFromMutableFixedRanges)
 
 TEST(ComposeBe, AllowsEmptyStaticRangesInNonemptyComposition)
 {
-    constexpr auto frame = ComposeBe(std::array<bytes::Byte, 0>{}, 0x12_b, std::span<const std::uint16_t, 0>{});
-    static_assert(frame == std::array<bytes::Byte, 1>{0x12});
-    EXPECT_THAT(frame, ElementsAre(0x12));
+    constexpr auto kFrame = ComposeBe(std::array<bytes::Byte, 0>{}, 0x12_b, std::span<const std::uint16_t, 0>{});
+    static_assert(kFrame == std::array<bytes::Byte, 1>{0x12});
+    EXPECT_THAT(kFrame, ElementsAre(0x12));
 }
 
 TEST(ComposeBe, SelectsVectorForMixedStaticAndEmptyDynamicInputs)
@@ -76,6 +118,17 @@ TEST(ComposeBe, ConsumesUnsizedInputRangesOnce)
     const auto range =
         std::ranges::subrange(std::istream_iterator<bytes::Byte>{input}, std::istream_iterator<bytes::Byte>{});
     EXPECT_THAT(ComposeBe(0x12_b, range), ElementsAre(0x12, 0x41, 0x42, 0x43));
+}
+
+TEST(ComposeBeWithExtraCapacity, EncodesProxyReferencesAtTheRangeValueWidth)
+{
+    const std::array<std::uint16_t, 2> words{0x1234, 0xABCD};
+    const auto range = std::ranges::subrange(ProxyWordIterator{words.data()},
+                                             ProxyWordIterator{words.data() + words.size()}, words.size());
+    static_assert(bytes::WideIntegerRange<decltype(range)>);
+    // Keep an incorrect proxy-width write inside the allocation so its bytes
+    // can be asserted independently of allocator diagnostics.
+    EXPECT_THAT(ComposeBeWithExtraCapacity(8, range), ElementsAre(0x12, 0x34, 0xAB, 0xCD));
 }
 
 TEST(ComposeBe, EmitsOneByteForByte)
@@ -174,17 +227,17 @@ TEST(ComposeBeWithExtraCapacity, AlwaysReturnsAVectorIncludingEmptyOutput)
 
 TEST(ComposeBeWithChecksum, ComposesConstexprArrayAndChecksumsOnlyThePayload)
 {
-    constexpr auto frame = ComposeBeWithChecksum(
+    constexpr auto kFrame = ComposeBeWithChecksum(
         [](bytes::ByteView data) { return std::uint16_t(data.size() + data[0]); }, 0x12_b, std::uint16_t{0x3456});
-    static_assert(frame == std::array<bytes::Byte, 5>{0x12, 0x34, 0x56, 0, 0x15});
-    EXPECT_THAT(frame, ElementsAre(0x12, 0x34, 0x56, 0, 0x15));
+    static_assert(kFrame == std::array<bytes::Byte, 5>{0x12, 0x34, 0x56, 0, 0x15});
+    EXPECT_THAT(kFrame, ElementsAre(0x12, 0x34, 0x56, 0, 0x15));
 }
 
 TEST(ComposeBeWithChecksum, AllowsChecksumOnlyComposition)
 {
-    constexpr auto frame = ComposeBeWithChecksum([](bytes::ByteView data) { return bytes::Byte(0x80 + data.size()); });
-    static_assert(frame == std::array<bytes::Byte, 1>{0x80});
-    EXPECT_THAT(frame, ElementsAre(0x80));
+    constexpr auto kFrame = ComposeBeWithChecksum([](bytes::ByteView data) { return bytes::Byte(0x80 + data.size()); });
+    static_assert(kFrame == std::array<bytes::Byte, 1>{0x80});
+    EXPECT_THAT(kFrame, ElementsAre(0x80));
 }
 
 TEST(ComposeBeWithChecksum, KeepsDynamicEmptyPayloadInAVector)
