@@ -29,6 +29,7 @@
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::Eq;
 
 TEST(TestFacadeThreading, constructDestroy_withoutUse_noThreadNoHang)
 {
@@ -162,15 +163,15 @@ TEST(TestFacadeThreading, transportAdapters_normalEmptyReadIsSuccess)
 
     const auto ssm_result = ssm.Read(10ms, cancellation);
     ASSERT_THAT(ssm_result, IsOk());
-    ASSERT_TRUE(!ssm_result->has_value());
+    ASSERT_THAT(*ssm_result, Eq(std::nullopt));
 
     const auto kline_result = kline.Read(10ms, cancellation);
     ASSERT_THAT(kline_result, IsOk());
-    ASSERT_TRUE(!kline_result->has_value());
+    ASSERT_THAT(*kline_result, Eq(std::nullopt));
 
     const auto can_result = can.Read(10ms, cancellation);
     ASSERT_THAT(can_result, IsOk());
-    ASSERT_TRUE(!can_result->has_value());
+    ASSERT_THAT(*can_result, Eq(std::nullopt));
 }
 
 TEST(TestFacadeThreading, transportAdapters_preCancelledReadSkipsBackend)

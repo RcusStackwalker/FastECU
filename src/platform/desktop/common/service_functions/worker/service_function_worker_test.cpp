@@ -10,6 +10,7 @@
 #include <QSemaphore>
 #include "src/platform/desktop/common/testing/signal_recorder.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <atomic>
@@ -22,6 +23,8 @@
 
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/protocol/testing/scripted_ssm_transport.h"
+
+using ::testing::IsEmpty;
 
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
@@ -258,7 +261,7 @@ TEST_F(ServiceFunctionWorkerTest, neverTouchesTheSerialFacadeWhenSetupFails)
     harness.worker->start();
     ASSERT_TRUE(harness.worker->wait(5000));
 
-    ASSERT_TRUE(harness.configurator.applied.empty());
+    ASSERT_THAT(harness.configurator.applied, IsEmpty());
     ASSERT_EQ(harness.session->resume_calls, 0);
     ASSERT_EQ(done.Count(), 1U);
     const auto result = std::get<0>(done.Snapshot().at(0));

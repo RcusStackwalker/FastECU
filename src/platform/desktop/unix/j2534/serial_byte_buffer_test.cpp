@@ -6,6 +6,9 @@
 #include <deque>
 #include <vector>
 
+using ::testing::IsEmpty;
+using ::testing::Not;
+
 namespace
 {
 
@@ -86,7 +89,7 @@ TEST(SerialByteBuffer, ServesFromTheBufferWithoutWaitingWhenItAlreadyHasEnough)
 
     // This is the whole point of the class: a satisfiable one-byte read must
     // not cost an event-loop wait.
-    EXPECT_TRUE(source.waits.empty());
+    EXPECT_THAT(source.waits, IsEmpty());
 }
 
 TEST(SerialByteBuffer, AccumulatesAcrossSeveralRefills)
@@ -147,7 +150,7 @@ TEST(SerialByteBuffer, WaitsOneMillisecondAtATimeWhenSilent)
     // argument value explicitly.
     buffer.Take(1, 3);
 
-    ASSERT_FALSE(source.waits.empty());
+    ASSERT_THAT(source.waits, Not(IsEmpty()));
     EXPECT_THAT(source.waits, ::testing::Each(::testing::Eq(1)));
 }
 
@@ -157,7 +160,7 @@ TEST(SerialByteBuffer, ZeroLengthRequestReturnsImmediately)
     SerialByteBuffer buffer = source.Make();
 
     EXPECT_EQ(buffer.Take(0, 1000), QByteArray());
-    EXPECT_TRUE(source.waits.empty());
+    EXPECT_THAT(source.waits, IsEmpty());
 }
 
 TEST(SerialByteBuffer, ClearDiscardsRetainedBytes)

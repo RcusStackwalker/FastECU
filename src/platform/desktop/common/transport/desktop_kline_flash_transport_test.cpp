@@ -36,6 +36,9 @@ using fastecu::flash::KlineParity;
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
 
 TEST(TestDesktopKlineFlashTransport, configureSetsAndResetsParityOnReusedFacade)
 {
@@ -77,7 +80,7 @@ TEST(TestDesktopKlineFlashTransport, rawCallsUseRawSerialMethods)
     FakeCancellationToken cancellation;
     const auto result = transport.ReadRaw(10ms, cancellation);
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->has_value());
+    ASSERT_THAT(*result, Optional(_));
     ASSERT_EQ(result->value(), (bytes::Bytes{0x00, 0xff}));
 }
 
@@ -368,7 +371,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsScriptedBytesOnSuccess)
     const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->has_value());
+    ASSERT_THAT(*result, Optional(_));
     ASSERT_TRUE(result->value() == (bytes::Bytes{0x01, 0x02}));
 }
 
@@ -534,7 +537,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsEmptyOptionalWhenBackendReturnsN
     const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(!result->has_value());
+    ASSERT_THAT(*result, Eq(std::nullopt));
 }
 
 // setBaud()'s catch(const std::exception&) branch: change_port_speed()
@@ -824,7 +827,7 @@ TEST(TestDesktopKlineFlashTransport, requestUnblockCausesAPendingReadToReturnPro
 
     ASSERT_TRUE(reader_finished.load());
     ASSERT_THAT(in_flight_result, IsOk());
-    ASSERT_TRUE(in_flight_result->has_value());
+    ASSERT_THAT(*in_flight_result, Optional(_));
     ASSERT_TRUE(in_flight_result->value() == bytes::Bytes{0xAA});
 
     // Second half of the contract: the *next* read must not reach the

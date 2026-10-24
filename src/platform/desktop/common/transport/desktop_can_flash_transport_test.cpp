@@ -36,6 +36,9 @@ using fastecu::flash::DesktopCanFlashTransport;
 using fastecu::flash::Iso15765Config;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
 
 TEST(TestDesktopCanFlashTransport, configureChecksEveryBooleanSetterInOrderAndStopsAtFirstFailure)
 {
@@ -425,7 +428,7 @@ TEST(TestDesktopCanFlashTransport, readReturnsScriptedBytesOnSuccess)
     const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->has_value());
+    ASSERT_THAT(*result, Optional(_));
     ASSERT_TRUE(result->value() == (bytes::Bytes{0x01, 0x02}));
 }
 
@@ -535,7 +538,7 @@ TEST(TestDesktopCanFlashTransport, readReturnsEmptyOptionalWhenBackendReturnsNoB
     const auto result = transport.Read(50ms, cancellation);
 
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(!result->has_value());
+    ASSERT_THAT(*result, Eq(std::nullopt));
 }
 
 // write()'s catch(const std::exception&) branch.
@@ -751,7 +754,7 @@ TEST(TestDesktopCanFlashTransport, requestUnblockCausesAPendingReadToReturnPromp
 
     ASSERT_TRUE(reader_finished.load());
     ASSERT_THAT(in_flight_result, IsOk());
-    ASSERT_TRUE(in_flight_result->has_value());
+    ASSERT_THAT(*in_flight_result, Optional(_));
     ASSERT_TRUE(in_flight_result->value() == bytes::Bytes{0xAA});
 
     // Second half of the contract: the *next* read must not reach the

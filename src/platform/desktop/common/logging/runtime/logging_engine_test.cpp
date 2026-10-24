@@ -1,6 +1,7 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/testing/core_application_environment.h"
 #include <string>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "src/platform/desktop/common/testing/signal_recorder.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
@@ -14,6 +15,9 @@
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
+
+using ::testing::_;
+using ::testing::Optional;
 
 namespace fastecu::desktop::logging
 {
@@ -339,7 +343,7 @@ TEST(TestLoggingEngine, completion_observer_can_immediately_start_a_second_run)
 
     ASSERT_TRUE(restart_attempted);
     ASSERT_TRUE(observer_saw_idle);
-    ASSERT_TRUE(restart_result.has_value());
+    ASSERT_THAT(restart_result, Optional(_));
     ASSERT_THAT(*restart_result, fastecu::testing::IsOk());
     ASSERT_TRUE(second_protocol->WaitUntilPollEntered(std::chrono::milliseconds(500)));
     ASSERT_TRUE(engine.IsRunning());
