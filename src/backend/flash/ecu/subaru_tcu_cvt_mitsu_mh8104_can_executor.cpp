@@ -181,7 +181,7 @@ Result<std::optional<bytes::Bytes>> RetryUntilAnyReply(Ctx& ctx, bytes::ByteView
 // both an empty reply and a present-but-wrong one report "not running";
 // only an exact match reports true, and only a genuine transport-level
 // failure (Disconnected/Cancelled/malformed envelope) is fatal here.
-// uds::payload() bounds-checks the reply bytes past the service id instead
+// uds::Payload() bounds-checks the reply bytes past the service id instead
 // of raw-indexing off the end of a short buffer, so the port is
 // structurally incapable of the legacy UB here, not merely avoiding it by
 // convention (see the implementation brief's Step 7).
@@ -316,7 +316,7 @@ Status ConnectBootloader(Ctx& ctx)
     LogInfo(ctx, "Seed request ok");
     // Legacy indexes received.at(6..9) -- the 4 bytes after the
     // subfunction byte of the stripped PDU -- with no length guard (lines
-    // 253-256). uds::payload() strips the service id bounds-safely; any
+    // 253-256). uds::Payload() strips the service id bounds-safely; any
     // seed byte past what the reply actually carries defaults to 0x00
     // rather than reading out of bounds, matching this family's total
     // content tolerance (a short/wrong reply still produces SOME seed key,

@@ -12,11 +12,14 @@
 #include "src/backend/ports/result.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
-// Shared UdsClient exchange plumbing for this package's CAN executors
-// (mitsu_colt_m32r, subaru_hitachi_m32r, subaru_tcu_cvt_hitachi_m32r,
-// subaru_tcu_cvt_mitsu_mh8111 -- subaru_tcu_cvt_mitsu_mh8104 talks to
-// uds::IUdsChannel directly and does not use this, see that executor's own
-// file header). Extracted because all four families independently carried a
+// Shared UdsClient exchange plumbing for this package's CAN executors:
+// mitsu_colt_m32r, subaru_hitachi_m32r, subaru_tcu_cvt_hitachi_m32r,
+// subaru_tcu_cvt_mitsu_mh8111, the Denso ISO-15765 bootloader dialect
+// (denso_iso15765_*) and the three Denso BEEF CAN executors
+// (subaru_denso_sh7058_can, its diesel sibling and subaru_tcu_denso_sh705x_can,
+// through denso_beef_can_common.h). subaru_tcu_cvt_mitsu_mh8104 talks to
+// uds::IUdsChannel directly and uses none of it, see that executor's own file
+// header. Extracted because the first four families independently carried a
 // byte-for-byte identical copy of this logging/wrapping logic.
 namespace fastecu::flash
 {
@@ -86,7 +89,7 @@ template <WithEventSink C> void LogDebug(const C& ctx, std::string_view message)
 // The pieces every UdsClient-backed exchange below needs, bundled so call
 // sites needing a non-default client (a second UdsClient bound to a
 // different CAN id pair, for example) can build one inline instead of
-// growing fatal_request's/non_fatal_query's own parameter list.
+// growing FatalRequest's/NonFatalQuery's own parameter list.
 struct UdsExchangeContext
 {
     uds::UdsClient& client;
@@ -103,7 +106,7 @@ inline UdsExchangeContext ExchangeContext(const CanExecutorContext& ctx, const u
 }
 
 // Sends `pdu` through `ctx.client` and, on failure, logs via
-// report_exchange_failure with a fixed `rejection_prefix` and returns the
+// ReportExchangeFailure with a fixed `rejection_prefix` and returns the
 // error. The shape every fatal exchange uses except any whose expected
 // reply does not follow the standard SID+0x40 convention UdsClient itself
 // enforces (those go through uds::IUdsChannel directly).
@@ -117,8 +120,8 @@ Result<bytes::Bytes> FatalRequest(const UdsExchangeContext& ctx, bytes::ByteView
 void NonFatalQuery(const UdsExchangeContext& ctx, bytes::ByteView pdu, std::optional<bytes::Byte> expected_subfunction,
                    std::string_view rejection_prefix, std::string_view label);
 
-// The fatal counterpart to non_fatal_query: sends `pdu` via fatal_request,
-// then requires the response payload (uds::payload of the reply, i.e.
+// The fatal counterpart to NonFatalQuery: sends `pdu` via FatalRequest,
+// then requires the response payload (uds::Payload of the reply, i.e.
 // everything past the service id) to be at least
 // min_payload_size.value_or(expected_prefix.size()) bytes long and to start
 // with `expected_prefix`. `expected_prefix` is one byte for a bare
@@ -129,11 +132,11 @@ void NonFatalQuery(const UdsExchangeContext& ctx, bytes::ByteView pdu, std::opti
 //
 // `subject` names what was being asked ("bench diagnostic session", "seed
 // key") and is folded into all three log/error strings a call site would
-// otherwise have to spell out itself: "the {subject}" as fatal_request's
+// otherwise have to spell out itself: "the {subject}" as FatalRequest's
 // operation, "unexpected {subject} response" as the mismatch log line (after
 // rejection_prefix), and "{subject} rejected" as the returned
 // BadResponse's detail. Callers that need the legacy-exact wording on any of
-// those three still have fatal_request plus their own hand-written check
+// those three still have FatalRequest plus their own hand-written check
 // available.
 Result<bytes::Bytes> FatalQuery(const UdsExchangeContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                                 std::string_view rejection_prefix, std::string_view subject,

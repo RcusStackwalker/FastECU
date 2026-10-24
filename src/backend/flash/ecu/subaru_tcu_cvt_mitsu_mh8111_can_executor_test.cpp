@@ -246,7 +246,7 @@ void ScriptStopCommand(ScriptedCanFlashTransport& transport)
 // start & length setup rejected"), not Timeout -- a different assertion,
 // not just a different constant, from what the shared
 // ReadReportsAnEmptyReplyAsTimeout test checks. The seed request, by
-// contrast, goes through the standard fatal_query/UdsClient::request path,
+// contrast, goes through the standard FatalQuery/UdsClient::request path,
 // which maps every one of these three failure modes exactly the way the
 // conformance suite expects, so it is the cut point used here instead.
 void ScriptUpToFirstFatalRead(ScriptedCanFlashTransport& transport)
@@ -549,12 +549,12 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadStopsWhenCancelled)
 // which stops at read_mem's 0x35 dump-setup exchange -- routed through
 // ctx.channel directly but still a single, non-looped call -- this pins a
 // transport error raised *inside* the 0xB7 dump-chunk loop, whose reads go
-// through fatal_request at a different call site, inside a `for` loop
+// through FatalRequest at a different call site, inside a `for` loop
 // carrying its own cancellation-check and progress-accumulation state.
-// fatal_request's generic error propagation is covered once for every family
+// FatalRequest's generic error propagation is covered once for every family
 // by uds_client_exchange_common_test.cpp; this test is what actually proves
 // the loop itself aborts cleanly -- without corrupting rom/progress state --
-// on a transport error, rather than assuming fatal_request's coverage
+// on a transport error, rather than assuming FatalRequest's coverage
 // implies the loop wrapping it behaves the same way.
 TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadDisconnectMidDumpLoopPropagates)
 {

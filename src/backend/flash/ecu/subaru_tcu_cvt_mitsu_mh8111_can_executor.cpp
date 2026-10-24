@@ -65,9 +65,9 @@ UdsExchangeContext ExchangeContext(Ctx& ctx)
     return UdsExchangeContext{ctx.uds, kExchangePolicy, ctx.cancellation, ctx.events};
 }
 
-// Thin wrapper over the shared report_exchange_failure (uds_client_exchange_
+// Thin wrapper over the shared ReportExchangeFailure (uds_client_exchange_
 // common.h) for erase_memory's own hand-rolled retry loop below, which
-// cannot go through fatal_request -- it only propagates on Cancelled, not
+// cannot go through FatalRequest -- it only propagates on Cancelled, not
 // on every failure.
 Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
                             std::string_view operation)
@@ -83,9 +83,9 @@ Result<bytes::Bytes> FatalRequest(Ctx& ctx, bytes::ByteView pdu, std::string_vie
     return ::fastecu::flash::FatalRequest(ExchangeContext(ctx), pdu, kRejectionPrefix, operation);
 }
 
-// The fatal_request + expected-response-prefix check every exchange in
-// connect_bootloader below repeats -- see uds_client_exchange_common.h's
-// fatal_query for what expected_prefix, subject, and min_payload_size mean.
+// Binds this family's context and rejection prefix to the shared FatalQuery,
+// which connect_bootloader calls for each of its exchanges. The shared
+// header documents expected_prefix, subject and min_payload_size.
 Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                                 std::string_view subject, std::optional<std::size_t> min_payload_size = std::nullopt)
 {
@@ -214,7 +214,7 @@ Status ConnectBootloader(Ctx& ctx)
     // does not match the actual legacy source and is disclosed here as a
     // found brief/source discrepancy, not silently resolved either way.
     // Because the reply's service byte does not match the sent PDU's own
-    // SID, this cannot go through fatal_request()/ctx.uds (UdsClient::
+    // SID, this cannot go through FatalRequest()/ctx.uds (UdsClient::
     // request() would reject any 0x71-led reply as "expected response to
     // SID 0x34, got 0x71", making this step always fail) -- routed through
     // the channel directly instead.
@@ -303,7 +303,7 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
     // would be 0x75). The trailing 6 bytes are a hardcoded literal, NOT
     // derived from kReadRegion.start/length (0x8000/0x78000) -- confirmed
     // directly against the source. Because the ack's service byte does not
-    // match the sent PDU's own SID, this cannot go through fatal_request()/
+    // match the sent PDU's own SID, this cannot go through FatalRequest()/
     // ctx.uds either -- routed through the channel directly, mirroring the
     // alive-check exchange's own necessity in connect_bootloader.
     LogInfo(ctx, "Settting dump start & length...");
@@ -394,7 +394,7 @@ Status SendChunks(Ctx& ctx, bytes::ByteView encrypted, PhaseReporter& progress)
         // Legacy reads but never inspects the per-chunk reply at all (lines
         // 734-736) -- only a transport-level failure from the read itself
         // fails this exchange. Routed through the channel directly, not
-        // fatal_request()/ctx.uds, which would enforce a SID+0x40 content
+        // FatalRequest()/ctx.uds, which would enforce a SID+0x40 content
         // match this family's legacy code never checks here.
         if (const Status exchanged = ExchangeCvtB6Chunk(ctx.channel, ctx.cancellation, addr, chunk_data);
             !exchanged.has_value())

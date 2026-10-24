@@ -239,7 +239,7 @@ void ScriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, 
 }
 
 // Scripts the "Sending stop command..." exchange (legacy read_mem). A well-
-// formed 0x77 reply is success through fatal_request()'s standard SID+0x40
+// formed 0x77 reply is success through FatalRequest()'s standard SID+0x40
 // matching -- see the executor's comment on legacy's own inverted polarity
 // there.
 void ScriptStopCommand(ScriptedCanFlashTransport& transport)
@@ -556,14 +556,14 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsWhenCancelled)
 }
 
 // Unlike ReadPropagatesADisconnectedTransport (can_executor_conformance.h),
-// which stops at read_mem's dump-setup exchange -- a fatal_query call --
+// which stops at read_mem's dump-setup exchange -- a FatalQuery call --
 // this pins a transport error raised *inside* the 0xB7 dump-chunk loop, whose
-// reads go through fatal_request at a different call site, inside a `for`
+// reads go through FatalRequest at a different call site, inside a `for`
 // loop carrying its own cancellation-check and progress-accumulation state.
-// fatal_request's generic error propagation is covered once for every family
+// FatalRequest's generic error propagation is covered once for every family
 // by uds_client_exchange_common_test.cpp; this test is what actually proves
 // the loop itself aborts cleanly -- without corrupting rom/progress state --
-// on a transport error, rather than assuming fatal_request's coverage
+// on a transport error, rather than assuming FatalRequest's coverage
 // implies the loop wrapping it behaves the same way.
 TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadDisconnectMidDumpLoopPropagates)
 {

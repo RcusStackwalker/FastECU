@@ -129,10 +129,10 @@ struct Ctx
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from TCU: ";
 
-// Thin wrapper over the shared report_exchange_failure
+// Thin wrapper over the shared ReportExchangeFailure
 // (uds_client_exchange_common.h) for the two exchanges below that read a
 // raw uds::IUdsChannel reply directly instead of going through
-// fatal_request -- their expected reply does not follow the standard
+// FatalRequest -- their expected reply does not follow the standard
 // SID+0x40 convention UdsClient itself enforces.
 Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
                             std::string_view operation)
@@ -157,8 +157,8 @@ Result<bytes::Bytes> FatalRequest(Ctx& ctx, bytes::ByteView pdu, std::string_vie
     return FatalRequest(ctx, ctx.uds, pdu, operation);
 }
 
-// The fatal_request + expected-response-prefix check every ctx.uds exchange
-// below repeats -- see uds_client_exchange_common.h's fatal_query for what
+// The FatalRequest + expected-response-prefix check every ctx.uds exchange
+// below repeats -- see uds_client_exchange_common.h's FatalQuery for what
 // expected_prefix, subject, and min_payload_size mean.
 Result<bytes::Bytes> FatalQuery(Ctx& ctx, uds::UdsClient& client, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                                 std::string_view subject, std::optional<std::size_t> min_payload_size = std::nullopt)
@@ -177,7 +177,7 @@ Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView e
 // 137-211, 244-265): logged on mismatch or absence but never halt
 // connect_bootloader -- even a genuine exchange failure is logged and
 // swallowed, mirroring subaru_hitachi_m32r_can_executor.cpp's
-// non_fatal_query and legacy's own total absence of an early return here.
+// NonFatalQuery and legacy's own total absence of an early return here.
 // All three follow the standard SID+0x40 convention (0xAA->0xEA, 0x09->0x49,
 // 0x10->0x50), so they go through `client` (always ctx.other_uds here) like
 // every other exchange, instead of a hand-rolled raw path.
@@ -240,7 +240,7 @@ Status ConnectBootloader(Ctx& ctx)
     // convention, so `ctx.other_uds` -- a second CanFlashUdsChannel/UdsClient
     // pair bound to (0x7e0, family.response_id) over the same underlying
     // transport (see execute() and Ctx's comment) -- carries them through
-    // the same fatal_request()/non_fatal_query() machinery every other
+    // the same FatalRequest()/NonFatalQuery() machinery every other
     // exchange in this file uses, rather than a hand-rolled raw path.
     LogInfo(ctx, "Requesting TCU ID");
     NonFatalQuery(ctx, ctx.other_uds, bytes::Bytes{uds::kSidEcuIdQuery}, std::nullopt, "TCU ID");
@@ -290,7 +290,7 @@ Status ConnectBootloader(Ctx& ctx)
     LogInfo(ctx, "Seed key ok");
 
     // Jump 0x10/0x02 (lines 339-365): back to this family's own 0x7e1,
-    // fatal, standard SID+0x40 -- routed through fatal_request/ctx.uds.
+    // fatal, standard SID+0x40 -- routed through FatalRequest/ctx.uds.
     LogInfo(ctx, "Jumping to onboard kernel...");
     if (Result<bytes::Bytes> jump_reply =
             FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionProgramming},
@@ -366,7 +366,7 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
     // uses != 0x77). Reproducing the inversion literally would make a
     // successful read always report failure, defeating this port's stated
     // purpose of giving the family a working path for the first time.
-    // Routing this exchange through fatal_request(), exactly like every
+    // Routing this exchange through FatalRequest(), exactly like every
     // other standard SID+0x40 exchange in this file, naturally yields the
     // correct polarity (a matching 0x77 is Ok, anything else is an error)
     // without reproducing the bug -- disclosed here as a third deliberate
@@ -394,7 +394,7 @@ Status EraseMemory(Ctx& ctx)
     }
     // Legacy checks the echoed SID literally (0x31), not the standard
     // SID+0x40 positive-response convention (0x71) every other exchange in
-    // this file uses -- this cannot go through fatal_request()/ctx.uds,
+    // this file uses -- this cannot go through FatalRequest()/ctx.uds,
     // which would classify a raw 0x31-prefixed reply as Malformed and
     // reject it regardless of content (confirmed against lines 1022-1036;
     // the brief's own scripting note, "fatal-checked 0x31 0x02 0x01",
@@ -430,7 +430,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
     constexpr std::uint32_t kChunkSize = 128;
 
     // "Settting flash start & length..." (lines 845-880): fatal, and only
-    // the SID is checked (received.at(4) != 0x74) -- fatal_request()'s own
+    // the SID is checked (received.at(4) != 0x74) -- FatalRequest()'s own
     // SID+0x40 matching already enforces exactly that.
     LogInfo(ctx, "Settting flash start & length...");
     if (Result<bytes::Bytes> setup =
@@ -461,7 +461,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
         // Legacy reads but never inspects the per-chunk reply at all (lines
         // 907-908) -- only a transport-level failure from the read itself
         // fails this exchange. Routed through the channel directly (not
-        // fatal_request()/ctx.uds, which would enforce the SID+0x40 content
+        // FatalRequest()/ctx.uds, which would enforce the SID+0x40 content
         // match this family's legacy code never checks here).
         if (const Status exchanged = ExchangeCvtB6Chunk(ctx.channel, ctx.cancellation, addr, chunk_data);
             !exchanged.has_value())
