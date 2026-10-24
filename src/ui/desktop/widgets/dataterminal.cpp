@@ -75,7 +75,7 @@ void DataTerminal::protocolTypeChanged(int)
     QObject *obj = sender();
     QString interfaceTypeName = obj->objectName();
 
-    QComboBox *protocolType = (QComboBox *)obj;
+    QComboBox *protocolType = static_cast<QComboBox *>(obj);
 
     if (protocolType)
     {
@@ -95,7 +95,7 @@ void DataTerminal::listenInterface()
     QObject *obj = sender();
     QString interfaceTypeName = obj->objectName();
 
-    QPushButton *btn = (QPushButton *)obj;
+    QPushButton *btn = static_cast<QPushButton *>(obj);
     if (btn->isChecked())
     {
         if (interfaceTypeName == "klineProtocol")
@@ -339,7 +339,7 @@ uint8_t DataTerminal::calculateChecksum(const QByteArray& output, bool dec0x100)
 
     if (dec0x100)
     {
-        checksum = (uint8_t)(0x100 - checksum);
+        checksum = static_cast<uint8_t>(0x100 - checksum);
     }
 
     return checksum;
@@ -356,7 +356,7 @@ QString DataTerminal::parseMessageToHex(const QByteArray& received)
 
     for (int i = 0; i < received.length(); i++)
     {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUtf8());
+        msg.append(QString("%1 ").arg(static_cast<uint8_t>(received.at(i)), 2, 16, QLatin1Char('0')).toUtf8());
     }
 
     return msg;

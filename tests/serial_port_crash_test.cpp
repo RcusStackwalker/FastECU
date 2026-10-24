@@ -212,12 +212,13 @@ TEST(SerialPortCrashTest, j2534Handshake_overMockPty_readVersionSucceeds)
         ASSERT_EQ(j2534.OpenSerialPort(pty_path), pty_path);
 
         unsigned long dev_id = 1;
-        ASSERT_EQ(j2534.PassThruOpen(nullptr, &dev_id), (long)kJ2534StatusNoerror);
+        ASSERT_EQ(j2534.PassThruOpen(nullptr, &dev_id), static_cast<long>(kJ2534StatusNoerror));
 
         std::array<char, 256> api{};
         std::array<char, 256> dll{};
         std::array<char, 256> fw{};
-        ASSERT_EQ(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), dev_id), (long)kJ2534StatusNoerror);
+        ASSERT_EQ(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), dev_id),
+                  static_cast<long>(kJ2534StatusNoerror));
         ASSERT_EQ(QString::fromUtf8(fw.data()).trimmed(), QStringLiteral("1.17.4877"));
 
         j2534.CloseSerialPort();

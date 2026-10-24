@@ -161,7 +161,7 @@ QString J2534::ParseMessageToHex(const QByteArray& received)
 
     for (int i = 0; i < received.length(); i++)
     {
-        msg.append(QString("%1 ").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUtf8());
+        msg.append(QString("%1 ").arg(static_cast<uint8_t>(received.at(i)), 2, 16, QLatin1Char('0')).toUtf8());
     }
 
     return msg;
@@ -182,7 +182,7 @@ long J2534::PassThruOpen(const void *p_name, unsigned long *p_device_id)
     QByteArray received;
     QByteArray check_result = "ar";
     QString name = static_cast<const char *>(p_name);
-    unsigned long *dev_id = (unsigned long *)p_device_id;
+    unsigned long *dev_id = p_device_id;
     long result = kJ2534ErrNotSupported;
 
     p_device_id = 0;
@@ -229,10 +229,10 @@ long J2534::PassThruConnect(unsigned long /*device_id*/, unsigned long protocol_
 {
     QByteArray output;
     QByteArray received;
-    unsigned long chan_id = (unsigned long)p_channel_id;
+    unsigned long chan_id = reinterpret_cast<unsigned long>(p_channel_id);
     long result = kJ2534StatusNoerror;
 
-    switch ((int)protocol_id)
+    switch (static_cast<int>(protocol_id))
     {
     case kJ2534Iso9141:
     case kJ2534Iso14230:
@@ -334,7 +334,7 @@ J2534::FrameOutcome J2534::HandleAdapterFrame(QByteArray& received, RxState& sta
         return FrameOutcome::kContinue;
     case 'r': // battery voltage
     case 'w': // five-baud init
-        while ((uint8_t)received.back() != 0x0a)
+        while (static_cast<uint8_t>(received.back()) != 0x0a)
         {
             received.append(ReadSerialData(1, state.timeout));
         }
@@ -460,7 +460,7 @@ void J2534::CopyPayload(const QByteArray& received, qsizetype offset, RxState& s
 {
     for (unsigned long i = 0; i < state.msg_byte_cnt; i++)
     {
-        state.msg->data[state.msg_index++] = (uint8_t)received.at(static_cast<qsizetype>(i) + offset);
+        state.msg->data[state.msg_index++] = static_cast<uint8_t>(received.at(static_cast<qsizetype>(i) + offset));
     }
 }
 

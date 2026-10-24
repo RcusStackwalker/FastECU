@@ -509,11 +509,11 @@ void QHexEdit::ensureVisible()
 {
     if (cursor_position_ < (b_pos_first_ * 2))
     {
-        verticalScrollBar()->setValue((int)(cursor_position_ / 2 / bytes_per_line_));
+        verticalScrollBar()->setValue(static_cast<int>(cursor_position_ / 2 / bytes_per_line_));
     }
     if (cursor_position_ > ((b_pos_first_ + static_cast<qint64>((rows_shown_ - 1) * bytes_per_line_)) * 2))
     {
-        verticalScrollBar()->setValue((int)(cursor_position_ / 2 / bytes_per_line_) - rows_shown_ + 1);
+        verticalScrollBar()->setValue(static_cast<int>(cursor_position_ / 2 / bytes_per_line_) - rows_shown_ + 1);
     }
     if (px_cursor_x_ < horizontalScrollBar()->value())
     {
@@ -1312,13 +1312,13 @@ void QHexEdit::adjust()
 
     // set verticalScrollbar()
     rows_shown_ = ((viewport()->height() - 4) / px_char_height_);
-    int lineCount = (int)(chunks_->size() / (qint64)bytes_per_line_) + 1;
+    int lineCount = static_cast<int>(chunks_->size() / static_cast<qint64>(bytes_per_line_)) + 1;
     verticalScrollBar()->setRange(0, lineCount - rows_shown_);
     verticalScrollBar()->setPageStep(rows_shown_);
 
     int value = verticalScrollBar()->value();
-    b_pos_first_ = (qint64)value * bytes_per_line_;
-    b_pos_last_ = b_pos_first_ + (qint64)(rows_shown_ * bytes_per_line_) - 1;
+    b_pos_first_ = static_cast<qint64>(value) * bytes_per_line_;
+    b_pos_last_ = b_pos_first_ + static_cast<qint64>(rows_shown_ * bytes_per_line_) - 1;
     if (b_pos_last_ >= chunks_->size())
     {
         b_pos_last_ = chunks_->size() - 1;
