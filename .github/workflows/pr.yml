@@ -288,7 +288,7 @@ jobs:
         run: bazel test --config=release //tools/clang-tidy/aspect/tests:transition_outputs_test
 
       - name: clang-tidy module fixtures
-        run: bazel run --config=release //:clang_tidy_check_fixtures
+        run: bazel test --config=release //tools/clang-tidy/scripts:clang_tidy_check_fixtures
 
       - name: clang-tidy report
         run: |
