@@ -9,7 +9,9 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QRegularExpression>
 #include <QSignalBlocker>
+#include <QTextEdit>
 #include <QFileDialog>
 #include <QKeySequence>
 #include <QLineEdit>
@@ -1041,6 +1043,10 @@ class MainWindowTest : public ::testing::Test
     void checkChooserDuplicateLabelIdentity(int tab, QString kind);
     void checkLoggingStartWaitsForIdentification(bool targetIsEcu);
     void checkBatterySamplingDoesNotUseTheFacadeDuringIdentification();
+    void checkLogWindowLinesReachEveryOpenOperationsWindow();
+    void checkBatteryReadingReachesEveryOperationsWindowWithALabel();
+    void checkOnlyTheOpenWindowsReceiveLogLines();
+    void checkDataTerminalWindowAddsNoDebugLines();
     void checkWindowDestructionStopsLoggingWithoutAModalNotice();
     void checkWindowDestructionJoinsIdentificationWithoutContinuingLogging();
     void checkReplacementDuringSampleNotificationDiscardsOldBatch();
@@ -4218,6 +4224,141 @@ void MainWindowTest::checkBatterySamplingDoesNotUseTheFacadeDuringIdentification
 TEST_F(MainWindowTest, batterySamplingDoesNotUseTheFacadeDuringIdentification)
 {
     ASSERT_NO_FATAL_FAILURE(checkBatterySamplingDoesNotUseTheFacadeDuringIdentification());
+}
+
+namespace
+{
+
+constexpr std::array<const char *, 4> kOperationsWindowNames{"EcuOperationsWindow", "BiuOperationsSubaruWindow",
+                                                             "DtcOperationsWindow", "DataTerminalWindow"};
+
+// Opens a stand-in operations window: a child dialog of `window` named
+// `name`, with the log text edit and, when asked, the battery label.
+QDialog *openOperationsWindow(MainWindow& window, const char *name, bool withBatteryLabel)
+{
+    auto *dialog = new QDialog(&window);
+    dialog->setObjectName(QString::fromLatin1(name));
+    auto *text = new QTextEdit(dialog);
+    text->setObjectName("text_edit");
+    if (withBatteryLabel)
+    {
+        auto *label = new QLabel(dialog);
+        label->setObjectName("vBattLabel");
+    }
+    return dialog;
+}
+
+// The debug lines `recorder` saw, as text.
+QStringList debugTexts(const fastecu::testing::SignalRecorder<void (MainWindow::*)(QString, bool, bool)>& recorder)
+{
+    QStringList texts;
+    for (const auto& [message, timestamp, linefeed] : recorder.Snapshot())
+    {
+        texts << message;
+    }
+    return texts;
+}
+
+} // namespace
+
+void MainWindowTest::checkLogWindowLinesReachEveryOpenOperationsWindow()
+{
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    constructorDriver.stop();
+    window.vbatt_timer_->stop();
+    std::vector<QDialog *> dialogs;
+    std::ranges::transform(kOperationsWindowNames, std::back_inserter(dialogs),
+                           [&window](const char *name) { return openOperationsWindow(window, name, false); });
+
+    window.sendMessageToLogWindow("line\n");
+
+    for (QDialog *dialog : dialogs)
+    {
+        SCOPED_TRACE(dialog->objectName().toStdString());
+        EXPECT_EQ(dialog->findChild<QTextEdit *>("text_edit")->toPlainText(), "line\n");
+    }
+}
+
+TEST_F(MainWindowTest, logWindowLinesReachEveryOpenOperationsWindow)
+{
+    ASSERT_NO_FATAL_FAILURE(checkLogWindowLinesReachEveryOpenOperationsWindow());
+}
+
+void MainWindowTest::checkBatteryReadingReachesEveryOperationsWindowWithALabel()
+{
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    constructorDriver.stop();
+    window.vbatt_timer_->stop();
+    // Only the ECU and DTC windows carry a battery label.
+    QDialog *ecu = openOperationsWindow(window, "EcuOperationsWindow", true);
+    openOperationsWindow(window, "BiuOperationsSubaruWindow", false);
+    QDialog *dtc = openOperationsWindow(window, "DtcOperationsWindow", true);
+    openOperationsWindow(window, "DataTerminalWindow", false);
+    ON_CALL(*services.fake, GetUseOpenport2Adapter()).WillByDefault(::testing::Return(true));
+    ON_CALL(*services.fake, ReadVbatt()).WillByDefault(::testing::Return(12345UL));
+    fastecu::testing::SignalRecorder debugLines{&window, &MainWindow::logD};
+
+    window.updateVbatt();
+
+    EXPECT_EQ(ecu->findChild<QLabel *>("vBattLabel")->text(), "Battery: 12.345 V");
+    EXPECT_EQ(dtc->findChild<QLabel *>("vBattLabel")->text(), "Battery: 12.345 V");
+    EXPECT_EQ(debugTexts(debugLines).count("Battery: 12.345 V"), 2);
+}
+
+TEST_F(MainWindowTest, batteryReadingReachesEveryOperationsWindowWithALabel)
+{
+    ASSERT_NO_FATAL_FAILURE(checkBatteryReadingReachesEveryOperationsWindowWithALabel());
+}
+
+void MainWindowTest::checkOnlyTheOpenWindowsReceiveLogLines()
+{
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    constructorDriver.stop();
+    window.vbatt_timer_->stop();
+    QDialog *dtc = openOperationsWindow(window, "DtcOperationsWindow", false);
+
+    window.sendMessageToLogWindow("only\n");
+
+    EXPECT_EQ(dtc->findChild<QTextEdit *>("text_edit")->toPlainText(), "only\n");
+}
+
+TEST_F(MainWindowTest, onlyTheOpenWindowsReceiveLogLines)
+{
+    ASSERT_NO_FATAL_FAILURE(checkOnlyTheOpenWindowsReceiveLogLines());
+}
+
+void MainWindowTest::checkDataTerminalWindowAddsNoDebugLines()
+{
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    constructorDriver.stop();
+    window.vbatt_timer_->stop();
+    openOperationsWindow(window, "DataTerminalWindow", false);
+    ON_CALL(*services.fake, GetUseOpenport2Adapter()).WillByDefault(::testing::Return(true));
+    ON_CALL(*services.fake, ReadVbatt()).WillByDefault(::testing::Return(12345UL));
+    fastecu::testing::SignalRecorder debugLines{&window, &MainWindow::logD};
+
+    window.sendMessageToLogWindow("x");
+    window.updateVbatt();
+
+    EXPECT_TRUE(debugTexts(debugLines).filter(QRegularExpression("^Found dataTerminalWindow")).isEmpty())
+        << qPrintable(debugTexts(debugLines).join(" | "));
+}
+
+TEST_F(MainWindowTest, dataTerminalWindowAddsNoDebugLines)
+{
+    ASSERT_NO_FATAL_FAILURE(checkDataTerminalWindowAddsNoDebugLines());
 }
 
 void MainWindowTest::checkWindowDestructionJoinsIdentificationWithoutContinuingLogging()

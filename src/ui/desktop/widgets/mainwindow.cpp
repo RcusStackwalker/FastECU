@@ -11,6 +11,7 @@
 #include "src/ui/desktop/calibration/session_key.h"
 #include "ui_mainwindow.h"
 #include <QScopeGuard>
+#include <array>
 #include <cstddef>
 #include <iterator>
 #include <memory>
@@ -50,6 +51,28 @@ template <typename Sender> void forwardLogs(Sender *sender, fastecu::ui::LogChan
     QObject::connect(sender, &Sender::logW, channel, &fastecu::ui::LogChannel::logW);
     QObject::connect(sender, &Sender::logI, channel, &fastecu::ui::LogChannel::logI);
     QObject::connect(sender, &Sender::logD, channel, &fastecu::ui::LogChannel::logD);
+}
+
+// The dialogs that mirror the log window and battery reading, by objectName.
+constexpr std::array<const char *, 4> kOperationsWindows{"EcuOperationsWindow", "BiuOperationsSubaruWindow",
+                                                         "DtcOperationsWindow", "DataTerminalWindow"};
+
+// Calls `apply` with each open operations window's child of type Child named
+// `child`. Windows are looked up on every call, so a closed one is skipped.
+template <typename Child, typename Apply> void forEachOperationsChild(QObject& root, const char *child, Apply apply)
+{
+    for (const char *name : kOperationsWindows)
+    {
+        auto *window = root.findChild<QDialog *>(QString::fromLatin1(name));
+        if (window == nullptr)
+        {
+            continue;
+        }
+        if (auto *found = window->findChild<Child *>(QString::fromLatin1(child)); found != nullptr)
+        {
+            apply(*found);
+        }
+    }
 }
 } // namespace
 
@@ -1741,55 +1764,12 @@ void MainWindow::externalLoggerSetProgressbarValue(int value)
 
 void MainWindow::sendMessageToLogWindow(const QString& msg)
 {
-    // EcuOperationsWindow
-    QDialog *ecuOperationsWindow = this->findChild<QDialog *>("EcuOperationsWindow");
-    if (ecuOperationsWindow)
-    {
-        // emit LOG_D("Found ecuOperationsWindow", true, true);
-        QTextEdit *textEdit = ecuOperationsWindow->findChild<QTextEdit *>("text_edit");
-        if (textEdit)
-        {
-            // emit LOG_D("Found ecuOperationsWindow->textEdit", true, true);
-            textEdit->insertPlainText(msg);
-            textEdit->ensureCursorVisible();
-        }
-    }
-    QDialog *biuOperationsSubaruWindow = this->findChild<QDialog *>("BiuOperationsSubaruWindow");
-    if (biuOperationsSubaruWindow)
-    {
-        // emit LOG_D("Found biuOperationsSubaruWindow", true, true);
-        QTextEdit *textEdit = biuOperationsSubaruWindow->findChild<QTextEdit *>("text_edit");
-        if (textEdit)
-        {
-            // emit LOG_D("Found biuOperationsSubaruWindow->textEdit", true, true);
-            textEdit->insertPlainText(msg);
-            textEdit->ensureCursorVisible();
-        }
-    }
-    QDialog *dtcOperationsWindow = this->findChild<QDialog *>("DtcOperationsWindow");
-    if (dtcOperationsWindow)
-    {
-        // emit LOG_D("Found dtcOperationsWindow", true, true);
-        QTextEdit *textEdit = dtcOperationsWindow->findChild<QTextEdit *>("text_edit");
-        if (textEdit)
-        {
-            // emit LOG_D("Found dtcOperationsWindow->textEdit", true, true);
-            textEdit->insertPlainText(msg);
-            textEdit->ensureCursorVisible();
-        }
-    }
-    QDialog *dataTerminalWindow = this->findChild<QDialog *>("DataTerminalWindow");
-    if (dataTerminalWindow)
-    {
-        emit logD("Found dataTerminalWindow", true, true);
-        QTextEdit *textEdit = dataTerminalWindow->findChild<QTextEdit *>("text_edit");
-        if (textEdit)
-        {
-            emit logD("Found dataTerminalWindow->textEdit", true, true);
-            textEdit->insertPlainText(msg);
-            textEdit->ensureCursorVisible();
-        }
-    }
+    forEachOperationsChild<QTextEdit>(*this, "text_edit",
+                                      [&msg](QTextEdit& textEdit)
+                                      {
+                                          textEdit.insertPlainText(msg);
+                                          textEdit.ensureCursorVisible();
+                                      });
 }
 
 void MainWindow::updateVbatt()
@@ -1804,59 +1784,14 @@ void MainWindow::updateVbatt()
         return;
     }
     const unsigned long vBatt = *reading;
-
-    QDialog *ecuOperationsWindow = this->findChild<QDialog *>("EcuOperationsWindow");
-    if (ecuOperationsWindow)
-    {
-        // emit LOG_D("Found ecuOperationsWindow", true, true);
-        QLabel *vBattLabel = ecuOperationsWindow->findChild<QLabel *>("vBattLabel");
-        if (vBattLabel)
+    forEachOperationsChild<QLabel>(
+        *this, "vBattLabel",
+        [this, vBatt](QLabel& vBattLabel)
         {
-            // emit LOG_D("Found ecuOperationsWindow->vBattLabel", true, true);
-            QString vBattText = QString("Battery: %1").arg(static_cast<double>(vBatt) / 1000.0, 0, 'f', 3) + " V";
-            vBattLabel->setText(vBattText);
+            const QString vBattText = QString("Battery: %1").arg(static_cast<double>(vBatt) / 1000.0, 0, 'f', 3) + " V";
+            vBattLabel.setText(vBattText);
             emit logD(vBattText, true, true);
-        }
-    }
-    QDialog *biuOperationsSubaruWindow = this->findChild<QDialog *>("BiuOperationsSubaruWindow");
-    if (biuOperationsSubaruWindow)
-    {
-        // emit LOG_D("Found biuOperationsSubaruWindow", true, true);
-        QLabel *vBattLabel = biuOperationsSubaruWindow->findChild<QLabel *>("vBattLabel");
-        if (vBattLabel)
-        {
-            // emit LOG_D("Found biuOperationsSubaruWindow->vBattLabel", true, true);
-            QString vBattText = QString("Battery: %1").arg(static_cast<double>(vBatt) / 1000.0, 0, 'f', 3) + " V";
-            vBattLabel->setText(vBattText);
-            emit logD(vBattText, true, true);
-        }
-    }
-    QDialog *dtcOperationsWindow = this->findChild<QDialog *>("DtcOperationsWindow");
-    if (dtcOperationsWindow)
-    {
-        // emit LOG_D("Found dtcOperationsWindow", true, true);
-        QLabel *vBattLabel = dtcOperationsWindow->findChild<QLabel *>("vBattLabel");
-        if (vBattLabel)
-        {
-            // emit LOG_D("Found dtcOperationsWindow->vBattLabel", true, true);
-            QString vBattText = QString("Battery: %1").arg(static_cast<double>(vBatt) / 1000.0, 0, 'f', 3) + " V";
-            vBattLabel->setText(vBattText);
-            emit logD(vBattText, true, true);
-        }
-    }
-    QDialog *dataTerminalWindow = this->findChild<QDialog *>("DataTerminalWindow");
-    if (dataTerminalWindow)
-    {
-        emit logD("Found dataTerminalWindow", true, true);
-        QLabel *vBattLabel = dataTerminalWindow->findChild<QLabel *>("vBattLabel");
-        if (vBattLabel)
-        {
-            emit logD("Found dataTerminalWindow->vBattLabel", true, true);
-            QString vBattText = QString("Battery: %1").arg(static_cast<double>(vBatt) / 1000.0, 0, 'f', 3) + " V";
-            vBattLabel->setText(vBattText);
-            emit logD(vBattText, true, true);
-        }
-    }
+        });
 }
 
 void MainWindow::setupLoggingEngine()
