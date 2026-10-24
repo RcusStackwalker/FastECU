@@ -280,6 +280,11 @@ class ModalDriver final : public QObject
             {
                 continue;
             }
+            if (qobject_cast<QFileDialog *>(dialog) != nullptr)
+            {
+                dialog->reject(); // cancel the file picker
+                return true;
+            }
             if (dialog->objectName() == "BiuOperationsSubaruWindow")
             {
                 dialog->reject(); // the BIU window has no work to do here
@@ -314,15 +319,9 @@ class ModalDriver final : public QObject
 };
 
 // Invoke the slot through Qt, as the menu dispatch does.
-int startEcuOperations(MainWindow& window, const QString& cmdType)
+bool startEcuOperations(MainWindow& window, const QString& cmdType)
 {
-    int result = -1;
-    if (!QMetaObject::invokeMethod(&window, "startEcuOperations", Qt::DirectConnection, Q_RETURN_ARG(int, result),
-                                   Q_ARG(QString, cmdType)))
-    {
-        return -1;
-    }
-    return result;
+    return QMetaObject::invokeMethod(&window, "startEcuOperations", Qt::DirectConnection, Q_ARG(QString, cmdType));
 }
 
 // A synthetic image on disk for the open-file path.
@@ -945,6 +944,9 @@ class MainWindowTest : public ::testing::Test
     void checkSaveAsUpdatesOriginalSessionAfterSelectionChanges();
     void checkSelectableSignalEditsItsEmittingSession();
     void checkFailedMapDecodeKeepsAnErrorView();
+    void checkOpeningAMissingCalibrationFileReportsFailure();
+    void checkCancellingTheCalibrationPickerReportsFailure();
+    void checkStartingAnEcuOperationWithoutAPortWarns();
     // A second ROM opened beside the edited one: none, its session only, or
     // also its window of the same map.
     enum class AssignmentOther
@@ -1256,7 +1258,7 @@ void MainWindowTest::checkHandledDensoTcuReadChoicesRunMainWindowCleanupAndStopV
     fastecu::testing::SignalRecorder infoLines{&window, &MainWindow::logI};
     ModalDriver operationDriver{choice};
     operationDriver.start();
-    ASSERT_EQ(startEcuOperations(window, "read"), 0);
+    ASSERT_TRUE(startEcuOperations(window, "read"));
 
     ASSERT_TRUE(operationDriver.sawChooser());
     ASSERT_EQ(operationDriver.ignitionCount(), expectedIgnitionCount);
@@ -1334,7 +1336,7 @@ void MainWindowTest::checkFutureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo
 
     ModalDriver operationDriver{QString()};
     operationDriver.start();
-    ASSERT_EQ(startEcuOperations(window, "read"), 0);
+    ASSERT_TRUE(startEcuOperations(window, "read"));
     operationDriver.stop();
 
     ASSERT_TRUE(!operationDriver.timedOut());
@@ -1411,7 +1413,7 @@ void MainWindowTest::checkRepresentativePortableRoutesReachFactoryBeforeLegacyFa
 
     ModalDriver operationDriver{QString()};
     operationDriver.start();
-    ASSERT_EQ(startEcuOperations(window, "read"), 0);
+    ASSERT_TRUE(startEcuOperations(window, "read"));
     operationDriver.stop();
 
     ASSERT_TRUE(!operationDriver.timedOut());
@@ -1464,7 +1466,7 @@ void MainWindowTest::checkWriteWithoutASelectedCalibrationStopsVoltagePolling(QS
 
     ModalDriver operationDriver{QString()};
     operationDriver.start();
-    ASSERT_EQ(startEcuOperations(window, command), 0);
+    ASSERT_TRUE(startEcuOperations(window, command));
     operationDriver.stop();
 
     ASSERT_TRUE(!operationDriver.timedOut());
@@ -1493,7 +1495,7 @@ void MainWindowTest::checkOtherMakesSkipDispatchButStillRunCleanup()
 
     ModalDriver operationDriver{QString()};
     operationDriver.start();
-    ASSERT_EQ(startEcuOperations(window, "read"), 0);
+    ASSERT_TRUE(startEcuOperations(window, "read"));
     operationDriver.stop();
 
     ASSERT_TRUE(!operationDriver.timedOut());
@@ -1519,7 +1521,7 @@ void MainWindowTest::checkReadOfAnUnsupportedProtocolAddsNoCalibration()
 
     ModalDriver operationDriver{QString()};
     operationDriver.start();
-    ASSERT_EQ(startEcuOperations(window, "read"), 0);
+    ASSERT_TRUE(startEcuOperations(window, "read"));
     operationDriver.stop();
 
     ASSERT_TRUE(!operationDriver.timedOut());
@@ -1556,14 +1558,14 @@ void MainWindowTest::checkCancellingTheChecksumWarningStopsVoltagePolling(QStrin
     ASSERT_TRUE(!romPath.isEmpty());
     ModalDriver openDriver{QString()};
     openDriver.start();
-    ASSERT_EQ(window.openCalibrationFile(romPath), 0);
+    ASSERT_TRUE(window.openCalibrationFile(romPath));
     openDriver.stop();
     ASSERT_EQ(openDriver.missingDefinitionPromptCount(), 1);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na"));
 
     ModalDriver operationDriver{QString()};
     operationDriver.start();
-    ASSERT_EQ(startEcuOperations(window, command), 0);
+    ASSERT_TRUE(startEcuOperations(window, command));
     operationDriver.stop();
 
     ASSERT_TRUE(!operationDriver.timedOut());
@@ -1590,7 +1592,7 @@ void MainWindowTest::checkDefinitionlessOpenPromptsOnceAndAppliesPlaceholders()
 
     ModalDriver driver{QString()};
     driver.start();
-    ASSERT_EQ(window.openCalibrationFile(path), 0);
+    ASSERT_TRUE(window.openCalibrationFile(path));
     driver.stop();
 
     ASSERT_TRUE(!driver.timedOut());
@@ -1624,9 +1626,9 @@ void MainWindowTest::checkClosingAMiddleRomKeepsLaterRomsAddressable()
     QTemporaryDir roms;
     ModalDriver driver{QString()};
     driver.start();
-    ASSERT_EQ(window.openCalibrationFile(writeRom(roms, "a.bin", '\x0a')), 0);
-    ASSERT_EQ(window.openCalibrationFile(writeRom(roms, "b.bin", '\x0b')), 0);
-    ASSERT_EQ(window.openCalibrationFile(writeRom(roms, "c.bin", '\x0c')), 0);
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(roms, "a.bin", '\x0a')));
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(roms, "b.bin", '\x0b')));
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(roms, "c.bin", '\x0c')));
     driver.stop();
     ASSERT_EQ(window.calibrations_.size(), std::size_t{3});
     const auto a = window.calibrations_.at(0).id;
@@ -1665,8 +1667,8 @@ void MainWindowTest::checkWindowsOfAClosedRomAreInert()
     QTemporaryDir roms;
     ModalDriver driver{QString()};
     driver.start();
-    ASSERT_EQ(window.openCalibrationFile(writeRom(roms, "a.bin", '\x0a')), 0);
-    ASSERT_EQ(window.openCalibrationFile(writeRom(roms, "b.bin", '\x0b')), 0);
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(roms, "a.bin", '\x0a')));
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(roms, "b.bin", '\x0b')));
     driver.stop();
     const auto b = window.calibrations_.at(1).id;
     window.closeCalibration(); // b is selected after its open
@@ -1706,7 +1708,7 @@ void MainWindowTest::checkHexEditorOutlivesItsRom()
     QTemporaryDir roms;
     ModalDriver driver{QString()};
     driver.start();
-    ASSERT_EQ(window.openCalibrationFile(writeRom(roms, "a.bin", '\x0a')), 0);
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(roms, "a.bin", '\x0a')));
     driver.stop();
 
     window.showHexEditor();
@@ -1732,8 +1734,8 @@ void MainWindowTest::checkClosingARomClosesAllOfItsWindows()
     QTemporaryDir roms;
     ModalDriver driver{QString()};
     driver.start();
-    ASSERT_EQ(window.openCalibrationFile(writeRom(roms, "a.bin", '\x0a')), 0);
-    ASSERT_EQ(window.openCalibrationFile(writeRom(roms, "b.bin", '\x0b')), 0);
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(roms, "a.bin", '\x0a')));
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(roms, "b.bin", '\x0b')));
     driver.stop();
     const QString aKey = fastecu::ui::sessionKeyText(window.calibrations_.at(0).id);
     const QString bKey = fastecu::ui::sessionKeyText(window.calibrations_.at(1).id);
@@ -1775,8 +1777,8 @@ void MainWindowTest::checkViewStateIsKeptPerRom()
     QTemporaryDir roms;
     ModalDriver driver{QString()};
     driver.start();
-    ASSERT_EQ(window.openCalibrationFile(writeRom(roms, "a.bin", '\x0a')), 0);
-    ASSERT_EQ(window.openCalibrationFile(writeRom(roms, "b.bin", '\x0b')), 0);
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(roms, "a.bin", '\x0a')));
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(roms, "b.bin", '\x0b')));
     driver.stop();
     QTreeWidget *files = window.ui_->calibrationFilesTreeWidget;
     QTreeWidget *data = window.ui_->calibrationDataTreeWidget;
@@ -1937,7 +1939,7 @@ void MainWindowTest::checkCalibrationLogsReachTheLogChannel()
     // A non-ASCII name shows the window decodes the coordinator's UTF-8.
     const QString path = writeRom(files, QString::fromUtf8("caf\xc3\xa9.bin"), '\x22');
     ASSERT_TRUE(!path.isEmpty());
-    ASSERT_EQ(window.openCalibrationFile(path), 0);
+    ASSERT_TRUE(window.openCalibrationFile(path));
     driver.stop();
     ASSERT_TRUE(!driver.timedOut());
     auto *session = services.calibrations.Find(window.calibrations_.front().id);
@@ -1977,7 +1979,7 @@ void MainWindowTest::checkSaveAsChangesSourceAndTreeOnlyAfterSuccess()
     MainWindow window{services.services()};
     QTemporaryDir files;
     const QString originalPath = writeRom(files, "original.bin", '\x11');
-    ASSERT_EQ(window.openCalibrationFile(originalPath), 0);
+    ASSERT_TRUE(window.openCalibrationFile(originalPath));
     auto *session = services.calibrations.Find(window.calibrations_.front().id);
     ASSERT_TRUE(session != nullptr);
     auto protocol = session->Protocol();
@@ -2029,8 +2031,8 @@ void MainWindowTest::checkSaveAsUpdatesOriginalSessionAfterSelectionChanges()
     ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
     MainWindow window{services.services()};
     QTemporaryDir files;
-    ASSERT_EQ(window.openCalibrationFile(writeRom(files, "a.bin", '\x0a')), 0);
-    ASSERT_EQ(window.openCalibrationFile(writeRom(files, "b.bin", '\x0b')), 0);
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(files, "a.bin", '\x0a')));
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(files, "b.bin", '\x0b')));
     driver.stop();
     ASSERT_EQ(window.calibrations_.size(), std::size_t{2});
     auto *a = services.calibrations.Find(window.calibrations_.at(0).id);
@@ -2174,7 +2176,7 @@ void MainWindowTest::checkFailedMapDecodeKeepsAnErrorView()
     ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
     MainWindow window{services.services()};
     QTemporaryDir files;
-    ASSERT_EQ(window.openCalibrationFile(writeRom(files, "bad.bin", '\x11')), 0);
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(files, "bad.bin", '\x11')));
     driver.stop();
     const auto id = window.calibrations_.front().id;
     auto *session = services.calibrations.Find(id);
@@ -2225,6 +2227,59 @@ void MainWindowTest::checkFailedMapDecodeKeepsAnErrorView()
 TEST_F(MainWindowTest, failedMapDecodeKeepsAnErrorView)
 {
     ASSERT_NO_FATAL_FAILURE(checkFailedMapDecodeKeepsAnErrorView());
+}
+
+void MainWindowTest::checkOpeningAMissingCalibrationFileReportsFailure()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
+    MainWindow window{services.services()};
+    QTemporaryDir files;
+    EXPECT_FALSE(window.openCalibrationFile(files.filePath("absent.bin")));
+    driver.stop();
+}
+
+TEST_F(MainWindowTest, openingAMissingCalibrationFileReportsFailure)
+{
+    ASSERT_NO_FATAL_FAILURE(checkOpeningAMissingCalibrationFileReportsFailure());
+}
+
+void MainWindowTest::checkCancellingTheCalibrationPickerReportsFailure()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
+    MainWindow window{services.services()};
+    EXPECT_FALSE(window.openCalibrationFile(QString()));
+    driver.stop();
+    EXPECT_FALSE(driver.timedOut());
+    EXPECT_EQ(driver.noFileSelectedCount(), 0);
+    EXPECT_TRUE(driver.acceptedTexts().contains("No file selected"));
+}
+
+TEST_F(MainWindowTest, cancellingTheCalibrationPickerReportsFailure)
+{
+    ASSERT_NO_FATAL_FAILURE(checkCancellingTheCalibrationPickerReportsFailure());
+}
+
+void MainWindowTest::checkStartingAnEcuOperationWithoutAPortWarns()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
+    MainWindow window{services.services()};
+    EXPECT_TRUE(startEcuOperations(window, "read"));
+    driver.stop();
+    EXPECT_TRUE(driver.acceptedTexts().contains("No serial port selected!"));
+}
+
+TEST_F(MainWindowTest, startingAnEcuOperationWithoutAPortWarns)
+{
+    ASSERT_NO_FATAL_FAILURE(checkStartingAnEcuOperationWithoutAPortWarns());
 }
 
 void MainWindowTest::checkWindowPreservesInjectedLoggingFactory()
@@ -5180,7 +5235,7 @@ void MainWindowTest::checkTypedAssignment(const AssignmentCase& c)
     ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
     MainWindow window{services.services()};
     QTemporaryDir files;
-    ASSERT_EQ(window.openCalibrationFile(writeRom(files, "edit.bin", '\x11')), 0);
+    ASSERT_TRUE(window.openCalibrationFile(writeRom(files, "edit.bin", '\x11')));
     driver.stop();
     const auto id = window.calibrations_.front().id;
     const auto definition = assignmentDefinition(c);

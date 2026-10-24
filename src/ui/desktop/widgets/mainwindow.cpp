@@ -782,7 +782,7 @@ void MainWindow::rememberOpenedPort(const QString& port, const QString& openedPo
     saveSettings();
 }
 
-int MainWindow::startEcuOperations(const QString& cmdType)
+void MainWindow::startEcuOperations(const QString& cmdType)
 {
     connection_coordinator_->cancel();
     setRealtimeState(false);
@@ -793,7 +793,7 @@ int MainWindow::startEcuOperations(const QString& cmdType)
     {
         emit logD("No serial port selected!", true, true);
         QMessageBox::warning(this, tr("Serial port"), "No serial port selected!");
-        return 0;
+        return;
     }
 
     connection_->SelectPort(selectedSerialPort());
@@ -823,7 +823,6 @@ int MainWindow::startEcuOperations(const QString& cmdType)
     {
         runFlashOperation(cmdType, kernelDir.toStdString());
     }
-    return 0;
 }
 
 void MainWindow::runFlashOperation(const QString& cmdType, const std::string& kernelDir)
@@ -944,17 +943,16 @@ bool MainWindow::openCalibrationFile(QString filename)
         if (filename.isEmpty())
         {
             QMessageBox::information(this, tr("Calibration file"), "No file selected");
-            return 1; // matches open_subaru_rom_file's old "no file selected" return of nullptr -> caller's failure
-                      // path
+            return false;
         }
     }
 
     const auto opened = calibration_workspace_->OpenFile(filename.toStdString());
     if (!opened.has_value())
     {
-        return 1;
+        return false;
     }
-    return addCalibration(opened->id) ? 0 : 1;
+    return addCalibration(opened->id);
 }
 
 void MainWindow::promptForMissingDefinition(fastecu::calibration::SessionId id)
