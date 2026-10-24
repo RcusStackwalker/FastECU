@@ -626,6 +626,22 @@ TEST(DensoIso15765CanCommonTest, ReadDumpStopRetriesSixTimesAndIgnoresFailures)
     EXPECT_THAT(f.transport.ReadTimeouts(), ::testing::Each(500ms));
 }
 
+// The read is already complete when the stop is sent, so a cancellation there is swallowed.
+TEST(DensoIso15765CanCommonTest, ReadDumpCancelledAtStopStillReturnsTheImage)
+{
+    CommonFixture f;
+    CancellingEventSink events(f.cancellation, "Sending stop command");
+    CanExecutorContext ctx{f.cancellation, events, f.clock, f.client, f.channel};
+    PhaseReporter progress(events, "Read ROM", 1, 1, 1);
+
+    const auto image = DensoIso15765ReadDump(ctx, MemoryRegion{0x8000, 0}, 1, 1, progress, /*pace_pages=*/false);
+
+    ASSERT_THAT(image, fastecu::testing::IsOk());
+    EXPECT_THAT(*image, test_bytes::BytesEq((bytes::Bytes{0xFF, 0xFF})));
+    EXPECT_TRUE(f.cancellation.Cancelled());
+    EXPECT_EQ(f.transport.write_attempts, 0U);
+}
+
 TEST(DensoIso15765CanCommonTest, ReadDumpPageFailureOrCancellationSendsNoStop)
 {
     for (const bool cancelled : {false, true})
@@ -650,6 +666,7 @@ TEST(DensoIso15765CanCommonTest, ReadDumpPageFailureOrCancellationSendsNoStop)
         EXPECT_TRUE(f.transport.ScriptConsumed());
         EXPECT_EQ(f.transport.write_attempts, cancelled ? 0U : 1U);
         EXPECT_THAT(f.clock.sleep_calls, ::testing::IsEmpty());
+        EXPECT_THAT(ProgressDone(f.events), ::testing::ElementsAre(0));
         EXPECT_THAT(f.events.logs,
                     ::testing::Not(::testing::Contains(::testing::Pair(LogLevel::kInfo, "Sending stop command"))));
     }
