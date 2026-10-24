@@ -2,7 +2,10 @@
 # CI toolchains. Delete this workflow, bazel/measure-warnings.bazelrc and
 # scripts/summarize_warnings.py once the numbers are in the issue.
 name: measure-warnings
-on: workflow_dispatch
+on:
+  push:
+    branches: [chore/470-warning-measurement]
+  workflow_dispatch:
 
 permissions:
   contents: read
