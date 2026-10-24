@@ -289,8 +289,12 @@ jobs:
 
       # Windows copies runfiles into the tree before a local test prefetches remote
       # cache hits, so the default toplevel download leaves unreadable entries.
+      # RUN lines need the runner's Unix tools (cp, diff), which `bazel test`
+      # hides by giving tests a minimal PATH.
       - name: clang-tidy module fixtures
-        run: bazel test --config=release --remote_download_outputs=all //tools/clang-tidy/scripts:clang_tidy_check_fixtures
+        run: >-
+          bazel test --config=release --remote_download_outputs=all --test_env=PATH
+          //tools/clang-tidy/scripts:clang_tidy_check_fixtures
 
       - name: clang-tidy report
         run: |
