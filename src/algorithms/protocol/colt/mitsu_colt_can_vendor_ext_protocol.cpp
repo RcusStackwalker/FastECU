@@ -66,9 +66,9 @@ std::uint32_t BytesToSeed(bytes::ByteView seed_bytes)
     return bytes::ReadU32Be(seed_bytes);
 }
 
-bytes::Bytes KeyBytes(std::uint32_t key)
+std::array<bytes::Byte, 4> KeyBytes(std::uint32_t key)
 {
-    return bytes::ComposeBeWithExtraCapacity(0, key);
+    return ComposeBe(key);
 }
 
 bytes::Bytes BuildChallengeSeedRequest()

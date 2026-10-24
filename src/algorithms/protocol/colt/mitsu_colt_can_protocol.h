@@ -83,7 +83,7 @@ std::uint16_t SeedKeyWord(std::uint16_t seed_word);
 
 // Applies seedKeyWord() to both 16-bit halves of a 4-byte seed (big-endian
 // in, big-endian out): seed = [pk1_hi, pk1_lo, pk2_hi, pk2_lo].
-bytes::Bytes SeedKey(bytes::ByteView seed);
+std::array<bytes::Byte, 4> SeedKey(bytes::ByteView seed);
 
 // 16-bit running sum of every raw byte, with natural wraparound. Matches
 // get_crc() in externals/livemonitor/obdengine.cpp — not a real CRC.

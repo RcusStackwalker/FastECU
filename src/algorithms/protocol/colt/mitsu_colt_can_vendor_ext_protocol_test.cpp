@@ -40,10 +40,10 @@ TEST(TestMitsuColtCanVendorExtProtocol, byte_native_seed_and_key_helpers_round_t
 {
     const bytes::Bytes seed_bytes = BytesFromHex("F2E207C5");
     ASSERT_EQ(BytesToSeed(seed_bytes), std::uint32_t(0xF2E207C5U));
-    ASSERT_EQ(KeyBytes(0xF2E207C5U), seed_bytes);
+    ASSERT_EQ(KeyBytes(0xF2E207C5U), (std::array<bytes::Byte, 4>{0xF2, 0xE2, 0x07, 0xC5}));
 
     const std::uint32_t secret = 0x12345678U;
-    const bytes::Bytes on_wire = KeyBytes(ChallengeTransform(secret));
+    const auto on_wire = KeyBytes(ChallengeTransform(secret));
     ASSERT_EQ(ChallengeInverseTransform(BytesToSeed(on_wire)), secret);
 }
 TEST(TestMitsuColtCanVendorExtProtocol, byte_native_challenge_frame_layout)
@@ -55,6 +55,6 @@ TEST(TestMitsuColtCanVendorExtProtocol, challenge_key_frame_uses_inverse_key_byt
 {
     const auto seed_bytes = BytesFromHex("669E0CB4");
     const std::uint32_t key = ChallengeInverseTransform(BytesToSeed(seed_bytes));
-    ASSERT_EQ(KeyBytes(key), BytesFromHex("12345678"));
+    ASSERT_EQ(KeyBytes(key), (std::array<bytes::Byte, 4>{0x12, 0x34, 0x56, 0x78}));
     ASSERT_EQ(BuildChallengeKey(key), BytesFromHex("23274212345678"));
 }

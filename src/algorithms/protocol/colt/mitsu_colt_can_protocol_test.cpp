@@ -14,10 +14,10 @@ TEST(TestMitsuColtCanProtocol, seed_key_word_matches_known_vectors)
     ASSERT_EQ(SeedKeyWord(0x1234), std::uint16_t(0x9F72));
     ASSERT_EQ(SeedKeyWord(0xFFFF), std::uint16_t(0x057F));
 }
-TEST(TestMitsuColtCanProtocol, seed_key_accepts_byte_view_and_returns_bytes)
+TEST(TestMitsuColtCanProtocol, seed_key_accepts_byte_view_and_returns_fixed_array)
 {
     const bytes::Bytes seed = BytesFromHex("12340000");
-    ASSERT_EQ(SeedKey(seed), BytesFromHex("9F720606"));
+    ASSERT_EQ(SeedKey(seed), (std::array<bytes::Byte, 4>{0x9F, 0x72, 0x06, 0x06}));
 }
 TEST(TestMitsuColtCanProtocol, checksum_sums_every_byte_with_wraparound)
 {

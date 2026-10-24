@@ -1,4 +1,6 @@
 #pragma once
+
+#include <array>
 #include "src/algorithms/protocol/bytes.h"
 
 #include <cstdint>
@@ -38,8 +40,8 @@ std::uint32_t ChallengeTransform(std::uint32_t secret);
 // the ECU will accept.
 std::uint32_t ChallengeInverseTransform(std::uint32_t seed);
 
-std::uint32_t BytesToSeed(bytes::ByteView seed_bytes); // expects exactly 4 bytes
-bytes::Bytes KeyBytes(std::uint32_t key);              // produces exactly 4 bytes
+std::uint32_t BytesToSeed(bytes::ByteView seed_bytes);  // expects exactly 4 bytes
+std::array<bytes::Byte, 4> KeyBytes(std::uint32_t key); // produces exactly 4 bytes
 
 // SID 0x23 vendor extension seed request: [0x23][0x27][0x41].
 bytes::Bytes BuildChallengeSeedRequest();

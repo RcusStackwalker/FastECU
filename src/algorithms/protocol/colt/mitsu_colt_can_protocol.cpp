@@ -66,14 +66,14 @@ std::uint16_t SeedKeyWord(std::uint16_t seed_word)
     return static_cast<std::uint16_t>(std::uint32_t(seed_word) * 135 + 1542);
 }
 
-bytes::Bytes SeedKey(bytes::ByteView seed)
+std::array<bytes::Byte, 4> SeedKey(bytes::ByteView seed)
 {
     assert(seed.size() == 4);
     const std::uint16_t pk1 = bytes::ReadU16Be(seed, 0);
     const std::uint16_t pk2 = bytes::ReadU16Be(seed, 2);
     const std::uint16_t sk1 = SeedKeyWord(pk1);
     const std::uint16_t sk2 = SeedKeyWord(pk2);
-    return bytes::ComposeBeWithExtraCapacity(0, sk1, sk2);
+    return ComposeBe(sk1, sk2);
 }
 
 std::uint16_t Checksum(bytes::ByteView data)
