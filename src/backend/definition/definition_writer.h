@@ -19,9 +19,9 @@ struct DefinitionHeaderInput
     std::string internal_id;
     std::string ecu_id;
     std::optional<memory::DefinitionAddress> internal_id_address;
-    RomMetadata metadata{};
-    std::string include{};
-    std::string notes{};
+    RomMetadata metadata;
+    std::string include;
+    std::string notes;
 };
 
 // Normalize scalar header values; preserve internal spaces and both notes fields.

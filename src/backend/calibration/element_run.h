@@ -23,7 +23,7 @@ struct ElementRun
     std::uint32_t start_position{1};
     std::uint32_t interval{1};
     std::optional<definition::StorageType> storage_type;
-    std::string_view endian{};
+    std::string_view endian;
     std::string_view from_byte{"x"};
     bool is_selectable{false};
 };

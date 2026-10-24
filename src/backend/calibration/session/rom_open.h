@@ -23,16 +23,16 @@ namespace fastecu::calibration
 // An image just read off an ECU, handed over only after the read succeeded.
 struct ReadImage
 {
-    std::vector<std::uint8_t> rom{};
+    std::vector<std::uint8_t> rom;
     // Required. The caller names it (flash::ReadImageFilename), as
     // MainWindow already does before every legacy open.
-    std::string filename{};
+    std::string filename;
     // As reported by the read; a definition match replaces it.
-    std::string rom_id{};
+    std::string rom_id;
     // The protocol selected when the read ran.
-    std::string protocol_name{};
-    std::string kernel_path{};
-    std::string kernel_start_address{};
+    std::string protocol_name;
+    std::string kernel_path;
+    std::string kernel_start_address;
 };
 
 struct RomOpenOutcome
@@ -62,10 +62,10 @@ class RomOpenUseCase
     {
         RomSource source;
         std::vector<std::uint8_t> rom;
-        std::string rom_id{};
-        std::string flash_method{};
-        std::string kernel_path{};
-        std::string kernel_start_address{};
+        std::string rom_id;
+        std::string flash_method;
+        std::string kernel_path;
+        std::string kernel_start_address;
     };
 
     Result<RomOpenOutcome> Finish(Seed seed);

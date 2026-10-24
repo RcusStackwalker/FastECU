@@ -59,13 +59,6 @@ The check reports a diagnostic without an automatic fix: replacing parentheses
 with braces can reject narrowing conversions or change reference-member
 lifetimes. Review those semantics when converting an existing initialization.
 
-Give a member a default member initializer (`std::string unit{};`) when a
-designated initializer may omit it. GCC's `-Wmissing-field-initializers`
-(in `-Wextra`, fatal in first-party code) warns about every omitted member that
-has none, even in `T{.a = 1}`; clang does not, so the warning only shows on
-Linux CI. `{}` changes no behavior: an omitted member is value-initialized
-either way.
-
 ## Strings and messages
 
 **Take non-owning strings as `std::string_view` by value**, not `const char*`

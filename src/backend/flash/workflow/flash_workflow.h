@@ -25,9 +25,9 @@ struct FlashWorkflowRequest
 {
     FlashOperation operation;
     config::ProtocolSpec protocol;
-    std::optional<bytes::Bytes> image{};
+    std::optional<bytes::Bytes> image;
     config::ConfigPaths paths;
-    std::string display_filename{};
+    std::string display_filename;
 };
 
 enum class FlashPromptKind
@@ -96,9 +96,9 @@ struct FlashAttemptResult
 {
     bool success = false;
     ErrorKind error_kind = ErrorKind::kInternal;
-    std::string error_detail{};
-    std::optional<bytes::Bytes> read_bytes{};
-    std::optional<std::string> rom_id{};
+    std::string error_detail;
+    std::optional<bytes::Bytes> read_bytes;
+    std::optional<std::string> rom_id;
 };
 
 struct FlashCompletedStep

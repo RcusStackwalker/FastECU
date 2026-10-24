@@ -310,8 +310,8 @@ struct ScriptedExchange
     }
 
     std::size_t failing = std::numeric_limits<std::size_t>::max();
-    std::function<void(std::size_t)> on_call{};
-    std::vector<bytes::Byte> opcodes{};
+    std::function<void(std::size_t)> on_call;
+    std::vector<bytes::Byte> opcodes;
 };
 
 TEST(DensoBeefCanCommonTest, ReadBeefMemoryTruncatesTheLastPageAndStopsOnFailureOrCancellation)

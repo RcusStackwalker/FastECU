@@ -24,7 +24,7 @@ struct FlashOperationInput
     std::string kernel_path; // for the Denso TCU "Dump" log line
     std::optional<bytes::Bytes> image;
     config::ConfigPaths paths;
-    std::string display_filename{};
+    std::string display_filename;
 };
 
 enum class FlashOperationStatus
@@ -37,8 +37,8 @@ enum class FlashOperationStatus
 struct FlashOperationOutcome
 {
     FlashOperationStatus status;
-    std::optional<bytes::Bytes> read_bytes{};
-    std::optional<std::string> rom_id{};
+    std::optional<bytes::Bytes> read_bytes;
+    std::optional<std::string> rom_id;
 };
 
 // Runs one flash operation for MainWindow and reports what happened. Owns no

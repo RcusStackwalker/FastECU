@@ -18,7 +18,7 @@ struct ChecksumResult
 
     Status status = Status::kUnchanged;
     bytes::Bytes rom_data;
-    std::string message{};
+    std::string message;
 
     bool Changed() const
     {

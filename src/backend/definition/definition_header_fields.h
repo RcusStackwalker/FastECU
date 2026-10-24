@@ -14,13 +14,13 @@ namespace fastecu::definition
 // An editable header. Address text may be incomplete until submission.
 struct DefinitionHeaderDraft
 {
-    std::string xml_id{};
-    std::string internal_id{};
-    std::string ecu_id{};
-    std::string internal_id_address_text{};
-    RomMetadata metadata{};
-    std::string include{};
-    std::string notes{};
+    std::string xml_id;
+    std::string internal_id;
+    std::string ecu_id;
+    std::string internal_id_address_text;
+    RomMetadata metadata;
+    std::string include;
+    std::string notes;
 };
 
 // Read a partial rom header or the first direct rom inside roms, without parsing tables.

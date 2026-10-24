@@ -32,10 +32,10 @@ struct ChecksumCorrectionOutcome
     // leading digit is none of "3"/"4"/"6" -- module considered available (no
     // warning dialog), but no family runs and no bytes change. Its rom_data is
     // the corrected bytes of the ROM's ECU address range, not the ROM file.
-    std::optional<ChecksumResult> family_result{};
+    std::optional<ChecksumResult> family_result;
     // The ROM file after correction: present iff a family ran, its result is
     // Ok(), and every corrected byte went back through the memory map.
-    std::optional<bytes::Bytes> corrected_file{};
+    std::optional<bytes::Bytes> corrected_file;
 };
 
 } // namespace fastecu::checksum

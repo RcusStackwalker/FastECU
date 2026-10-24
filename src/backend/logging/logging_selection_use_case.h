@@ -14,9 +14,9 @@ namespace fastecu::logging
 
 struct DefinitionSource
 {
-    std::string configured_handle;        // AppConfig::romraider_logger_definition_file
-    std::string log_protocol;             // AppConfig::selected_log_protocol
-    std::string config_files_directory{}; // ConfigPaths::config_files_directory
+    std::string configured_handle;      // AppConfig::romraider_logger_definition_file
+    std::string log_protocol;           // AppConfig::selected_log_protocol
+    std::string config_files_directory; // ConfigPaths::config_files_directory
 };
 
 struct InstallOutcome

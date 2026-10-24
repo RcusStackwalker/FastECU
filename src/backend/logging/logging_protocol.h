@@ -13,7 +13,7 @@ namespace fastecu::logging
 struct PollData
 {
     bool responded = false;
-    std::vector<ProtocolSample> samples{};
+    std::vector<ProtocolSample> samples;
 };
 
 class LoggingProtocol

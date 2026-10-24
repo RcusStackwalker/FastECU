@@ -27,7 +27,7 @@ enum class NoChangeReason
 
 struct NumericEditResult
 {
-    NumericEditPatch writes{};
+    NumericEditPatch writes;
     NoChangeReason no_change{NoChangeReason::kNone};
 };
 

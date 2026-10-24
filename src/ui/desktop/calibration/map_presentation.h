@@ -10,9 +10,9 @@ namespace fastecu::ui
 {
 struct PresentedCell
 {
-    QString text{};
-    QString diagnostic{};
-    std::optional<double> numeric_value{};
+    QString text;
+    QString diagnostic;
+    std::optional<double> numeric_value;
 };
 
 // A transient presentation of one decoded map. Never stores ROM bytes or
@@ -30,12 +30,12 @@ struct MapPresentation
     QString y_name;
     QString y_units;
     QString y_format;
-    std::vector<PresentedCell> body{};
-    std::optional<std::vector<PresentedCell>> x_axis{};
-    std::optional<std::vector<PresentedCell>> y_axis{};
-    std::optional<bytes::Bytes> blob{};
-    QStringList selection_names{};
-    std::vector<bytes::Bytes> selection_values{};
+    std::vector<PresentedCell> body;
+    std::optional<std::vector<PresentedCell>> x_axis;
+    std::optional<std::vector<PresentedCell>> y_axis;
+    std::optional<bytes::Bytes> blob;
+    QStringList selection_names;
+    std::vector<bytes::Bytes> selection_values;
     int x_size{1};
     int y_size{1};
 };
