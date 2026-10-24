@@ -1,3 +1,4 @@
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -5,6 +6,8 @@
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
+
+using ::testing::IsEmpty;
 
 using namespace mutdma;
 
@@ -54,6 +57,6 @@ TEST(TestMemory, read_reassembles_values)
 
 TEST(TestMemory, write_frames_rejectEmptyAndOverflowInputs)
 {
-    ASSERT_TRUE(BuildWriteFrames(0x8000, bytes::Bytes{}).empty());
-    ASSERT_TRUE(BuildWriteFrames(0xFFF0, bytes::Bytes(32, 0x5A)).empty());
+    ASSERT_THAT(BuildWriteFrames(0x8000, bytes::Bytes{}), IsEmpty());
+    ASSERT_THAT(BuildWriteFrames(0xFFF0, bytes::Bytes(32, 0x5A)), IsEmpty());
 }

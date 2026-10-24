@@ -7,7 +7,11 @@
 #include <optional>
 #include <type_traits>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::_;
+using ::testing::Optional;
 
 namespace fastecu::memory
 {
@@ -66,7 +70,7 @@ TEST(AddressRange, RejectsEmptyRanges)
 TEST(AddressRange, RejectsRangesWhoseEndIsPastTheAddressSpace)
 {
     EXPECT_EQ(AddressRange<FlashSpace>::Make(FlashAddress{0xFFFFFF00}, ByteCount{0x100}), std::nullopt);
-    EXPECT_TRUE(AddressRange<FlashSpace>::Make(FlashAddress{0xFFFFFF00}, ByteCount{0xFF}).has_value());
+    EXPECT_THAT(AddressRange<FlashSpace>::Make(FlashAddress{0xFFFFFF00}, ByteCount{0xFF}), Optional(_));
 }
 
 TEST(AddressRange, EndIsExclusive)

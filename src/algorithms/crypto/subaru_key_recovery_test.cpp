@@ -4,10 +4,14 @@
 #include <cstdint>
 #include <format>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/ports/testing/result_matchers.h"
+
+using fastecu::testing::IsOk;
 
 namespace
 {
@@ -132,7 +136,7 @@ TEST(SubaruKeyRecovery, RecoversTheRealKeysFromASyntheticPair)
 {
     const Pair& pair = SyntheticPair();
     const auto recovery = subaru_key_recovery::RecoverKeys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
-    ASSERT_TRUE(recovery.has_value());
+    ASSERT_THAT(recovery, IsOk());
     EXPECT_EQ(recovery->keys, kKeys);
     EXPECT_EQ(recovery->distinct_pairs, kDistinctPairs);
     EXPECT_EQ(recovery->reproduced_pairs, kDistinctPairs);
@@ -144,7 +148,7 @@ TEST(SubaruKeyRecovery, ReadsOnlyTheFirst128KiB)
     pair.plain.resize(pair.plain.size() + 8, 0x5a);
     pair.cipher.resize(pair.cipher.size() + 4, 0xa5);
     const auto recovery = subaru_key_recovery::RecoverKeys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
-    ASSERT_TRUE(recovery.has_value());
+    ASSERT_THAT(recovery, IsOk());
     EXPECT_EQ(recovery->keys, kKeys);
     EXPECT_EQ(recovery->distinct_pairs, kDistinctPairs);
 }
@@ -169,7 +173,7 @@ TEST(SubaruKeyRecovery, AMismatchedPairIsOutvoted)
     Pair pair = SyntheticPair();
     OverwriteWord(pair.cipher, 0x7ffe, 0xc0eb535f);
     const auto recovery = subaru_key_recovery::RecoverKeys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
-    ASSERT_TRUE(recovery.has_value());
+    ASSERT_THAT(recovery, IsOk());
     EXPECT_EQ(recovery->keys, kKeys);
     EXPECT_EQ(recovery->distinct_pairs, kDistinctPairs);
     EXPECT_EQ(recovery->reproduced_pairs, kDistinctPairs - 1);

@@ -19,6 +19,7 @@ fastecu_portable_gtest(
         ":subaru_key_recovery",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

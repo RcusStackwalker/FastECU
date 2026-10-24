@@ -3,7 +3,10 @@
 #include <array>
 #include <string_view>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::IsEmpty;
 
 TEST(FixedBufferPortable, ReadsUpToTheTerminator)
 {
@@ -22,12 +25,12 @@ TEST(FixedBufferPortable, StopsAtTheBufferEndWhenNoTerminatorIsPresent)
 TEST(FixedBufferPortable, ReadsEmptyWhenTheFirstByteTerminates)
 {
     const std::array<char, 4> buf{};
-    EXPECT_TRUE(bytes::FromFixedBuffer(buf).empty());
+    EXPECT_THAT(bytes::FromFixedBuffer(buf), IsEmpty());
 }
 
 TEST(FixedBufferPortable, ReadsEmptyFromAnEmptyBuffer)
 {
-    EXPECT_TRUE(bytes::FromFixedBuffer({}).empty());
+    EXPECT_THAT(bytes::FromFixedBuffer({}), IsEmpty());
 }
 
 TEST(FixedBufferPortable, DropLastRemovesTheTrailingByte)
@@ -45,14 +48,14 @@ TEST(FixedBufferPortable, DropLastStopsAtTheBufferEndWhenNoTerminatorIsPresent)
 TEST(FixedBufferPortable, DropLastLeavesEmptyInputEmpty)
 {
     const std::array<char, 4> buf{};
-    EXPECT_TRUE(bytes::FromFixedBufferDroppingLast(buf).empty());
-    EXPECT_TRUE(bytes::FromFixedBufferDroppingLast({}).empty());
+    EXPECT_THAT(bytes::FromFixedBufferDroppingLast(buf), IsEmpty());
+    EXPECT_THAT(bytes::FromFixedBufferDroppingLast({}), IsEmpty());
 }
 
 TEST(FixedBufferPortable, DropLastOnASingleCharacterYieldsEmpty)
 {
     const std::array<char, 4> buf{'x', '\0', '\0', '\0'};
-    EXPECT_TRUE(bytes::FromFixedBufferDroppingLast(buf).empty());
+    EXPECT_THAT(bytes::FromFixedBufferDroppingLast(buf), IsEmpty());
 }
 
 TEST(FixedBufferPortable, ViewsTheCallerBufferWithoutCopying)

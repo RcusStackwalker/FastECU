@@ -20,6 +20,7 @@ fastecu_portable_gtest(
     srcs = ["memory_views_test.cpp"],
     deps = [
         ":memory_views",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

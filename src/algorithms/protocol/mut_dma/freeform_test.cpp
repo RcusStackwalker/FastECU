@@ -1,8 +1,11 @@
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
+
+using ::testing::IsEmpty;
 
 using namespace mutdma;
 
@@ -63,7 +66,7 @@ TEST(TestFreeform, decode_stream_values)
 TEST(TestFreeform, IncompletePayloadProducesNoValues)
 {
     const std::vector<Channel> channels = {{0x8000, 2}, {0x8004, 1}};
-    EXPECT_TRUE(DecodeStreamValues(channels, bytes::Bytes{0x12}).empty());
+    EXPECT_THAT(DecodeStreamValues(channels, bytes::Bytes{0x12}), IsEmpty());
 }
 
 TEST(TestFreeform, UsesFirmwareLittleEndianRequestAndValueBytes)
@@ -82,7 +85,7 @@ TEST(TestFreeform, UsesFirmwareLittleEndianRequestAndValueBytes)
 TEST(TestFreeform, RejectsExtraPayload)
 {
     const std::vector<Channel> channels = {{0x8000, 2}};
-    EXPECT_TRUE(DecodeStreamValues(channels, bytes::Bytes{0x12, 0x34, 0x56}).empty());
+    EXPECT_THAT(DecodeStreamValues(channels, bytes::Bytes{0x12, 0x34, 0x56}), IsEmpty());
 }
 
 TEST(MutFreeform, SingleByteBackedOemSourcesRemainZeroExtended)
