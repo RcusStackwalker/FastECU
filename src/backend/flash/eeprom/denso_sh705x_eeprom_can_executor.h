@@ -1,4 +1,5 @@
 #pragma once
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/flash/flash_executor.h"
 
 namespace fastecu::flash
@@ -18,14 +19,14 @@ namespace fastecu::flash
 // resolution of Task 4's OPEN QUESTION (denso_sh705x_eeprom_common.cpp) --
 // see the long comment above connect_bootloader() in the .cpp for the full
 // reasoning, and task-9-report.md for the writeup.
-class DensoSh705xEepromCanExecutor final : public ICanFlashExecutor
+class DensoSh705xEepromCanExecutor final : public FamilyExecutor<DensoSh705xEepromCanPlan, ICanFlashExecutor>
 {
-  public:
-    Result<Iso15765Config> TransportSetup(const FlashPlan& plan) const override;
-    Result<FlashExecutionResult> Execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, IEventSink& events) override;
-
   private:
+    Result<Iso15765Config> Setup(const DensoSh705xEepromCanPlan& can_plan) const override;
+    Result<FlashExecutionResult> Run(const DensoSh705xEepromCanPlan& can_plan, const FlashPlan& plan,
+                                     ICanFlashTransport& transport, IClock& clock,
+                                     const ICancellationToken& cancellation, IEventSink& events) override;
+
     Status ConnectBootloader(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                              IEventSink& events, const DensoSh705xEepromCanPlan& can_plan, bool& kernel_alive) const;
     Status UploadKernel(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,

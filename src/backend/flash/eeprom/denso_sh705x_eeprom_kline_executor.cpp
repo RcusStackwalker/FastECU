@@ -469,29 +469,17 @@ void AppendDumpBlocks(bytes::Bytes& mapdata, bytes::ByteView pagedata, std::uint
 
 } // namespace
 
-Result<KlineConfig> DensoSh705xEepromKlineExecutor::TransportSetup(const FlashPlan& plan) const
+Result<KlineConfig> DensoSh705xEepromKlineExecutor::Setup(const DensoSh705xEepromKlinePlan& kline_plan) const
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kDensoSh705xEepromKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    const auto& kline_plan = std::get<DensoSh705xEepromKlinePlan>(plan.FamilyPlan());
     return NonIso14230KlineConfigFrom(kline_plan);
 }
 
-Result<FlashExecutionResult>
-DensoSh705xEepromKlineExecutor::Execute(const FlashPlan& plan, IKlineFlashTransport& kline_transport, IClock& clock,
-                                        const ICancellationToken& cancellation, IEventSink& events)
+Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::Run(const DensoSh705xEepromKlinePlan& kline_plan,
+                                                                 const FlashPlan& plan,
+                                                                 IKlineFlashTransport& kline_transport, IClock& clock,
+                                                                 const ICancellationToken& cancellation,
+                                                                 IEventSink& events)
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kDensoSh705xEepromKline); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-    const auto& kline_plan = std::get<DensoSh705xEepromKlinePlan>(plan.FamilyPlan());
 
     // Force a known-good starting state for the driver's ISO14230 auto-header
     // flag before connect_bootloader()/upload_kernel(), which self-frame

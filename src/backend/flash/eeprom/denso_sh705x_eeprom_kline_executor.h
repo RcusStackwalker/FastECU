@@ -1,4 +1,5 @@
 #pragma once
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/flash/flash_executor.h"
 
 namespace fastecu::flash
@@ -10,14 +11,14 @@ namespace fastecu::flash
 // desktop orchestrator (Task 17) since a synchronous executor call never
 // blocks for a human answer -- this executor performs exactly one bootstrap
 // + read for the single EepromReadMode carried by the plan.
-class DensoSh705xEepromKlineExecutor final : public IKlineFlashExecutor
+class DensoSh705xEepromKlineExecutor final : public FamilyExecutor<DensoSh705xEepromKlinePlan, IKlineFlashExecutor>
 {
-  public:
-    Result<KlineConfig> TransportSetup(const FlashPlan& plan) const override;
-    Result<FlashExecutionResult> Execute(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, IEventSink& events) override;
-
   private:
+    Result<KlineConfig> Setup(const DensoSh705xEepromKlinePlan& kline_plan) const override;
+    Result<FlashExecutionResult> Run(const DensoSh705xEepromKlinePlan& kline_plan, const FlashPlan& plan,
+                                     IKlineFlashTransport& transport, IClock& clock,
+                                     const ICancellationToken& cancellation, IEventSink& events) override;
+
     // Note: unlike the brief's illustrative sketch, upload_kernel() also
     // takes the family plan (not just the KernelImage) -- it needs
     // kline_plan.tester_id/target_id for its SSM-framed exchanges, the same

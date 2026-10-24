@@ -28,6 +28,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
+#include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -530,6 +531,29 @@ Result<FlashExecutionResult> RunExecutor(const FlashPlan& plan, ScriptedCanFlash
     return DensoSh705xEepromCanExecutor{}.Execute(plan, transport, clock, cancellation, events);
 }
 
+// The builder refuses this plan, so it reaches ValidateAndBuild as raw fields.
+Result<FlashPlan> HandBuiltInvalidPlan()
+{
+    return ValidateAndBuild(FlashPlanFields{
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromCan,
+        .transport = TransportKind::kCanIso15765,
+        .target_id = "sub_ecu_eeprom_denso_sh7055_densocan",
+        .mcu_name = "SH7055",
+        .transfer_region = MemoryRegion{.start = 0, .length = 0xff},
+        .erase_regions = {},
+        .image = std::nullopt,
+        .kernel = KernelImage{.id = "k", .load_address = kKernelStartAddr, .bytes = KernelFixtureBytes()},
+        .family_plan = DensoSh705xEepromCanPlan{.mode = EepromReadMode::kMode2,
+                                                .security = DensoSecurityVariant::kStock,
+                                                .request_id = 0x7e0,
+                                                .response_id = 0x7e8,
+                                                .bitrate = 500000,
+                                                .extended_id = false},
+        .confirmations = {},
+    });
+}
+
 } // namespace
 
 TEST(DensoSh705xEepromCanExecutorTest, TransportSetupReturnsThePlansWireParameters)
@@ -566,6 +590,72 @@ TEST(DensoSh705xEepromCanExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportC
 
     ASSERT_THAT(RunExecutor(*plan, transport), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(transport.ScriptConsumed()); // nothing was ever queued or consumed
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, TransportSetupRejectsForeignFamily)
+{
+    auto foreign = BuildDensoSh705xEepromPlan(DensoSh705xEepromInput{
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromKline,
+        .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
+        .mcu_name = "SH7055",
+        .flash_method = "sub_ecu_eeprom_denso_sh7055_kline",
+        .kernel = KernelImage{.id = "k", .load_address = kKernelStartAddr, .bytes = {0x01, 0x02, 0x03, 0x04}},
+        .mode = EepromReadMode::kMode2,
+        .security = DensoSecurityVariant::kStock,
+        .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
+    });
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
+    EXPECT_THAT(DensoSh705xEepromCanExecutor{}.TransportSetup(*foreign),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                            ::testing::Eq("plan family does not match this executor")));
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, InvalidPlanIsRefusedBeforeAnyIo)
+{
+    const auto plan = HandBuiltInvalidPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    RecordingEventSink events;
+    FakeCancellationToken cancellation;
+    EXPECT_THAT(
+        DensoSh705xEepromCanExecutor{}.TransportSetup(*plan),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                    ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
+    EXPECT_THAT(
+        DensoSh705xEepromCanExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                    ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, InvalidPlanWinsOverPrecancel)
+{
+    const auto plan = HandBuiltInvalidPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    RecordingEventSink events;
+    FakeCancellationToken cancellation{true};
+    EXPECT_THAT(
+        DensoSh705xEepromCanExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                    ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, PrecancelledRunIsRefusedInAdmission)
+{
+    const auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    FakeClock clock;
+    RecordingEventSink events;
+    FakeCancellationToken cancellation{true};
+    EXPECT_THAT(DensoSh705xEepromCanExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_TRUE(events.logs.empty());
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, KernelAlreadyRunningSkipsBootloaderMatchesLegacyTrace)

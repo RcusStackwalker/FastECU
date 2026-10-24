@@ -294,4 +294,45 @@ Result<FlashPlan> BuildDensoSh705xEepromPlan(DensoSh705xEepromInput input)
     return ValidateAndBuild(std::move(fields));
 }
 
+Status ValidateDensoSh705xEepromPlan(const FlashPlan& plan)
+{
+    if (!plan.Kernel().has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, "Denso SH705x EEPROM plan requires a kernel image");
+    }
+    EepromReadMode mode = EepromReadMode::kMode2; // overwritten below: the plan holds one of the two variants
+    DensoSecurityVariant security = DensoSecurityVariant::kStock;
+    if (const auto *kline = std::get_if<DensoSh705xEepromKlinePlan>(&plan.FamilyPlan()))
+    {
+        mode = kline->mode;
+        security = kline->security;
+    }
+    else if (const auto *can = std::get_if<DensoSh705xEepromCanPlan>(&plan.FamilyPlan()))
+    {
+        mode = can->mode;
+        security = can->security;
+    }
+    else
+    {
+        return Fail(ErrorKind::kInvalidConfig, "plan is not a Denso SH705x EEPROM plan");
+    }
+    // The kernel's size travels separately, so the bytes are not copied.
+    const DensoSh705xEepromInput input{
+        .operation = plan.Operation(),
+        .family = plan.Family(),
+        .target_id = std::string(plan.TargetId()),
+        .mcu_name = std::string(plan.McuName()),
+        .flash_method = std::string(plan.TargetId()),
+        .kernel = KernelImage{.id = plan.Kernel()->id, .load_address = plan.Kernel()->load_address, .bytes = {}},
+        .mode = mode,
+        .security = security,
+        .eeprom_region = plan.TransferRegion(),
+    };
+    if (Result<void> valid = ValidateDensoSh705xEepromPreflight(input, plan.Kernel()->bytes.size()); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    return {};
+}
+
 } // namespace fastecu::flash

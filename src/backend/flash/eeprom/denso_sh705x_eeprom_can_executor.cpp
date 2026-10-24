@@ -619,32 +619,16 @@ Result<bytes::Bytes> ReadEepromPage(ICanFlashTransport& transport, const ICancel
 
 } // namespace
 
-Result<Iso15765Config> DensoSh705xEepromCanExecutor::TransportSetup(const FlashPlan& plan) const
+Result<Iso15765Config> DensoSh705xEepromCanExecutor::Setup(const DensoSh705xEepromCanPlan& can_plan) const
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kDensoSh705xEepromCan); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-
-    const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.FamilyPlan());
     return Iso15765ConfigFrom(can_plan);
 }
 
-Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::Execute(const FlashPlan& plan, ICanFlashTransport& transport,
-                                                                   IClock& clock,
-                                                                   const ICancellationToken& cancellation,
-                                                                   IEventSink& events)
+Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::Run(const DensoSh705xEepromCanPlan& can_plan,
+                                                               const FlashPlan& plan, ICanFlashTransport& transport,
+                                                               IClock& clock, const ICancellationToken& cancellation,
+                                                               IEventSink& events)
 {
-    if (Status match = CheckFamily(plan, FlashFamily::kDensoSh705xEepromCan); !match.has_value())
-    {
-        return std::unexpected(match.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before setup");
-    }
-
-    const auto& can_plan = std::get<DensoSh705xEepromCanPlan>(plan.FamilyPlan());
     ICanFlashTransport& can_transport = transport;
     bool kernel_alive = false;
     if (Status connected = ConnectBootloader(can_transport, clock, cancellation, events, can_plan, kernel_alive);
