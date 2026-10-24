@@ -12,7 +12,7 @@ namespace fastecu::service_functions
 // What the platform must apply to its serial facade before handing this
 // session an ISsmTransport. ISsmTransport is a bare byte pipe with no
 // configure(), so the configuration travels as data -- the same idea as
-// IFlashExecutor::transport_setup returning KlineConfig / Iso15765Config.
+// IFlashExecutor::TransportSetup returning KlineConfig / Iso15765Config.
 struct SsmTransportConfig
 {
     enum class Framing
@@ -62,7 +62,8 @@ struct TcuParameterReadout
 
 struct RelearnOutcome
 {
-    // The poll's terminal condition is unresolved -- see the spec. The bytes
+    // The poll's terminal condition is unresolved (see docs/tech-debt.md, "Resolve known
+    // correctness gaps"). The bytes
     // are surfaced for the operator and the bench, never interpreted here.
     int polls_performed{0};
     bytes::Bytes last_status_frame;

@@ -69,7 +69,7 @@ struct CanLinkConfig
 
 // The diagnostic tools' view of the adapter: byte-faithful and thin. Bytes
 // pass through exactly as the adapter expects them -- CAN writes carry their
-// 4-byte ID prefix, headers are added only when set_header() asked for one.
+// 4-byte ID prefix, headers are added only when SetHeader() asked for one.
 class IDiagnosticLink
 {
   public:

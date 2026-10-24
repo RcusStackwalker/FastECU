@@ -12,18 +12,17 @@ std::uint64_t ElementByteAddress(const MapElementSpec& spec, std::uint32_t index
 {
     const std::uint32_t width = definition::StorageByteSize(spec.storage_type);
 
-    // Layout matches decode_numeric_run (calibration_service.cpp) exactly --
-    // spec's defect (b): the edit path used to lay elements out flat
-    // (address + index*width), ignoring start_position/interval, which
-    // decode_numeric_run honours. addr(j) = address + (start_position-1) *
-    // width + j * width * interval.
+    // Layout matches DecodeNumericRun (calibration_service.cpp):
+    // addr(j) = address + (start_position-1) * width + j * width * interval.
+    // The edit path once laid elements out flat (address + index*width),
+    // ignoring start_position/interval.
     //
-    // start_position is 1-based. definition_resolver rejects 0, but clamp
-    // identically to decode_numeric_run' guard so the two paths cannot
-    // disagree if this is ever reached with an out-of-domain 0 directly.
+    // start_position is 1-based. DecodeNumericRun and the definition resolver
+    // reject 0; this function clamps it to offset 0 instead, so an
+    // out-of-domain 0 reached directly cannot underflow.
     const std::uint64_t start_offset = spec.start_position == 0 ? 0 : std::uint64_t(spec.start_position - 1);
 
-    // Overflow-checked exactly as decode_numeric_run: on overflow, return a
+    // Overflow-checked per term: on overflow, return a
     // sentinel address a real ROM can never contain rather than wrapping, so a
     // caller's bounds check rejects it instead of silently targeting a
     // wrapped-around address.
@@ -64,9 +63,9 @@ Result<std::vector<std::uint8_t>> WriteRawElement(const MapElementSpec& spec, st
 
 EditTarget ResolveEditTarget(const SelectionRange& selection, MapDimensions dims, std::string_view x_scale_type)
 {
-    // Ported from inc_dec_value's three-way branch (menu_actions.cpp), the
-    // canonical copy duplicated verbatim across inc_dec_value, set_value, and
-    // interpolate_value. See this function's header comment for the rule.
+    // Ported from the legacy inc_dec_value three-way branch, the canonical copy
+    // that was duplicated across inc_dec_value, set_value and interpolate_value. See this function's header comment for
+    // the rule.
     int first_col = selection.first_col - 1;
     int first_row = selection.first_row - 1;
     int last_col = selection.last_col - 1;

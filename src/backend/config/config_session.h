@@ -54,14 +54,14 @@ class ConfigSession
     // Catalog order. Empty until initialized.
     std::span<const VehicleSpec> Vehicles() const;
     Result<std::size_t> SelectedRow() const;
-    // nullptr unless selected_row() has a value.
+    // nullptr unless SelectedRow() has a value.
     const VehicleSpec *SelectedVehicle() const;
 
     // Makes `row`'s vehicle id the saved selection and sets the logging
     // protocol from its protocol. Transports are untouched, and nothing is written until
     // save(). An invalid row changes nothing.
     Status SelectRow(std::size_t row);
-    // select_row() on the LAST row whose protocol is named `protocol_name`, as
+    // SelectRow() on the LAST row whose protocol is named `protocol_name`, as
     // the legacy ROM-open scan did. Returns false, changing nothing, if none do.
     bool SelectByProtocolName(std::string_view protocol_name);
 

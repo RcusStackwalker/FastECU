@@ -6,7 +6,7 @@ namespace fastecu::calibration::internal
 {
 
 // Sign-extends an assembled `width`-byte value to a full int32. Widths of 4 or
-// more are already full-width; width 0 cannot occur (storage_byte_size floors
+// more are already full-width; width 0 cannot occur (StorageByteSize floors
 // at 1) but is handled rather than shifted out of range.
 std::int32_t SignExtend(std::uint32_t raw, std::uint32_t width)
 {

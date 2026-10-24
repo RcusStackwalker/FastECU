@@ -22,7 +22,7 @@ struct PhaseProgressEvent
 };
 
 // Replaces backend Qt signals and every backend QMessageBox. Interactive
-// confirmation is modeled where a consumer first needs it (step 5c) as a typed
+// confirmation is modeled where a consumer first needs it as a typed
 // request answered by the UI, not as a blocking backend prompt.
 class IEventSink
 {

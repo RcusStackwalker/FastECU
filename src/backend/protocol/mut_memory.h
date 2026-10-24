@@ -11,7 +11,7 @@ namespace mutdma
 {
 
 // Standalone MUT/DMA memory access over an ECU already in MUT/DMA mode at
-// 125000 baud. Moved from MainWindow (step 6g), where nothing called it.
+// 125000 baud. Moved from MainWindow, where nothing called it.
 
 // Requires a start in 0x4000-0xBFFF and the entire write interval within that
 // writable RAM window; otherwise returns InvalidConfig before any I/O. Empty

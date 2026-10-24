@@ -26,7 +26,7 @@ struct ChecksumCorrectionOutcome
         kFamilyRan,           // flash_method matched a family branch
     };
     Status status = Status::kNoModuleForProtocol;
-    // Present iff a family's calculate_checksum_result actually ran. FamilyRan
+    // Present iff a family's CalculateChecksumResult actually ran. FamilyRan
     // itself can occur with family_result == std::nullopt for one legacy edge
     // case: flash_method matches "sub_ecu_hitachi_m32r_kline" but RomId's
     // leading digit is none of "3"/"4"/"6" -- module considered available (no
