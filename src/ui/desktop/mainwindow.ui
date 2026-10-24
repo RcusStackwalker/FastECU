@@ -581,6 +581,7 @@
     <addaction name="actionPaste"/>
     <addaction name="separator"/>
     <addaction name="actionSettings"/>
+    <addaction name="actionEcuDefinitionManager"/>
    </widget>
    <widget class="QMenu" name="menuTune">
     <property name="title">
@@ -788,6 +789,14 @@
    </property>
    <property name="iconVisibleInMenu">
     <bool>true</bool>
+   </property>
+  </action>
+  <action name="actionEcuDefinitionManager">
+   <property name="text">
+    <string>ECU definition manager...</string>
+   </property>
+   <property name="toolTip">
+    <string>Add or remove ECU definition files.</string>
    </property>
   </action>
   <action name="actionCoarseIncrement">
