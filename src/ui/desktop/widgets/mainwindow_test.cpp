@@ -367,6 +367,7 @@ struct ActionName
 constexpr ActionName kToggleRealtime{"actionToggleRealtime"};
 constexpr ActionName kLogToFile{"actionLogToFile"};
 constexpr ActionName kConnectToEcu{"actionConnectToEcu"};
+constexpr ActionName kEcuDefinitionManager{"actionEcuDefinitionManager"};
 constexpr ActionName kDisconnectFromEcu{"actionDisconnectFromEcu"};
 constexpr ActionName kReadRomFromEcu{"actionReadRomFromEcu"};
 constexpr ActionName kTestWriteRomToEcu{"actionTestWriteRomToEcu"};
@@ -998,6 +999,7 @@ class MainWindowTest : public ::testing::Test
     void checkLoggingDisplayErrorContinuesOtherSamples();
     void checkChooserDialogsApplyAcceptedChoicesAndIgnoreCancellation(bool protocol, bool accept);
     void checkDefinitionManagerRemovesSelectedRowsAndSavesSurvivingOrder();
+    void checkEditMenuOpensTheEcuDefinitionManager();
     void checkNumericWindowGeometryRestoresAndPersistsAcrossWindowStates();
     void checkAcceptedVehicleChoiceSelectsTheRowAndSavesIt();
     void checkCancelledVehicleChoiceChangesNothing();
@@ -2638,6 +2640,42 @@ void MainWindowTest::checkDefinitionManagerRemovesSelectedRowsAndSavesSurvivingO
 TEST_F(MainWindowTest, definitionManagerRemovesSelectedRowsAndSavesSurvivingOrder)
 {
     ASSERT_NO_FATAL_FAILURE(checkDefinitionManagerRemovesSelectedRowsAndSavesSurvivingOrder());
+}
+
+void MainWindowTest::checkEditMenuOpensTheEcuDefinitionManager()
+{
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    constructorDriver.stop();
+    window.vbatt_timer_->stop();
+    // No calibration is open and no ECU is connected: the dialog needs only settings.
+    QAction *action = menuAction(window, kEcuDefinitionManager);
+    ASSERT_NE(action, nullptr);
+    ASSERT_TRUE(window.ui_->menuEdit->actions().contains(action));
+
+    QTimer driver;
+    bool opened = false;
+    QObject::connect(&driver, &QTimer::timeout,
+                     [&]
+                     {
+                         auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                         if (dialog != nullptr)
+                         {
+                             opened = dialog->objectName() == "ecu_definition_manager_dialog";
+                             dialog->reject();
+                         }
+                     });
+    driver.start(5);
+    ASSERT_TRUE(triggerMenu(window, kEcuDefinitionManager));
+    driver.stop();
+    EXPECT_TRUE(opened);
+}
+
+TEST_F(MainWindowTest, editMenuOpensTheEcuDefinitionManager)
+{
+    ASSERT_NO_FATAL_FAILURE(checkEditMenuOpensTheEcuDefinitionManager());
 }
 
 void MainWindowTest::checkNumericWindowGeometryRestoresAndPersistsAcrossWindowStates()
@@ -4461,9 +4499,9 @@ void MainWindowTest::checkEveryIconNamedByTheMenuResolves()
         withoutIcon += action->icon().isNull() ? 1 : 0;
     }
     // Set value, Interpolate bidirectional, Log views, Hex Editor, Terminal,
-    // BIU communication, Get Encryption Key and WinOLS CSV have no icon by
-    // design; any other null icon is a mistyped path.
-    EXPECT_EQ(withoutIcon, 8);
+    // BIU communication, Get Encryption Key, WinOLS CSV and ECU definition
+    // manager have no icon by design; any other null icon is a mistyped path.
+    EXPECT_EQ(withoutIcon, 9);
 }
 
 TEST_F(MainWindowTest, everyIconNamedByTheMenuResolves)
@@ -4607,7 +4645,7 @@ void MainWindowTest::checkEveryMenuActionIsConnectedToTheWindow()
             unconnected << action->objectName();
         }
     }
-    EXPECT_EQ(probed, 31);
+    EXPECT_EQ(probed, 32);
     EXPECT_TRUE(unconnected.isEmpty()) << "not connected: " << qPrintable(unconnected.join(", "));
 }
 

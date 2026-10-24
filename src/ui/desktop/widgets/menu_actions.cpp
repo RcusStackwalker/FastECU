@@ -132,6 +132,7 @@ void MainWindow::connectMenuActions()
     connect(ui_->actionCopy, &QAction::triggered, this, [this] { copyValue(); });
     connect(ui_->actionPaste, &QAction::triggered, this, [this] { pasteValue(); });
     connect(ui_->actionSettings, &QAction::triggered, this, [this] { showPreferencesWindow(); });
+    connect(ui_->actionEcuDefinitionManager, &QAction::triggered, this, [this] { ecuDefinitionManager(); });
     connect(ui_->actionCoarseIncrement, &QAction::triggered, this, [this] { incDecValue(IncrementStep::kCoarseUp); });
     connect(ui_->actionCoarseDecrement, &QAction::triggered, this, [this] { incDecValue(IncrementStep::kCoarseDown); });
     connect(ui_->actionFineIncrement, &QAction::triggered, this, [this] { incDecValue(IncrementStep::kFineUp); });
