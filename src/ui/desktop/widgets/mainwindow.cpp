@@ -483,15 +483,14 @@ QStringList MainWindow::createLogTransportsList()
     for (int i = 0; i < logTransportsLocal.length(); i++)
     {
         log_transport_list_->addItem(logTransportsLocal.at(i));
-        if (qs(config_session_->Settings().selected_flash_transport) == logTransportsLocal.at(i))
+        if (qs(config_session_->Settings().selected_log_transport) == logTransportsLocal.at(i))
         {
             log_transport_list_->setCurrentIndex(i);
-            protocol_ = "SSM";
         }
     }
-
-    // if (car_model_list->currentText() == "Subaru")
-    // protocol = "SSM";
+    // Startup builds the list before logTransportChanged is connected, so the
+    // list restores the saved log protocol itself.
+    protocol_ = qs(config_session_->Settings().selected_log_protocol);
 
     return logTransportsLocal;
 }

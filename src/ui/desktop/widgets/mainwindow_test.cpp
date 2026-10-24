@@ -9,6 +9,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QSignalBlocker>
 #include <QFileDialog>
 #include <QKeySequence>
 #include <QLineEdit>
@@ -1026,6 +1027,11 @@ class MainWindowTest : public ::testing::Test
     void checkSubaruConnectThatNeverAnswersDisconnectsAndRestoresControls();
     void checkDisconnectDuringIdentificationCancelsAndDropsTheResult();
     void checkLoggingSelectionWiringAndSupportPreservation();
+    void checkLogTransportListRestoresTheSavedLogProtocol(const QString& protocol, const QString& flashTransport,
+                                                          const QString& logTransport, const QString& logProtocol,
+                                                          int expectedIndex);
+    void checkVehicleChangeKeepsTheSavedLogProtocol();
+    void checkSsmLoggingStartsAfterStartupWhenFlashAndLogTransportsDiffer();
     void checkSavingASelectionThatCannotBePersistedNoticesTheOperator();
     void checkTargetChangeInvalidatesIdentificationAndSupport();
     void checkLoggingDefinitionFailureIsNonfatal();
@@ -3777,6 +3783,123 @@ void MainWindowTest::checkLoggingSelectionWiringAndSupportPreservation()
 TEST_F(MainWindowTest, loggingSelectionWiringAndSupportPreservation)
 {
     ASSERT_NO_FATAL_FAILURE(checkLoggingSelectionWiringAndSupportPreservation());
+}
+
+// Builds the log transport list for `protocol` from the saved settings, as
+// startup does, and checks the list restores the saved log protocol.
+void MainWindowTest::checkLogTransportListRestoresTheSavedLogProtocol(const QString& protocol,
+                                                                      const QString& flashTransport,
+                                                                      const QString& logTransport,
+                                                                      const QString& logProtocol, int expectedIndex)
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    driver.stop();
+    window.vbatt_timer_->stop();
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, protocol));
+    auto& settings = window.config_session_->Settings();
+    settings.selected_flash_transport = flashTransport.toStdString();
+    settings.selected_log_transport = logTransport.toStdString();
+    settings.selected_log_protocol = logProtocol.toStdString();
+    window.protocol_.clear();
+    const QSignalBlocker blocker(window.log_transport_list_);
+
+    window.createLogTransportsList();
+
+    EXPECT_EQ(window.protocol_, logProtocol);
+    EXPECT_EQ(window.log_transport_list_->currentIndex(), expectedIndex);
+}
+
+TEST_F(MainWindowTest, logTransportListRestoresTheLogProtocolWhenFlashAndLogTransportsDiffer)
+{
+    ASSERT_NO_FATAL_FAILURE(
+        checkLogTransportListRestoresTheSavedLogProtocol("sub_ecu_denso_sh7058_can", "iso15765", "K-Line", "SSM", 0));
+}
+
+TEST_F(MainWindowTest, logTransportListRestoresANonSsmLogProtocol)
+{
+    ASSERT_NO_FATAL_FAILURE(
+        checkLogTransportListRestoresTheSavedLogProtocol("sub_ecu_denso_sh7058", "K-Line", "K-Line", "MUT_DMA", 0));
+}
+
+TEST_F(MainWindowTest, logTransportListFallsBackToTheFirstTransportForAStaleSavedTransport)
+{
+    ASSERT_NO_FATAL_FAILURE(checkLogTransportListRestoresTheSavedLogProtocol("sub_ecu_denso_sh7058_can", "iso15765",
+                                                                             "NoSuchTransport", "SSM", 0));
+}
+
+void MainWindowTest::checkVehicleChangeKeepsTheSavedLogProtocol()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    window.vbatt_timer_->stop();
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058"));
+    auto& settings = window.config_session_->Settings();
+    settings.selected_flash_transport = "K-Line";
+    settings.selected_log_transport = "K-Line";
+    settings.selected_log_protocol = "CDBG";
+
+    // Rebuilding the list after a vehicle change also fires logTransportChanged.
+    window.selectVehicleFinished(QDialog::Accepted);
+    driver.stop();
+
+    EXPECT_EQ(window.protocol_, "CDBG");
+}
+
+TEST_F(MainWindowTest, vehicleChangeKeepsTheSavedLogProtocol)
+{
+    ASSERT_NO_FATAL_FAILURE(checkVehicleChangeKeepsTheSavedLogProtocol());
+}
+
+// Before the fix, startup left protocol_ empty here, and pressing Logging was
+// refused with "SSM logging protocol filter is empty" until the operator
+// touched the Log combo.
+void MainWindowTest::checkSsmLoggingStartsAfterStartupWhenFlashAndLogTransportsDiffer()
+{
+    WindowUnderTest under;
+    ASSERT_NO_FATAL_FAILURE(createWindow(under));
+    TestServices& services = *under.services;
+    MainWindow& window = *under.window;
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can"));
+    auto& settings = window.config_session_->Settings();
+    settings.selected_flash_transport = "iso15765";
+    settings.selected_log_transport = "K-Line";
+    settings.selected_log_protocol = "SSM";
+    QAction *action = prepareLogging(window, "SSM");
+    // The constructor's state: nothing has set protocol_ yet.
+    window.protocol_.clear();
+    {
+        const QSignalBlocker blocker(window.log_transport_list_);
+        window.createLogTransportsList();
+    }
+    services.logging_engine.RegisterProtocol("SSM",
+                                             [](const auto&)
+                                             {
+                                                 auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                                                 protocol->BlockPollUntilCancelled();
+                                                 return protocol;
+                                             });
+    window.connection_presentation_.identified({.ecu_id = "ECU"});
+
+    ModalDriver driver{QString()};
+    driver.start();
+    action->setChecked(false);
+    ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
+    driver.stop();
+
+    EXPECT_TRUE(window.logging_run_->view().active_snapshot.has_value());
+    EXPECT_TRUE(driver.acceptedTexts().filter("filter is empty").isEmpty())
+        << qPrintable(driver.acceptedTexts().join(" | "));
+    services.logging_engine.Stop();
+}
+
+TEST_F(MainWindowTest, ssmLoggingStartsAfterStartupWhenFlashAndLogTransportsDiffer)
+{
+    ASSERT_NO_FATAL_FAILURE(checkSsmLoggingStartsAfterStartupWhenFlashAndLogTransportsDiffer());
 }
 
 void MainWindowTest::checkSavingASelectionThatCannotBePersistedNoticesTheOperator()
