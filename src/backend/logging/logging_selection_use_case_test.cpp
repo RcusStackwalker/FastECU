@@ -102,6 +102,20 @@ TEST_F(LoggingSelectionUseCaseInstall, ReportsTheBundledHandleWhenNoneIsConfigur
     EXPECT_EQ(installed->resolved_handle, "/home/u/.FastECU/logger_cdbg_example.xml");
 }
 
+TEST_F(LoggingSelectionUseCaseInstall, BundledHandleIsReportedEvenWhenItsLoadFails)
+{
+    // Resolution only probes the user copy for readability; a malformed one fails to parse.
+    repository_.files["/home/u/.FastECU/logger_cdbg_example.xml"] = BytesOf("<logger><protocols>");
+
+    const auto installed = UseCase().InstallDefinition(
+        {.configured_handle = "", .log_protocol = "CDBG", .config_files_directory = "/home/u/.FastECU/"});
+
+    ASSERT_FALSE(installed.has_value());
+    EXPECT_EQ(installed.error().step, InstallFailure::Step::kLoad);
+    EXPECT_TRUE(installed.error().bundled_handle_used);
+    EXPECT_EQ(installed.error().handle, "/home/u/.FastECU/logger_cdbg_example.xml");
+}
+
 TEST_F(LoggingSelectionUseCaseInstall, ConfiguredHandleIsNeverReportedAsBundled)
 {
     repository_.files["defs.xml"] = BytesOf(kDefinition);

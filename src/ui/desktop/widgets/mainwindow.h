@@ -153,6 +153,8 @@ class MainWindow : public QMainWindow
     fastecu::ui::DefinitionAuthoringDialog *definition_authoring_dialog_ = nullptr;
     fastecu::logging::LoggerModel *logger_model_;
     void loadLoggerDefinition();
+    // Persists the resolved bundled definition handle into the settings.
+    void useBundledLoggerDefinition(const std::string& handle);
     void loadLoggerSelection();
     void saveLoggerSelection();
     // Applies and persists `selection` for the current ECU, noticing a failed save.

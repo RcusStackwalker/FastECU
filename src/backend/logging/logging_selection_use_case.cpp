@@ -20,16 +20,18 @@ std::expected<InstallOutcome, InstallFailure> LoggingSelectionUseCase::InstallDe
     {
         return std::unexpected(InstallFailure{.step = InstallFailure::Step::kResolve, .error = handle.error()});
     }
+    const bool bundled_handle_used = source.configured_handle.empty() && !handle->empty();
     auto definition = definitions_.LoadDefinition(*handle);
     if (!definition)
     {
-        return std::unexpected(
-            InstallFailure{.step = InstallFailure::Step::kLoad, .handle = *handle, .error = definition.error()});
+        return std::unexpected(InstallFailure{.step = InstallFailure::Step::kLoad,
+                                              .handle = *handle,
+                                              .bundled_handle_used = bundled_handle_used,
+                                              .error = definition.error()});
     }
     model_.InstallDefinition(std::move(*definition));
     model_.SetSelection(model_.DefaultSelection(source.log_protocol));
-    return InstallOutcome{.resolved_handle = *handle,
-                          .bundled_handle_used = source.configured_handle.empty() && !handle->empty()};
+    return InstallOutcome{.resolved_handle = *handle, .bundled_handle_used = bundled_handle_used};
 }
 
 Result<RestoreOutcome> LoggingSelectionUseCase::RestorePendingSelection(std::string_view conf_handle,

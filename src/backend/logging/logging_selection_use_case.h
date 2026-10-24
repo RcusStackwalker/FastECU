@@ -37,6 +37,9 @@ struct InstallFailure
     };
     Step step;
     std::string handle; // empty for kResolve
+    // As InstallOutcome's: the caller persists `handle` even though loading it
+    // failed, as resolution already chose it.
+    bool bundled_handle_used = false;
     Error error;
 };
 

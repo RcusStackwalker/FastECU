@@ -1495,7 +1495,7 @@ void MainWindow::updateLogboxValues(const QString& protocolArg)
 
 void MainWindow::loadLoggerDefinition()
 {
-    auto& settings = config_session_->Settings();
+    const auto& settings = config_session_->Settings();
     const auto installed = services_.logging_selection.InstallDefinition({
         .configured_handle = settings.romraider_logger_definition_file,
         .log_protocol = settings.selected_log_protocol,
@@ -1510,15 +1510,25 @@ void MainWindow::loadLoggerDefinition()
                                                 failure.error.detail);
             return;
         }
+        // The resolved handle is persisted before loading, so a failed load keeps it.
+        if (failure.bundled_handle_used)
+        {
+            useBundledLoggerDefinition(failure.handle);
+        }
         services_.file_action_events.Notice("Logger file: Unable to open logger definition file '" + failure.handle +
                                             "' for reading: " + failure.error.detail);
         return;
     }
     if (installed->bundled_handle_used)
     {
-        settings.romraider_logger_definition_file = installed->resolved_handle;
-        emit logD("Using bundled CDBG logger definition: " + qs(installed->resolved_handle), true, true);
+        useBundledLoggerDefinition(installed->resolved_handle);
     }
+}
+
+void MainWindow::useBundledLoggerDefinition(const std::string& handle)
+{
+    config_session_->Settings().romraider_logger_definition_file = handle;
+    emit logD("Using bundled CDBG logger definition: " + qs(handle), true, true);
 }
 
 void MainWindow::loadLoggerSelection()

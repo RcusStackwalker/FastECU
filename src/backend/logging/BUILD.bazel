@@ -104,7 +104,6 @@ cc_library(
     hdrs = ["logging_selection_use_case.h"],
     visibility = ["//visibility:public"],
     deps = [
-        ":logger_definition_model",
         ":logger_definition_service",
         ":logger_model",
         "//src/backend/ports",
