@@ -1,12 +1,15 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include <chrono>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 #include "src/backend/protocol/testing/scripted_can_transport.h"
 #include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
+
+using ::testing::IsEmpty;
 
 namespace
 {
@@ -113,7 +116,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
-    EXPECT_TRUE(result->samples.empty());
+    EXPECT_THAT(result->samples, IsEmpty());
 }
 
 TEST(CdbgLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterIsClosed)
@@ -159,7 +162,7 @@ TEST(CdbgLoggingProtocolTest, PollReportsSilenceAfterStartWithoutCachedSamples)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
-    EXPECT_TRUE(result->samples.empty());
+    EXPECT_THAT(result->samples, IsEmpty());
 }
 
 TEST(CdbgLoggingProtocolTest, StartPropagatesCancellation)

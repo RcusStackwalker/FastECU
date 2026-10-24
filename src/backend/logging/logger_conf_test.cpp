@@ -18,10 +18,13 @@ using fastecu::logging::LoggerSelection;
 using fastecu::logging::LoggerSwitch;
 using fastecu::logging::ReadSelection;
 using fastecu::logging::WriteSelection;
+using ::testing::_;
 using ::testing::ElementsAre;
+using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
+using ::testing::Optional;
 using ::testing::SizeIs;
 using ::testing::StartsWith;
 
@@ -83,7 +86,7 @@ TEST(ReadSelection, ReturnsTheSelectionWhenTheEcuIsPresent)
 {
     const auto result = ReadSelection(View(kConfWithEcu), "ECUID1", "conf.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->has_value());
+    ASSERT_THAT(*result, Optional(_));
     EXPECT_EQ((*result)->protocol, "SSM");
     EXPECT_THAT((*result)->gauge_ids, ElementsAre("P1", "P2"));
     EXPECT_THAT((*result)->lower_panel_ids, ElementsAre("P3"));
@@ -94,7 +97,7 @@ TEST(ReadSelection, ReturnsNulloptWhenTheEcuIsAbsent)
 {
     const auto result = ReadSelection(View(kConfWithEcu), "OTHER", "conf.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_FALSE(result->has_value());
+    EXPECT_THAT(*result, Eq(std::nullopt));
 }
 
 TEST(ReadSelection, RejectsMalformedXml)
@@ -141,7 +144,7 @@ TEST(WriteSelection, UpdatesAnExistingEcuElement)
     const auto reread = ReadSelection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(reread, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
     const auto& reread_selection = *reread;
-    ASSERT_TRUE(reread_selection.has_value());
+    ASSERT_THAT(reread_selection, Optional(_));
     EXPECT_THAT(reread_selection->gauge_ids, ElementsAre("X1", "X2"));
     EXPECT_THAT(reread_selection->lower_panel_ids, ElementsAre("X3"));
     EXPECT_THAT(reread_selection->switch_ids, ElementsAre("X4"));
@@ -180,7 +183,7 @@ TEST(WriteSelection, CreatesTheLoggerElementWhenConfigHasNone)
     const auto reread = ReadSelection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(reread, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
     const auto& reread_selection = *reread;
-    ASSERT_TRUE(reread_selection.has_value());
+    ASSERT_THAT(reread_selection, Optional(_));
     EXPECT_THAT(reread_selection->gauge_ids, ElementsAre("P1"));
 }
 
@@ -207,13 +210,13 @@ TEST(WriteSelection, AppendsANewEcuElementAndKeepsTheExistingOne)
     const auto original = ReadSelection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(original, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
     const auto& original_selection = *original;
-    ASSERT_TRUE(original_selection.has_value());
+    ASSERT_THAT(original_selection, Optional(_));
     EXPECT_THAT(original_selection->gauge_ids, ElementsAre("P1", "P2"));
 
     const auto added = ReadSelection(*written, "ECUID2", "conf.xml");
     ASSERT_THAT(added, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
     const auto& added_selection = *added;
-    ASSERT_TRUE(added_selection.has_value());
+    ASSERT_THAT(added_selection, Optional(_));
     EXPECT_EQ(added_selection->protocol, "CDBG");
     EXPECT_THAT(added_selection->gauge_ids, ElementsAre("Y1"));
 }
@@ -324,7 +327,7 @@ TEST(WriteSelection, WritesFourSpaceIndentedXmlThatReadsBack)
 
     const auto read = ReadSelection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(read, fastecu::testing::IsOk());
-    ASSERT_TRUE(read->has_value());
+    ASSERT_THAT(*read, Optional(_));
     EXPECT_EQ(**read, selection);
 }
 
@@ -372,12 +375,12 @@ TEST(WriteSelection, KeepsAnUntouchedSiblingEcuReadable)
 
     const auto sibling = ReadSelection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(sibling, fastecu::testing::IsOk());
-    ASSERT_TRUE(sibling->has_value());
+    ASSERT_THAT(*sibling, Optional(_));
     EXPECT_THAT((*sibling)->gauge_ids, ElementsAre("Z9"));
 
     const auto added = ReadSelection(*written, "ECUID2", "conf.xml");
     ASSERT_THAT(added, fastecu::testing::IsOk());
-    ASSERT_TRUE(added->has_value());
+    ASSERT_THAT(*added, Optional(_));
     EXPECT_THAT((*added)->gauge_ids, ElementsAre("Y1"));
 }
 

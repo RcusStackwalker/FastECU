@@ -1,6 +1,9 @@
 #include "src/backend/logging/logger_model.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::IsEmpty;
 
 namespace fastecu::logging
 {
@@ -122,7 +125,7 @@ TEST(LoggerModelTest, EmptyModelDoesNotInventDefinitionsOrSupportedIds)
     LoggerModel model;
     model.SetParameterSupport("SSM", "unknown", fastecu::logging::EcuSupport::kSupported);
     EXPECT_FALSE(model.ParameterAvailable("SSM", "unknown"));
-    EXPECT_TRUE(model.DefaultSelection().gauge_ids.empty());
+    EXPECT_THAT(model.DefaultSelection().gauge_ids, IsEmpty());
 }
 } // namespace
 } // namespace fastecu::logging
