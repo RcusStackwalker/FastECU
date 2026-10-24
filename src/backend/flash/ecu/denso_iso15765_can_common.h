@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <optional>
@@ -56,8 +57,8 @@ inline constexpr std::string_view kDensoIso15765RejectionPrefix = "Wrong respons
 // bootloader executors: RequestDownload (34) or RequestUpload (35), 04 44,
 // then four-byte big-endian start and length. Region fields pass through
 // unchanged; callers own validation and policy.
-bytes::Bytes DensoIso15765DownloadSetupPdu(const MemoryRegion& region);
-bytes::Bytes DensoIso15765UploadSetupPdu(const MemoryRegion& region);
+std::array<bytes::Byte, 11> DensoIso15765DownloadSetupPdu(const MemoryRegion& region);
+std::array<bytes::Byte, 11> DensoIso15765UploadSetupPdu(const MemoryRegion& region);
 
 // One B7 request with a four-byte big-endian address, fatal UDS response
 // handling at 2000 ms, and whole-word payload decryption. Short pages remain

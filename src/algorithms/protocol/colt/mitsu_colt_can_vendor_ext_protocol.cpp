@@ -3,7 +3,6 @@
 #include <cassert>
 
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/algorithms/protocol/uds/uds_pdu.h"
 #include <array>
 
 namespace mitsu_colt_can_vendor_ext
@@ -66,21 +65,19 @@ std::uint32_t BytesToSeed(bytes::ByteView seed_bytes)
     return bytes::ReadU32Be(seed_bytes);
 }
 
-bytes::Bytes KeyBytes(std::uint32_t key)
+std::array<bytes::Byte, 4> KeyBytes(std::uint32_t key)
 {
-    return bytes::ComposeBeWithExtraCapacity(0, key);
+    return ComposeBe(key);
 }
 
-bytes::Bytes BuildChallengeSeedRequest()
+std::array<bytes::Byte, 3> BuildChallengeSeedRequest()
 {
-    return uds::BuildRequest(kServiceReadMemoryByAddress,
-                             ComposeBe(kVendorChallengeSelector, kVendorChallengeSeedSubfunction));
+    return ComposeBe(kServiceReadMemoryByAddress, kVendorChallengeSelector, kVendorChallengeSeedSubfunction);
 }
 
-bytes::Bytes BuildChallengeKey(std::uint32_t key)
+std::array<bytes::Byte, 7> BuildChallengeKey(std::uint32_t key)
 {
-    return uds::BuildRequest(kServiceReadMemoryByAddress,
-                             ComposeBe(kVendorChallengeSelector, kVendorChallengeKeySubfunction, key));
+    return ComposeBe(kServiceReadMemoryByAddress, kVendorChallengeSelector, kVendorChallengeKeySubfunction, key);
 }
 
 } // namespace mitsu_colt_can_vendor_ext

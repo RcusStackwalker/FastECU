@@ -66,14 +66,14 @@ std::uint16_t SeedKeyWord(std::uint16_t seed_word)
     return static_cast<std::uint16_t>(std::uint32_t(seed_word) * 135 + 1542);
 }
 
-bytes::Bytes SeedKey(bytes::ByteView seed)
+std::array<bytes::Byte, 4> SeedKey(bytes::ByteView seed)
 {
     assert(seed.size() == 4);
     const std::uint16_t pk1 = bytes::ReadU16Be(seed, 0);
     const std::uint16_t pk2 = bytes::ReadU16Be(seed, 2);
     const std::uint16_t sk1 = SeedKeyWord(pk1);
     const std::uint16_t sk2 = SeedKeyWord(pk2);
-    return bytes::ComposeBeWithExtraCapacity(0, sk1, sk2);
+    return ComposeBe(sk1, sk2);
 }
 
 std::uint16_t Checksum(bytes::ByteView data)
@@ -95,9 +95,9 @@ bool IsDestructiveRequest(bytes::ByteView pdu)
     return pdu.size() >= 2 && pdu[0] == kServiceRoutineControl && pdu[1] == kRoutineErase;
 }
 
-bytes::Bytes BuildRequestDownload(std::uint32_t start, std::uint32_t size)
+std::array<bytes::Byte, 8> BuildRequestDownload(std::uint32_t start, std::uint32_t size)
 {
-    return uds::BuildRequest(kServiceRequestDownload, ComposeBe(U24{start}, 0x00_b, U24{size}));
+    return ComposeBe(kServiceRequestDownload, U24{start}, 0x00_b, U24{size});
 }
 
 std::vector<bytes::Bytes> BuildTransferDataFrames(bytes::ByteView payload)
@@ -111,46 +111,45 @@ std::vector<bytes::Bytes> BuildTransferDataFrames(bytes::ByteView payload)
     return frames;
 }
 
-bytes::Bytes BuildRoutineCheckCrc(std::uint32_t target_start)
+std::array<bytes::Byte, 3> BuildRoutineCheckCrc(std::uint32_t target_start)
 {
-    return uds::BuildRequest(kServiceRoutineControl, kRoutineCheckCrc, ComposeBe(target_start < 0x800000 ? 2_b : 1_b));
+    return ComposeBe(kServiceRoutineControl, kRoutineCheckCrc, target_start < 0x800000 ? 2_b : 1_b);
 }
 
-bytes::Bytes BuildRoutineErase()
+std::array<bytes::Byte, 2> BuildRoutineErase()
 {
     return uds::BuildRequest(kServiceRoutineControl, kRoutineErase);
 }
 
-bytes::Bytes BuildRequestReflashUnlock()
+std::array<bytes::Byte, 12> BuildRequestReflashUnlock()
 {
-    // The SID moved into uds::buildRequest below; the remaining 11 bytes are
-    // the tail of the 12-byte literal in
+    // The 11-byte tail is carried over from the 12-byte literal in
     // externals/livemonitor/obdsessionwidget.cpp:180-181, verbatim, and the
     // frame this builds is still that literal byte for byte. Original author's
     // comment: "caused bootloader lockup". See header doc.
     static constexpr std::array<bytes::Byte, 11> kData{154, 1, 1, 'R', 'c', 'u', 's', '0', '0', 0, 1};
-    return uds::BuildRequest(kServiceRequestReflash, bytes::ByteView(kData));
+    return ComposeBe(kServiceRequestReflash, kData);
 }
 
-bytes::Bytes BuildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len)
+std::array<bytes::Byte, 5> BuildReadMemoryByAddress(std::uint32_t addr, bytes::Byte len)
 {
-    return uds::BuildRequest(kServiceReadMemoryByAddress, ComposeBe(U24{addr}, len));
+    return ComposeBe(kServiceReadMemoryByAddress, U24{addr}, len);
 }
 
-bytes::Bytes BuildDiagnosticSession(bytes::Byte session_id)
+std::array<bytes::Byte, 2> BuildDiagnosticSession(bytes::Byte session_id)
 {
     return uds::BuildRequest(kServiceDiagnosticSession, session_id);
 }
 
-bytes::Bytes BuildSecurityAccessSeedRequest()
+std::array<bytes::Byte, 2> BuildSecurityAccessSeedRequest()
 {
     return uds::BuildRequest(kServiceSecurityAccess, 0x05_b);
 }
 
-bytes::Bytes BuildSecurityAccessKey(bytes::ByteView key)
+std::array<bytes::Byte, 6> BuildSecurityAccessKey(bytes::ByteView key)
 {
     assert(key.size() == 4);
-    return uds::BuildRequest(kServiceSecurityAccess, 0x06_b, key);
+    return ComposeBe(kServiceSecurityAccess, 0x06_b, key.first<4>());
 }
 
 } // namespace mitsu_colt_can

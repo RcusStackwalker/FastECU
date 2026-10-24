@@ -125,7 +125,7 @@ Status ConnectBootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 
         const std::uint32_t vendor_key =
             mitsu_colt_can_vendor_ext::ChallengeInverseTransform(mitsu_colt_can_vendor_ext::BytesToSeed(seed_bytes));
-        const bytes::Bytes key_bytes = mitsu_colt_can_vendor_ext::KeyBytes(vendor_key);
+        const auto key_bytes = mitsu_colt_can_vendor_ext::KeyBytes(vendor_key);
         LogInfo(ctx, std::format("Calculated vendor key: {}", bytes::ToHex(key_bytes)));
 
         // Lines 106-116. Echoing the selector is not acceptance: only
@@ -177,7 +177,7 @@ Status ConnectBootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
     const bytes::ByteView seed = uds::Payload(*received).subspan(1, 4);
     LogInfo(ctx, std::format("Received seed: {}", bytes::ToHex(seed)));
 
-    const bytes::Bytes key = SeedKey(seed);
+    const auto key = SeedKey(seed);
     LogInfo(ctx, std::format("Calculated seed key: {}", bytes::ToHex(key)));
 
     // Lines 155-165.

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <concepts>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -46,8 +47,9 @@ TEST(DensoBeefCanCommonTest, BeefRequestFramesOpcodeAndPayloadLength)
 
 TEST(DensoBeefCanCommonTest, KernelDownloadRequestEncodesItsTwo24BitFields)
 {
-    EXPECT_THAT(BeefKernelDownloadRequest(0xFFFF4000U, bytes::Bytes(0x100, 0xAA)),
-                test_bytes::BytesEq(bytes::Bytes{0x34, 0x04, 0x33, 0xFF, 0x40, 0x00, 0x00, 0x01, 0x00}));
+    const auto request = BeefKernelDownloadRequest(0xFFFF4000U, bytes::Bytes(0x100, 0xAA));
+    static_assert(std::same_as<decltype(request), const std::array<bytes::Byte, 9>>);
+    EXPECT_THAT(request, test_bytes::BytesEq(bytes::Bytes{0x34, 0x04, 0x33, 0xFF, 0x40, 0x00, 0x00, 0x01, 0x00}));
 }
 
 TEST(DensoBeefCanCommonTest, BeefRequestWithNoPayloadStillCountsTheOpcode)

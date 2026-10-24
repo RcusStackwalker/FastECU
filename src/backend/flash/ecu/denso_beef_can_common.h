@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <concepts>
 #include <cstddef>
@@ -78,11 +79,11 @@ inline bytes::Bytes EncryptPayload(bytes::ByteView payload)
 
 // The initial upload request describes the encrypted payload without embedding
 // it. Callers retain their existing kernel-size validation.
-inline bytes::Bytes BeefKernelDownloadRequest(std::uint32_t load_address, bytes::ByteView encrypted_payload)
+inline std::array<bytes::Byte, 9> BeefKernelDownloadRequest(std::uint32_t load_address,
+                                                            bytes::ByteView encrypted_payload)
 {
-    return bytes::ComposeBeWithExtraCapacity(0, bytes::Byte{0x34}, bytes::Byte{0x04}, bytes::Byte{0x33},
-                                             bytes::U24{load_address},
-                                             bytes::U24{static_cast<std::uint32_t>(encrypted_payload.size())});
+    return bytes::ComposeBe(bytes::Byte{0x34}, bytes::Byte{0x04}, bytes::Byte{0x33}, bytes::U24{load_address},
+                            bytes::U24{static_cast<std::uint32_t>(encrypted_payload.size())});
 }
 
 // The kernel zero-padded to whole `block_size` transfer blocks, its last word

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <concepts>
 #include <cstdint>
 #include <initializer_list>
 #include <ranges>
@@ -33,13 +34,17 @@ namespace
 
 TEST(DensoIso15765CanCommon, SetupPduEncodesDownloadBigEndian)
 {
-    EXPECT_THAT(DensoIso15765DownloadSetupPdu(MemoryRegion{0x01234567, 0x89ABCDEF}),
+    const auto pdu = DensoIso15765DownloadSetupPdu(MemoryRegion{0x01234567, 0x89ABCDEF});
+    static_assert(std::same_as<decltype(pdu), const std::array<bytes::Byte, 11>>);
+    EXPECT_THAT(pdu,
                 test_bytes::BytesEq((bytes::Bytes{0x34, 0x04, 0x44, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})));
 }
 
 TEST(DensoIso15765CanCommon, SetupPduEncodesUploadBigEndian)
 {
-    EXPECT_THAT(DensoIso15765UploadSetupPdu(MemoryRegion{0x01234567, 0x89ABCDEF}),
+    const auto pdu = DensoIso15765UploadSetupPdu(MemoryRegion{0x01234567, 0x89ABCDEF});
+    static_assert(std::same_as<decltype(pdu), const std::array<bytes::Byte, 11>>);
+    EXPECT_THAT(pdu,
                 test_bytes::BytesEq((bytes::Bytes{0x35, 0x04, 0x44, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF})));
 }
 

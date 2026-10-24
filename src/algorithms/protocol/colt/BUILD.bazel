@@ -29,7 +29,6 @@ cc_library(
     name = "mitsu_colt_can_vendor_ext_protocol",
     srcs = ["mitsu_colt_can_vendor_ext_protocol.cpp"],
     hdrs = ["mitsu_colt_can_vendor_ext_protocol.h"],
-    implementation_deps = ["//src/algorithms/protocol/uds"],
     deps = ["//src/algorithms/protocol"],
 )
 

@@ -88,7 +88,7 @@ Status ReadIntoOutcome(BenchContext& context, const PreparedStep& prepared, Comm
         const std::uint32_t remaining = len - offset;
         const auto chunk_len =
             static_cast<bytes::Byte>(std::min<std::uint32_t>(remaining, mitsu_colt_can::kFlashReadBlockSize));
-        const bytes::Bytes pdu = mitsu_colt_can::BuildReadMemoryByAddress(addr + offset, chunk_len);
+        const auto pdu = mitsu_colt_can::BuildReadMemoryByAddress(addr + offset, chunk_len);
         const Result<bytes::Bytes> reply = Exchange(context, outcome, pdu, kRoutinePolicy);
         if (!reply.has_value())
         {
@@ -159,7 +159,7 @@ Status Upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
     // and the checksum go the same way, so they go through the same sequence.
     const auto transfer = [&](std::uint32_t at, bytes::ByteView block) -> Status
     {
-        const bytes::Bytes request = mitsu_colt_can::BuildRequestDownload(at, static_cast<std::uint32_t>(block.size()));
+        const auto request = mitsu_colt_can::BuildRequestDownload(at, static_cast<std::uint32_t>(block.size()));
         if (const Result<bytes::Bytes> reply = Exchange(context, outcome, request, kRoutinePolicy); !reply.has_value())
         {
             return std::unexpected(reply.error());
@@ -186,7 +186,7 @@ Status Upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
         return sent;
     }
 
-    const bytes::Bytes crc_check = mitsu_colt_can::BuildRoutineCheckCrc(addr);
+    const auto crc_check = mitsu_colt_can::BuildRoutineCheckCrc(addr);
     const Result<bytes::Bytes> crc_reply = Exchange(context, outcome, crc_check, kSlowPolicy);
     if (!crc_reply.has_value())
     {
@@ -477,7 +477,7 @@ Status ExecuteUpload(BenchContext& context, const PreparedStep& prepared, Comman
 
 Status ExecuteUnlock(BenchContext& context, CommandOutcome& outcome)
 {
-    const bytes::Bytes pdu = mitsu_colt_can::BuildRequestReflashUnlock();
+    const auto pdu = mitsu_colt_can::BuildRequestReflashUnlock();
     if (const Result<bytes::Bytes> reply = Exchange(context, outcome, pdu, kSlowPolicy); !reply.has_value())
     {
         return std::unexpected(reply.error());

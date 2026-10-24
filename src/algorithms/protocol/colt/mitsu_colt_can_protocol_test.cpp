@@ -1,5 +1,6 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include <gtest/gtest.h>
+#include <concepts>
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 using namespace mitsu_colt_can;
@@ -14,10 +15,10 @@ TEST(TestMitsuColtCanProtocol, seed_key_word_matches_known_vectors)
     ASSERT_EQ(SeedKeyWord(0x1234), std::uint16_t(0x9F72));
     ASSERT_EQ(SeedKeyWord(0xFFFF), std::uint16_t(0x057F));
 }
-TEST(TestMitsuColtCanProtocol, seed_key_accepts_byte_view_and_returns_bytes)
+TEST(TestMitsuColtCanProtocol, seed_key_accepts_byte_view_and_returns_fixed_array)
 {
     const bytes::Bytes seed = BytesFromHex("12340000");
-    ASSERT_EQ(SeedKey(seed), BytesFromHex("9F720606"));
+    ASSERT_EQ(SeedKey(seed), (std::array<bytes::Byte, 4>{0x9F, 0x72, 0x06, 0x06}));
 }
 TEST(TestMitsuColtCanProtocol, checksum_sums_every_byte_with_wraparound)
 {
@@ -26,7 +27,8 @@ TEST(TestMitsuColtCanProtocol, checksum_sums_every_byte_with_wraparound)
 }
 TEST(TestMitsuColtCanProtocol, request_download_frame_layout)
 {
-    ASSERT_EQ(BuildRequestDownload(0x008000, 0x000100), BytesFromHex("3400800000000100"));
+    static_assert(std::same_as<decltype(BuildRequestDownload(0, 0)), std::array<bytes::Byte, 8>>);
+    EXPECT_THAT(BuildRequestDownload(0x008000, 0x000100), test_bytes::BytesEq(BytesFromHex("3400800000000100")));
 }
 TEST(TestMitsuColtCanProtocol, transfer_data_frames_chunk_at_256_bytes)
 {
@@ -41,31 +43,39 @@ TEST(TestMitsuColtCanProtocol, transfer_data_frames_chunk_at_256_bytes)
 }
 TEST(TestMitsuColtCanProtocol, routine_check_crc_selects_flash_vs_memory)
 {
-    ASSERT_EQ(BuildRoutineCheckCrc(0x008000), BytesFromHex("31E102")); // < 0x800000 -> flash (2)
-    ASSERT_EQ(BuildRoutineCheckCrc(0x805568), BytesFromHex("31E101")); // >= 0x800000 -> memory (1)
+    static_assert(std::same_as<decltype(BuildRoutineCheckCrc(0)), std::array<bytes::Byte, 3>>);
+    EXPECT_THAT(BuildRoutineCheckCrc(0x008000), test_bytes::BytesEq(BytesFromHex("31E102"))); // < 0x800000 -> flash (2)
+    EXPECT_THAT(BuildRoutineCheckCrc(0x805568),
+                test_bytes::BytesEq(BytesFromHex("31E101"))); // >= 0x800000 -> memory (1)
 }
 TEST(TestMitsuColtCanProtocol, routine_erase_frame_is_two_bytes_no_selector)
 {
-    ASSERT_EQ(BuildRoutineErase(), BytesFromHex("31E0"));
+    static_assert(std::same_as<decltype(BuildRoutineErase()), std::array<bytes::Byte, 2>>);
+    EXPECT_THAT(BuildRoutineErase(), test_bytes::BytesEq(BytesFromHex("31E0")));
 }
 TEST(TestMitsuColtCanProtocol, request_reflash_unlock_frame_matches_source_bytes)
 {
-    ASSERT_EQ(BuildRequestReflashUnlock(), BytesFromHex("3B9A01015263757330300001"));
+    static_assert(std::same_as<decltype(BuildRequestReflashUnlock()), std::array<bytes::Byte, 12>>);
+    EXPECT_THAT(BuildRequestReflashUnlock(), test_bytes::BytesEq(BytesFromHex("3B9A01015263757330300001")));
 }
 TEST(TestMitsuColtCanProtocol, read_memory_by_address_frame_layout)
 {
-    ASSERT_EQ(BuildReadMemoryByAddress(0x008000, 192), BytesFromHex("23008000C0"));
+    static_assert(std::same_as<decltype(BuildReadMemoryByAddress(0, 0)), std::array<bytes::Byte, 5>>);
+    EXPECT_THAT(BuildReadMemoryByAddress(0x008000, 192), test_bytes::BytesEq(BytesFromHex("23008000C0")));
 }
 TEST(TestMitsuColtCanProtocol, diagnostic_session_frame_layout)
 {
-    ASSERT_EQ(BuildDiagnosticSession(kSessionBootload), BytesFromHex("1085"));
-    ASSERT_EQ(BuildDiagnosticSession(kSessionBasic), BytesFromHex("1081"));
+    static_assert(std::same_as<decltype(BuildDiagnosticSession(0)), std::array<bytes::Byte, 2>>);
+    EXPECT_THAT(BuildDiagnosticSession(kSessionBootload), test_bytes::BytesEq(BytesFromHex("1085")));
+    EXPECT_THAT(BuildDiagnosticSession(kSessionBasic), test_bytes::BytesEq(BytesFromHex("1081")));
 }
 TEST(TestMitsuColtCanProtocol, security_access_frame_layout)
 {
-    ASSERT_EQ(BuildSecurityAccessSeedRequest(), BytesFromHex("2705"));
+    static_assert(std::same_as<decltype(BuildSecurityAccessSeedRequest()), std::array<bytes::Byte, 2>>);
+    EXPECT_THAT(BuildSecurityAccessSeedRequest(), test_bytes::BytesEq(BytesFromHex("2705")));
     const bytes::Bytes key = BytesFromHex("9F720606");
-    ASSERT_EQ(BuildSecurityAccessKey(key), BytesFromHex("27069F720606"));
+    static_assert(std::same_as<decltype(BuildSecurityAccessKey(key)), std::array<bytes::Byte, 6>>);
+    EXPECT_THAT(BuildSecurityAccessKey(key), test_bytes::BytesEq(BytesFromHex("27069F720606")));
 }
 TEST(TestMitsuColtCanProtocol, erase_and_write_page_routines_match_colt_flasher_xml_sizes)
 {

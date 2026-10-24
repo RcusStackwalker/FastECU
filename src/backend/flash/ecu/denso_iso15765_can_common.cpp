@@ -135,16 +135,16 @@ constexpr bytes::Byte kReadDataByIdentifierReply = uds::kSidReadDataByIdentifier
 
 } // namespace
 
-bytes::Bytes DensoIso15765DownloadSetupPdu(const MemoryRegion& region)
+std::array<bytes::Byte, 11> DensoIso15765DownloadSetupPdu(const MemoryRegion& region)
 {
-    return bytes::ComposeBeWithExtraCapacity(0, uds::kSidRequestDownload, kDataFormatIdentifier,
-                                             kAddressAndLengthFormat, region.start, region.length);
+    return bytes::ComposeBe(uds::kSidRequestDownload, kDataFormatIdentifier, kAddressAndLengthFormat, region.start,
+                            region.length);
 }
 
-bytes::Bytes DensoIso15765UploadSetupPdu(const MemoryRegion& region)
+std::array<bytes::Byte, 11> DensoIso15765UploadSetupPdu(const MemoryRegion& region)
 {
-    return bytes::ComposeBeWithExtraCapacity(0, uds::kSidRequestUpload, kDataFormatIdentifier, kAddressAndLengthFormat,
-                                             region.start, region.length);
+    return bytes::ComposeBe(uds::kSidRequestUpload, kDataFormatIdentifier, kAddressAndLengthFormat, region.start,
+                            region.length);
 }
 
 Result<bytes::Bytes> ReadDensoEncryptedPage(const CanExecutorContext& ctx, std::uint32_t address)
