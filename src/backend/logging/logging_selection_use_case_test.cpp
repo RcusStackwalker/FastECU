@@ -8,8 +8,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/protocol/testing/byte_test_utils.h"
 #include "src/backend/logging/logger_definition_service.h"
 #include "src/backend/logging/logger_model.h"
+#include "src/backend/logging/testing/logger_xml_fixtures.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 
@@ -21,27 +23,12 @@ using fastecu::logging::LoggerDefinition;
 using fastecu::logging::LoggerSelection;
 using fastecu::logging::LoggingSelectionUseCase;
 using fastecu::logging::RestoreOutcome;
+using fastecu::logging::testing::kConfWithEcu;
+using fastecu::logging::testing::kDefinition;
+using fastecu::logging::testing::kEmptyConf;
+using test_bytes::BytesOf;
 using ::testing::ElementsAre;
 using ::testing::SizeIs;
-
-constexpr std::string_view kDefinition =
-    R"(<logger><protocols><protocol id="SSM"><parameters>
-  <parameter id="P1" enabled="1"><address>0x1</address></parameter>
-  <parameter id="P2" enabled="0"><address>0x2</address></parameter>
-</parameters><switches><switch id="S1"/></switches></protocol></protocols></logger>)";
-
-constexpr std::string_view kConfWithEcu =
-    R"(<config><logger><ecu id="ECUID1"><protocol id="SSM"><parameters>
-  <gauges><parameter id="P2" name=""/></gauges>
-  <lower_panel><parameter id="P2" name=""/></lower_panel>
-</parameters><switches><switch id="S1" name=""/></switches></protocol></ecu></logger></config>)";
-
-constexpr std::string_view kEmptyConf = "<config><logger/></config>";
-
-std::vector<std::uint8_t> BytesOf(std::string_view text)
-{
-    return {text.begin(), text.end()};
-}
 
 // Every ID list empty, protocol retained.
 LoggerSelection Cleared(std::string protocol)

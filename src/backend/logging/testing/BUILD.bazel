@@ -8,3 +8,9 @@ cc_library(
     hdrs = ["scripted_logging_protocol.h"],
     deps = ["//src/backend/logging:logging_use_case"],
 )
+
+cc_library(
+    name = "logger_xml_fixtures",
+    testonly = True,
+    hdrs = ["logger_xml_fixtures.h"],
+)

@@ -2,6 +2,8 @@
 
 #include "src/algorithms/protocol/bytes.h"
 
+#include <initializer_list>
+#include <ranges>
 #include <string_view>
 
 namespace test_bytes
@@ -44,6 +46,19 @@ inline bytes::Bytes BytesFromHex(std::string_view hex)
         high = -1;
     }
     return out;
+}
+
+// The bytes of `text`, for feeding XML or other text to a byte-based port.
+inline bytes::Bytes BytesOf(std::string_view text)
+{
+    return {text.begin(), text.end()};
+}
+
+// A byte vector from int literals, so tests can write B({0x01, 0xFF}).
+inline bytes::Bytes B(std::initializer_list<int> values)
+{
+    return values | std::views::transform([](int v) { return static_cast<bytes::Byte>(v); }) |
+           std::ranges::to<bytes::Bytes>();
 }
 
 } // namespace test_bytes

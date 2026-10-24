@@ -12,6 +12,7 @@
 
 #include "src/algorithms/diagnostics/dtc_parser.h"
 #include "src/algorithms/diagnostics/nrc_parser.h"
+#include "src/algorithms/protocol/testing/byte_test_utils.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -19,6 +20,7 @@
 #include "src/backend/protocol/testing/fake_diagnostic_link.h"
 
 using namespace fastecu::diagnostics;
+using test_bytes::B;
 using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeCancellationToken;
@@ -35,12 +37,6 @@ using ::testing::Not;
 
 namespace
 {
-bytes::Bytes B(std::initializer_list<int> values)
-{
-    return values | std::views::transform([](int v) { return static_cast<bytes::Byte>(v); }) |
-           std::ranges::to<bytes::Bytes>();
-}
-
 std::vector<std::string> Lines(const RecordingEventSink& sink, LogLevel level)
 {
     std::vector<std::string> out;
