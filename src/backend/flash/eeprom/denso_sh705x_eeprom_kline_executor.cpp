@@ -95,7 +95,7 @@ bytes::Bytes Sid10Request()
 }
 bytes::Bytes Sid34Request(std::uint32_t addr, std::uint32_t len)
 {
-    return ComposeBe(0x34_b, U24{addr}, 0x04_b, U24{len});
+    return bytes::ComposeBeWithExtraCapacity(0, 0x34_b, U24{addr}, 0x04_b, U24{len});
 }
 bytes::Bytes Sid31Request()
 {
@@ -105,7 +105,8 @@ bytes::Bytes Sid31Request()
 // request_kernel_id(), lines 964-994: NOT SsmProtocol::addHeader-framed.
 bytes::Bytes RequestKernelIdFrame()
 {
-    return ComposeBeWithChecksum(bytes::Sum8, kSubKernelStartComm, std::uint16_t{1}, kSubKernelId);
+    const auto frame = ComposeBeWithChecksum(bytes::Sum8, kSubKernelStartComm, std::uint16_t{1}, kSubKernelId);
+    return {frame.begin(), frame.end()};
 }
 
 bool LooksKernelAlive(bytes::ByteView received)
@@ -224,7 +225,7 @@ Status TransferDataBlocks(IKlineFlashTransport& transport, IClock& clock, const 
         }
 
         const std::uint32_t block_addr = addr + blockno * kUploadChunkBytes;
-        bytes::Bytes payload = ComposeBe(0x36_b, U24{block_addr});
+        bytes::Bytes payload = bytes::ComposeBeWithExtraCapacity(kUploadChunkBytes, 0x36_b, U24{block_addr});
         const std::size_t chunk_offset = static_cast<std::size_t>(blockno) * kUploadChunkBytes;
         if (blockno == maxblocks)
         {
@@ -735,8 +736,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::ReadMem(IKlineFlashTranspor
         const std::uint32_t curblock = addr / kEepromBlockBytes;
         const std::uint32_t pagesize = numblocks * kEepromBlockBytes + numblocks * 3;
 
-        const bytes::Bytes request =
-            ComposeBe(kSidDump, bytes::Byte(mode), std::uint16_t(numblocks), std::uint16_t(curblock));
+        const auto request = ComposeBe(kSidDump, bytes::Byte(mode), std::uint16_t(numblocks), std::uint16_t(curblock));
         Result<bytes::Bytes> pagedata = ReadDumpPage(transport, clock, cancellation, request, pagesize);
         if (!pagedata.has_value())
         {

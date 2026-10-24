@@ -276,7 +276,7 @@ class Session
         // Legacy read_mem:449-546: literal 2 MiB sweep, 0x400 bytes per 23 24 request.
         for (std::uint32_t address = 0; address < 0x200000; address += 0x400)
         {
-            const Bytes request = bytes::ComposeBe(0x23_b, 0x24_b, address, std::uint16_t{0x400});
+            const auto request = bytes::ComposeBe(0x23_b, 0x24_b, address, std::uint16_t{0x400});
             auto r = Required(request, 0ms, {0x63});
             if (!r.has_value())
             {
@@ -392,7 +392,7 @@ class Session
         // Correction: append data instead of indexing beyond QByteArray's size.
         for (std::uint32_t address = 0x6000; address < 0x200000; address += 0x100)
         {
-            Bytes request = bytes::ComposeBe(0xb6_b, bytes::U24{address});
+            Bytes request = bytes::ComposeBeWithExtraCapacity(0, 0xb6_b, bytes::U24{address});
             request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x100);
             auto r = Optional(request, 10ms);
             if (!r.has_value())

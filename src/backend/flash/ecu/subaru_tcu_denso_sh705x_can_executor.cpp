@@ -520,7 +520,7 @@ Result<bytes::Bytes> ReadMemory(Context& context, const FlashPlan& plan, PhaseRe
             return std::unexpected(checkpoint.error());
         }
         const std::uint32_t address = region.start + offset;
-        const bytes::Bytes payload = ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kKernelPageSize});
+        const auto payload = ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kKernelPageSize});
         Result<bytes::Bytes> reply = BeefExchange(context, kKernelReadArea, payload, kKernelPageSize, kReadTimeout);
         if (!reply.has_value())
         {
@@ -578,7 +578,7 @@ Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan
 
     LogInfo(context, std::format("Flash page erase addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
     LogInfo(context, "Erasing flash page...");
-    const bytes::Bytes erase_payload = ComposeBe(block.start);
+    const auto erase_payload = ComposeBe(block.start);
     Result<bytes::Bytes> erased = BeefExchange(context, kKernelBlankPage, erase_payload, 0, kExtraLongTimeout);
     if (!erased.has_value())
     {
@@ -632,7 +632,7 @@ Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan
             LogInfo(context, std::format("Committ flash addr: 0x{:x}", commit_start));
             LogInfo(context, std::format(" len: 0x{:x}", kFlashCommitSize));
             LogInfo(context, std::format(" crc32: 0x{:08x}", image_crc));
-            const bytes::Bytes commit_payload = ComposeBe(commit_start, std::uint16_t{kFlashCommitSize}, image_crc);
+            const auto commit_payload = ComposeBe(commit_start, std::uint16_t{kFlashCommitSize}, image_crc);
             Result<bytes::Bytes> committed =
                 BeefExchange(context, kKernelCommitBuffer, commit_payload, 0, kExtraLongTimeout);
             if (!committed.has_value())

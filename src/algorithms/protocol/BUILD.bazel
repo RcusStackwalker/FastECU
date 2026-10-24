@@ -40,7 +40,6 @@ fastecu_portable_gtest(
     srcs = ["bytes_compose_test.cpp"],
     deps = [
         ":protocol",
-        "//src/algorithms/protocol/testing:byte_matchers",
         "@googletest//:gtest",
     ],
 )

@@ -80,8 +80,9 @@ inline bytes::Bytes EncryptPayload(bytes::ByteView payload)
 // it. Callers retain their existing kernel-size validation.
 inline bytes::Bytes BeefKernelDownloadRequest(std::uint32_t load_address, bytes::ByteView encrypted_payload)
 {
-    return bytes::ComposeBe(bytes::Byte{0x34}, bytes::Byte{0x04}, bytes::Byte{0x33}, bytes::U24{load_address},
-                            bytes::U24{static_cast<std::uint32_t>(encrypted_payload.size())});
+    return bytes::ComposeBeWithExtraCapacity(0, bytes::Byte{0x34}, bytes::Byte{0x04}, bytes::Byte{0x33},
+                                             bytes::U24{load_address},
+                                             bytes::U24{static_cast<std::uint32_t>(encrypted_payload.size())});
 }
 
 // The kernel zero-padded to whole `block_size` transfer blocks, its last word
@@ -460,8 +461,7 @@ Result<bytes::Bytes> ReadBeefMemory(C& ctx, const MemoryRegion& region, PhaseRep
             return std::unexpected(checkpoint.error());
         }
         const std::uint32_t address = region.start + offset;
-        const bytes::Bytes request =
-            bytes::ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kBeefReadPageSize});
+        const auto request = bytes::ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kBeefReadPageSize});
         Result<bytes::Bytes> reply = exchange(bytes::Byte{0x03}, request, kBeefReadPageSize, kBeefReadTimeout);
         if (!reply.has_value())
         {
@@ -573,7 +573,7 @@ Status FlashBeefBlock(C& ctx, bytes::ByteView image, std::uint32_t image_base, c
             LogInfo(ctx, std::format("{} flash addr: 0x{:x}", test_write ? "Validate" : "Committ", commit_start));
             LogInfo(ctx, std::format(" len: 0x{:x}", kBeefFlashCommitSize));
             LogInfo(ctx, std::format(" crc32: 0x{:x}", image_crc));
-            const bytes::Bytes commit = bytes::ComposeBe(commit_start, std::uint16_t{kBeefFlashCommitSize}, image_crc);
+            const auto commit = bytes::ComposeBe(commit_start, std::uint16_t{kBeefFlashCommitSize}, image_crc);
             Result<bytes::Bytes> committed =
                 exchange(test_write ? kBeefValidateBuffer : kBeefCommitBuffer, commit, 0, kBeefEraseTimeout);
             if (!committed.has_value())

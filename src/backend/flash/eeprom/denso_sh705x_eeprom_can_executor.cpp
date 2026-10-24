@@ -228,7 +228,7 @@ bytes::Bytes GenerateEcutekRaceromCanSeedKey(bytes::ByteView seed)
     constexpr std::uint64_t kD = 0x0A863281ULL;
     constexpr std::uint64_t kN = 0x0fda9293ULL;
     const std::uint32_t decrypted = static_cast<std::uint32_t>(DecryptRaceromSeed(seed_word, kD, kN));
-    return ComposeBe(decrypted);
+    return bytes::ComposeBeWithExtraCapacity(0, decrypted);
 }
 
 // encrypt_payload(), lines 1314-1330: this class's OWN key table --

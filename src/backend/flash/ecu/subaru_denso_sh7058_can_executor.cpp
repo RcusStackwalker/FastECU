@@ -171,7 +171,7 @@ Result<bytes::Bytes> SecurityKey(Context& context, bytes::ByteView seed, const s
         const std::uint32_t raw = bytes::ReadU32Be(seed);
         const std::uint32_t key = ModularPower(raw, 0x0A863281U, 0x0FDA9293U);
         LogInfo(context, std::format("Seed key: 0x{:08x}", key));
-        return ComposeBe(key);
+        return bytes::ComposeBeWithExtraCapacity(0, key);
     }
     case SubaruDensoSh7058CanSecurity::kRaceRomAlt:
     {
@@ -186,7 +186,7 @@ Result<bytes::Bytes> SecurityKey(Context& context, bytes::ByteView seed, const s
         constexpr std::uint32_t kXorMultiplier = 0x01000193U;
         altered = ((alt->seed_alter ^ altered) ^ alt->xor_byte_1) * kXorMultiplier;
         altered = (altered ^ alt->xor_byte_2) * kXorMultiplier;
-        key = ComposeBe(altered);
+        key = bytes::ComposeBeWithExtraCapacity(0, altered);
         LogDebug(context, std::format("Altered seed key: {}", bytes::ToHex(key)));
         return key;
     }
@@ -295,7 +295,7 @@ Result<std::uint32_t> ReadRamLocation(Context& context, std::uint32_t address)
     bytes::Bytes request{0xA8, 0x00};
     for (std::uint32_t offset = 0; offset < 4; ++offset)
     {
-        const bytes::Bytes encoded = ComposeBe(bytes::U24{address + offset});
+        const auto encoded = ComposeBe(bytes::U24{address + offset});
         request.insert(request.end(), encoded.begin(), encoded.end());
     }
     Result<bytes::Bytes> reply = ChannelRequest(context, request, kReadTimeout);

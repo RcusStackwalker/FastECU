@@ -413,7 +413,7 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::ReadMem(IKlineFlashTransp
             {
                 return std::unexpected(cancelled.error());
             }
-            const bytes::Bytes payload = ComposeBe(0x00_b, U24{address}, std::uint16_t(kReadPageSize));
+            const auto payload = ComposeBe(0x00_b, U24{address}, std::uint16_t(kReadPageSize));
             Result<bytes::Bytes> response = Exchange(transport, clock, cancellation,
                                                      DensoBeefKlineFrame(kDensoKlineOpReadArea, payload), 10ms, 3000ms);
             if (!response.has_value())
@@ -539,7 +539,7 @@ Status SubaruDensoMc68hc16y5_02Executor::FlashBlock(IKlineFlashTransport& transp
             // Legacy
             // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1072-1128.
             const std::uint32_t commit_start = block.start + offset - kCommitBlockSize;
-            const bytes::Bytes commit_payload =
+            const auto commit_payload =
                 ComposeBe(commit_start, std::uint16_t(kCommitBlockSize),
                           fastecu::checksum::Crc32(image.subspan(commit_start, kCommitBlockSize)));
             if (Status committed =
