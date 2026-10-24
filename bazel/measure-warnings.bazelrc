@@ -1,0 +1,16 @@
+# THROWAWAY (issue #470): strict warning candidates, measured and never gated.
+# Passed with `bazel --bazelrc=bazel/measure-warnings.bazelrc build ...` by
+# .github/workflows/measure-warnings.yml; not imported by .bazelrc.
+# Regex: first-party sources, including generated moc/uic output under bazel-out.
+# No backslashes: .bazelrc unescapes them before Bazel sees the regex.
+
+build --features=external_include_paths
+build --features=-treat_warnings_as_errors
+# Cache replay hides diagnostics (ADR 0018), so every action must run.
+build --noremote_accept_cached
+build --noremote_upload_local_results
+build --disk_cache=
+
+build:linux --per_file_copt=^(bazel-out/[^/]+/bin/)?(apps|src|tests)/.*@-Wextra,-Wpedantic,-Wshadow,-Wconversion,-Wsign-conversion,-Wold-style-cast,-Wnon-virtual-dtor,-Woverloaded-virtual,-Wcast-qual,-Wformat=2,-Wimplicit-fallthrough,-Wextra-semi,-Wnull-dereference,-Wdeprecated
+build:macos --per_file_copt=^(bazel-out/[^/]+/bin/)?(apps|src|tests)/.*@-Wextra,-Wpedantic,-Wshadow,-Wconversion,-Wsign-conversion,-Wold-style-cast,-Wnon-virtual-dtor,-Woverloaded-virtual,-Wcast-qual,-Wformat=2,-Wimplicit-fallthrough,-Wextra-semi,-Wnull-dereference,-Wdeprecated
+build:windows --per_file_copt=^(bazel-out/[^/]+/bin/)?(apps|src|tests)/.*@/W4,/permissive-,/w14242,/w14365,/w14263,/w14265,/w14296,/w14826,/w15262,/w14062

@@ -1,0 +1,45 @@
+# THROWAWAY (issue #470): measures the strict warning candidates on all three
+# CI toolchains. Delete this workflow, bazel/measure-warnings.bazelrc and
+# scripts/summarize_warnings.py once the numbers are in the issue.
+name: measure-warnings
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-26.04]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+          cache-save: false
+
+      - uses: ./.github/actions/qt-runtime-linux
+        if: runner.os == 'Linux'
+
+      - uses: ./.github/actions/llvm-bazel-prereqs
+        if: runner.os != 'Linux'
+
+      - name: Build with the strict candidates (no cache, not fatal)
+        shell: bash
+        run: |
+          bazel --bazelrc=bazel/measure-warnings.bazelrc build -k --config=release //... 2>&1 | tee build.log || true
+
+      - name: Summarize
+        shell: bash
+        run: |
+          python scripts/summarize_warnings.py build.log | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-log-${{ matrix.os }}
+          path: build.log
