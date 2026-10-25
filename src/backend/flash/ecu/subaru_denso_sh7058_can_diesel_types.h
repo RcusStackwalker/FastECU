@@ -15,10 +15,7 @@ struct SubaruDensoSh7058CanDieselPlan
     bool extended_id{false};
 };
 
-inline constexpr DensoBeefCanProfile kSubaruDensoSh7058CanDieselBeefProfile{.device = "ECU",
-                                                                            .family = "diesel",
-                                                                            .wrong_reply =
-                                                                                BeefWrongReply::kNotValidAnswer,
-                                                                            .pdu_format = BeefPduFormat::kDescribe};
+inline constexpr DensoBeefCanProfile kSubaruDensoSh7058CanDieselBeefProfile{
+    .device = "ECU", .family = "diesel", .pdu_format = BeefPduFormat::kDescribe};
 
 } // namespace fastecu::flash

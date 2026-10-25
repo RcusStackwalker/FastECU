@@ -45,9 +45,9 @@ using ::testing::IsEmpty;
 using ::testing::Optional;
 using ::testing::Pair;
 
-constexpr DensoBeefCanProfile kBare{"ECU", "petrol", BeefWrongReply::kBare, BeefPduFormat::kHex};
-constexpr DensoBeefCanProfile kNotValid{"ECU", "diesel", BeefWrongReply::kNotValidAnswer, BeefPduFormat::kDescribe};
-constexpr DensoBeefCanProfile kDetail{"TCU", "TCU", BeefWrongReply::kErrorDetail, BeefPduFormat::kHex};
+constexpr DensoBeefCanProfile kHexEcu{.device = "ECU", .family = "petrol", .pdu_format = BeefPduFormat::kHex};
+constexpr DensoBeefCanProfile kDescribeEcu{.device = "ECU", .family = "diesel", .pdu_format = BeefPduFormat::kDescribe};
+constexpr DensoBeefCanProfile kHexTcu{.device = "TCU", .family = "TCU", .pdu_format = BeefPduFormat::kHex};
 
 class BeefCanSessionTest : public ::testing::Test
 {
@@ -69,7 +69,7 @@ TEST_F(BeefCanSessionTest, NonfatalQueryTimeoutLogsNoValidResponse)
     channel_.ExpectSend(bytes::Bytes{0xAA});
     channel_.QueueError(ErrorKind::kTimeout);
 
-    const auto reply = Session(kBare).NonfatalQuery(bytes::Bytes{0xAA});
+    const auto reply = Session(kHexEcu).NonfatalQuery(bytes::Bytes{0xAA});
 
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(*reply, Eq(std::nullopt));
@@ -81,42 +81,30 @@ TEST_F(BeefCanSessionTest, NonfatalQueryNoFrameLogsNoValidResponse)
     channel_.ExpectSend(bytes::Bytes{0xAA});
     channel_.QueueNoFrame();
 
-    const auto reply = Session(kBare).NonfatalQuery(bytes::Bytes{0xAA});
+    const auto reply = Session(kHexEcu).NonfatalQuery(bytes::Bytes{0xAA});
 
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(*reply, Eq(std::nullopt));
     EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
-struct WrongReplyCase
+TEST_F(BeefCanSessionTest, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDeviceName)
 {
-    const char *name;
-    DensoBeefCanProfile profile;
-    const char *expected;
-};
+    for (const DensoBeefCanProfile *profile : {&kHexEcu, &kHexTcu})
+    {
+        SCOPED_TRACE(profile->device);
+        channel_.ExpectSend(bytes::Bytes{0xAA});
+        channel_.QueueError(ErrorKind::kBadResponse, "boom");
+        events_.logs.clear();
 
-class BeefCanSessionWrongReplyTest : public BeefCanSessionTest, public ::testing::WithParamInterface<WrongReplyCase>
-{
-};
+        const auto reply = Session(*profile).NonfatalQuery(bytes::Bytes{0xAA});
 
-TEST_P(BeefCanSessionWrongReplyTest, NonfatalQueryBadReplyLogsPerProfile)
-{
-    channel_.ExpectSend(bytes::Bytes{0xAA});
-    channel_.QueueError(ErrorKind::kBadResponse, "boom");
-
-    const auto reply = Session(GetParam().profile).NonfatalQuery(bytes::Bytes{0xAA});
-
-    ASSERT_THAT(reply, IsOk());
-    EXPECT_THAT(*reply, Eq(std::nullopt));
-    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, GetParam().expected)));
+        ASSERT_THAT(reply, IsOk());
+        EXPECT_THAT(*reply, Eq(std::nullopt));
+        EXPECT_THAT(events_.logs,
+                    ElementsAre(Pair(LogLevel::kError, std::format("Wrong response from {}: boom", profile->device))));
+    }
 }
-
-INSTANTIATE_TEST_SUITE_P(Profiles, BeefCanSessionWrongReplyTest,
-                         ::testing::Values(WrongReplyCase{"Bare", kBare, "Wrong response from ECU"},
-                                           WrongReplyCase{"NotValid", kNotValid,
-                                                          "Wrong response from ECU: Not a valid answer"},
-                                           WrongReplyCase{"Detail", kDetail, "Wrong response from TCU: boom"}),
-                         [](const auto& test_param) { return std::string(test_param.param.name); });
 
 TEST_F(BeefCanSessionTest, NonfatalQueryPassesCancelAndDisconnectThrough)
 {
@@ -126,7 +114,7 @@ TEST_F(BeefCanSessionTest, NonfatalQueryPassesCancelAndDisconnectThrough)
         channel_.ExpectSend(bytes::Bytes{0xAA});
         channel_.QueueError(kind);
 
-        EXPECT_THAT(Session(kBare).NonfatalQuery(bytes::Bytes{0xAA}), IsErrWith(kind, _));
+        EXPECT_THAT(Session(kHexEcu).NonfatalQuery(bytes::Bytes{0xAA}), IsErrWith(kind, _));
     }
     EXPECT_THAT(events_.logs, IsEmpty());
 }
@@ -136,7 +124,7 @@ TEST_F(BeefCanSessionTest, NonfatalQueryReturnsTheFrame)
     channel_.ExpectSend(bytes::Bytes{0x10, 0x03});
     channel_.QueueReceive(bytes::Bytes{0x50, 0x03});
 
-    const auto reply = Session(kBare).NonfatalQuery(bytes::Bytes{0x10, 0x03});
+    const auto reply = Session(kHexEcu).NonfatalQuery(bytes::Bytes{0x10, 0x03});
 
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(*reply, Optional(Eq(bytes::Bytes{0x50, 0x03})));
@@ -148,7 +136,7 @@ TEST_F(BeefCanSessionTest, NonfatalQueryUsesTheReadTimeoutAndPostSendDelay)
     channel_.ExpectSend(bytes::Bytes{0xAA});
     channel_.QueueNoFrame();
 
-    ASSERT_THAT(Session(kBare).NonfatalQuery(bytes::Bytes{0xAA}), IsOk());
+    ASSERT_THAT(Session(kHexEcu).NonfatalQuery(bytes::Bytes{0xAA}), IsOk());
 
     EXPECT_EQ(channel_.last_timeout, 2000ms);
     EXPECT_EQ(clock_.Elapsed(), 50ms);
@@ -166,7 +154,7 @@ TEST_F(BeefCanSessionTest, ExchangeWrapsAndUnwrapsBeef)
     channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
     channel_.QueueReceive(BeefReply(0x45, bytes::Bytes{0x00, 0x00, 0x10, 0x00}));
 
-    const auto payload = Session(kBare).Exchange(0x05, {}, 4, 500ms);
+    const auto payload = Session(kHexEcu).Exchange(0x05, {}, 4, 500ms);
 
     ASSERT_THAT(payload, IsOk());
     EXPECT_THAT(*payload, Eq(bytes::Bytes{0x00, 0x00, 0x10, 0x00}));
@@ -178,7 +166,7 @@ TEST_F(BeefCanSessionTest, ExchangeRejectsAWrongOpcode)
     channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
     channel_.QueueReceive(BeefReply(0x46, {}));
 
-    EXPECT_THAT(Session(kBare).Exchange(0x05, {}, 0, 500ms),
+    EXPECT_THAT(Session(kHexEcu).Exchange(0x05, {}, 0, 500ms),
                 IsErrWith(ErrorKind::kBadResponse, "unexpected BEEF response opcode 0x46, expected 0x45"));
 }
 
@@ -187,7 +175,7 @@ TEST_F(BeefCanSessionTest, ExchangeRejectsAShortPayload)
     channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
     channel_.QueueReceive(BeefReply(0x45, bytes::Bytes{0x01}));
 
-    EXPECT_THAT(Session(kBare).Exchange(0x05, {}, 4, 500ms),
+    EXPECT_THAT(Session(kHexEcu).Exchange(0x05, {}, 4, 500ms),
                 IsErrWith(ErrorKind::kBadResponse, "short BEEF response payload"));
 }
 
@@ -196,7 +184,7 @@ TEST_F(BeefCanSessionTest, ExchangeTimeoutIsTheReturnedErrorAndLogsNothing)
     channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
     channel_.QueueNoFrame();
 
-    EXPECT_THAT(Session(kNotValid).Exchange(0x05, {}, 0, 500ms),
+    EXPECT_THAT(Session(kDescribeEcu).Exchange(0x05, {}, 0, 500ms),
                 IsErrWith(ErrorKind::kTimeout, "no CAN response within the read timeout"));
     EXPECT_THAT(events_.logs, IsEmpty());
 }
@@ -206,7 +194,7 @@ TEST_F(BeefCanSessionTest, ExchangeSurfacesAChannelBadResponse)
     channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
     channel_.QueueError(ErrorKind::kBadResponse, "expected CAN reply id 0x7e8, got 0x123");
 
-    EXPECT_THAT(Session(kNotValid).Exchange(0x05, {}, 0, 500ms),
+    EXPECT_THAT(Session(kDescribeEcu).Exchange(0x05, {}, 0, 500ms),
                 IsErrWith(ErrorKind::kBadResponse, "expected CAN reply id 0x7e8, got 0x123"));
     EXPECT_THAT(events_.logs, IsEmpty());
 }
@@ -216,7 +204,7 @@ TEST_F(BeefCanSessionTest, RequestSessionAcceptsThePositiveReply)
     channel_.ExpectSend(bytes::Bytes{0x10, 0x03});
     channel_.QueueReceive(bytes::Bytes{0x50, 0x03});
 
-    EXPECT_THAT(Session(kBare).RequestSession(0x03), IsOkAnd(true));
+    EXPECT_THAT(Session(kHexEcu).RequestSession(0x03), IsOkAnd(true));
     EXPECT_THAT(events_.logs, IsEmpty());
 }
 
@@ -225,7 +213,7 @@ TEST_F(BeefCanSessionTest, RequestSessionStepsOverSilence)
     channel_.ExpectSend(bytes::Bytes{0x10, 0x03});
     channel_.QueueNoFrame();
 
-    EXPECT_THAT(Session(kBare).RequestSession(0x03), IsOkAnd(false));
+    EXPECT_THAT(Session(kHexEcu).RequestSession(0x03), IsOkAnd(false));
     EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
@@ -234,11 +222,11 @@ TEST_F(BeefCanSessionTest, WrongRepliesRenderInTheProfilePduFormat)
     const bytes::Bytes negative{0x7F, 0x10, 0x22};
     channel_.ExpectSend(bytes::Bytes{0x10, 0x03});
     channel_.QueueReceive(negative);
-    EXPECT_THAT(Session(kBare).RequestSession(0x03), IsOkAnd(false));
+    EXPECT_THAT(Session(kHexEcu).RequestSession(0x03), IsOkAnd(false));
 
     channel_.ExpectSend(bytes::Bytes{0x10, 0x03});
     channel_.QueueReceive(negative);
-    EXPECT_THAT(Session(kNotValid).RequestSession(0x03), IsOkAnd(false));
+    EXPECT_THAT(Session(kDescribeEcu).RequestSession(0x03), IsOkAnd(false));
 
     EXPECT_THAT(events_.logs,
                 ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 7f 10 22 "),
@@ -254,9 +242,9 @@ TEST_F(BeefCanSessionTest, RequestEcuIdParsesFiveBytesAndNamesAReadImage)
     channel_.ExpectSend(bytes::Bytes{0xAA});
     channel_.QueueReceive(reply);
 
-    ASSERT_THAT(Session(kBare).RequestEcuId(false, rom_id), IsOk());
+    ASSERT_THAT(Session(kHexEcu).RequestEcuId(false, rom_id), IsOk());
     EXPECT_THAT(rom_id, Eq(std::nullopt));
-    ASSERT_THAT(Session(kBare).RequestEcuId(true, rom_id), IsOk());
+    ASSERT_THAT(Session(kHexEcu).RequestEcuId(true, rom_id), IsOk());
     EXPECT_THAT(rom_id, Optional(Eq("0102030405_")));
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "ECU ID: 0102030405")));
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting ECU ID")));
@@ -268,7 +256,7 @@ TEST_F(BeefCanSessionTest, RequestEcuIdStepsOverAShortReply)
     channel_.ExpectSend(bytes::Bytes{0xAA});
     channel_.QueueReceive(bytes::Bytes{0xEA, 0x01});
 
-    ASSERT_THAT(Session(kBare).RequestEcuId(true, rom_id), IsOk());
+    ASSERT_THAT(Session(kHexEcu).RequestEcuId(true, rom_id), IsOk());
     EXPECT_THAT(rom_id, Eq(std::nullopt));
     EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kInfo, "Requesting ECU ID"),
                                           Pair(LogLevel::kError, "Wrong response from ECU: ea 01 ")));
@@ -279,7 +267,7 @@ TEST_F(BeefCanSessionTest, RequestCvnLogsUppercaseCompactHex)
     channel_.ExpectSend(bytes::Bytes{0x09, 0x06});
     channel_.QueueReceive(bytes::Bytes{0x49, 0x06, 0x01, 0xAB, 0xCD});
 
-    ASSERT_THAT(Session(kBare).RequestCvn(), IsOk());
+    ASSERT_THAT(Session(kHexEcu).RequestCvn(), IsOk());
     EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kInfo, "Requesting CVN"), Pair(LogLevel::kInfo, "CVN: ABCD")));
 }
 
@@ -288,7 +276,7 @@ TEST_F(BeefCanSessionTest, RequestCvnLogsAWrongReply)
     channel_.ExpectSend(bytes::Bytes{0x09, 0x06});
     channel_.QueueReceive(bytes::Bytes{0x7F, 0x09});
 
-    ASSERT_THAT(Session(kDetail).RequestCvn(), IsOk());
+    ASSERT_THAT(Session(kHexTcu).RequestCvn(), IsOk());
     EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kInfo, "Requesting CVN"),
                                           Pair(LogLevel::kError, "Wrong response from TCU: 7f 09 ")));
 }
@@ -298,7 +286,7 @@ TEST_F(BeefCanSessionTest, IdentityStringReturnsTheTail)
     channel_.ExpectSend(bytes::Bytes{0x09, 0x02});
     channel_.QueueReceive(bytes::Bytes{0x49, 0x02, 0x01, 'V', '1'});
 
-    EXPECT_THAT(Session(kBare).IdentityString(bytes::Bytes{0x09, 0x02}, 0x49, 0x02, "VIN"),
+    EXPECT_THAT(Session(kHexEcu).IdentityString(bytes::Bytes{0x09, 0x02}, 0x49, 0x02, "VIN"),
                 IsOkAnd(Optional(Eq("V1"))));
     EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kInfo, "VIN: V1")));
 }
@@ -308,7 +296,8 @@ TEST_F(BeefCanSessionTest, IdentityStringStepsOverAMismatch)
     channel_.ExpectSend(bytes::Bytes{0x09, 0x02});
     channel_.QueueReceive(bytes::Bytes{0x49, 0x04, 0x01, 'V'});
 
-    EXPECT_THAT(Session(kBare).IdentityString(bytes::Bytes{0x09, 0x02}, 0x49, 0x02, "VIN"), IsOkAnd(Eq(std::nullopt)));
+    EXPECT_THAT(Session(kHexEcu).IdentityString(bytes::Bytes{0x09, 0x02}, 0x49, 0x02, "VIN"),
+                IsOkAnd(Eq(std::nullopt)));
     EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 49 04 01 56 ")));
 }
 
@@ -401,7 +390,7 @@ TEST_F(BeefCanSessionFlashTest, QueryCrcReadsFourBytesAndDrainsTheStaleFrame)
 {
     ScriptCrc(kBlocks[0].region, 0xF722EF49);
 
-    EXPECT_THAT(Session(kBare).QueryCrc(kBlocks[0].region), IsOkAnd(Eq(0xF722EF49U)));
+    EXPECT_THAT(Session(kHexEcu).QueryCrc(kBlocks[0].region), IsOkAnd(Eq(0xF722EF49U)));
     EXPECT_EQ(channel_.last_timeout, 3000ms);
     EXPECT_THAT(transport_.ReadTimeouts(), ElementsAre(200ms));
 }
@@ -421,7 +410,7 @@ TEST_P(BeefCanSessionFamilyLabelTest, CompareBlocksNamesTheFamilyWhenABlockLeave
         IsErrWith(ErrorKind::kInvalidConfig, std::format("{} CRC block is outside the image", GetParam()->family)));
 }
 
-INSTANTIATE_TEST_SUITE_P(Profiles, BeefCanSessionFamilyLabelTest, ::testing::Values(&kBare, &kNotValid, &kDetail),
+INSTANTIATE_TEST_SUITE_P(Profiles, BeefCanSessionFamilyLabelTest, ::testing::Values(&kHexEcu, &kDescribeEcu, &kHexTcu),
                          [](const auto& test_param) { return std::string(test_param.param->family); });
 
 TEST_F(BeefCanSessionFlashTest, CompareBlocksFlagsOnlyDifferingBlocks)
@@ -430,7 +419,7 @@ TEST_F(BeefCanSessionFlashTest, CompareBlocksFlagsOnlyDifferingBlocks)
     ASSERT_THAT(plan, IsOk());
     ScriptCompare(3);
 
-    const auto result = Session(kBare).CompareBlocks(*plan, plan->ImageOrEmpty(), nullptr);
+    const auto result = Session(kHexEcu).CompareBlocks(*plan, plan->ImageOrEmpty(), nullptr);
 
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->changed_count, 1U);
@@ -443,8 +432,8 @@ TEST_F(BeefCanSessionFlashTest, InitializeFlashSelectsTestOrRealWriteMode)
     ScriptInitialize(0x21);
     ScriptInitialize(0x20);
 
-    ASSERT_THAT(Session(kBare).InitializeFlash(true), IsOk());
-    ASSERT_THAT(Session(kBare).InitializeFlash(false), IsOk());
+    ASSERT_THAT(Session(kHexEcu).InitializeFlash(true), IsOk());
+    ASSERT_THAT(Session(kHexEcu).InitializeFlash(false), IsOk());
 
     EXPECT_THAT(events_.logs,
                 Contains(Pair(LogLevel::kInfo, "Test write mode on, no actual flash write is performed")));
@@ -459,11 +448,10 @@ TEST_F(BeefCanSessionFlashTest, InitializeFlashUsesTheProfileTimeoutAndHexCase)
 {
     constexpr DensoBeefCanProfile kUpperCase{.device = "TCU",
                                              .family = "TCU",
-                                             .wrong_reply = BeefWrongReply::kErrorDetail,
                                              .pdu_format = BeefPduFormat::kHex,
                                              .init_timeout = 2000ms,
                                              .upper_hex_sizes = true};
-    for (const DensoBeefCanProfile *profile : {&kBare, &kUpperCase})
+    for (const DensoBeefCanProfile *profile : {&kHexEcu, &kUpperCase})
     {
         SCOPED_TRACE(profile->family);
         channel_.ExpectSend(BeefCall(0x05));
@@ -475,8 +463,8 @@ TEST_F(BeefCanSessionFlashTest, InitializeFlashUsesTheProfileTimeoutAndHexCase)
 
         ASSERT_THAT(Session(*profile).InitializeFlash(false), IsOk());
 
-        EXPECT_EQ(channel_.last_timeout, profile == &kBare ? 500ms : 2000ms);
-        EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, profile == &kBare ? ": 0x0abc" : ": 0x0ABC")));
+        EXPECT_EQ(channel_.last_timeout, profile == &kHexEcu ? 500ms : 2000ms);
+        EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, profile == &kHexEcu ? ": 0x0abc" : ": 0x0ABC")));
         events_.logs.clear();
     }
 }
@@ -489,7 +477,7 @@ TEST_F(BeefCanSessionFlashTest, WriteMemoryWithNoDifferenceFlashesNothing)
     PhaseSequence phases(events_, 4);
     PhaseReporter compare = phases.Start("Compare", static_cast<int>(kBlocks.size()));
 
-    ASSERT_THAT(Session(kBare).WriteMemory(*plan, phases, compare), IsOk());
+    ASSERT_THAT(Session(kHexEcu).WriteMemory(*plan, phases, compare), IsOk());
 
     EXPECT_THAT(events_.logs,
                 Contains(Pair(LogLevel::kInfo,
@@ -508,7 +496,7 @@ TEST_F(BeefCanSessionFlashTest, WriteMemoryFailsWithTheExchangeErrorWhenTheVolta
     PhaseSequence phases(events_, 4);
     PhaseReporter compare = phases.Start("Compare", static_cast<int>(kBlocks.size()));
 
-    EXPECT_THAT(Session(kBare).WriteMemory(*plan, phases, compare),
+    EXPECT_THAT(Session(kHexEcu).WriteMemory(*plan, phases, compare),
                 IsErrWith(ErrorKind::kTimeout, "no CAN response within the read timeout"));
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Block 0 reflash failed.")));
 }
@@ -519,24 +507,20 @@ TEST_F(BeefCanSessionFlashTest, WriteMemoryFailsWithTheExchangeErrorWhenTheVolta
 TEST(DensoBeefCanProfileTest, FamilyProfilesKeepTheirLogWording)
 {
     const auto expect_profile = [](const DensoBeefCanProfile& profile, std::string_view device, std::string_view family,
-                                   BeefWrongReply wrong_reply, BeefPduFormat pdu_format,
-                                   std::chrono::milliseconds init_timeout, bool upper_hex_sizes)
+                                   BeefPduFormat pdu_format, std::chrono::milliseconds init_timeout,
+                                   bool upper_hex_sizes)
     {
         SCOPED_TRACE(family);
         EXPECT_EQ(profile.device, device);
         EXPECT_EQ(profile.family, family);
-        EXPECT_EQ(profile.wrong_reply, wrong_reply);
         EXPECT_EQ(profile.pdu_format, pdu_format);
         EXPECT_EQ(profile.init_timeout, init_timeout);
         EXPECT_EQ(profile.upper_hex_sizes, upper_hex_sizes);
     };
 
-    expect_profile(kSubaruDensoSh7058CanBeefProfile, "ECU", "petrol", BeefWrongReply::kBare, BeefPduFormat::kHex, 500ms,
-                   false);
-    expect_profile(kSubaruDensoSh7058CanDieselBeefProfile, "ECU", "diesel", BeefWrongReply::kNotValidAnswer,
-                   BeefPduFormat::kDescribe, 500ms, false);
-    expect_profile(kSubaruTcuDensoSh705xCanBeefProfile, "TCU", "TCU", BeefWrongReply::kErrorDetail, BeefPduFormat::kHex,
-                   2000ms, true);
+    expect_profile(kSubaruDensoSh7058CanBeefProfile, "ECU", "petrol", BeefPduFormat::kHex, 500ms, false);
+    expect_profile(kSubaruDensoSh7058CanDieselBeefProfile, "ECU", "diesel", BeefPduFormat::kDescribe, 500ms, false);
+    expect_profile(kSubaruTcuDensoSh705xCanBeefProfile, "TCU", "TCU", BeefPduFormat::kHex, 2000ms, true);
 }
 
 } // namespace

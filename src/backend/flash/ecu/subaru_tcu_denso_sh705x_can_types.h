@@ -19,7 +19,6 @@ struct SubaruTcuDensoSh705xCanPlan
 
 inline constexpr DensoBeefCanProfile kSubaruTcuDensoSh705xCanBeefProfile{.device = "TCU",
                                                                          .family = "TCU",
-                                                                         .wrong_reply = BeefWrongReply::kErrorDetail,
                                                                          .pdu_format = BeefPduFormat::kHex,
                                                                          .init_timeout =
                                                                              std::chrono::milliseconds{2000},

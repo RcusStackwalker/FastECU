@@ -46,19 +46,7 @@ BeefCanSession::View BeefCanSession::MakeView() const
 
 void BeefCanSession::LogWrongReply(const Error& failure)
 {
-    std::string suffix;
-    switch (profile_.wrong_reply)
-    {
-    case BeefWrongReply::kBare:
-        break;
-    case BeefWrongReply::kNotValidAnswer:
-        suffix = ": Not a valid answer";
-        break;
-    case BeefWrongReply::kErrorDetail:
-        suffix = std::format(": {}", failure.detail);
-        break;
-    }
-    LogError(MakeView(), std::format("Wrong response from {}{}", profile_.device, suffix));
+    LogError(MakeView(), std::format("Wrong response from {}: {}", profile_.device, failure.detail));
 }
 
 void BeefCanSession::LogWrongPdu(bytes::ByteView pdu)

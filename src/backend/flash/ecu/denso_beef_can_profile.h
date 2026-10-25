@@ -6,15 +6,6 @@
 namespace fastecu::flash
 {
 
-// What a tolerant query logs after "Wrong response from {device}" when the
-// channel rejects a reply.
-enum class BeefWrongReply
-{
-    kBare,
-    kNotValidAnswer,
-    kErrorDetail,
-};
-
 // How a wrong reply's PDU is rendered in the log.
 enum class BeefPduFormat
 {
@@ -28,7 +19,6 @@ struct DensoBeefCanProfile
 {
     std::string_view device; // "ECU" or "TCU"
     std::string_view family; // names the executor in errors: "petrol", "diesel", "TCU"
-    BeefWrongReply wrong_reply;
     BeefPduFormat pdu_format;
     std::chrono::milliseconds init_timeout{500}; // read timeout of the flash-init exchanges
     bool upper_hex_sizes{false};                 // log the kernel's buffer sizes in upper-case hex
