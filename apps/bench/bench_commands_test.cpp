@@ -1,6 +1,7 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "apps/bench/bench_commands.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "apps/bench/bench_args.h"
@@ -14,8 +15,11 @@ namespace
 {
 using namespace std::chrono_literals;
 
+using ::testing::_;
 using testing::FakeBenchFiles;
 using testing::FakeBenchSession;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 struct Harness
 {
@@ -108,7 +112,7 @@ TEST(BenchCommands, ReadRejectsAddressesAndRangesOutsideTheTwentyFourBitWireFiel
 
         ASSERT_FALSE(outcome.ok);
         EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-        EXPECT_TRUE(harness.session.requests.empty());
+        EXPECT_THAT(harness.session.requests, IsEmpty());
     }
 }
 
@@ -120,8 +124,8 @@ TEST(BenchCommands, DumpRejectsAnOverflowedRangeBeforeWritingOrIo)
 
     ASSERT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
-    EXPECT_TRUE(harness.files.saved.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
+    EXPECT_THAT(harness.files.saved, IsEmpty());
 }
 
 TEST(BenchCommands, DumpWritesTheReadBytesToTheNamedFile)
@@ -188,7 +192,7 @@ TEST(BenchCommands, CrcCheckRejectsAnAddressOutsideTheTwentyFourBitSpaceBeforeIo
 
     ASSERT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchCommands, WrongPositiveReplyReturnsAFailureOutcomeWithTrafficEvidence)
@@ -229,7 +233,7 @@ TEST(BenchCommands, EveryStepRecordsTheBatteryVoltage)
     const auto outcome = harness.Run(Step(CommandId::kRead, {"0x200", "1"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    ASSERT_TRUE(outcome.vbatt.has_value());
+    ASSERT_THAT(outcome.vbatt, Optional(_));
     EXPECT_NEAR(*outcome.vbatt, 11.676, 0.0005);
 }
 
@@ -414,7 +418,7 @@ TEST(BenchCommands, DownloadRejectsEmptyAndOutOfRangePayloadsBeforeIo)
     const auto range = harness.Run(DestructiveStep(CommandId::kDownload, {"0xffffff", "two.bin"}));
     ASSERT_FALSE(range.ok);
     EXPECT_EQ(range.error_kind, ErrorKind::kInvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchCommands, DownloadRejectsAPayloadLargerThanTheTwentyFourBitLengthField)
@@ -426,7 +430,7 @@ TEST(BenchCommands, DownloadRejectsAPayloadLargerThanTheTwentyFourBitLengthField
 
     ASSERT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchCommands, DownloadChunksAPayloadLargerThanTheTransferChunkSize)
@@ -519,7 +523,7 @@ TEST(BenchCommands, UploadRoutineFromFilePropagatesAMissingFileError)
 
     ASSERT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchCommands, UploadRoutineRejectsAnEmptyFromFileBeforeIo)
@@ -531,7 +535,7 @@ TEST(BenchCommands, UploadRoutineRejectsAnEmptyFromFileBeforeIo)
 
     ASSERT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchCommands, UploadRoutineRejectsATypoedFromFlag)
@@ -544,7 +548,7 @@ TEST(BenchCommands, UploadRoutineRejectsATypoedFromFlag)
 
     ASSERT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchCommands, UploadRoutineRejectsAFromValueWithoutTheFlag)
@@ -556,7 +560,7 @@ TEST(BenchCommands, UploadRoutineRejectsAFromValueWithoutTheFlag)
 
     ASSERT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchCommands, UploadRoutineRejectsAnUnknownRoutineName)
@@ -580,7 +584,7 @@ TEST(BenchCommands, RunStepRefusesADestructiveStepThatLostItsAcknowledgement)
 
     ASSERT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchCommands, RunStepRejectsAMalformedProgrammaticStepBeforeIndexingArguments)
@@ -591,7 +595,7 @@ TEST(BenchCommands, RunStepRejectsAMalformedProgrammaticStepBeforeIndexingArgume
 
     ASSERT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-    EXPECT_TRUE(harness.session.requests.empty());
+    EXPECT_THAT(harness.session.requests, IsEmpty());
 }
 
 TEST(BenchCommands, AcknowledgedSendRawForwardsTheExactSafePduAndHonoursItsTimeout)
@@ -619,7 +623,7 @@ TEST(BenchCommands, AcknowledgementDoesNotLetSendCommandsBypassNamedDestructiveP
 
         ASSERT_FALSE(outcome.ok);
         EXPECT_EQ(outcome.error_kind, ErrorKind::kInvalidConfig);
-        EXPECT_TRUE(harness.session.requests.empty());
+        EXPECT_THAT(harness.session.requests, IsEmpty());
     }
 }
 

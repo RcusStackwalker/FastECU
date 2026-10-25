@@ -1,11 +1,14 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "apps/bench/bench_files.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cstdlib>
 #include <fstream>
 #include <string>
+
+using ::testing::IsEmpty;
 
 namespace fastecu::bench
 {
@@ -39,7 +42,7 @@ TEST(BenchFiles, LoadsAnEmptyFileAsNoBytes)
     const Result<bytes::Bytes> read = files.Load(path);
 
     ASSERT_THAT(read, fastecu::testing::IsOk());
-    EXPECT_TRUE(read->empty());
+    EXPECT_THAT(*read, IsEmpty());
 }
 
 TEST(BenchFiles, LoadReportsAMissingFileAsInvalidConfig)
