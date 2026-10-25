@@ -41,7 +41,8 @@ When `dl ledger list` ends `consecutive failures: 3`, stop:
 ## 2. Fresh nominations
 
 If `.github/workflows/sonar-master.yml` exists, after a merge run
-`gh workflow run sonar-master.yml` and wait until `dl fresh` exits 0, then
+`gh workflow run sonar-master.yml` and wait until `dl fresh` exits 0 (1 means
+not yet; 2 is a SonarCloud failure: report it and stop), then
 `dl trend fill-after` (the bookkeeping rides on the next loop PR). Otherwise
 master is analysed only on release: proceed on the existing analysis;
 `candidates` drops blocks the checkout no longer has, and the ledger keeps
@@ -139,9 +140,8 @@ the check's name, return to step 3.
 ## 8. Open the loop PR
 
 Commit any pending bookkeeping (`docs/reference/sonar-dedup-ledger.json`,
-`docs/reference/dedup-trend.csv`) on the branch. Then
-`dl trend add --pr <n> --before <before> --dup-before <dup before>` once the PR
-number is known, commit, and push. Write the body to a scratchpad file:
+`docs/reference/dedup-trend.csv`) on the branch and push. Write the body to a
+scratchpad file:
 
 - the abstraction, its domain name, and why it passes each of the five points;
 - the group ids it absorbs, with their blocks;
@@ -150,9 +150,16 @@ number is known, commit, and push. Write the body to a scratchpad file:
 - the right-size reviewer's verdict;
 - the attribution footer the session requires.
 
-`gh pr create --label sonar-dedup --title "refactor: …" --body-file <file>`,
-then `dl ledger record <id> open --pr <n> --members-json '<members>'`, commit
-and push that too. Go to step 1.
+`gh pr create --label sonar-dedup --title "refactor: …" --body-file <file>`
+gives the PR number `<n>`. Then `dl trend add --pr <n> --before <before>
+--dup-before <dup before>` and `dl ledger record <id> open --pr <n>
+--members-json '<members>'`; commit both and push. Go to step 1.
+
+The verdict judges with `master`'s copy of `scripts/dedup_loop.py` and fails a
+loop PR that changes the loop's tooling (`scripts/dedup_loop.py`,
+`scripts/mutation_test.py`, `.pre-commit-config.yaml`,
+`sonar-project.properties`, `mull.yml`, `.github/`). Such changes go in a
+normal PR.
 
 ## Stopping
 

@@ -134,6 +134,17 @@ def sonar_get(path: str, params: Mapping[str, str], *, opener: Callable = urlope
         raise DedupLoopError(f"SonarCloud {path}: {error}") from error
 
 
+def _read[T](
+    fetch: Fetch, path: str, params: Mapping[str, str], extract: Callable[[Mapping], T]
+) -> T:
+    """Fetch and parse one response; an unexpected shape is a tool failure, not a crash."""
+    response = fetch(path, params)
+    try:
+        return extract(response)
+    except (KeyError, IndexError, TypeError, ValueError) as error:
+        raise DedupLoopError(f"SonarCloud {path}: unexpected response ({error!r})") from error
+
+
 @dataclass(frozen=True, order=True)
 class Block:
     """Duplicated lines of one file, 1-based and inclusive."""
@@ -169,36 +180,47 @@ def duplicated_files(fetch: Fetch) -> list[str]:
     paths: list[str] = []
     page = 1
     while True:
-        response = fetch(
+        params = {
+            "component": PROJECT,
+            "metricKeys": "duplicated_lines",
+            "strategy": "leaves",
+            "metricSortFilter": "withMeasuresOnly",
+            "s": "metric",
+            "metricSort": "duplicated_lines",
+            "asc": "false",
+            "ps": str(_PAGE_SIZE),
+            "p": str(page),
+        }
+        components, done = _read(
+            fetch,
             "api/measures/component_tree",
-            {
-                "component": PROJECT,
-                "metricKeys": "duplicated_lines",
-                "strategy": "leaves",
-                "metricSortFilter": "withMeasuresOnly",
-                "s": "metric",
-                "metricSort": "duplicated_lines",
-                "asc": "false",
-                "ps": str(_PAGE_SIZE),
-                "p": str(page),
-            },
+            params,
+            lambda r, page=page: (
+                r["components"],
+                page * r["paging"]["pageSize"] >= r["paging"]["total"],
+            ),
         )
-        paths += [c["path"] for c in response["components"]]
-        paging = response["paging"]
-        if page * paging["pageSize"] >= paging["total"]:
+        for component in components:
+            # Sorted by duplicated lines, descending: the rest have none.
+            if component.get("measures", [{}])[0].get("value") == "0":
+                return paths
+            paths.append(component["path"])
+        if done:
             return paths
         page += 1
 
 
 def file_groups(fetch: Fetch, path: str) -> list[tuple[Block, ...]]:
-    response = fetch("api/duplications/show", {"key": f"{PROJECT}:{path}"})
-    files = {ref: f["key"].removeprefix(f"{PROJECT}:") for ref, f in response["files"].items()}
-    return [
-        tuple(
-            Block(files[b["_ref"]], b["from"], b["from"] + b["size"] - 1) for b in group["blocks"]
-        )
-        for group in response["duplications"]
-    ]
+    def extract(response: Mapping) -> list[tuple[Block, ...]]:
+        files = {r: f["key"].removeprefix(f"{PROJECT}:") for r, f in response["files"].items()}
+        return [
+            tuple(
+                Block(files[b["_ref"]], b["from"], b["from"] + b["size"] - 1) for b in g["blocks"]
+            )
+            for g in response["duplications"]
+        ]
+
+    return _read(fetch, "api/duplications/show", {"key": f"{PROJECT}:{path}"}, extract)
 
 
 def parse_function_ranges(output: str) -> list[FunctionRange]:
@@ -339,7 +361,8 @@ def append_trend(path: Path, row: TrendRow, *, bookkeeping: bool = False) -> Non
 def fill_dup_after(path: Path, value: int) -> None:
     """Record master's duplicated lines after the last row's merge."""
     rows = list(csv.reader(path.read_text().splitlines())) if path.exists() else []
-    if len(rows) < 2 or rows[-1][-1]:
+    # Rows carried over from the NLOC loop have no dup_before and never await one.
+    if len(rows) < 2 or rows[-1][-1] or not rows[-1][-2]:
         raise DedupLoopError(f"no trend row in {path} awaits dup_after")
     rows[-1][-1] = str(value)
     with path.open("w", newline="") as handle:
@@ -347,15 +370,32 @@ def fill_dup_after(path: Path, value: int) -> None:
 
 
 def master_duplicated_lines(fetch: Fetch) -> int:
-    response = fetch(
-        "api/measures/component", {"component": PROJECT, "metricKeys": "duplicated_lines"}
+    params = {"component": PROJECT, "metricKeys": "duplicated_lines"}
+    return _read(
+        fetch,
+        "api/measures/component",
+        params,
+        lambda r: int(r["component"]["measures"][0]["value"]),
     )
-    return int(response["component"]["measures"][0]["value"])
 
 
 def analysis_revision(fetch: Fetch) -> str:
-    response = fetch("api/project_analyses/search", {"project": PROJECT, "ps": "1"})
-    return response["analyses"][0]["revision"]
+    params = {"project": PROJECT, "ps": "1"}
+    return _read(
+        fetch, "api/project_analyses/search", params, lambda r: r["analyses"][0]["revision"]
+    )
+
+
+def pr_analysis_commit(fetch: Fetch, pr: int) -> str | None:
+    """The PR head commit SonarCloud last analysed, or None before its first analysis."""
+    return _read(
+        fetch,
+        "api/project_pull_requests/list",
+        {"project": PROJECT},
+        lambda r: next(
+            (p["commit"]["sha"] for p in r["pullRequests"] if p["key"] == str(pr)), None
+        ),
+    )
 
 
 def open_non_loop_pr_files(root: Path) -> set[str]:
@@ -401,17 +441,19 @@ PR_METRICS = ("new_duplicated_lines", "new_uncovered_lines")
 def pr_measures(fetch: Fetch, pr: int) -> dict[str, int]:
     """A PR analysis's new-code metrics; SonarCloud omits a metric with nothing to report."""
     params = {"component": PROJECT, "pullRequest": str(pr), "metricKeys": ",".join(PR_METRICS)}
-    found = {
-        m["metric"]: m for m in fetch("api/measures/component", params)["component"]["measures"]
-    }
-    result = {}
-    for metric in PR_METRICS:
-        measure_ = found.get(metric, {})
-        value = measure_.get("value") or next(
-            (p.get("value") for p in measure_.get("periods", [])), "0"
-        )
-        result[metric] = int(float(value))
-    return result
+
+    def extract(response: Mapping) -> dict[str, int]:
+        found = {m["metric"]: m for m in response["component"]["measures"]}
+        result = {}
+        for metric in PR_METRICS:
+            measure_ = found.get(metric, {})
+            value = measure_.get("value") or next(
+                (p.get("value") for p in measure_.get("periods", [])), "0"
+            )
+            result[metric] = int(float(value))
+        return result
+
+    return _read(fetch, "api/measures/component", params, extract)
 
 
 def survivors(directory: Path | None, root: Path) -> list[str]:
@@ -424,6 +466,18 @@ def survivors(directory: Path | None, root: Path) -> list[str]:
         for k, status in sorted(merged.items())
         if status == "Survived"
     ]
+
+
+# The verdict and what it measures with: a loop PR that changes them could pass
+# by moving the goalposts.
+LOOP_TOOLING = (
+    "scripts/dedup_loop.py",
+    "scripts/mutation_test.py",
+    ".pre-commit-config.yaml",
+    "sonar-project.properties",
+    "mull.yml",
+    ".github/",
+)
 
 
 def is_bookkeeping(changed: Sequence[str]) -> bool:
@@ -452,6 +506,7 @@ def verdict(
     shown = "; ".join(survived[:10]) + (
         f"; ... {len(survived) - 10} more" if len(survived) > 10 else ""
     )
+    tooling = sorted(p for p in changed if p.startswith(LOOP_TOOLING))
     return [
         Check(
             "nloc drop",
@@ -461,6 +516,11 @@ def verdict(
         Check("new duplicated lines", duplicated == 0, str(duplicated)),
         Check("new uncovered lines", uncovered == 0, str(uncovered)),
         Check("surviving mutants", not survived, shown or "0"),
+        Check(
+            "loop tooling unchanged",
+            not tooling,
+            ", ".join(tooling) or "none of " + ", ".join(LOOP_TOOLING),
+        ),
     ]
 
 
@@ -520,6 +580,9 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     check.add_argument("--nloc-after", type=int, required=True)
     check.add_argument("--changed-file", type=Path, required=True, help="git diff --name-only")
     check.add_argument("--mutation-reports", type=Path, help="the mutation job's report dir")
+    check.add_argument(
+        "--head-sha", required=True, help="the PR head SonarCloud must have analysed"
+    )
     return parser.parse_args(argv)
 
 
@@ -561,7 +624,10 @@ def _run(args: argparse.Namespace, tools: Tools, out: TextIO, today: str) -> int
     elif args.command == "ledger":
         ledger = Ledger.load(root / LEDGER)
         if args.ledger_command == "record":
-            members = json.loads(args.members_json)
+            try:
+                members = json.loads(args.members_json)
+            except ValueError as error:
+                raise DedupLoopError(f"--members-json is not JSON: {error}") from error
             ledger.record(Attempt(args.group, members, args.outcome, today, args.reason, args.pr))
             ledger.save(root / LEDGER)
         else:
@@ -570,6 +636,11 @@ def _run(args: argparse.Namespace, tools: Tools, out: TextIO, today: str) -> int
                 out.write(" ".join(str(v) for v in fields if v) + "\n")
             out.write(f"consecutive failures: {ledger.consecutive_failures()}\n")
     elif args.command == "verdict":
+        analysed = pr_analysis_commit(tools.fetch, args.pr)
+        if analysed != args.head_sha:
+            raise DedupLoopError(
+                f"SonarCloud analysed {analysed}, not the PR head {args.head_sha}; rerun the check"
+            )
         checks = verdict(
             nloc_before=args.nloc_before,
             nloc_after=args.nloc_after,

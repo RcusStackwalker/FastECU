@@ -405,6 +405,9 @@ after the SonarCloud and mutation jobs. It fails unless NLOC drops by at least
 analysis reports no new duplicated and no new uncovered lines, and the
 mutation job's reports hold no surviving mutant. It reuses those reports and
 does not run Mull again. Mutation testing stays advisory for other PRs.
+It judges with the base's copy of the script, refuses a SonarCloud analysis of
+an older push, fails when either upstream job did not succeed, and fails a loop
+PR that changes the loop's own tooling.
 
 ## Fuzzing
 

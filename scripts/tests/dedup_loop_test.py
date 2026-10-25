@@ -160,6 +160,20 @@ class SonarGroupsTest(unittest.TestCase):
         self.assertEqual(len(sonar.calls), 2)
         self.assertEqual(sonar.calls[0][1]["metricKeys"], "duplicated_lines")
 
+    def test_stops_at_the_first_file_without_duplication(self) -> None:
+        def fetch(_path: str, _params: Mapping[str, str]) -> Mapping:
+            components = [
+                {"path": "src/a.cpp", "measures": [{"value": "12"}]},
+                {"path": "src/b.cpp", "measures": [{"value": "0"}]},
+                {"path": "src/c.cpp", "measures": [{"value": "0"}]},
+            ]
+            return {
+                "paging": {"pageIndex": 1, "pageSize": 3, "total": 900},
+                "components": components,
+            }
+
+        self.assertEqual(dl.duplicated_files(fetch), ["src/a.cpp"])
+
     def test_group_reported_from_both_files_is_one_group(self) -> None:
         pair = [("src/a.cpp", 10, 20), ("src/b.cpp", 30, 20)]
         sonar = FakeSonar(
@@ -335,6 +349,13 @@ class TrendTest(unittest.TestCase):
         with self.assertRaisesRegex(dl.DedupLoopError, "no trend row"):
             dl.fill_dup_after(self.path, 1500)
 
+    def test_fill_after_ignores_rows_carried_over_from_the_nloc_loop(self) -> None:
+        self.path.write_text(
+            "date,pr,nloc_before,nloc_after,dup_before,dup_after\n2026-10-18,735,150748,150693,,\n"
+        )
+        with self.assertRaisesRegex(dl.DedupLoopError, "no trend row"):
+            dl.fill_dup_after(self.path, 1500)
+
 
 def _group(paths: Sequence[str], lines: int) -> object:
     blocks = tuple(dl.Block(p, 1, 5) for p in paths)
@@ -411,6 +432,7 @@ class VerdictTest(unittest.TestCase):
                 "new duplicated lines": True,
                 "new uncovered lines": True,
                 "surviving mutants": True,
+                "loop tooling unchanged": True,
             },
         )
 
@@ -430,6 +452,21 @@ class VerdictTest(unittest.TestCase):
     def test_any_new_uncovered_line_fails(self) -> None:
         measures = {"new_duplicated_lines": 0, "new_uncovered_lines": 3}
         self.assertFalse(self.checks(measures=measures)["new uncovered lines"])
+
+    def test_changing_the_loop_tooling_fails(self) -> None:
+        for path in (
+            "scripts/dedup_loop.py",
+            "scripts/mutation_test.py",
+            ".pre-commit-config.yaml",
+            "sonar-project.properties",
+            "mull.yml",
+            ".github/workflows/pr.yml",
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(
+                    self.checks(changed=["src/backend/a.cpp", path])["loop tooling unchanged"]
+                )
+        self.assertTrue(self.checks()["loop tooling unchanged"])
 
     def test_absent_pr_metric_counts_as_zero(self) -> None:
         def fetch(path: str, params: Mapping[str, str]) -> Mapping:
@@ -473,12 +510,15 @@ class MainTest(unittest.TestCase):
 
     sonar: FakeSonar | None = None
     revision = "abc"
+    analysed_sha = "head1"
 
     def fetch(self, path: str, params: Mapping[str, str]) -> Mapping:
         if path == "api/project_analyses/search":
             return {"analyses": [{"revision": self.revision}]}
         if path == "api/measures/component":
             return {"component": {"measures": []}}
+        if path == "api/project_pull_requests/list":
+            return {"pullRequests": [{"key": "7", "commit": {"sha": self.analysed_sha}}]}
         return (self.sonar or FakeSonar([], {}))(path, params)
 
     def run_main(self, *argv: str) -> tuple[int, str]:
@@ -558,6 +598,8 @@ class MainTest(unittest.TestCase):
             "95",
             "--changed-file",
             str(changed),
+            "--head-sha",
+            "head1",
         )
 
     def test_verdict_exits_one_on_failure(self) -> None:
@@ -573,7 +615,27 @@ class MainTest(unittest.TestCase):
         self.fetch = down  # type: ignore[method-assign]
         code, text = self.run_main(*self.verdict_argv())
         self.assertEqual(code, 2)
-        self.assertIn("SonarCloud api/measures/component: timed out", text)
+        self.assertRegex(text, r"SonarCloud api/\S+: timed out")
+
+    def test_verdict_exits_two_on_an_older_pr_analysis(self) -> None:
+        self.analysed_sha = "head0"
+        code, text = self.run_main(*self.verdict_argv())
+        self.assertEqual(code, 2)
+        self.assertIn("analysed head0, not the PR head head1", text)
+
+    def test_malformed_sonar_response_exits_two(self) -> None:
+        def empty(_path: str, _params: Mapping[str, str]) -> Mapping:
+            return {"analyses": []}
+
+        self.fetch = empty  # type: ignore[method-assign]
+        code, text = self.run_main("fresh")
+        self.assertEqual(code, 2)
+        self.assertIn("SonarCloud api/project_analyses/search", text)
+
+    def test_malformed_members_json_exits_two(self) -> None:
+        code, text = self.run_main("ledger", "record", "g1", "failed", "--members-json", "[[")
+        self.assertEqual(code, 2)
+        self.assertIn("--members-json", text)
 
 
 if __name__ == "__main__":
