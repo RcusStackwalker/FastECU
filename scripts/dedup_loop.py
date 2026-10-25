@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TextIO
 from urllib.error import URLError
@@ -34,6 +34,18 @@ PROJECT = "RcusStackwalker_FastECU"
 Fetch = Callable[[str, Mapping[str, str]], Mapping]
 FILE_SCOPE = "<file>"
 _PAGE_SIZE = 500
+LEDGER = Path("docs/reference/sonar-dedup-ledger.json")
+TREND = Path("docs/reference/dedup-trend.csv")
+TREND_HEADER = ("date", "pr", "nloc_before", "nloc_after", "dup_before", "dup_after")
+OUTCOMES = ("open", "merged", "closed", "failed", "unsuitable", "deferred")
+# Judged by reading: these cost no implementation, so they neither count toward
+# nor break a run of failures.
+_NEUTRAL = ("open", "unsuitable", "deferred")
+# A loop PR's group is settled; it is not offered again.
+_SETTLED = ("open", "merged", "unsuitable", "deferred")
+MIN_DROP = 10
+RunGit = Callable[[Path, Sequence[str]], str]
+BusyFiles = Callable[[Path], set[str]]
 
 _FILE_HEADER = re.compile(r"^\s*NLOC\s+Avg\.NLOC\s+AvgCCN\s+Avg\.token\s+function_cnt\s+file\s*$")
 _FILE_ROW = re.compile(r"^\s*(\d+)\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+\d+\s+(?:\./)?(\S.*?)\s*$")
@@ -247,6 +259,148 @@ def build_groups(
     return groups
 
 
+@dataclass(frozen=True)
+class Attempt:
+    group: str
+    members: list[list[str]]
+    outcome: str
+    date: str
+    reason: str = ""
+    pr: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.outcome not in OUTCOMES:
+            raise DedupLoopError(f"unknown outcome {self.outcome!r}; expected one of {OUTCOMES}")
+
+
+@dataclass
+class Ledger:
+    """Every judgment and attempt, committed so a fresh clone sees them."""
+
+    attempts: list[Attempt] = field(default_factory=list)
+
+    @classmethod
+    def load(cls, path: Path) -> Ledger:
+        if not path.exists():
+            return cls()
+        try:
+            return cls([Attempt(**a) for a in json.loads(path.read_text())["attempts"]])
+        except (ValueError, KeyError, TypeError) as error:
+            raise DedupLoopError(f"unreadable ledger {path}: {error}") from error
+
+    def save(self, path: Path) -> None:
+        data = {"attempts": [asdict(a) for a in self.attempts]}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+    def record(self, attempt: Attempt) -> None:
+        self.attempts.append(attempt)
+
+    def outcome(self, group: str) -> str | None:
+        return next((a.outcome for a in reversed(self.attempts) if a.group == group), None)
+
+    def consecutive_failures(self) -> int:
+        count = 0
+        for attempt in reversed(self.attempts):
+            if attempt.outcome == "failed":
+                count += 1
+            elif attempt.outcome not in _NEUTRAL:
+                break
+        return count
+
+
+@dataclass(frozen=True)
+class TrendRow:
+    date: str
+    pr: int
+    nloc_before: int
+    nloc_after: int
+    dup_before: int | None
+    dup_after: int | None
+
+
+def append_trend(path: Path, row: TrendRow, *, bookkeeping: bool = False) -> None:
+    if not bookkeeping and row.nloc_before - row.nloc_after < MIN_DROP:
+        raise DedupLoopError(
+            f"NLOC {row.nloc_before} -> {row.nloc_after}: "
+            f"a loop PR lowers it by at least {MIN_DROP}"
+        )
+    new = not path.exists()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", newline="") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        if new:
+            writer.writerow(TREND_HEADER)
+        writer.writerow(["" if v is None else v for v in asdict(row).values()])
+
+
+def fill_dup_after(path: Path, value: int) -> None:
+    """Record master's duplicated lines after the last row's merge."""
+    rows = list(csv.reader(path.read_text().splitlines())) if path.exists() else []
+    if len(rows) < 2 or rows[-1][-1]:
+        raise DedupLoopError(f"no trend row in {path} awaits dup_after")
+    rows[-1][-1] = str(value)
+    with path.open("w", newline="") as handle:
+        csv.writer(handle, lineterminator="\n").writerows(rows)
+
+
+def master_duplicated_lines(fetch: Fetch) -> int:
+    response = fetch(
+        "api/measures/component", {"component": PROJECT, "metricKeys": "duplicated_lines"}
+    )
+    return int(response["component"]["measures"][0]["value"])
+
+
+def analysis_revision(fetch: Fetch) -> str:
+    response = fetch("api/project_analyses/search", {"project": PROJECT, "ps": "1"})
+    return response["analyses"][0]["revision"]
+
+
+def open_non_loop_pr_files(root: Path) -> set[str]:
+    """Files touched by open PRs that are not loop PRs, so the loop stays out of their way."""
+    prs = json.loads(
+        _run_tool(
+            root,
+            ["gh", "pr", "list", "--state", "open", "--limit", "100", "--json", "files,labels"],
+        )
+    )
+    return {
+        f["path"]
+        for pr in prs
+        if "sonar-dedup" not in {label["name"] for label in pr["labels"]}
+        for f in pr["files"]
+    }
+
+
+def run_git(root: Path, args: Sequence[str]) -> str:
+    return _run_tool(root, ["git", *args])
+
+
+def rank(groups: Sequence[Group], ledger: Ledger, busy: set[str]) -> list[Group]:
+    """The queue: backend first, then most duplicated lines; settled or busy groups dropped."""
+    open_groups = [
+        g
+        for g in groups
+        if ledger.outcome(g.id) not in _SETTLED and not any(b.path in busy for b in g.blocks)
+    ]
+    return sorted(
+        open_groups,
+        key=lambda g: (
+            not all(b.path.startswith("src/backend/") for b in g.blocks),
+            -g.lines,
+            g.id,
+        ),
+    )
+
+
+def _line_count(root: Path) -> Callable[[str], int | None]:
+    def count(path: str) -> int | None:
+        file = root / path
+        return len(file.read_text(errors="replace").splitlines()) if file.is_file() else None
+
+    return count
+
+
 def _run_tool(root: Path, command: Sequence[str]) -> str:
     tool = shutil.which(command[0])
     if tool is None:
@@ -266,16 +420,83 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     measure_parser = commands.add_parser("measure", help="print NLOC and its split")
     measure_parser.add_argument("--json", action="store_true")
+
+    commands.add_parser("candidates", help="print the ranked duplication-group queue")
+    commands.add_parser("fresh", help="exit 0 when master's analysis is of origin/master")
+
+    ledger_parser = commands.add_parser("ledger", help="record or list judgments and attempts")
+    ledger_commands = ledger_parser.add_subparsers(dest="ledger_command", required=True)
+    record = ledger_commands.add_parser("record")
+    record.add_argument("group")
+    record.add_argument("outcome", choices=OUTCOMES)
+    record.add_argument("--members-json", default="[]", help='[["path", "function"], ...]')
+    record.add_argument("--reason", default="")
+    record.add_argument("--pr", type=int)
+    ledger_commands.add_parser("list")
+
+    trend = commands.add_parser("trend", help="keep the NLOC and duplication trend")
+    trend_commands = trend.add_subparsers(dest="trend_command", required=True)
+    add = trend_commands.add_parser("add", help="append a row, measuring NLOC after")
+    add.add_argument("--pr", type=int, required=True)
+    add.add_argument("--before", type=int, required=True, help="NLOC of the base")
+    add.add_argument("--dup-before", type=int, required=True, help="master duplicated_lines")
+    add.add_argument("--bookkeeping", action="store_true", help="exempt from the NLOC rule")
+    trend_commands.add_parser("fill-after", help="record master's duplicated_lines now")
     return parser.parse_args(argv)
 
 
-def _run(args: argparse.Namespace, run_hook: RunHook, out: TextIO, today: str) -> int:
-    del today
-    result = measure(args.root, run_hook)
-    if args.json:
-        out.write(json.dumps({"total": result.total, **asdict(result)}) + "\n")
+@dataclass(frozen=True)
+class Tools:
+    """The external tools each command runs; tests substitute them."""
+
+    run_hook: RunHook
+    fetch: Fetch
+    run_functions: RunHook
+    busy_files: BusyFiles
+    git: RunGit
+    err: TextIO
+
+
+def _run(args: argparse.Namespace, tools: Tools, out: TextIO, today: str) -> int:
+    root = args.root
+    if args.command == "measure":
+        result = measure(root, tools.run_hook)
+        if args.json:
+            out.write(json.dumps({"total": result.total, **asdict(result)}) + "\n")
+        else:
+            out.write(f"total {result.total}\nproduction {result.production}\ntest {result.test}\n")
+    elif args.command == "candidates":
+        ranges = parse_function_ranges(tools.run_functions(root))
+        groups = build_groups(tools.fetch, ranges, _line_count(root), err=tools.err)
+        for group in rank(groups, Ledger.load(root / LEDGER), tools.busy_files(root)):
+            out.write(f"{group.id} lines={group.lines}\n")
+            for block in group.blocks:
+                names = ",".join(name for _path, name in key_block(block, ranges))
+                out.write(f"  {block.path}:{block.start}-{block.end} {names}\n")
+    elif args.command == "fresh":
+        analysed = analysis_revision(tools.fetch)
+        head = tools.git(root, ["rev-parse", "origin/master"]).strip()
+        if analysed != head:
+            out.write(f"stale: analysis {analysed}, origin/master {head}\n")
+            return 1
+        out.write(f"fresh {head}\n")
+    elif args.command == "ledger":
+        ledger = Ledger.load(root / LEDGER)
+        if args.ledger_command == "record":
+            members = json.loads(args.members_json)
+            ledger.record(Attempt(args.group, members, args.outcome, today, args.reason, args.pr))
+            ledger.save(root / LEDGER)
+        else:
+            for a in ledger.attempts:
+                fields = (a.date, a.group, a.outcome, a.reason, a.pr or "")
+                out.write(" ".join(str(v) for v in fields if v) + "\n")
+            out.write(f"consecutive failures: {ledger.consecutive_failures()}\n")
+    elif args.trend_command == "add":
+        after = measure(root, tools.run_hook).total
+        row = TrendRow(today, args.pr, args.before, after, args.dup_before, None)
+        append_trend(root / TREND, row, bookkeeping=args.bookkeeping)
     else:
-        out.write(f"total {result.total}\nproduction {result.production}\ntest {result.test}\n")
+        fill_dup_after(root / TREND, master_duplicated_lines(tools.fetch))
     return 0
 
 
@@ -284,10 +505,17 @@ def main(
     run_hook: RunHook = run_nloc_hook,
     out: TextIO = sys.stdout,
     today: Callable[[], str] = lambda: datetime.date.today().isoformat(),
+    *,
+    fetch: Fetch = sonar_get,
+    run_functions: RunHook = run_function_hook,
+    busy_files: BusyFiles = open_non_loop_pr_files,
+    git: RunGit = run_git,
+    err: TextIO = sys.stderr,
 ) -> int:
     args = _parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        return _run(args, run_hook, out, today())
+        tools = Tools(run_hook, fetch, run_functions, busy_files, git, err)
+        return _run(args, tools, out, today())
     except DedupLoopError as error:
         out.write(f"dedup_loop: {error}\n")
         return 2

@@ -233,6 +233,143 @@ class FunctionRangeTest(unittest.TestCase):
         )
 
 
+def _attempt(group: str, outcome: str, reason: str = "", pr: int | None = None):
+    return dl.Attempt(group, [["src/a.cpp", "f"]], outcome, "2026-10-25", reason, pr)
+
+
+class LedgerTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.path = Path(self.temp_dir.name) / "ledger.json"
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def test_missing_ledger_is_empty(self) -> None:
+        self.assertEqual(dl.Ledger.load(self.path).attempts, [])
+
+    def test_records_survive_a_reload(self) -> None:
+        ledger = dl.Ledger.load(self.path)
+        ledger.record(_attempt("g1", "unsuitable", "both reviewers: per-family timeouts"))
+        ledger.save(self.path)
+        self.assertEqual(dl.Ledger.load(self.path).attempts, ledger.attempts)
+
+    def test_later_attempt_supersedes(self) -> None:
+        ledger = dl.Ledger.load(self.path)
+        ledger.record(_attempt("g1", "open", pr=5))
+        ledger.record(_attempt("g1", "merged", pr=5))
+        self.assertEqual(ledger.outcome("g1"), "merged")
+        self.assertIsNone(ledger.outcome("g2"))
+
+    def test_counts_trailing_failures(self) -> None:
+        ledger = dl.Ledger.load(self.path)
+        for group, outcome in (("g0", "failed"), ("g1", "merged"), ("g2", "failed")):
+            ledger.record(_attempt(group, outcome))
+        ledger.record(_attempt("g3", "open"))
+        ledger.record(_attempt("g3", "failed"))
+        self.assertEqual(ledger.consecutive_failures(), 2)
+
+    def test_unsuitable_and_deferred_neither_count_nor_break_the_run(self) -> None:
+        ledger = dl.Ledger.load(self.path)
+        for group, outcome in (("g1", "failed"), ("g2", "unsuitable"), ("g3", "deferred")):
+            ledger.record(_attempt(group, outcome))
+        ledger.record(_attempt("g4", "failed"))
+        self.assertEqual(ledger.consecutive_failures(), 2)
+
+    def test_rejects_unknown_outcome(self) -> None:
+        with self.assertRaisesRegex(dl.DedupLoopError, "outcome"):
+            dl.Ledger.load(self.path).record(_attempt("g1", "rejected"))
+
+    def test_rejects_a_corrupt_ledger(self) -> None:
+        self.path.write_text("{not json")
+        with self.assertRaisesRegex(dl.DedupLoopError, "ledger"):
+            dl.Ledger.load(self.path)
+
+    def test_save_is_byte_stable(self) -> None:
+        ledger = dl.Ledger.load(self.path)
+        ledger.record(_attempt("g1", "deferred", "no wire evidence"))
+        ledger.save(self.path)
+        first = self.path.read_bytes()
+        dl.Ledger.load(self.path).save(self.path)
+        self.assertEqual(self.path.read_bytes(), first)
+        self.assertTrue(first.endswith(b"}\n"))
+
+
+class TrendTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.path = Path(self.temp_dir.name) / "trend.csv"
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def test_creates_header_then_appends(self) -> None:
+        dl.append_trend(self.path, dl.TrendRow("2026-10-25", 7, 100, 90, 1621, None))
+        dl.append_trend(self.path, dl.TrendRow("2026-10-26", 8, 90, 70, 1500, None))
+        self.assertEqual(
+            self.path.read_text(),
+            "date,pr,nloc_before,nloc_after,dup_before,dup_after\n"
+            "2026-10-25,7,100,90,1621,\n2026-10-26,8,90,70,1500,\n",
+        )
+
+    def test_rejects_a_drop_under_ten(self) -> None:
+        with self.assertRaisesRegex(dl.DedupLoopError, "at least 10"):
+            dl.append_trend(self.path, dl.TrendRow("2026-10-25", 7, 100, 91, 1621, None))
+
+    def test_bookkeeping_row_is_exempt(self) -> None:
+        dl.append_trend(
+            self.path, dl.TrendRow("2026-10-25", 7, 100, 100, 1621, None), bookkeeping=True
+        )
+        self.assertIn("2026-10-25,7,100,100,1621,", self.path.read_text())
+
+    def test_fill_after_sets_only_the_last_empty_cell(self) -> None:
+        self.path.write_text(
+            "date,pr,nloc_before,nloc_after,dup_before,dup_after\n"
+            "2026-10-17,699,152607,152412,,\n2026-10-25,7,100,90,1621,\n"
+        )
+        dl.fill_dup_after(self.path, 1580)
+        self.assertEqual(
+            self.path.read_text().splitlines()[1:],
+            ["2026-10-17,699,152607,152412,,", "2026-10-25,7,100,90,1621,1580"],
+        )
+        with self.assertRaisesRegex(dl.DedupLoopError, "no trend row"):
+            dl.fill_dup_after(self.path, 1500)
+
+
+def _group(paths: Sequence[str], lines: int) -> object:
+    blocks = tuple(dl.Block(p, 1, 5) for p in paths)
+    return dl.Group(tuple((p, "f") for p in paths), blocks, lines)
+
+
+class RankTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.ledger = dl.Ledger.load(Path(self.temp_dir.name) / "l.json")
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def test_backend_first_then_lines(self) -> None:
+        ui = _group(["src/ui/a.cpp", "src/ui/b.cpp"], 400)
+        small = _group(["src/backend/a.cpp", "src/backend/b.cpp"], 50)
+        large = _group(["src/backend/c.cpp", "src/backend/d.cpp"], 300)
+        self.assertEqual(dl.rank([ui, small, large], self.ledger, set()), [large, small, ui])
+
+    def test_ledger_outcomes_are_skipped(self) -> None:
+        groups = {
+            o: _group([f"src/backend/{o}.cpp", f"src/backend/{o}2.cpp"], 10) for o in dl.OUTCOMES
+        }
+        for outcome, group in groups.items():
+            self.ledger.record(_attempt(group.id, outcome))
+        ranked = dl.rank(list(groups.values()), self.ledger, set())
+        self.assertEqual(ranked, [groups["closed"], groups["failed"]])
+
+    def test_groups_touching_busy_files_are_skipped(self) -> None:
+        busy = _group(["src/backend/a.cpp", "src/backend/b.cpp"], 10)
+        free = _group(["src/backend/c.cpp", "src/backend/d.cpp"], 10)
+        self.assertEqual(dl.rank([busy, free], self.ledger, {"src/backend/b.cpp"}), [free])
+
+
 class MainTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -240,6 +377,14 @@ class MainTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    sonar: FakeSonar | None = None
+    revision = "abc"
+
+    def fetch(self, path: str, params: Mapping[str, str]) -> Mapping:
+        if path == "api/project_analyses/search":
+            return {"analyses": [{"revision": self.revision}]}
+        return (self.sonar or FakeSonar([], {}))(path, params)
 
     def run_main(self, *argv: str) -> tuple[int, str]:
         out = StringIO()
@@ -249,6 +394,11 @@ class MainTest(unittest.TestCase):
             run_hook=lambda _root: lizard_report(files),
             out=out,
             today=lambda: "2026-10-17",
+            fetch=self.fetch,
+            run_functions=lambda _root: "",
+            busy_files=lambda _root: set(),
+            git=lambda _root, _args: "abc\n",
+            err=StringIO(),
         )
         return code, out.getvalue()
 
@@ -259,6 +409,46 @@ class MainTest(unittest.TestCase):
         code, text = self.run_main("measure", "--json")
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(text), {"total": 15, "production": 10, "test": 5})
+
+    def test_candidates_prints_nothing_when_empty(self) -> None:
+        self.assertEqual(self.run_main("candidates"), (0, ""))
+
+    def test_candidates_lists_blocks_with_functions(self) -> None:
+        pair = [("src/backend/a.cpp", 2, 3), ("src/backend/b.cpp", 2, 3)]
+        self.sonar = FakeSonar(["src/backend/a.cpp"], {"src/backend/a.cpp": _duplications(pair)})
+        for name in ("a", "b"):
+            (self.root / "src/backend").mkdir(parents=True, exist_ok=True)
+            (self.root / f"src/backend/{name}.cpp").write_text("x\n" * 10)
+        code, text = self.run_main("candidates")
+        self.assertEqual(code, 0)
+        lines = text.splitlines()
+        self.assertRegex(lines[0], r"^[0-9a-f]{12} lines=6$")
+        self.assertEqual(
+            lines[1:], ["  src/backend/a.cpp:2-4 <file>", "  src/backend/b.cpp:2-4 <file>"]
+        )
+
+    def test_ledger_record_and_list(self) -> None:
+        members = json.dumps([["src/a.cpp", "f"]])
+        argv = ("ledger", "record", "g1", "failed", "--members-json", members, "--pr", "7")
+        self.assertEqual(self.run_main(*argv)[0], 0)
+        code, text = self.run_main("ledger", "list")
+        self.assertEqual(code, 0)
+        self.assertEqual(text, "2026-10-17 g1 failed 7\nconsecutive failures: 1\n")
+        saved = json.loads((self.root / dl.LEDGER).read_text())
+        self.assertEqual(saved["attempts"][0]["members"], [["src/a.cpp", "f"]])
+
+    def test_trend_add_measures_after(self) -> None:
+        argv = ("trend", "add", "--pr", "7", "--before", "40", "--dup-before", "1621")
+        self.assertEqual(self.run_main(*argv)[0], 0)
+        self.assertIn("2026-10-17,7,40,15,1621,", (self.root / dl.TREND).read_text())
+
+    def test_fresh_exits_zero(self) -> None:
+        self.revision = "abc"
+        self.assertEqual(self.run_main("fresh"), (0, "fresh abc\n"))
+
+    def test_stale_prints_both_revisions_and_exits_one(self) -> None:
+        self.revision = "old"
+        self.assertEqual(self.run_main("fresh"), (1, "stale: analysis old, origin/master abc\n"))
 
 
 if __name__ == "__main__":
