@@ -709,6 +709,104 @@ TEST(SubaruTcuHitachiM32rCanExecutor, KernelAliveRecheckIsAnEightByteFrame)
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
 }
 
+TEST(SubaruTcuHitachiM32rCanExecutor, ReplyWithAForeignCanIdIsABadResponseInAFatalStep)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    transport.Exchange(Framed(0x7E0, {0x10, 0x03}), Framed(0x7E8, {0x50, 0x03}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
+                                                    HasSubstr("expected CAN reply id 0x7e9, got 0x7e8")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 4U);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ForeignCanIdIsToleratedInAnIdentityStep)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    transport.Exchange(Framed(0x7E0, {0xAA}), Framed(0x7E8, {0xEA, 0x00, 0x00, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55}));
+    transport.Exchange(Framed(0x7E0, {0x09, 0x04}), Response({0x49, 0x04, 0x00, 0x43, 0x41, 0x4C}));
+    ScriptSession(transport);
+    ScriptSeed(transport);
+    ScriptKey(transport);
+    ScriptJump(transport);
+    ScriptRecheck(transport);
+    ScriptSilentReadWindow(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(events.logs,
+                Contains(Pair(fastecu::LogLevel::kError, HasSubstr("Wrong response from TCU for TCU ID"))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ResponsePendingOnTheSeedRequestIsReadAgainNotResent)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    ScriptSession(transport);
+    transport.Exchange(Framed(0x7E0, {0x27, 0x01}), Response({0x7F, 0x27, 0x78}));
+    transport.QueueRead(Response({0x67, 0x01, 0xDE, 0xAD, 0xBE, 0xEF}));
+    ScriptKey(transport);
+    ScriptJump(transport);
+    ScriptRecheck(transport);
+    ScriptSilentReadWindow(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
+    std::vector<std::chrono::milliseconds> expected(kConnectFrames + 2, 2000ms);
+    expected[5] = 3000ms;
+    EXPECT_EQ(transport.ReadTimeouts(), expected);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ResponsePendingExhaustionIsATimeout)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    ScriptSession(transport);
+    transport.Exchange(Framed(0x7E0, {0x27, 0x01}), Response({0x7F, 0x27, 0x78}));
+    for (int repeat = 0; repeat < 10; ++repeat)
+    {
+        transport.QueueRead(Response({0x7F, 0x27, 0x78}));
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 5U);
+}
+
 // --- read path -------------------------------------------------------------
 
 TEST(SubaruTcuHitachiM32rCanExecutor, ReadWindowSetupTargetsTheClampedRegion)

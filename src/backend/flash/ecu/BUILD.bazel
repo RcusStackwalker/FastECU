@@ -1188,9 +1188,13 @@ cc_library(
     srcs = ["subaru_tcu_hitachi_m32r_can_executor.cpp"],
     hdrs = ["subaru_tcu_hitachi_m32r_can_executor.h"],
     implementation_deps = [
+        ":uds_client_exchange_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds:uds_service_ids",
+        "//src/backend/flash:can_flash_uds_channel",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/protocol/uds:uds_client",
     ],
     deps = [
         ":subaru_tcu_hitachi_m32r_can_plan",
