@@ -1,0 +1,26 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+
+package(default_visibility = ["//bazel/layers:ui"])
+
+cc_library(
+    name = "logging_run_preparation",
+    srcs = ["logging_run_preparation.cpp"],
+    hdrs = ["logging_run_preparation.h"],
+    deps = [
+        "//src/backend/logging:logging_run_snapshot",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_gtest(
+    name = "logging_run_preparation_test",
+    srcs = ["logging_run_preparation_test.cpp"],
+    qt = False,
+    deps = [
+        ":logging_run_preparation",
+        "//src/backend/logging:logger_model",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
