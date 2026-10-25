@@ -659,9 +659,60 @@ Evidence: `/private/tmp/beef12-*`.
 
 `python3 scripts/nloc_loop.py measure --json`: baseline
 153753 total / 68477 production / 85276 test; final
-153842 / 68479 / 85363. Growth: production **+2**, test **+87**, with existing
+153841 / 68479 / 85362. Growth: production **+2**, test **+86**, with existing
 shared support and no compression. Qualification remains experimental; no
 BEEF CAN-specific checklist exists, and connection prerequisites were consulted.
 Named SH7058d/SH7059d adapter traces, read/write/test-write/verify/recovery and
 cancellation at upload/pending boundaries remain bench gaps. Full repository,
 static and platform gates remain controller-owned.
+
+## Denso SH705x BEEF TCU
+
+Task 13, 2026-10-25; source revision `450e97a3`. Explicit public CAN guard
+selection and direct-call adapter routing are the only production interface/test
+execution changes. Production bodies, shared helpers, polls, clocks, UdsClient
+and actual TCU restart integration remain intact.
+
+| Boundary | Retained owner and guard effect |
+| --- | --- |
+| Admission/preflight | Family validation precedes transport work and cancellation. Read-only preflight still belongs to the UI: action choice, ignition confirmation for service actions, and dump handoff are unchanged. Backend plans reject extra confirmations; guard does not own those choices. |
+| Kernel ID | Five probe attempts, probe-entry polls and 100 ms sleeps remain; raw initial/continuation Reads use the guarded port. Each trailing drain retains its poll and 32-frame bound; malformed/wrong-ID fragments and timeout/empty completion retain their rules. Existing terminal cancellation/disconnect and no-next-command tests remain. |
+| Session/upload | Exact session/security validation and no-upload-after-failure stay family-owned. Shared upload-loop and discard-entry/after-read polls remain. Accepted B6 cancellation newly refuses the raw 2000 ms discard Read; ordinary ignored replies remain nonfatal. No subsequent B6 or 37 is attempted. |
+| Restart | Executor-owned RestartIso15765 still forwards to the actual inner override, resetting/reconfiguring/reopening before the 500 ms quiet period and strict post-upload probe. No guard gate or substitute restart fixture added. Existing integration tests assert order/configuration and reset/configure/open failures with outer Close. |
+| Read/CRC/write/final | Raw read pages, both MCU geometries, shared CRC stale pre-drain/compare polls, local read/write/commit/block polls, range guards, waits, recovery warnings, compare policy and final result remain. No final cancellation sweep. |
+
+The real-family BoundAttempt test uses the suite's SH7055 read plan and accepted
+B6 Write hook. Baseline attempted one discard Read; candidate attempts zero,
+leaves its reply queued, attempts no following Write and closes once. Both
+return cancellation, but guard entry now provides `CAN read cancelled before
+delegation` instead of the upload after-read poll. Accepted-prefix upload logs
+and preparation notice remain; subsequent transfer-exit/start/restart/read
+work and events do not occur. Synthetic actual-alias proof independently tests
+selection and runner wiring. Existing content tolerance, trailing-drain terminal
+errors, exact session validation and complete restart cases all still pass.
+
+Verification: baseline XML **33/33**, candidate **35/35**, no lost classname/name
+pair. Raw B6 baseline RED fails on one extra Read. Missing-alias RED and temporary
+declaration removal fail compilation. Temporary runner bypass fails both new
+family proofs and the shared bound probe. Restored family and shared targets
+(`beef_can_session_test`, `denso_beef_can_common_test`,
+`guarded_attempt_expectations_test`, `bound_flash_attempt_test`,
+`guarded_can_flash_transport_test`) pass **6/6** with
+`bazel test --config=release`. Final Gazelle/buildifier, scoped formatting,
+scoped diff review and `git diff --check` pass. Evidence: `/private/tmp/beef13-*`.
+
+`python3 scripts/nloc_loop.py measure --json`: baseline
+153841 total / 68479 production / 85362 test; final
+153888 / 68482 / 85406. Growth: production **+3**, test **+44**. Existing shared
+blind transport and selection proof are reused. No new support framework,
+compression or EEPROM restart test. Experimental hardware status remains;
+TCU session-safety validation, named adapter/TCU read/write/verify/recovery,
+restart behavior and accepted-B6 cancellation need bench traces. No dedicated
+BEEF CAN checklist exists; connection prerequisites and matrix limitations
+were consulted. Full repository/static/platform gates remain controller-owned.
+
+Final formatted diesel measurement correction: its exact-prefix assertion
+formats to one fewer NLOC than the intermediate measurement. Task 12 final is
+153841 / 68479 / 85362, for production **+2**, test **+86**. The three-task batch
+therefore grows production **+7**, test **+176** from `5b5dd5e8`; this is support
+and regression coverage growth, not savings.
