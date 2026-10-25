@@ -615,3 +615,53 @@ bench prerequisites were consulted. Named adapter/ECU traces, read comparison,
 write/test-write/verify/recovery and cancellation at accepted B6 remain bench
 gaps; these software tests establish no hardware qualification. Full repository,
 static analysis and platform delivery gates remain controller-owned.
+
+## Denso SH7058 BEEF diesel
+
+Task 12, 2026-10-25; source revision `fb6c3450`. The diesel header explicitly
+selects the CAN guard; direct suite calls use the adapter. No production body,
+shared helper, startup or execution poll changed.
+
+| Boundary | Retained owner and guard effect |
+| --- | --- |
+| Admission/preparation | Plan admission remains first; the startup reset poll, ResetConnection and cancellable 500 ms quiet period remain on the owned port before configure/open. Close remains runner-owned. |
+| Connect | Tolerant kernel probe, identity failures and 03/43 session fallback retain their error/log decisions. Strict security and UDS pending retry limits, timings and NRC diagnostics remain unchanged. A cancelled pending Read now stops at guard entry rather than reaching the recording/inner port. |
+| Upload | Shared upload-loop, discard-entry and after-read polls remain. B6 raw discard (500 ms for diesel) newly refuses delegation after an accepted Write cancels. Ordinary timeout/stale/malformed/wrong-ID content stays ignored; cancellation/disconnect remain terminal. No later B6/37 is attempted. |
+| CRC | The retained pre-drain checkpoint already refuses the stale Read after cancellation from the CRC reply. The independent new characterization passes on the unguarded baseline and candidate with zero stale Read attempts; it is preservation, not a guard bypass proof. CRC result/progress logs after this checkpoint remain absent. |
+| Read/flash/final | Both generation geometries, page/range checks, compare/read/block/write/commit polls, compare waits, erase/commit recovery warnings and final result policy remain. Clocks and UdsClient are untouched. |
+
+The real-family BoundAttempt B6 regression fails baseline on one delegated raw
+Read, then passes with none and a queued discard reply. It returns cancellation
+and closes once; diagnostic changes from `kernel upload cancelled` at the
+retained after-read poll to `CAN read cancelled before delegation`. Accepted
+upload-prefix events remain; subsequent upload progress/start/read events do
+not occur. The actual-alias synthetic probe separately proves selection.
+
+One existing pending-cancellation assertion necessarily changes its observation
+of attempted transport calls: its configured pending timeout stays **3000 ms**,
+but the cancelled pending Read is no longer delegated. The exact delegated
+prefix is now 800 ms followed by seven 2000 ms Reads; 2000 ms is the preceding
+successful delegated Read, not a changed pending policy. Its cancellation
+result/no-resend assertions remain and the queued positive reply is now asserted
+unconsumed. Ordinary pending-retry tests still assert the 3000 ms policy and
+bounded retry count. All other predecessor assertions remain.
+
+Verification: unchanged baseline **35/35**; added stale-drain preservation case
+passes before opt-in. Candidate XML **38/38**, no lost classname/name pair.
+Missing-alias RED and declaration removal fail compilation; raw B6 RED fails on
+one extra Read. Runner bypass fails family selection and real B6 cases and the
+shared bound probe. Sources restored, family plus `beef_can_session_test`,
+`denso_beef_can_common_test`, `guarded_attempt_expectations_test`,
+`bound_flash_attempt_test` and `guarded_can_flash_transport_test` pass **6/6**
+using `bazel test --config=release`; exact-prefix follow-up also passes.
+Gazelle, scoped formatting, scoped diff review and `git diff --check` pass.
+Evidence: `/private/tmp/beef12-*`.
+
+`python3 scripts/nloc_loop.py measure --json`: baseline
+153753 total / 68477 production / 85276 test; final
+153842 / 68479 / 85363. Growth: production **+2**, test **+87**, with existing
+shared support and no compression. Qualification remains experimental; no
+BEEF CAN-specific checklist exists, and connection prerequisites were consulted.
+Named SH7058d/SH7059d adapter traces, read/write/test-write/verify/recovery and
+cancellation at upload/pending boundaries remain bench gaps. Full repository,
+static and platform gates remain controller-owned.
