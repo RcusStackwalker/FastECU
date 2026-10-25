@@ -2072,6 +2072,8 @@ cc_library(
     implementation_deps = [
         ":denso_beef_can_common",
         ":uds_client_exchange_common",
+        "//src/algorithms/protocol/uds",
+        "//src/algorithms/protocol/uds:uds_service_ids",
     ],
     deps = [
         ":denso_beef_can_profile",
@@ -2093,6 +2095,7 @@ fastecu_portable_gtest(
     deps = [
         ":beef_can_session",
         ":denso_beef_can_profile",
+        "//src/algorithms/protocol/uds",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",

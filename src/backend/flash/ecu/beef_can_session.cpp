@@ -1,9 +1,12 @@
 #include "src/backend/flash/ecu/beef_can_session.h"
 
 #include <chrono>
+#include <optional>
 #include <format>
 #include <string>
 
+#include "src/algorithms/protocol/uds/uds_response.h"
+#include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
 
@@ -55,6 +58,12 @@ void BeefCanSession::LogWrongReply(const Error& failure)
     LogError(MakeView(), std::format("Wrong response from {}{}", profile_.device, suffix));
 }
 
+void BeefCanSession::LogWrongPdu(bytes::ByteView pdu)
+{
+    const std::string rendered = profile_.pdu_format == BeefPduFormat::kHex ? bytes::ToHex(pdu) : uds::Describe(pdu);
+    LogError(MakeView(), std::format("Wrong response from {}: {}", profile_.device, rendered));
+}
+
 Result<std::optional<bytes::Bytes>> BeefCanSession::NonfatalQuery(bytes::ByteView pdu)
 {
     View view = MakeView();
@@ -82,6 +91,108 @@ Result<std::optional<bytes::Bytes>> BeefCanSession::NonfatalQuery(bytes::ByteVie
         LogError(view, "No valid response from ECU");
     }
     return received;
+}
+
+Result<bytes::Bytes> BeefCanSession::Exchange(bytes::Byte opcode, bytes::ByteView payload, std::size_t minimum_payload,
+                                              std::chrono::milliseconds timeout)
+{
+    View view = MakeView();
+    return BeefExchange(view, opcode, payload, minimum_payload, timeout);
+}
+
+Result<bool> BeefCanSession::RequestSession(bytes::Byte subfunction)
+{
+    Result<std::optional<bytes::Bytes>> reply =
+        NonfatalQuery(bytes::Bytes{uds::kSidDiagnosticSessionControl, subfunction});
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    if (!reply->has_value())
+    {
+        return false;
+    }
+    const bytes::Bytes& pdu = **reply;
+    if (pdu.size() >= 2 && pdu[0] == 0x50 && pdu[1] == subfunction)
+    {
+        return true;
+    }
+    LogWrongPdu(pdu);
+    return false;
+}
+
+Status BeefCanSession::RequestEcuId(bool read_operation, std::optional<std::string>& rom_id)
+{
+    LogInfo(MakeView(), "Requesting ECU ID");
+    Result<std::optional<bytes::Bytes>> ecu_reply = NonfatalQuery(bytes::Bytes{0xAA});
+    if (!ecu_reply.has_value())
+    {
+        return std::unexpected(ecu_reply.error());
+    }
+    if (!ecu_reply->has_value())
+    {
+        return {};
+    }
+    const bytes::Bytes& pdu = **ecu_reply;
+    if (pdu.size() < 9 || pdu[0] != 0xEA)
+    {
+        LogWrongPdu(pdu);
+        return {};
+    }
+    const std::string ecu_id = std::format("{:02X}{:02X}{:02X}{:02X}{:02X}", pdu[4], pdu[5], pdu[6], pdu[7], pdu[8]);
+    LogInfo(MakeView(), std::format("ECU ID: {}", ecu_id));
+    if (read_operation)
+    {
+        rom_id = ecu_id + "_";
+    }
+    return {};
+}
+
+Status BeefCanSession::RequestCvn()
+{
+    LogInfo(MakeView(), "Requesting CVN");
+    Result<std::optional<bytes::Bytes>> cvn_reply = NonfatalQuery(bytes::Bytes{uds::kSidVehicleInfoRequest, 0x06});
+    if (!cvn_reply.has_value())
+    {
+        return std::unexpected(cvn_reply.error());
+    }
+    if (!cvn_reply->has_value())
+    {
+        return {};
+    }
+    const bytes::Bytes& pdu = **cvn_reply;
+    if (pdu.size() >= 3 && pdu[0] == 0x49 && pdu[1] == 0x06)
+    {
+        LogInfo(MakeView(), std::format("CVN: {}", UppercaseHexCompact(bytes::ByteView(pdu).subspan(3))));
+    }
+    else
+    {
+        LogWrongPdu(pdu);
+    }
+    return {};
+}
+
+Result<std::optional<std::string>> BeefCanSession::IdentityString(bytes::ByteView request, bytes::Byte first,
+                                                                  bytes::Byte second, std::string_view label)
+{
+    Result<std::optional<bytes::Bytes>> reply = NonfatalQuery(request);
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    if (!reply->has_value())
+    {
+        return std::optional<std::string>{};
+    }
+    const bytes::Bytes& pdu = **reply;
+    if (pdu.size() < 3 || pdu[0] != first || pdu[1] != second)
+    {
+        LogWrongPdu(pdu);
+        return std::optional<std::string>{};
+    }
+    const std::string value(pdu.begin() + 3, pdu.end());
+    LogInfo(MakeView(), std::format("{}: {}", label, value));
+    return std::optional<std::string>{value};
 }
 
 } // namespace fastecu::flash

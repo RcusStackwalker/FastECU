@@ -1,6 +1,10 @@
 #pragma once
 
+#include <chrono>
+#include <cstddef>
 #include <optional>
+#include <string>
+#include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/flash/ecu/denso_beef_can_profile.h"
@@ -29,11 +33,30 @@ class BeefCanSession
     // only cancellation or a disconnect aborts.
     Result<std::optional<bytes::Bytes>> NonfatalQuery(bytes::ByteView pdu);
 
+    // A BEEF request whose reply must carry `opcode | 0x40` and at least
+    // `minimum_payload` payload bytes; returns that payload. Failures are
+    // returned, not logged.
+    Result<bytes::Bytes> Exchange(bytes::Byte opcode, bytes::ByteView payload, std::size_t minimum_payload,
+                                  std::chrono::milliseconds timeout);
+
+    // True when the ECU accepts the diagnostic session `subfunction`.
+    Result<bool> RequestSession(bytes::Byte subfunction);
+
+    // Logs the ECU ID; a read names its image after it.
+    Status RequestEcuId(bool read_operation, std::optional<std::string>& rom_id);
+    Status RequestCvn();
+
+    // The text after the three-byte header of a reply that opens `first`,
+    // `second`, logged under `label`. Empty when the reply is wrong or absent.
+    Result<std::optional<std::string>> IdentityString(bytes::ByteView request, bytes::Byte first, bytes::Byte second,
+                                                      std::string_view label);
+
   private:
     // The shape denso_beef_can_common.h's templates read their context from.
     struct View;
     View MakeView() const;
     void LogWrongReply(const Error& failure);
+    void LogWrongPdu(bytes::ByteView pdu);
 
     ICanFlashTransport& transport_;
     IClock& clock_;
