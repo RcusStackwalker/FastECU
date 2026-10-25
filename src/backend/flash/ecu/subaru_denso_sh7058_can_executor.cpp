@@ -77,8 +77,6 @@ struct Context
     IEventSink& events;
     IClock& clock;
     ICanFlashTransport& transport;
-    std::uint32_t request_id;
-    std::uint32_t response_id;
     SubaruDensoSh7058CanSecurity security;
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
@@ -578,8 +576,6 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::Run(const SubaruDenso
                     events,
                     clock,
                     transport,
-                    family.request_id,
-                    family.response_id,
                     family.security,
                     uds_client,
                     channel,

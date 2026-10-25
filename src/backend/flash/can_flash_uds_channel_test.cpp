@@ -49,8 +49,6 @@ TEST(CanFlashUdsChannelTest, StripsTheReplyIdOnReceive)
     ASSERT_THAT(received, fastecu::testing::IsOk());
     ASSERT_THAT(*received, Optional(_));
     EXPECT_THAT(**received, ElementsAre(0x50, 0x03));
-    ASSERT_THAT(channel.LastReceivedFrame(), Optional(_));
-    EXPECT_THAT(*channel.LastReceivedFrame(), ElementsAre(0x00, 0x00, 0x07, 0xE8, 0x50, 0x03));
 }
 
 TEST(CanFlashUdsChannelTest, PassesATimeoutThroughAsAnEmptyOptional)

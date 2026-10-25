@@ -35,17 +35,10 @@ class CanFlashUdsChannel final : public uds::IUdsChannel
     Result<std::optional<bytes::Bytes>> Receive(std::chrono::milliseconds timeout,
                                                 const ICancellationToken& cancellation) override;
 
-    // The UDS client receives the envelope-stripped PDU, but legacy operator
-    // records sometimes distinguish the original frame length and offsets.
-    // This is reset at the next send, so it only describes the current
-    // request (including its final responsePending read, if any).
-    const std::optional<bytes::Bytes>& LastReceivedFrame() const noexcept;
-
   private:
     ICanFlashTransport& transport_;
     std::uint32_t request_id_;
     std::uint32_t response_id_;
-    std::optional<bytes::Bytes> last_received_frame_;
 };
 
 } // namespace fastecu::flash
