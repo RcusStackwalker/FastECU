@@ -20,6 +20,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_types.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -454,6 +455,32 @@ TEST_F(BeefCanSessionFlashTest, InitializeFlashSelectsTestOrRealWriteMode)
     EXPECT_TRUE(channel_.ScriptConsumed());
 }
 
+TEST_F(BeefCanSessionFlashTest, InitializeFlashUsesTheProfileTimeoutAndHexCase)
+{
+    constexpr DensoBeefCanProfile kUpperCase{.device = "TCU",
+                                             .family = "TCU",
+                                             .wrong_reply = BeefWrongReply::kErrorDetail,
+                                             .pdu_format = BeefPduFormat::kHex,
+                                             .init_timeout = 2000ms,
+                                             .upper_hex_sizes = true};
+    for (const DensoBeefCanProfile *profile : {&kBare, &kUpperCase})
+    {
+        SCOPED_TRACE(profile->family);
+        channel_.ExpectSend(BeefCall(0x05));
+        channel_.QueueReceive(BeefReply(0x45, bytes::Bytes{0x00, 0x00, 0x0A, 0xBC}));
+        channel_.ExpectSend(BeefCall(0x06));
+        channel_.QueueReceive(BeefReply(0x46, bytes::Bytes{0x00, 0x00, 0x0A, 0xBC}));
+        channel_.ExpectSend(BeefCall(0x20));
+        channel_.QueueReceive(BeefReply(0x60, {}));
+
+        ASSERT_THAT(Session(*profile).InitializeFlash(false), IsOk());
+
+        EXPECT_EQ(channel_.last_timeout, profile == &kBare ? 500ms : 2000ms);
+        EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, profile == &kBare ? ": 0x0abc" : ": 0x0ABC")));
+        events_.logs.clear();
+    }
+}
+
 TEST_F(BeefCanSessionFlashTest, WriteMemoryWithNoDifferenceFlashesNothing)
 {
     const auto plan = PlanFor(FlashOperation::kWrite);
@@ -486,22 +513,30 @@ TEST_F(BeefCanSessionFlashTest, WriteMemoryFailsWithTheExchangeErrorWhenTheVolta
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Block 0 reflash failed.")));
 }
 
-// The family suites script no channel_-level bad reply and no out-of-image
-// compare, so the wording a profile selects for those is pinned here.
+// The family suites script no channel-level bad reply, no out-of-image
+// compare, and flash-init sizes with no hex letters or a distinguishable
+// timeout, so the wording and timing a profile selects are pinned here.
 TEST(DensoBeefCanProfileTest, FamilyProfilesKeepTheirLogWording)
 {
     const auto expect_profile = [](const DensoBeefCanProfile& profile, std::string_view device, std::string_view family,
-                                   BeefWrongReply wrong_reply, BeefPduFormat pdu_format)
+                                   BeefWrongReply wrong_reply, BeefPduFormat pdu_format,
+                                   std::chrono::milliseconds init_timeout, bool upper_hex_sizes)
     {
+        SCOPED_TRACE(family);
         EXPECT_EQ(profile.device, device);
         EXPECT_EQ(profile.family, family);
         EXPECT_EQ(profile.wrong_reply, wrong_reply);
         EXPECT_EQ(profile.pdu_format, pdu_format);
+        EXPECT_EQ(profile.init_timeout, init_timeout);
+        EXPECT_EQ(profile.upper_hex_sizes, upper_hex_sizes);
     };
 
-    expect_profile(kSubaruDensoSh7058CanBeefProfile, "ECU", "petrol", BeefWrongReply::kBare, BeefPduFormat::kHex);
+    expect_profile(kSubaruDensoSh7058CanBeefProfile, "ECU", "petrol", BeefWrongReply::kBare, BeefPduFormat::kHex, 500ms,
+                   false);
     expect_profile(kSubaruDensoSh7058CanDieselBeefProfile, "ECU", "diesel", BeefWrongReply::kNotValidAnswer,
-                   BeefPduFormat::kDescribe);
+                   BeefPduFormat::kDescribe, 500ms, false);
+    expect_profile(kSubaruTcuDensoSh705xCanBeefProfile, "TCU", "TCU", BeefWrongReply::kErrorDetail, BeefPduFormat::kHex,
+                   2000ms, true);
 }
 
 } // namespace

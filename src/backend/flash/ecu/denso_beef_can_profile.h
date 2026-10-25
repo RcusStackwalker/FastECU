@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <string_view>
 
 namespace fastecu::flash
@@ -29,6 +30,8 @@ struct DensoBeefCanProfile
     std::string_view family; // names the executor in errors: "petrol", "diesel", "TCU"
     BeefWrongReply wrong_reply;
     BeefPduFormat pdu_format;
+    std::chrono::milliseconds init_timeout{500}; // read timeout of the flash-init exchanges
+    bool upper_hex_sizes{false};                 // log the kernel's buffer sizes in upper-case hex
 };
 
 } // namespace fastecu::flash

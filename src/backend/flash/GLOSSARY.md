@@ -77,11 +77,13 @@ are read and discarded without inspection.
 _Avoid_: Quiet sequence, broadcast
 
 **Denso BEEF CAN dialect**:
-The SH7058 petrol, SH7058 diesel and TCU Denso SH705x flash families. They
-share the BEEF-protocol helpers in `denso_beef_can_common.h`; connect, flash
-block, kernel upload, write and read flows stay in each executor. The
+The SH7058 petrol, SH7058 diesel and TCU Denso SH705x flash families. One
+`BeefCanSession` owns their shared conversation with the ECU: the Tolerant
+reply query, identity, CRC compare, flash init and (petrol and diesel) write,
+worded per family by a `DensoBeefCanProfile`. Connect, kernel probe, security,
+kernel upload, and the TCU's read and flash loops stay in each executor. The
 DensoCAN SH705x family uses the same seed/key and payload tables but none of
-those helpers, so it is in no dialect.
+the session, so it is in no dialect.
 _Avoid_: Wave 5
 
 **Bootloader**:
