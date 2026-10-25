@@ -26,6 +26,6 @@ struct SubaruDensoSh7058CanPlan
 };
 
 inline constexpr DensoBeefCanProfile kSubaruDensoSh7058CanBeefProfile{
-    .device = "ECU", .family = "petrol", .wrong_reply = BeefWrongReply::kBare, .pdu_format = BeefPduFormat::kHex};
+    .device = "ECU", .family = "petrol", .pdu_format = BeefPduFormat::kHex};
 
 } // namespace fastecu::flash

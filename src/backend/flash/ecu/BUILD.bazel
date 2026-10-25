@@ -265,7 +265,6 @@ fastecu_portable_gtest(
         ":subaru_denso_sh7058_can_diesel_executor",
         ":subaru_denso_sh7058_can_diesel_plan",
         "//src/algorithms/protocol/testing:byte_matchers",
-        "//src/algorithms/protocol/uds",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash/ecu/testing:recording_can_flash_transport",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -1658,6 +1657,7 @@ cc_library(
     name = "denso_beef_can_common",
     hdrs = ["denso_beef_can_common.h"],
     deps = [
+        ":beef_compare_result",
         ":denso_iso15765_crypto",
         ":flash_phase_progress",
         ":uds_client_exchange_common",
@@ -2073,12 +2073,13 @@ cc_library(
     srcs = ["beef_can_session.cpp"],
     hdrs = ["beef_can_session.h"],
     implementation_deps = [
+        ":denso_beef_can_common",
         ":uds_client_exchange_common",
         "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
     ],
     deps = [
-        ":denso_beef_can_common",
+        ":beef_compare_result",
         ":denso_beef_can_profile",
         ":flash_phase_progress",
         "//src/algorithms/protocol",
@@ -2105,7 +2106,6 @@ fastecu_portable_gtest(
         ":subaru_denso_sh7058_can_plan",
         ":subaru_denso_sh7058_can_types",
         ":subaru_tcu_denso_sh705x_can_types",
-        "//src/algorithms/protocol/uds",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -2114,4 +2114,9 @@ fastecu_portable_gtest(
         "//src/backend/protocol/uds/testing:scripted_uds_channel",
         "@googletest//:gtest",
     ],
+)
+
+cc_library(
+    name = "beef_compare_result",
+    hdrs = ["beef_compare_result.h"],
 )

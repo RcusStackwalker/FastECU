@@ -8,7 +8,7 @@
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
-#include "src/backend/flash/ecu/denso_beef_can_common.h"
+#include "src/backend/flash/ecu/beef_compare_result.h"
 #include "src/backend/flash/ecu/denso_beef_can_profile.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/flash_executor.h"
@@ -36,6 +36,11 @@ class BeefCanSession
     // A Tolerant reply: a wrong or absent reply is logged and stepped over;
     // only cancellation or a disconnect aborts.
     Result<std::optional<bytes::Bytes>> NonfatalQuery(bytes::ByteView pdu);
+
+    // Logs why a strict exchange failed: a timeout is "No valid response", a
+    // bad reply names the device and the error detail, anything else is
+    // silent (the caller returns it).
+    void LogFailure(const Error& failure) const;
 
     // A BEEF request whose reply must carry `opcode | 0x40` and at least
     // `minimum_payload` payload bytes; returns that payload. Failures are
@@ -74,8 +79,8 @@ class BeefCanSession
     // The shape denso_beef_can_common.h's templates read their context from.
     struct View;
     View MakeView() const;
-    void LogWrongReply(const Error& failure);
-    void LogWrongPdu(bytes::ByteView pdu);
+    void LogWrongReply(const Error& failure) const;
+    void LogWrongPdu(bytes::ByteView pdu) const;
 
     ICanFlashTransport& transport_;
     IClock& clock_;

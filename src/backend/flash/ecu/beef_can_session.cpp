@@ -44,27 +44,27 @@ BeefCanSession::View BeefCanSession::MakeView() const
     return View{cancellation_, events_, clock_, transport_, channel_};
 }
 
-void BeefCanSession::LogWrongReply(const Error& failure)
+void BeefCanSession::LogWrongReply(const Error& failure) const
 {
-    std::string suffix;
-    switch (profile_.wrong_reply)
-    {
-    case BeefWrongReply::kBare:
-        break;
-    case BeefWrongReply::kNotValidAnswer:
-        suffix = ": Not a valid answer";
-        break;
-    case BeefWrongReply::kErrorDetail:
-        suffix = std::format(": {}", failure.detail);
-        break;
-    }
-    LogError(MakeView(), std::format("Wrong response from {}{}", profile_.device, suffix));
+    LogError(MakeView(), std::format("Wrong response from {}: {}", profile_.device, failure.detail));
 }
 
-void BeefCanSession::LogWrongPdu(bytes::ByteView pdu)
+void BeefCanSession::LogWrongPdu(bytes::ByteView pdu) const
 {
     const std::string rendered = profile_.pdu_format == BeefPduFormat::kHex ? bytes::ToHex(pdu) : uds::Describe(pdu);
     LogError(MakeView(), std::format("Wrong response from {}: {}", profile_.device, rendered));
+}
+
+void BeefCanSession::LogFailure(const Error& failure) const
+{
+    if (failure.kind == ErrorKind::kTimeout)
+    {
+        LogError(MakeView(), "No valid response from ECU");
+    }
+    else if (failure.kind == ErrorKind::kBadResponse)
+    {
+        LogWrongReply(failure);
+    }
 }
 
 Result<std::optional<bytes::Bytes>> BeefCanSession::NonfatalQuery(bytes::ByteView pdu)
