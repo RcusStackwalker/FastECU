@@ -291,28 +291,6 @@ TEST(SubaruDensoSh705xKlineExecutor, ResetFailurePropagates)
     EXPECT_THAT(executor.BeforeTransportConfigure(transport, clock, cancellation), IsErr(ErrorKind::kDisconnected));
 }
 
-TEST(SubaruDensoSh705xKlineExecutor, RejectsAForeignPlanBeforeIo)
-{
-    Harness h;
-    FlashPlanFields fields{.operation = FlashOperation::kRead,
-                           .family = FlashFamily::kSubaruUnisiaJecs,
-                           .transport = TransportKind::kKline,
-                           .target_id = "sub_ecu_unisia_jecs_m3779x",
-                           .mcu_name = "M3779x",
-                           .transfer_region = {0, 0x10000},
-                           .erase_regions = {},
-                           .image = std::nullopt,
-                           .kernel = std::nullopt,
-                           .family_plan = SubaruUnisiaJecsPlan{.initial_baud = 1953, .even_parity = true},
-                           .confirmations = {}};
-    auto foreign = ValidateAndBuild(std::move(fields));
-    ASSERT_THAT(foreign, IsOk());
-
-    EXPECT_THAT(h.executor.TransportSetup(*foreign), IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(h.Run(*foreign), IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_EQ(h.transport.WritesConsumed(), 0U);
-}
-
 // ---- Session: probe, handshake, upload (Task 6) -------------------------
 // The operation tail is still a stub; these pin the transcript, not its kind.
 

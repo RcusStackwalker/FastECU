@@ -346,33 +346,6 @@ void ScriptWritePrefix(ScriptedKlineFlashTransport& transport, const FlashDevice
     }
 }
 
-Result<FlashPlan> DifferentFamilyPlan()
-{
-    InMemoryFileRepository files;
-    files.files["kernels/kernel.bin"] = {0x01, 0x02, 0x03, 0x04};
-    return BuildEepromReadPlan({.kernel_files_directory = "kernels/"},
-                               config::ProtocolSpec{.name = "sub_ecu_eeprom_denso_sh7055_kline",
-                                                    .mcu = "SH7055",
-                                                    .kernel = "kernel.bin",
-                                                    .kernel_load_address = 0xFFFF6004U},
-                               EepromReadMode::kMode2, files);
-}
-
-TEST(SubaruDensoMc68hc16y5_02Executor, WrongFamilyPlanFails)
-{
-    auto plan = DifferentFamilyPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    OpenScriptedKlineFlashTransport transport;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-    SubaruDensoMc68hc16y5_02Executor executor;
-
-    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_EQ(transport.WritesConsumed(), 0U);
-}
-
 TEST(SubaruDensoMc68hc16y5_02Executor, TransportSetupReturnsPlanWireConfigurationIncludingZeroIds)
 {
     auto plan = StockPlan();

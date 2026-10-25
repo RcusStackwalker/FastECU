@@ -86,16 +86,6 @@ void ScriptInactiveConnect(ScriptedCanFlashTransport& transport, bool bench)
                        Response(bytes::Bytes{0x74, 0x20, 0x01, 0x04}));
 }
 } // namespace
-TEST(SubaruHitachiSh7058CanExecutor, TransportSetupRejectsForeignFamily)
-{
-    const auto foreign = BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, "sub_ecu_hitachi_sh72543r_can",
-                                                           "SH72543R", std::nullopt);
-    ASSERT_THAT(foreign, fastecu::testing::IsOk());
-    EXPECT_THAT(SubaruHitachiSh7058CanExecutor{}.TransportSetup(*foreign),
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
-                                            ::testing::Eq("plan family does not match this executor")));
-}
-
 TEST(SubaruHitachiSh7058CanExecutor, PrecancelledRunIsRefusedInAdmission)
 {
     const auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can",

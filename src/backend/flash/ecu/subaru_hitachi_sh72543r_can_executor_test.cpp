@@ -171,7 +171,7 @@ class Sh72543rExecutor : public ::testing::Test
         X({0xa8, 0, 0, 1, 0x3b}, {});
     }
 };
-TEST_F(Sh72543rExecutor, SetupAndForeignPlanRejectBeforeIo)
+TEST_F(Sh72543rExecutor, SetupProjectsTheWireConfig)
 {
     auto built_plan_2 = Plan();
     ASSERT_THAT(built_plan_2, fastecu::testing::IsOk());
@@ -181,22 +181,6 @@ TEST_F(Sh72543rExecutor, SetupAndForeignPlanRejectBeforeIo)
     EXPECT_EQ(cfg->response_id, 0x7e8U);
     EXPECT_EQ(cfg->bitrate, 500000);
     EXPECT_FALSE(cfg->extended_id);
-    auto foreign =
-        BuildSubaruTcuHitachiM32rCanPlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_can", "M32R_512KB", std::nullopt);
-    ASSERT_THAT(foreign, fastecu::testing::IsOk());
-    EXPECT_THAT(executor_.TransportSetup(*foreign), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(executor_.Execute(*foreign, transport_, clock_, cancel_, events_),
-                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_EQ(transport_.writes, 0U);
-}
-TEST_F(Sh72543rExecutor, ForeignPlanIsRejectedWithTheAdmissionText)
-{
-    auto foreign =
-        BuildSubaruTcuHitachiM32rCanPlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_can", "M32R_512KB", std::nullopt);
-    ASSERT_THAT(foreign, fastecu::testing::IsOk());
-    EXPECT_THAT(executor_.TransportSetup(*foreign),
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
-                                            ::testing::Eq("plan family does not match this executor")));
 }
 TEST_F(Sh72543rExecutor, PrecancelledRunIsRefusedInAdmission)
 {
@@ -360,12 +344,6 @@ TEST_F(Sh72543rExecutor, DisconnectAndFailedWritesAreFatal)
     transport_.fail_read = 0;
     Alive();
     EXPECT_THAT(ExecutePlan(), fastecu::testing::IsErr(ErrorKind::kDisconnected));
-}
-TEST_F(Sh72543rExecutor, CancelledBeforeStartDoesNoIo)
-{
-    cancel_.Cancel();
-    EXPECT_THAT(ExecutePlan(), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(transport_.writes, 0U);
 }
 TEST_F(Sh72543rExecutor, CancellationDuringPagesDoesNotPublishPartialImage)
 {

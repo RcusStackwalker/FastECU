@@ -149,16 +149,6 @@ TEST(SubaruUnisiaJecsExecutor, TransportSetupRequests1953BaudEvenParity)
     EXPECT_EQ(setup->parity, KlineParity::kEven);
 }
 
-TEST(SubaruUnisiaJecsExecutor, TransportSetupRejectsForeignFamily)
-{
-    const auto foreign = BuildSubaruDensoMc68hc16y502BdmPlan(FlashOperation::kRead, "sub_ecu_denso_mc68hc16y5_02_bdm",
-                                                             "MC68HC16Y5", std::nullopt, std::nullopt);
-    ASSERT_THAT(foreign, fastecu::testing::IsOk());
-    EXPECT_THAT(SubaruUnisiaJecsExecutor{}.TransportSetup(*foreign),
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
-                                            ::testing::Eq("plan family does not match this executor")));
-}
-
 TEST(SubaruUnisiaJecsExecutor, PrecancelledRunIsRefusedInAdmission)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};

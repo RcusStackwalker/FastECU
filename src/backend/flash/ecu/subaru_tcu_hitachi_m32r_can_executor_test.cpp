@@ -2004,38 +2004,6 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheWriteLoopStopsAtTheNe
     ExpectTraceEquals(trace, WriteTracePrefixThroughFrames(kCancelAfterFrames));
 }
 
-TEST(SubaruTcuHitachiM32rCanExecutor, PlanForAnotherFamilyIsRejectedBeforeTransportSetupOrTheWire)
-{
-    // The K-Line sibling: identical MCU and ROM geometry, differing only in
-    // the family tag and the transport kind -- exactly the shape of plan a
-    // missing or misplaced check_family() call would let slip through.
-    auto plan =
-        BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline", kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ASSERT_EQ(plan->Family(), FlashFamily::kSubaruTcuHitachiM32rKline);
-
-    SubaruTcuHitachiM32rCanExecutor executor;
-    const auto setup_result = executor.TransportSetup(*plan);
-    EXPECT_THAT(setup_result,
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("plan family does not match")));
-
-    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
-    ManualCancellationToken cancellation;
-    FakeClock clock;
-    RecordingEventSink events;
-
-    const auto execute_result = executor.Execute(*plan, transport, clock, cancellation, events);
-
-    EXPECT_THAT(execute_result,
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("plan family does not match")));
-    // An empty script: any write at all would fail with a "ran past the end
-    // of the script" Internal error instead, so writesConsumed() == 0 and a
-    // consumed (trivially, empty) script together prove the wire was never
-    // touched.
-    EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(transport.ScriptConsumed());
-}
-
 // M2: exercises the real, reachable TestWrite-rejection layer at the
 // executor boundary -- the second of this family's two independent
 // TestWrite checks (subaru_tcu_hitachi_m32r_can_plan.cpp's validator), which

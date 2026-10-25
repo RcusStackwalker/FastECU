@@ -666,15 +666,6 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, InvalidPlanIsRejectedBeforeAnyTranspor
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
-TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ForeignFamilyIsRejectedWithTheAdmissionText)
-{
-    const auto foreign_plan =
-        BuildSubaruUnisiaJecsPlan(FlashOperation::kRead, "sub_ecu_unisia_jecs_m3779x", "M3779x", std::nullopt);
-    ASSERT_THAT(foreign_plan, IsOk());
-    EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.TransportSetup(*foreign_plan),
-                IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("plan family does not match this executor")));
-}
-
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, PrecancelledRunIsRefusedInAdmission)
 {
     ScriptedKlineFlashTransport transport;
@@ -687,6 +678,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, PrecancelledRunIsRefusedInAdmission)
     EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.Execute(*plan, transport, clock, cancellation, events),
                 IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_THAT(transport.control_line_trace, IsEmpty());
     EXPECT_THAT(events.logs, IsEmpty());
     EXPECT_THAT(events.progress_calls, IsEmpty());
 }

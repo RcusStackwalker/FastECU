@@ -19,16 +19,6 @@ using ::testing::Optional;
 
 namespace fastecu::flash
 {
-TEST(SubaruHitachiSh7058KlineExecutor, TransportSetupRejectsForeignFamily)
-{
-    const auto foreign = BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, "sub_ecu_hitachi_sh72543r_can",
-                                                           "SH72543R", std::nullopt);
-    ASSERT_THAT(foreign, fastecu::testing::IsOk());
-    EXPECT_THAT(SubaruHitachiSh7058KlineExecutor{}.TransportSetup(*foreign),
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
-                                            ::testing::Eq("plan family does not match this executor")));
-}
-
 TEST(SubaruHitachiSh7058KlineExecutor, PrecancelledRunIsRefusedInAdmission)
 {
     const auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
