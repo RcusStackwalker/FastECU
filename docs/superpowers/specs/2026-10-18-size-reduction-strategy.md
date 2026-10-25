@@ -2,7 +2,9 @@
 
 Status: accepted direction. Phase 1 is done (−1,437 NLOC); phase 3's Colt
 cancellation ownership change is merged. Its separate compression assessment
-and bench exit gate remain outstanding; later per-family rollout is unapproved.
+and bench exit gate remain outstanding. CAN expansion now follows the explicit
+per-executor migration requirements in
+[ADR 0025](../../adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements).
 Baseline: `136ad0fa` (master, 2026-10-18), 150,494 NLOC (70,746 production,
 79,748 test) by `python3 scripts/nloc_loop.py measure`.
 
@@ -162,20 +164,22 @@ The [Colt implementation results](../../reference/colt-cancellation-centralizati
 record the merged ownership change, retained tests, measurements and delivery CI.
 Assess test compression in a separate change. Cancellation
 ownership may initially add measured support cost; it must not be reported as a
-size reduction. The flash contract owns the guard boundaries and exit criteria;
+size reduction. The flash contract owns the implemented guard boundaries;
 the results retain the boundary inventory, preservation evidence and measurements.
 The ownership change requires no transcript
 framework, error normalization, or cancellation-deferral mechanism.
 
 ### 4. Review before per-family rollout
 
-Rollout is a later decision, after the Colt compression and hardware
-exit gates are satisfied. Review the recorded net/cumulative cost before
-extrapolating savings. Each future migration must inventory cancellation
+The expanded [ADR 0025](../../adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements)
+sets the requirements for explicit per-executor migration of CAN and mixed-CAN
+families. It replaces the blanket Colt compression and bench prerequisites;
+those Colt tasks remain outstanding. Review the recorded net/cumulative cost
+before extrapolating savings. Each migration must inventory cancellation
 boundaries and retain family abort/continue decisions and wire behavior under the
 [sharing decision](../../design-notes.md#share-only-proven-protocol-equivalence).
-No additional family, K-Line decorator, or removal of UdsClient's checks is
-authorized by the Colt pilot. Hardware status stays with the
+K-Line decorators, cancellation deferral and removal of UdsClient's checks
+remain outside this rollout. Hardware status stays with the
 [qualification matrix](../../flash-qualification-matrix.md).
 
 ### 5. Thin main-window tests

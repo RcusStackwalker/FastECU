@@ -49,8 +49,15 @@ from the two unsuccessful size-reduction attempts.
 [pilot results](reference/colt-cancellation-centralization-results.md) own measured
 costs, preservation evidence and delivery CI; the
 [flash contract](reference/flash-contracts.md#colt-cancellation-ownership) owns
-the implemented boundaries and prerequisites for expansion. Separate compression
-assessment and a recorded Colt bench run remain outstanding.
+the implemented boundaries.
+[ADR 0025](adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements)
+sets the requirements for explicit migration of additional CAN and mixed-CAN
+executors. Separate compression assessment and a recorded Colt bench run remain
+outstanding.
+
+The [CAN cancellation migration plan](superpowers/plans/2026-10-25-can-cancellation-ownership.md)
+applies that decision through explicit executor opt-in while retaining existing
+family checkpoints.
 
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 The [Sonar aspect qualification record](reference/sonar-aspect-qualification.md)

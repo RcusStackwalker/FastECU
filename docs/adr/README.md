@@ -36,7 +36,7 @@ is an ADR.
 | [0022](0022-advisory-mutation-testing-with-mull.md) | Mull mutation testing of portable code is advisory |
 | [0023](0023-hill-climb-nloc-with-kind-specific-guards.md) | Superseded by 0024: NLOC hill-climbing PRs are strict and guarded by PR kind |
 | [0024](0024-wire-transcripts-and-goldens-are-the-test-contract.md) | Wire transcripts and plan goldens are the test contract |
-| [0025](0025-enforce-cancellation-in-a-guarded-transport.md) | Cancellation refusal moves to a guarded transport; errors and family continuation policies keep their owners |
+| [0025](0025-enforce-cancellation-in-a-guarded-transport.md) | CAN cancellation refusal moves to guarded transports through explicit per-executor migration; errors and family continuation policies keep their owners |
 | [0026](0026-extend-fuzzing-to-backend-parsers-and-persist-the-corpus.md) | Fuzzing extends to backend parsers and the scheduled corpus is persisted |
 | [0027](0027-use-native-bazel-coverage-for-sonar.md) | Sonar coverage comes from native `bazel coverage`, with a Bazel-pinned scanner |
 | [0028](0028-raise-first-party-warnings-one-flag-at-a-time.md) | First-party warnings are raised one flag at a time, with no source-level suppressions |

@@ -35,9 +35,11 @@ Complete ROM data and verification failures retain their meaning after late
 cancellation. Family abort returns and confirmations remain separate owners.
 
 The [pilot results](colt-cancellation-centralization-results.md) own measurements,
-preserved cases and mutation evidence. This is a Colt-only ownership change;
-test compression needs separate assessment and expansion needs reviewed results
-and the recorded Colt bench checklist. Hardware status remains unchanged.
+preserved cases and mutation evidence. The implemented ownership change remains
+Colt-only. [ADR 0025](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements)
+sets the requirements for explicit opt-in by additional CAN and mixed-CAN
+executors; it does not opt them in. Test compression needs separate assessment,
+and hardware status remains unchanged.
 
 ## Plan admission
 
