@@ -86,6 +86,12 @@ including unsupported TCU TestWrite and SH7055 Write rejection before invalid
 image/kernel errors. Kernel upload arithmetic and erase-region construction keep
 their existing owners; family upload padding still differs (six versus 128 bytes).
 
+Denso SH7058 BEEF petrol explicitly selects the same CAN guard. Its raw upload
+reply discard newly refuses a Read after cancellation from an accepted B6 Write;
+all shared polls and family error/tolerance policy remain. The
+[petrol migration evidence](can-cancellation-migration-results.md#denso-sh7058-beef-petrol)
+records the boundary, measurements and outstanding bench work.
+
 ## Denso BEEF CAN kernel download framing
 
 The [BEEF CAN helpers](../../src/backend/flash/ecu/denso_beef_can_common.h) own
