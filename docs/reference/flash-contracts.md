@@ -82,17 +82,18 @@ precedes serialization; each family retains its reply policy and upload ordering
 
 The [BEEF K-Line primitives](../../src/backend/flash/ecu/denso_beef_kline_common.h)
 share opcodes, framing, ACK checks, the optional exchange, write-address
-encoding, block comparison and programming-voltage enable. The dialect is
+encoding, the block CRC request (frame, guarded write, 3000 ms first read),
+block comparison and programming-voltage enable. The dialect is
 separate from BEEF CAN.
 
 - Framing keeps the modulo-65536 length conversion; ACK acceptance is
   deliberately permissive (marker, six bytes, opcode at offset four).
 - The optional exchange distinguishes an absent reply from a present-empty one.
   Transport failures and short writes take precedence over later cancellation.
-- Stays local: required-response diagnostics, CRC initial writes (their
-  cancellation diagnostics differ), fragment accumulation, family CRC decoding,
-  image rendering, address policy, startup, erase/commit sequencing and
-  capability decoding.
+- Stays local: required-response diagnostics, CRC continuation reads and
+  decoding (the CRC request's cancellation wording is normalized), fragment
+  accumulation, image rendering, address policy, startup, erase/commit
+  sequencing and capability decoding.
 - Preserved quirks: both families enable programming voltage before an
   unchanged-image return; a final Write mismatch logs an error and returns
   success; TestWrite keeps its PASS reporting.
