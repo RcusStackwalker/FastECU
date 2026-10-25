@@ -80,6 +80,15 @@ refusal is under test. The ADR owns the exact pinned baseline, hard `+4`
 production/`+1,101` test NLOC budget and seven-layer atomic delivery gates.
 These exposure and reporting changes are not implemented in this layer.
 
+The Denso ISO-15765 bootloader template selects cancellation through an empty
+default policy with explicit plan specializations in its shared definition
+header. Migrated instantiations and per-family evidence are recorded in the
+[Denso migration results](can-cancellation-migration-results.md#denso-iso-15765-n83m-15m).
+Shared polls, profile values, best-effort stop/close policy and SH page pacing
+remain with their current owners. A completed N83M dump can succeed after
+cancellation at its best-effort stop; an SH final-page pacing cancellation
+still returns its clock failure.
+
 ## Plan admission
 
 Every flash executor derives from
