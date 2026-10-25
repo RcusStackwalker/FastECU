@@ -478,3 +478,47 @@ is linked from its row. Physical identity, erase/window safety, full-size read,
 write/readback, timing and cancellation-boundary bench evidence remain open.
 N83M 1.5M additionally retains its recorded stock-read checksum-table gate.
 Full repository delivery gates remain controller-owned.
+
+## Denso ISO-15765 SH72543 diesel
+
+Task 10, 2026-10-25; source revision `79556b32`. Production executor bodies,
+profiles, both shared loop polls, UdsClient and clocks remain unchanged.
+
+The shared boundary audit applies. DID F182 keeps exactly five identity bytes,
+nonfatal identity failures and the tolerant bench session; 2000 ms identity,
+probe and in-car profile values remain. The real BoundAttempt test cancels on
+an accepted identity NRC 0x78 response. Baseline accepts a further blind-inner
+Read; the guard refuses that pending continuation, leaves the positive reply
+queued and preserves nonfatal error logging plus VIN/CAL/CVN progression.
+The next fatal access-method exchange reports `kCancelled`. It does not turn
+a nonfatal identity failure into a new family abort policy. Existing tolerated
+bench/identity and page-pacing cases remain.
+
+Focused command: `bazel test --config=release
+//src/backend/flash/ecu:subaru_denso_sh72543_can_diesel_executor_test`, plus
+`//src/backend/flash/ecu:denso_iso15765_bootloader_executor_test`,
+`//src/backend/flash/ecu:denso_iso15765_can_common_test`,
+`//src/backend/flash/testing:guarded_attempt_expectations_test`,
+`//src/backend/flash:bound_flash_attempt_test` and
+`//src/backend/flash:guarded_can_flash_transport_test`. Restored candidate passed
+**6/6** targets. Baseline XML **26** cases; candidate **28**, with every
+predecessor case retained (XML classname/name set comparison), including invalid
+plans before precancel and existing family abort cases. Behavior-baseline tests
+fail only on the newly refused blind Read. The actual-alias bounded selection
+proof fails compilation before the declaration, independently of family polls.
+Removing only this specialization's alias again fails compilation. Temporarily
+bypassing BoundAttempt guard construction fails both selection and real-family
+boundary cases plus the shared bound probe on extra Reads. Both mutations were
+restored and the six targets passed again. Gazelle regenerated only named ecu
+BUILD dependencies; scoped formatting and diff review passed.
+
+`python3 scripts/nloc_loop.py measure --json`: 153653 / 68470 /
+85183 before; 153704 / 68475 / 85229 after
+(total / production / test). Production **+5 NLOC**;
+test **+46 NLOC**. No compression or savings claimed.
+The [qualification matrix](../flash-qualification-matrix.md) still marks this
+family experimental; no hardware was used and no dedicated family checklist
+is linked from its row. Physical identity, erase/window safety, full-size read,
+write/readback, timing and cancellation-boundary bench evidence remain open.
+N83M 1.5M additionally retains its recorded stock-read checksum-table gate.
+Full repository delivery gates remain controller-owned.
