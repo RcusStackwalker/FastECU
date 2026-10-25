@@ -449,7 +449,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, KernelAlreadyRunningShortCircuitsAfterFirs
     ASSERT_THAT(built_plan_2, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_2), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response within the read timeout")));
     EXPECT_EQ(transport.WritesConsumed(), 2U);
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.ReadTimeouts(), std::vector(2, 2000ms));
@@ -471,7 +472,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, FullConnectPreservesFrameOrderPacingAndTim
     ASSERT_THAT(built_plan_3, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_3), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response within the read timeout")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
     EXPECT_EQ(transport.ReadTimeouts(), std::vector(kConnectFrames + 1, 2000ms));
@@ -495,7 +497,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, SuccessfulIdentityResponsesLogDecodedField
     ASSERT_THAT(built_plan_4, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_4), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response within the read timeout")));
     EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::kInfo, "TCU ID: 1122334455")));
     EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::kInfo, "CAL ID: CAL")));
     EXPECT_THAT(events.logs, Not(Contains(Pair(fastecu::LogLevel::kInfo, HasSubstr("TCU ID response:")))));
@@ -522,7 +525,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, ShortIdentityFieldsLogAndContinueSafely)
     ASSERT_THAT(built_plan_5, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_5), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response within the read timeout")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::kError, "TCU ID response is too short")));
     EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::kError, "CAL ID response is too short")));
@@ -541,7 +545,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalTcuIdMismatchStillReachesFinalRech
     ASSERT_THAT(built_plan_6, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_6), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response within the read timeout")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
     EXPECT_THAT(events.logs,
@@ -561,7 +566,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalCalIdMismatchStillReachesFinalRech
     ASSERT_THAT(built_plan_7, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_7), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response within the read timeout")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
     EXPECT_THAT(events.logs,
@@ -581,7 +587,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalKernelJumpMismatchStillReachesFina
     ASSERT_THAT(built_plan_8, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_8), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response within the read timeout")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
     EXPECT_THAT(events.logs,
@@ -691,6 +698,65 @@ TEST(SubaruTcuHitachiM32rCanExecutor, SeedResponseShorterThanTenBytesIsBadRespon
     EXPECT_EQ(transport.WritesConsumed(), 5U);
 }
 
+TEST(SubaruTcuHitachiM32rCanExecutor, PositiveSessionReplyWithAnotherSubfunctionIsRejected)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    transport.Exchange(Framed(0x7E0, {0x10, 0x03}), Response({0x50, 0x02}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("diagnostic session rejected")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 4U);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, PositiveSeedReplyWithAnotherSubfunctionIsRejected)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    ScriptSession(transport);
+    transport.Exchange(Framed(0x7E0, {0x27, 0x01}), Response({0x67, 0x03, 0xDE, 0xAD, 0xBE, 0xEF}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("seed rejected")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 5U);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, SeedReplyOneByteShortOfFourSeedBytesIsTooShort)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    ScriptSession(transport);
+    transport.Exchange(Framed(0x7E0, {0x27, 0x01}), Response({0x67, 0x01, 0xDE, 0xAD, 0xBE}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("seed response is too short")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 5U);
+}
+
 TEST(SubaruTcuHitachiM32rCanExecutor, KernelAliveRecheckIsAnEightByteFrame)
 {
     ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
@@ -704,9 +770,108 @@ TEST(SubaruTcuHitachiM32rCanExecutor, KernelAliveRecheckIsAnEightByteFrame)
     ASSERT_THAT(built_plan_14, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_14), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response within the read timeout")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ReplyWithAForeignCanIdIsABadResponseInAFatalStep)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    transport.Exchange(Framed(0x7E0, {0x10, 0x03}), Framed(0x7E8, {0x50, 0x03}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
+                                                    HasSubstr("expected CAN reply id 0x7e9, got 0x7e8")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 4U);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ForeignCanIdIsToleratedInAnIdentityStep)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    transport.Exchange(Framed(0x7E0, {0xAA}), Framed(0x7E8, {0xEA, 0x00, 0x00, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55}));
+    transport.Exchange(Framed(0x7E0, {0x09, 0x04}), Response({0x49, 0x04, 0x00, 0x43, 0x41, 0x4C}));
+    ScriptSession(transport);
+    ScriptSeed(transport);
+    ScriptKey(transport);
+    ScriptJump(transport);
+    ScriptRecheck(transport);
+    ScriptSilentReadWindow(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(events.logs,
+                Contains(Pair(fastecu::LogLevel::kError, HasSubstr("Wrong response from TCU for TCU ID"))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ResponsePendingOnTheSeedRequestIsReadAgainNotResent)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    ScriptSession(transport);
+    transport.Exchange(Framed(0x7E0, {0x27, 0x01}), Response({0x7F, 0x27, 0x78}));
+    transport.QueueRead(Response({0x67, 0x01, 0xDE, 0xAD, 0xBE, 0xEF}));
+    ScriptKey(transport);
+    ScriptJump(transport);
+    ScriptRecheck(transport);
+    ScriptSilentReadWindow(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
+    std::vector<std::chrono::milliseconds> expected(kConnectFrames + 2, 2000ms);
+    expected[5] = 3000ms;
+    EXPECT_EQ(transport.ReadTimeouts(), expected);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ResponsePendingExhaustionIsATimeout)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    ScriptSession(transport);
+    transport.Exchange(Framed(0x7E0, {0x27, 0x01}), Response({0x7F, 0x27, 0x78}));
+    for (int repeat = 0; repeat < 10; ++repeat)
+    {
+        transport.QueueRead(Response({0x7F, 0x27, 0x78}));
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 5U);
 }
 
 // --- read path -------------------------------------------------------------
@@ -754,7 +919,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, ReadWindowContentMismatchIsFatal)
     ASSERT_THAT(built_plan_16, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_16), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("read window rejected")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
 }
@@ -898,13 +1063,13 @@ TEST(SubaruTcuHitachiM32rCanExecutor, PageResponseWithoutTheDumpServiceIdIsFatal
     // The message discriminates the 0xF7 check from the length guard below it:
     // without it, dropping the 0xF7 check still reaches a BadResponse by way
     // of the length guard and this test would pin nothing.
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, Not(HasSubstr("expected 261"))));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, Not(HasSubstr("expected 257"))));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 2);
 }
 
-TEST(SubaruTcuHitachiM32rCanExecutor, PageResponseOfTheWrongLengthIsFatal)
+TEST(SubaruTcuHitachiM32rCanExecutor, PageFrameOfTheWrongLengthIsFatalReportsPduSizes)
 {
     // Guard beyond legacy: legacy appended whatever followed the five header
     // bytes, so a short page silently shortened the image it handed back.
@@ -925,9 +1090,39 @@ TEST(SubaruTcuHitachiM32rCanExecutor, PageResponseOfTheWrongLengthIsFatal)
     ASSERT_THAT(built_plan_22, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_22), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected 261")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
+                                            HasSubstr("page read at 0x008000 returned 256 bytes, expected 257")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ResponsePendingOnAPageReadIsReadAgain)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptFullConnect(transport);
+    ScriptReadWindow(transport);
+    {
+        const auto section = transport.Section("dump loop");
+        transport.Exchange(PageRequest(0), Response({0x7F, 0xB7, 0x78}));
+        transport.QueueRead(PageResponse(0));
+        transport.ExpectWrite(PageRequest(1));
+        transport.QueueError(ErrorKind::kDisconnected, "stop here");
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, HasSubstr("stop here")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    // Page 0 is requested once; page 1's write follows the re-read.
+    EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 2);
+    ASSERT_EQ(transport.ReadTimeouts().size(), kConnectFrames + 1 + 3);
+    EXPECT_EQ(transport.ReadTimeouts()[kConnectFrames + 2], 3000ms);
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, StopFrameMismatchIsNotFatal)
@@ -951,6 +1146,30 @@ TEST(SubaruTcuHitachiM32rCanExecutor, StopFrameMismatchIsNotFatal)
     ExpectBytesEqual(*result->read_bytes, ExpectedImage());
     EXPECT_THAT(events.logs,
                 Contains(Pair(fastecu::LogLevel::kError, HasSubstr("Wrong response from TCU for dump stop"))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, TransportErrorOnTheStopFrameIsNotTolerated)
+{
+    // Only a silent or wrong TCU is stepped over; a dead adapter ends the run.
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptFullConnect(transport);
+    ScriptReadWindow(transport);
+    ScriptDumpLoop(transport);
+    {
+        const auto section = transport.Section("dump stop (transport error)");
+        transport.ExpectWrite(StopRequest());
+        transport.QueueError(ErrorKind::kDisconnected, "adapter gone at stop");
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, HasSubstr("adapter gone at stop")));
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, StopFrameSilenceIsNotFatal)
@@ -1274,7 +1493,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, DataFramesCarryTheEncryptedImageNotThePlai
     ASSERT_THAT(built_plan_25, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_25), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected response to SID 0xb6")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1 + 2);
 }
@@ -1297,7 +1517,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseRequestMatchesLegacyBytes)
 
     // The run got past the erase and stopped at the first block window, so the
     // erase bytes and its positive answer are both pinned.
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected response to SID 0x34")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1);
 }
@@ -1388,13 +1609,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseTransportErrorDoesNotLogTheDoNotPanic
 }
 
 // Cancels a shared ManualCancellationToken the instant a chosen write
-// completes -- used to reach exchange_optional's own "cancelled after write"
-// checkpoint precisely, before any read is ever attempted. (Tripping instead
-// on the pre-read sleep, as trace_sleeps_then_trip does elsewhere in this
-// file, does not isolate this checkpoint here: the scripted transport's own
-// read() observes the now-cancelled token and fails first with its own
-// "scripted CAN read cancelled" message, never reaching exchange_optional's
-// "cancelled after read" check.)
+// completes, so the very next cancellable step (the pre-read sleep) observes it.
 class TripAfterWriteCountTransport final : public ScriptedCanFlashTransport
 {
   public:
@@ -1421,10 +1636,9 @@ class TripAfterWriteCountTransport final : public ScriptedCanFlashTransport
 };
 
 // T4a: cancellation is not a content-mismatch. Trips right after the erase's
-// own write (the 9th write overall) completes, so exchange_optional's
-// generic "cancelled after write" checkpoint fires before any read is ever
-// attempted -- not expect_prefix's content compare -- exactly the case
-// legacy has no equivalent of.
+// own write (the 9th write overall) completes; the pre-read sleep reports it,
+// so the "Do not panic" warning must not fire. (The old after-write checkpoint
+// is gone: the raw erase checks the token before the request and in the sleep.)
 TEST(SubaruTcuHitachiM32rCanExecutor, EraseCancellationDoesNotLogTheDoNotPanicWarning)
 {
     ManualCancellationToken cancellation;
@@ -1439,9 +1653,60 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseCancellationDoesNotLogTheDoNotPanicWa
     ASSERT_THAT(built_plan_31, fastecu::testing::IsOk());
     const auto result = executor.Execute(std::move(*built_plan_31), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, HasSubstr("cancelled after write")));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
     EXPECT_THAT(events.logs, Not(Contains(Pair(fastecu::LogLevel::kError, HasSubstr("Do not panic")))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ResponsePendingOnEraseStaysAWrongAnswer)
+{
+    // The erase goes through the raw channel: 7F 31 78 is not absorbed, it is
+    // a reply that does not start 31 02 01.
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptFullConnect(transport);
+    ScriptErase(transport, Response({0x7F, 0x31, 0x78}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = WritePlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::kError, HasSubstr("Do not panic"))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ResponsePendingOnADataFrameIsReadAgain)
+{
+    const BlockSpec& block = kFlashedBlocks[0];
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptFullConnect(transport);
+    ScriptErase(transport);
+    ScriptBlockWindow(transport, block);
+    {
+        const auto section = transport.Section("block data frames");
+        transport.Exchange(DataRequest(block.start), Response({0x7F, 0xB6, 0x78}));
+        transport.QueueRead(Response({0xF6}));
+        transport.ExpectWrite(DataRequest(block.start + kWriteFrameSize));
+        transport.QueueError(ErrorKind::kDisconnected, "stop here");
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = WritePlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, HasSubstr("stop here")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    // Frame 0 is written once; frame 1's write follows the re-read.
+    EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1 + 2);
+    ASSERT_EQ(transport.ReadTimeouts().size(), kConnectFrames + 1 + 1 + 3);
+    EXPECT_EQ(transport.ReadTimeouts()[kConnectFrames + 3], 3000ms);
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, WriteFlashesBlocksThreeThroughTenAndNothingElse)
@@ -1535,7 +1800,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, BlockWindowMismatchIsFatal)
     ASSERT_THAT(built_plan_34, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_34), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected response to SID 0x34")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1);
     EXPECT_EQ(BlockWindowRequest(kFlashedBlocks[0]),
@@ -1564,7 +1830,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalCloseAnswerIsRetriedAndTheBlockSti
     ASSERT_THAT(built_plan_35, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_35), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected response to SID 0x34")));
     EXPECT_TRUE(transport.ScriptConsumed());
     const std::size_t block3_frames = kFlashedBlocks[0].len / kWriteFrameSize;
     // connect + erase + window + data + two closes + checksum + block 4 window.
@@ -1702,7 +1969,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, DataFrameMismatchIsFatal)
     ASSERT_THAT(built_plan_40, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_40), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected response to SID 0xb6")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1 + 2);
 }
@@ -1726,7 +1994,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, DataFrameSilenceIsFatal)
     ASSERT_THAT(built_plan_41, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_41), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response within the read timeout")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1 + 1);
 }
