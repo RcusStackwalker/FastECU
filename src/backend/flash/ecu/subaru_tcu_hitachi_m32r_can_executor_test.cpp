@@ -698,6 +698,65 @@ TEST(SubaruTcuHitachiM32rCanExecutor, SeedResponseShorterThanTenBytesIsBadRespon
     EXPECT_EQ(transport.WritesConsumed(), 5U);
 }
 
+TEST(SubaruTcuHitachiM32rCanExecutor, PositiveSessionReplyWithAnotherSubfunctionIsRejected)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    transport.Exchange(Framed(0x7E0, {0x10, 0x03}), Response({0x50, 0x02}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("diagnostic session rejected")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 4U);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, PositiveSeedReplyWithAnotherSubfunctionIsRejected)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    ScriptSession(transport);
+    transport.Exchange(Framed(0x7E0, {0x27, 0x01}), Response({0x67, 0x03, 0xDE, 0xAD, 0xBE, 0xEF}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("seed rejected")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 5U);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, SeedReplyOneByteShortOfFourSeedBytesIsTooShort)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptKernelProbeMiss(transport);
+    ScriptIdentity(transport);
+    ScriptSession(transport);
+    transport.Exchange(Framed(0x7E0, {0x27, 0x01}), Response({0x67, 0x01, 0xDE, 0xAD, 0xBE}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("seed response is too short")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), 5U);
+}
+
 TEST(SubaruTcuHitachiM32rCanExecutor, KernelAliveRecheckIsAnEightByteFrame)
 {
     ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
