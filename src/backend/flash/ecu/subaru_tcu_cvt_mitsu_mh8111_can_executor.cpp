@@ -325,6 +325,11 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
     {
         return std::unexpected(stopped.error());
     }
+    // Legacy pads the unread low 0x8000 region with 0xFF (lines 531-538 --
+    // the comment above the loop says "pad ... with 0x00" but the loop body
+    // writes 0xFF; the code, not the misleading comment, is preserved),
+    // unlike SubaruTcuCvtHitachiM32rCan, which pads with 0x00.
+    rom->insert(rom->begin(), kReadRegion.start, 0xFF);
     return rom;
 }
 
@@ -525,22 +530,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::Run(const Subar
     Ctx ctx{cancellation, events, clock, uds_client, channel};
     return RunBootloaderOperation(
         plan, events, "Subaru TCU CVT Mitsu MH8111", [&] { return ConnectBootloader(ctx); },
-        [&](PhaseReporter& progress)
-        {
-            return DumpFlashRange(ctx, progress)
-                .transform(
-                    [](const bytes::Bytes& window)
-                    {
-                        // Legacy pads the unread low 0x8000 region with 0xFF (lines
-                        // 531-538 -- the comment above the loop says "pad ... with 0x00"
-                        // but the loop body writes 0xFF; the code, not the misleading
-                        // comment, is preserved). This differs from
-                        // SubaruTcuCvtHitachiM32rCan (Task 3), which pads with 0x00.
-                        bytes::Bytes rom(kReadRegion.start, 0xFF);
-                        rom.append_range(window);
-                        return rom;
-                    });
-        },
+        [&](PhaseReporter& progress) { return DumpFlashRange(ctx, progress); },
         [&](bytes::ByteView image, PhaseSequence& phases) { return WriteMem(ctx, image, phases); });
 }
 

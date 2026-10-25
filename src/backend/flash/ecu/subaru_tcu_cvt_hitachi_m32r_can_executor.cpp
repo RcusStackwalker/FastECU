@@ -379,6 +379,10 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
         return std::unexpected(stop.error());
     }
 
+    // Legacy pads the unread low 0x8000 region with 0x00 (lines 705-712),
+    // unlike MH8111/MH8104, which pad with 0xFF; see the plan's kReadRegion
+    // comment.
+    rom.insert(rom.begin(), kWindow.start, 0x00);
     return rom;
 }
 
@@ -553,21 +557,7 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::Run(const Subar
     Ctx ctx{cancellation, events, clock, uds_client, other_uds_client, channel};
     return RunBootloaderOperation(
         plan, events, "Subaru TCU CVT Hitachi M32R", [&] { return ConnectBootloader(ctx); },
-        [&](PhaseReporter& progress)
-        {
-            return DumpFlashRange(ctx, progress)
-                .transform(
-                    [](const bytes::Bytes& window)
-                    {
-                        // Legacy pads the unread low 0x8000 region with 0x00 (lines
-                        // 705-712) -- unlike MH8111/MH8104 (Tasks 4-5), which pad with
-                        // 0xFF; see the plan's kReadRegion comment and the umbrella's
-                        // per-family read-padding note.
-                        bytes::Bytes rom(kWindow.start, 0x00);
-                        rom.append_range(window);
-                        return rom;
-                    });
-        },
+        [&](PhaseReporter& progress) { return DumpFlashRange(ctx, progress); },
         [&](bytes::ByteView image, PhaseSequence& phases) { return WriteMem(ctx, image, phases); });
 }
 

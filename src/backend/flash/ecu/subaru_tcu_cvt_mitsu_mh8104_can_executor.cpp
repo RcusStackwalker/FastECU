@@ -446,6 +446,9 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
         return std::unexpected(stop.error());
     }
 
+    // Legacy pads the unread low 0x8000 region with 0xFF (lines 537-544),
+    // the same padding shape as the sibling MH8111 family.
+    rom.insert(rom.begin(), kReadRegion.start, 0xFF);
     return rom;
 }
 
@@ -640,19 +643,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::Run(const Subar
     Ctx ctx{cancellation, events, clock, channel};
     return RunBootloaderOperation(
         plan, events, "Subaru TCU CVT Mitsu MH8104", [&] { return ConnectBootloader(ctx); },
-        [&](PhaseReporter& progress)
-        {
-            return DumpFlashRange(ctx, progress)
-                .transform(
-                    [](const bytes::Bytes& window)
-                    {
-                        // Legacy pads the unread low 0x8000 region with 0xFF (lines
-                        // 537-544), the same padding shape as the sibling MH8111 family.
-                        bytes::Bytes rom(kReadRegion.start, 0xFF);
-                        rom.append_range(window);
-                        return rom;
-                    });
-        },
+        [&](PhaseReporter& progress) { return DumpFlashRange(ctx, progress); },
         [&](bytes::ByteView image, PhaseSequence& phases) { return WriteMem(ctx, image, phases); });
 }
 
