@@ -153,6 +153,7 @@ fastecu_gtest(
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/definition:definition_catalog_session",
         "//src/backend/ports/testing:result_matchers",
+        "//src/platform/desktop/common/logging:logging_adapters",
         "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/logging/runtime:systemlogger",
         "//src/platform/desktop/common/testing:core_application_environment",

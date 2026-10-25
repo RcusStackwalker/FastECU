@@ -1,14 +1,14 @@
 # Logging run preparation
 
-Status: approved for implementation.
+Status: implemented; retained for delivery before separate history-preserving retirement.
 
 ## Intent and scope
 
 Concentrate the desktop choices for one logging run behind one preparation
-interface. Today, [MainWindow](../../../src/ui/desktop/widgets/menu_actions.cpp)
-separately chooses the engine registration key, acquisition protocol, definition
-filter and polling policy, then calls `MakeDesktopLoggingSnapshot`, a snapshot
-adapter that only converts a string. The new module gives those choices locality and
+interface. At design review, [MainWindow](../../../src/ui/desktop/widgets/menu_actions.cpp)
+separately chose the engine registration key, acquisition protocol, definition
+filter and polling policy, then called `MakeDesktopLoggingSnapshot`, a snapshot
+adapter that only converted a string. The new module gives those choices locality and
 returns matching prepared inputs together.
 
 This is a small refactor. The user chose preparation only, preservation of the
@@ -17,11 +17,10 @@ lifecycle, identification, CSV, operator notices and backend validation retain
 their existing owners. No new abstract seam, adapter or runtime dependency is
 needed; preparation depends only on in-process values.
 
-The existing [logging decisions](../../design-notes.md#logging) and
-[logging contracts](../../reference/logging-contracts.md) remain authoritative
-until implementation updates their ownership description. The source agrees
-with those current contracts; this proposal changes where desktop preparation
-decisions live.
+The [logging decisions](../../design-notes.md#logging) and
+[logging contracts](../../reference/logging-contracts.md) own the implemented
+behavior. This document preserves the approved design and its alternatives until
+its original contents are delivered and it can be retired separately.
 
 ## Approaches considered
 

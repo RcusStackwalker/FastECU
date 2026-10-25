@@ -9,6 +9,8 @@
 #include <QMap>
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/logging/runtime/logging_worker.h"
+// Keep model and snapshot declarations outside the engine's private-access macro.
+#include "src/platform/desktop/common/logging/logging_value_adapter.h"
 #define private public
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #undef private

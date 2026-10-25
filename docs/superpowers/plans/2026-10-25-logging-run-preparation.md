@@ -1,6 +1,6 @@
 # Logging Run Preparation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Concentrate desktop logging protocol choices and snapshot preparation behind one pure interface.
 
@@ -36,11 +36,11 @@
 
 **Interfaces:** Produce `fastecu::ui::LoggingRunChoices` with `saved_protocol`, `ssm_definition_filter` (`std::string_view`) and `target` (`logging::LoggingTarget`); `PreparedLoggingRun` with owned `registration_key` and `logging::LoggingRunSnapshot`; and `Result<PreparedLoggingRun> prepareLoggingRun(const logging::LoggerModel&, LoggingRunChoices)`.
 
-- [ ] Write interface tests first. A literal routing table asserts returned registration key, snapshot protocol/filter and all four policy fields for MUT_DMA, CDBG, SSM, unknown, empty, lowercase and padded saved strings. Test both targets, an independently named SSM definition filter, ignored empty filters for dedicated protocols, unchanged invalid-input errors and owned capture. Use real backend preparation and a small valid one-measurement model.
-- [ ] Run `bazel test --config=release //src/ui/desktop/logging:logging_run_preparation_test`; confirm failure because the preparation interface is not implemented. Add ordinary package declarations as needed for Bazel to reach the test.
-- [ ] Implement the one function: resolve the three exact routes and fixed policies, delegate once to backend `PrepareLoggingRun`, propagate its error unchanged, return owned matching values. Add no validation or I/O.
-- [ ] Regenerate targets with `python3 scripts/gazelle_check.py --fix`; review the new target's Qt-free closure and existing visibility groups.
-- [ ] Run the new suite plus `//src/backend/logging:logging_run_snapshot_test`; require all cases pass, and commit the module and its tests.
+- [x] Write interface tests first. A literal routing table asserts returned registration key, snapshot protocol/filter and all four policy fields for MUT_DMA, CDBG, SSM, unknown, empty, lowercase and padded saved strings. Test both targets, an independently named SSM definition filter, ignored empty filters for dedicated protocols, unchanged invalid-input errors and owned capture. Use real backend preparation and a small valid one-measurement model.
+- [x] Run `bazel test --config=release //src/ui/desktop/logging:logging_run_preparation_test`; confirm failure because the preparation interface is not implemented. Add ordinary package declarations as needed for Bazel to reach the test.
+- [x] Implement the one function: resolve the three exact routes and fixed policies, delegate once to backend `PrepareLoggingRun`, propagate its error unchanged, return owned matching values. Add no validation or I/O.
+- [x] Regenerate targets with `python3 scripts/gazelle_check.py --fix`; review the new target's Qt-free closure and existing visibility groups.
+- [x] Run the new suite plus `//src/backend/logging:logging_run_snapshot_test`; require all cases pass, and commit the module and its tests.
 
 ### Task 2: Integrate preparation and remove the shallow adapter
 
@@ -48,14 +48,17 @@
 
 **Interfaces:** Consume Task 1's `prepareLoggingRun(model, choices)` result; supply converted `registration_key` and moved `snapshot` to existing `DesktopLoggingRunStart`. Replace the alias with the identical `logging::LoggingRunSnapshot` type everywhere.
 
-- [ ] Strengthen `loggingUsesTheSessionLogProtocol` before integration: assert the current active snapshot's `ProtocolKey()` and session protocol, with saved CDBG and a distinct stale UI filter; run the focused test to establish current behavior.
-- [ ] Replace MainWindow's protocol/policy branching with the preparation call. Preserve detailed preparation error handling and generic startup failure handling; obtain post-start rendering's filter from the current active snapshot. Remove the redundant member and old include.
-- [ ] Delete the adapter files; mechanically migrate alias uses and direct snapshot includes. Tests exercising values/caches prepare snapshots through the backend with their existing custom policies; retain all display assertions and rename suites referring to the deleted adapter.
-- [ ] Update the logging contract with desktop default preparation, preserved fallback and independent engine dispatch; link the design note to that owner. Regenerate BUILD files and inspect explicit dependencies without visibility changes.
-- [ ] Run the preparation/backend snapshot/value adapter/engine/registration/desktop-run/MainWindow/composition suites. Preserve custom `TEST` registration with SSM snapshots and existing failure/reentrancy cases. Require all pass.
-- [ ] Run `bazel build --config=release //:fastecu`, `bazel test --config=release //...`, `prek run --all-files`, `python3 scripts/gazelle_check.py --fix` and applicable `bazel run //:clang_tidy` analysis; report unavailable host gates precisely. Review the whole branch with a fresh reviewer, address important findings, and commit the integration.
+- [x] Strengthen `loggingUsesTheSessionLogProtocol` before integration: assert the current active snapshot's `ProtocolKey()` and session protocol, with saved CDBG and a distinct stale UI filter; run the focused test to establish current behavior.
+- [x] Replace MainWindow's protocol/policy branching with the preparation call. Preserve detailed preparation error handling and generic startup failure handling; obtain post-start rendering's filter from the current active snapshot. Remove the redundant member and old include.
+- [x] Delete the adapter files; mechanically migrate alias uses and direct snapshot includes. Tests exercising values/caches prepare snapshots through the backend with their existing custom policies; retain all display assertions and rename suites referring to the deleted adapter.
+- [x] Update the logging contract with desktop default preparation, preserved fallback and independent engine dispatch; link the design note to that owner. Regenerate BUILD files and inspect explicit dependencies without visibility changes.
+- [x] Run the preparation/backend snapshot/value adapter/engine/registration/desktop-run/MainWindow/composition suites. Preserve custom `TEST` registration with SSM snapshots and existing failure/reentrancy cases. Require all pass.
+- [x] Run `bazel build --config=release //:fastecu`, `bazel test --config=release //...`, `prek run --all-files`, `python3 scripts/gazelle_check.py --fix` and applicable `bazel run //:clang_tidy` analysis; report unavailable host gates precisely. Review the whole branch with a fresh reviewer, address important findings, and commit the integration.
 
 ## Delivery
+
+Implementation and local verification are complete; PR delivery and the later
+history-preserving retirement remain pending. The user authorized push and PR creation.
 
 Keep original design/plan contents in retained Git history before retirement;
 their removal must not be folded into a squash that loses those originals.

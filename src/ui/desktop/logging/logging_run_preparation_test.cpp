@@ -95,23 +95,30 @@ INSTANTIATE_TEST_SUITE_P(
         ::testing::Values(LoggingTarget::kEcu, LoggingTarget::kTcu)),
     routingCaseName);
 
-TEST(LoggingRunPreparationErrors, EmptySsmFilterWinsOverInvalidTarget)
+class LoggingRunPreparationInvalidTarget : public ::testing::TestWithParam<int>
+{
+};
+
+TEST_P(LoggingRunPreparationInvalidTarget, EmptySsmFilterWinsOverInvalidTarget)
 {
     const auto model = modelFor("CUSTOM");
     EXPECT_THAT(prepareLoggingRun(model, {.saved_protocol = "unknown",
                                           .ssm_definition_filter = "",
-                                          .target = static_cast<LoggingTarget>(99)}),
+                                          .target = static_cast<LoggingTarget>(GetParam())}),
                 IsErrWith(ErrorKind::kInvalidConfig, "SSM logging protocol filter is empty"));
 }
 
-TEST(LoggingRunPreparationErrors, PreservesInvalidTargetDetail)
+TEST_P(LoggingRunPreparationInvalidTarget, PreservesInvalidTargetDetail)
 {
     const auto model = modelFor("CUSTOM");
     EXPECT_THAT(prepareLoggingRun(model, {.saved_protocol = "SSM",
                                           .ssm_definition_filter = "CUSTOM",
-                                          .target = static_cast<LoggingTarget>(99)}),
+                                          .target = static_cast<LoggingTarget>(GetParam())}),
                 IsErrWith(ErrorKind::kInvalidConfig, "CUSTOM: invalid logging target"));
 }
+
+INSTANTIATE_TEST_SUITE_P(UnknownTarget, LoggingRunPreparationInvalidTarget, ::testing::Values(99),
+                         [](const auto&) { return "UnknownTargetValue"; });
 
 TEST(LoggingRunPreparationErrors, PreservesUnsupportedSelectionDetail)
 {
