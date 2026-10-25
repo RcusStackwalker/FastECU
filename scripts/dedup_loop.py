@@ -25,6 +25,8 @@ from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
+import mutation_test
+
 SCOPE = ("src/", "apps/", "tests/")
 PRODUCTION = "production"
 TEST = "test"
@@ -393,6 +395,75 @@ def rank(groups: Sequence[Group], ledger: Ledger, busy: set[str]) -> list[Group]
     )
 
 
+PR_METRICS = ("new_duplicated_lines", "new_uncovered_lines")
+
+
+def pr_measures(fetch: Fetch, pr: int) -> dict[str, int]:
+    """A PR analysis's new-code metrics; SonarCloud omits a metric with nothing to report."""
+    params = {"component": PROJECT, "pullRequest": str(pr), "metricKeys": ",".join(PR_METRICS)}
+    found = {
+        m["metric"]: m for m in fetch("api/measures/component", params)["component"]["measures"]
+    }
+    result = {}
+    for metric in PR_METRICS:
+        measure_ = found.get(metric, {})
+        value = measure_.get("value") or next(
+            (p.get("value") for p in measure_.get("periods", [])), "0"
+        )
+        result[metric] = int(float(value))
+    return result
+
+
+def survivors(directory: Path | None, root: Path) -> list[str]:
+    """Surviving mutants in the `mutation` job's reports, which hold changed lines only."""
+    if directory is None or not directory.is_dir():
+        return []
+    merged = mutation_test.merge_reports(mutation_test.read_reports(directory), root)
+    return [
+        f"{k.path}:{k.line}:{k.column} {k.mutator}"
+        for k, status in sorted(merged.items())
+        if status == "Survived"
+    ]
+
+
+def is_bookkeeping(changed: Sequence[str]) -> bool:
+    return bool(changed) and set(changed) <= {LEDGER.as_posix(), TREND.as_posix()}
+
+
+@dataclass(frozen=True)
+class Check:
+    name: str
+    ok: bool
+    detail: str
+
+
+def verdict(
+    *,
+    nloc_before: int,
+    nloc_after: int,
+    changed: Sequence[str],
+    measures: Mapping[str, int],
+    survived: Sequence[str],
+) -> list[Check]:
+    """The merge rules of a loop PR (ADR 0029)."""
+    drop = nloc_before - nloc_after
+    duplicated = measures.get("new_duplicated_lines", 0)
+    uncovered = measures.get("new_uncovered_lines", 0)
+    shown = "; ".join(survived[:10]) + (
+        f"; ... {len(survived) - 10} more" if len(survived) > 10 else ""
+    )
+    return [
+        Check(
+            "nloc drop",
+            drop >= MIN_DROP or is_bookkeeping(changed),
+            f"{nloc_before} -> {nloc_after} (at least {MIN_DROP} required)",
+        ),
+        Check("new duplicated lines", duplicated == 0, str(duplicated)),
+        Check("new uncovered lines", uncovered == 0, str(uncovered)),
+        Check("surviving mutants", not survived, shown or "0"),
+    ]
+
+
 def _line_count(root: Path) -> Callable[[str], int | None]:
     def count(path: str) -> int | None:
         file = root / path
@@ -442,6 +513,13 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     add.add_argument("--dup-before", type=int, required=True, help="master duplicated_lines")
     add.add_argument("--bookkeeping", action="store_true", help="exempt from the NLOC rule")
     trend_commands.add_parser("fill-after", help="record master's duplicated_lines now")
+
+    check = commands.add_parser("verdict", help="check a loop PR against its merge rules")
+    check.add_argument("--pr", type=int, required=True)
+    check.add_argument("--nloc-before", type=int, required=True)
+    check.add_argument("--nloc-after", type=int, required=True)
+    check.add_argument("--changed-file", type=Path, required=True, help="git diff --name-only")
+    check.add_argument("--mutation-reports", type=Path, help="the mutation job's report dir")
     return parser.parse_args(argv)
 
 
@@ -491,6 +569,17 @@ def _run(args: argparse.Namespace, tools: Tools, out: TextIO, today: str) -> int
                 fields = (a.date, a.group, a.outcome, a.reason, a.pr or "")
                 out.write(" ".join(str(v) for v in fields if v) + "\n")
             out.write(f"consecutive failures: {ledger.consecutive_failures()}\n")
+    elif args.command == "verdict":
+        checks = verdict(
+            nloc_before=args.nloc_before,
+            nloc_after=args.nloc_after,
+            changed=args.changed_file.read_text().split(),
+            measures=pr_measures(tools.fetch, args.pr),
+            survived=survivors(args.mutation_reports, root),
+        )
+        for c in checks:
+            out.write(f"{'PASS' if c.ok else 'FAIL'} {c.name}: {c.detail}\n")
+        return 0 if all(c.ok for c in checks) else 1
     elif args.trend_command == "add":
         after = measure(root, tools.run_hook).total
         row = TrendRow(today, args.pr, args.before, after, args.dup_before, None)
@@ -516,7 +605,7 @@ def main(
     try:
         tools = Tools(run_hook, fetch, run_functions, busy_files, git, err)
         return _run(args, tools, out, today())
-    except DedupLoopError as error:
+    except (DedupLoopError, mutation_test.MutationTestError, OSError) as error:
         out.write(f"dedup_loop: {error}\n")
         return 2
 

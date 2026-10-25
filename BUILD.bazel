@@ -177,6 +177,7 @@ py_test(
     size = "small",
     srcs = [
         "scripts/dedup_loop.py",
+        "scripts/mutation_test.py",
         "scripts/tests/dedup_loop_test.py",
     ],
     imports = ["scripts"],

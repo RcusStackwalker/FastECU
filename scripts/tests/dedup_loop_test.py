@@ -370,6 +370,99 @@ class RankTest(unittest.TestCase):
         self.assertEqual(dl.rank([busy, free], self.ledger, {"src/backend/b.cpp"}), [free])
 
 
+def _mull_report(*mutants: tuple[str, int, str]) -> dict:
+    """An Elements report with (path, line, status) mutants."""
+    files: dict[str, dict] = {}
+    for path, line, status in mutants:
+        files.setdefault(path, {"mutants": []})["mutants"].append(
+            {
+                "location": {"start": {"line": line, "column": 5}},
+                "mutatorName": "cxx_eq_to_ne",
+                "status": status,
+            }
+        )
+    return {"files": files}
+
+
+class VerdictTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp_dir.name)
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    def checks(self, **overrides: object) -> dict[str, object]:
+        arguments: dict = {
+            "nloc_before": 100,
+            "nloc_after": 90,
+            "changed": ["src/backend/a.cpp"],
+            "measures": {"new_duplicated_lines": 0, "new_uncovered_lines": 0},
+            "survived": [],
+        }
+        arguments.update(overrides)
+        return {c.name: c.ok for c in dl.verdict(**arguments)}
+
+    def test_all_four_checks_pass(self) -> None:
+        self.assertEqual(
+            self.checks(),
+            {
+                "nloc drop": True,
+                "new duplicated lines": True,
+                "new uncovered lines": True,
+                "surviving mutants": True,
+            },
+        )
+
+    def test_drop_of_ten_passes_nine_fails(self) -> None:
+        self.assertTrue(self.checks(nloc_after=90)["nloc drop"])
+        self.assertFalse(self.checks(nloc_after=91)["nloc drop"])
+
+    def test_bookkeeping_pr_skips_the_nloc_rule(self) -> None:
+        changed = [str(dl.LEDGER), str(dl.TREND)]
+        self.assertTrue(self.checks(nloc_after=100, changed=changed)["nloc drop"])
+        self.assertFalse(self.checks(nloc_after=100, changed=[*changed, "src/a.cpp"])["nloc drop"])
+
+    def test_any_new_duplicated_line_fails(self) -> None:
+        measures = {"new_duplicated_lines": 1, "new_uncovered_lines": 0}
+        self.assertFalse(self.checks(measures=measures)["new duplicated lines"])
+
+    def test_any_new_uncovered_line_fails(self) -> None:
+        measures = {"new_duplicated_lines": 0, "new_uncovered_lines": 3}
+        self.assertFalse(self.checks(measures=measures)["new uncovered lines"])
+
+    def test_absent_pr_metric_counts_as_zero(self) -> None:
+        def fetch(path: str, params: Mapping[str, str]) -> Mapping:
+            self.assertEqual((path, params["pullRequest"]), ("api/measures/component", "7"))
+            measure = {"metric": "new_uncovered_lines", "periods": [{"index": 1, "value": "2"}]}
+            return {"component": {"measures": [measure]}}
+
+        self.assertEqual(
+            dl.pr_measures(fetch, 7), {"new_duplicated_lines": 0, "new_uncovered_lines": 2}
+        )
+
+    def test_missing_report_dir_means_no_survivors(self) -> None:
+        self.assertEqual(dl.survivors(None, self.root), [])
+        self.assertEqual(dl.survivors(self.root / "absent", self.root), [])
+
+    def test_survivor_fails_and_is_named(self) -> None:
+        reports = self.root / "reports"
+        reports.mkdir()
+        report = _mull_report(("src/a.cpp", 12, "Survived"), ("src/a.cpp", 13, "Killed"))
+        (reports / "a_test.json").write_text(json.dumps(report))
+        survived = dl.survivors(reports, self.root)
+        self.assertEqual(survived, ["src/a.cpp:12:5 cxx_eq_to_ne"])
+        (check,) = [
+            c
+            for c in dl.verdict(
+                nloc_before=100, nloc_after=90, changed=[], measures={}, survived=survived
+            )
+            if c.name == "surviving mutants"
+        ]
+        self.assertFalse(check.ok)
+        self.assertIn("src/a.cpp:12:5", check.detail)
+
+
 class MainTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -384,6 +477,8 @@ class MainTest(unittest.TestCase):
     def fetch(self, path: str, params: Mapping[str, str]) -> Mapping:
         if path == "api/project_analyses/search":
             return {"analyses": [{"revision": self.revision}]}
+        if path == "api/measures/component":
+            return {"component": {"measures": []}}
         return (self.sonar or FakeSonar([], {}))(path, params)
 
     def run_main(self, *argv: str) -> tuple[int, str]:
@@ -449,6 +544,36 @@ class MainTest(unittest.TestCase):
     def test_stale_prints_both_revisions_and_exits_one(self) -> None:
         self.revision = "old"
         self.assertEqual(self.run_main("fresh"), (1, "stale: analysis old, origin/master abc\n"))
+
+    def verdict_argv(self) -> tuple[str, ...]:
+        changed = self.root / "changed.txt"
+        changed.write_text("src/backend/a.cpp\n")
+        return (
+            "verdict",
+            "--pr",
+            "7",
+            "--nloc-before",
+            "100",
+            "--nloc-after",
+            "95",
+            "--changed-file",
+            str(changed),
+        )
+
+    def test_verdict_exits_one_on_failure(self) -> None:
+        code, text = self.run_main(*self.verdict_argv())
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL nloc drop: 100 -> 95", text)
+        self.assertIn("PASS new duplicated lines: 0", text)
+
+    def test_verdict_exits_two_when_sonar_is_down(self) -> None:
+        def down(path: str, _params: Mapping[str, str]) -> Mapping:
+            raise dl.DedupLoopError(f"SonarCloud {path}: timed out")
+
+        self.fetch = down  # type: ignore[method-assign]
+        code, text = self.run_main(*self.verdict_argv())
+        self.assertEqual(code, 2)
+        self.assertIn("SonarCloud api/measures/component: timed out", text)
 
 
 if __name__ == "__main__":
