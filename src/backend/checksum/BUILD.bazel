@@ -37,6 +37,7 @@ fastecu_portable_gtest(
         "//src/algorithms/memory:memory_map",
         "//src/algorithms/memory/testing:memory_views",
         "//src/algorithms/protocol/testing:byte_matchers",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
