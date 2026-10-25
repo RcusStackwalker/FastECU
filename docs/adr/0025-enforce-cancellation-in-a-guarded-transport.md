@@ -76,3 +76,13 @@ change to cancellation refusal; protocol error handling remains separate.
   A separately assessed compression change and the applicable recorded Colt
   bench checklist precede any expansion. K-Line, additional families, and
   deferral need separate decisions after the pilot's evidence is reviewed.
+
+## Addendum (2026-10-25)
+
+K-Line M32R SSM exchanges already refuse and order cancellation inside
+[m32r_ssm_exchange.h](../../src/backend/flash/ecu/m32r_ssm_exchange.h): before
+the write, after the write and after the read, with transport errors winning
+over cancellation. That module, not a guarded transport, owns those checkpoints
+for the executors that use it, and the required-reply exchange added there
+inherits them unchanged. This does not expand the guarded transport to K-Line
+and does not touch transfer-loop checks, which stay with each executor.
