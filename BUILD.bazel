@@ -173,15 +173,14 @@ py_test(
 )
 
 py_test(
-    name = "nloc_loop_test",
+    name = "dedup_loop_test",
     size = "small",
     srcs = [
-        "scripts/mutation_test.py",
-        "scripts/nloc_loop.py",
-        "scripts/tests/nloc_loop_test.py",
+        "scripts/dedup_loop.py",
+        "scripts/tests/dedup_loop_test.py",
     ],
     imports = ["scripts"],
-    main = "scripts/tests/nloc_loop_test.py",
+    main = "scripts/tests/dedup_loop_test.py",
 )
 
 py_test(

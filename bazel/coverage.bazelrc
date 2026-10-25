@@ -4,8 +4,7 @@
 # collector merges each test's profile and exports it with llvm-cov, and
 # --combined_report=lcov folds them into one lcov report at
 # $(bazel info --config=coverage output_path)/_coverage/_coverage_report.dat.
-# SonarCloud (via //tools/sonar:coverage_report) and the nloc-loop coverage
-# guards (scripts/nloc_loop.py) both read that report. Test results stay
+# SonarCloud (via //tools/sonar:coverage_report) reads that report. Test results stay
 # cacheable, so unchanged tests are not rerun.
 # See docs/adr/0027-use-native-bazel-coverage-for-sonar.md.
 build:coverage --compilation_mode=dbg
@@ -32,7 +31,7 @@ build:coverage --dynamic_mode=off
 # that is outside sonar.projectBaseDir. The lcov export inherits the same names,
 # so its SF: records would be execroot-absolute too. With "." every SF: path is
 # workspace-relative on every host, which is what //tools/sonar:coverage_report
-# and scripts/nloc_loop.py resolve against the repo root.
+# resolves against the repo root.
 build:coverage --copt=-ffile-compilation-dir=.
 coverage:coverage --combined_report=lcov
 coverage:coverage --experimental_fetch_all_coverage_outputs

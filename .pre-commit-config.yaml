@@ -41,8 +41,8 @@ repos:
           - --exclude=*/generated/*
           # Start at the root so Lizard loads .gitignore (including Qt-generated files).
           - .
-      # The NLOC hill-climbing metric (docs/tooling.md#nloc-hill-climbing-loop):
-      # the same scan as `lizard`, reporting every file. Run by scripts/nloc_loop.py.
+      # The NLOC metric of the Sonar dedup loop (docs/tooling.md#sonar-dedup-loop):
+      # the same scan as `lizard`, reporting every file. Run by scripts/dedup_loop.py.
       - id: nloc
         name: C/C++ NLOC report
         language: python
@@ -62,15 +62,6 @@ repos:
           - --exclude=*/vendor/*
           - --exclude=*/generated/*
           - .
-      # Duplicate-code candidates for the NLOC loop; settings in .jscpd.json.
-      - id: jscpd
-        name: C/C++ duplicate-code report
-        language: node
-        additional_dependencies: [jscpd@5.4.0]
-        entry: jscpd
-        pass_filenames: false
-        always_run: true
-        stages: [manual]
       - id: pragma-once
         name: require pragma once in headers
         language: system
