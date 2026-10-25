@@ -52,10 +52,6 @@ constexpr auto kEraseDelay = 500ms;
 // Legacy reflash_block retries both the close and the checksum 20 times
 // (operation.cpp:842, 889); exhausting either fails the block.
 constexpr int kRetryAttempts = 20;
-// Every read_mem response is framed by the four-byte CAN id plus its one-byte
-// service id; legacy strips exactly those five before keeping the payload
-// (operation.cpp:519, received.remove(0, 5)).
-constexpr std::size_t kPageHeaderSize = 5;
 
 // Directly compared against legacy generate_seed_key(): the 32-entry index
 // transformation is byte-identical to SsmProtocol::kIndexTransformationStock.
@@ -473,9 +469,10 @@ Result<std::optional<std::string>> ConnectBootloader(const Ctx& ctx)
 }
 
 // Legacy read_mem (operation.cpp:395-616).
-Result<bytes::Bytes> ReadRom(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                             IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan, const MemoryRegion& region)
+Result<bytes::Bytes> ReadRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, const MemoryRegion& region)
 {
+    const ICancellationToken& cancellation = ctx.cancellation;
+    IEventSink& events = ctx.events;
     // Deliberate divergence 2: legacy subtracted 0x00100000 from a start
     // address of 0 (line 408), underflowing uint32_t to 0xFFF00000, which is
     // not less than 0x8000 and so walked straight past its own floor clamp
@@ -485,18 +482,18 @@ Result<bytes::Bytes> ReadRom(ICanFlashTransport& transport, IClock& clock, const
     // port asks for the window the clamp evidently intended: region.length
     // (0x78000) bytes from region.start (0x8000).
     events.Log(LogLevel::kInfo, "Setting dump start & length...");
-    bytes::Bytes window_request{0x34, 0x04, 0x33};
+    bytes::Bytes window_request{uds::kSidRequestDownload, 0x04, 0x33};
     bytes::AppendU24Be(window_request, region.start);
     bytes::AppendU24Be(window_request, region.length);
-    if (Result<bytes::Bytes> window = RequestPrefix(transport, clock, cancellation, window_request, plan.request_id,
-                                                    0ms, kResponseTimeout, {0x74, 0x20, 0x01, 0x04});
+    if (Result<bytes::Bytes> window = Fatal(ctx, ctx.kernel, window_request, Policy(0ms, kResponseTimeout),
+                                            bytes::Bytes{0x20, 0x01, 0x04}, "read window");
         !window.has_value())
     {
         return std::unexpected(window.error());
     }
 
     events.Log(LogLevel::kInfo, "Start reading ROM, please wait...");
-    const std::size_t expected_page_frame = kPageHeaderSize + plan.page_size;
+    const std::size_t expected_page_pdu = 1 + plan.page_size;
     bytes::Bytes dumped;
     dumped.reserve(region.length);
     for (std::uint32_t offset = 0; offset < region.length; offset += plan.page_size)
@@ -507,27 +504,28 @@ Result<bytes::Bytes> ReadRom(ICanFlashTransport& transport, IClock& clock, const
             return Fail(ErrorKind::kCancelled, "cancelled during ROM read");
         }
         const std::uint32_t address = region.start + offset;
-        bytes::Bytes page_request{0xB7};
+        bytes::Bytes page_request{uds::kSidReadMemoryChunk};
         bytes::AppendU24Be(page_request, address);
         Result<bytes::Bytes> page =
-            RequestPrefix(transport, clock, cancellation, page_request, plan.request_id, 0ms, kResponseTimeout, {0xF7});
+            Fatal(ctx, ctx.kernel, page_request, Policy(0ms, kResponseTimeout), bytes::ByteView{}, "page read");
         if (!page.has_value())
         {
             return std::unexpected(page.error());
         }
         // Stricter than legacy, which appended whatever followed the five
         // header bytes and so handed back a silently short or long image when
-        // a page came back the wrong size.
-        if (page->size() != expected_page_frame)
+        // a page came back the wrong size. Sizes are PDU sizes: the service
+        // id plus the page, the CAN id envelope already stripped.
+        if (page->size() != expected_page_pdu)
         {
             return Fail(ErrorKind::kBadResponse, std::format("page read at 0x{:06X} returned {} bytes, expected {}",
-                                                             address, page->size(), expected_page_frame));
+                                                             address, page->size(), expected_page_pdu));
         }
-        dumped.insert(dumped.end(), page->begin() + static_cast<std::ptrdiff_t>(kPageHeaderSize), page->end());
+        dumped.insert(dumped.end(), page->begin() + 1, page->end());
         events.Progress(static_cast<int>(offset + plan.page_size), static_cast<int>(region.length));
         // Legacy's delay(1) (line 553): after the page is in hand, before the
         // next request goes out.
-        if (const Status slept = clock.Sleep(kPageDelay, cancellation); !slept.has_value())
+        if (const Status slept = ctx.clock.Sleep(kPageDelay, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -537,9 +535,8 @@ Result<bytes::Bytes> ReadRom(ICanFlashTransport& transport, IClock& clock, const
     events.Log(LogLevel::kInfo, "Sending stop command...");
     // Legacy logs a bad or missing stop answer and carries on: both of its
     // `return STATUS_ERROR` lines are commented out (lines 590 and 597).
-    Result<std::optional<bytes::Bytes>> stop =
-        NonFatalPrefix(transport, clock, cancellation, events, bytes::Bytes{0x37}, plan.request_id, 0ms,
-                       kResponseTimeout, {0x77}, "dump stop");
+    Result<std::optional<bytes::Bytes>> stop = Tolerant(ctx, ctx.kernel, bytes::Bytes{uds::kSidRequestTransferExit},
+                                                        Policy(0ms, kResponseTimeout), bytes::Bytes{0x77}, "dump stop");
     if (!stop.has_value())
     {
         return std::unexpected(stop.error());
@@ -775,14 +772,16 @@ Status WriteRom(ICanFlashTransport& transport, IClock& clock, const ICancellatio
     return {};
 }
 
-Result<FlashExecutionResult> ExecuteTransfer(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
-                                             const ICancellationToken& cancellation, IEventSink& events,
+Result<FlashExecutionResult> ExecuteTransfer(const FlashPlan& plan, ICanFlashTransport& transport, const Ctx& ctx,
                                              const SubaruTcuHitachiM32rCanPlan& parameters,
                                              std::optional<std::string> rom_id)
 {
+    IClock& clock = ctx.clock;
+    const ICancellationToken& cancellation = ctx.cancellation;
+    IEventSink& events = ctx.events;
     if (plan.Operation() == FlashOperation::kRead)
     {
-        Result<bytes::Bytes> image = ReadRom(transport, clock, cancellation, events, parameters, plan.TransferRegion());
+        Result<bytes::Bytes> image = ReadRom(ctx, parameters, plan.TransferRegion());
         if (!image.has_value())
         {
             return std::unexpected(image.error());
@@ -861,7 +860,7 @@ Result<FlashExecutionResult> SubaruTcuHitachiM32rCanExecutor::Run(const SubaruTc
     {
         return std::unexpected(connected.error());
     }
-    return ExecuteTransfer(plan, transport, clock, cancellation, events, parameters, std::move(*connected));
+    return ExecuteTransfer(plan, transport, ctx, parameters, std::move(*connected));
 }
 
 } // namespace fastecu::flash
