@@ -441,7 +441,7 @@ class VerdictTest(unittest.TestCase):
         self.assertFalse(self.checks(nloc_after=91)["nloc drop"])
 
     def test_bookkeeping_pr_skips_the_nloc_rule(self) -> None:
-        changed = [str(dl.LEDGER), str(dl.TREND)]
+        changed = [dl.LEDGER.as_posix(), dl.TREND.as_posix()]
         self.assertTrue(self.checks(nloc_after=100, changed=changed)["nloc drop"])
         self.assertFalse(self.checks(nloc_after=100, changed=[*changed, "src/a.cpp"])["nloc drop"])
 

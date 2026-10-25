@@ -315,7 +315,7 @@ class Ledger:
     def save(self, path: Path) -> None:
         data = {"attempts": [asdict(a) for a in self.attempts]}
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", newline="\n")
 
     def record(self, attempt: Attempt) -> None:
         self.attempts.append(attempt)
