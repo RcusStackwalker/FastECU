@@ -30,8 +30,7 @@ struct SubaruDenso1n83m_4mCanPlan
 template <> struct DensoIso15765BootloaderProfileOf<SubaruDenso1n83m_4mCanPlan>
 {
     static constexpr DensoIso15765BootloaderProfile kValue{
-        .log_name = "Denso 1N83M 4MB",
-        .family_name = "Subaru Denso 1N83M 4M CAN",
+        .unit = "Subaru Denso 1N83M 4MB",
         .obk_active_log = "OBK is active", // OBK probe, lines 105-127
         .identity_query = DensoIdentityQuery::kEcuIdService,
         // The connect_bootloader probe sites (lines 305, 335, 369) have their

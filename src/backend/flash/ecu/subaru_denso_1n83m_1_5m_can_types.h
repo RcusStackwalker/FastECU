@@ -33,8 +33,7 @@ template <> struct DensoIso15765BootloaderProfileOf<SubaruDenso1n83m_1_5mCanPlan
         // leaving these would make a flash log unattributable to the family
         // that produced it. A deliberate, purely cosmetic divergence from the
         // legacy text; do not "restore" 4MB.
-        .log_name = "Denso 1N83M 1.5MB",
-        .family_name = "Subaru Denso 1N83M 1.5M CAN",
+        .unit = "Subaru Denso 1N83M 1.5MB",
         .obk_active_log = "OBK is active", // OBK probe, lines 105-127
         .identity_query = DensoIdentityQuery::kEcuIdService,
         // The tolerant probes in connect_bootloader (lines 283-341) read with

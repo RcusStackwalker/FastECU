@@ -292,9 +292,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchReadReturnsPaddedImage)
         {
             EXPECT_THAT(run.events.logs,
                         Contains(Pair(LogLevel::kInfo,
-                                      "Connecting to ECU Denso SH72543 Diesel CAN bootloader, please wait...")));
+                                      "Connecting to Subaru Denso SH72543 Diesel CAN bootloader, please wait...")));
             EXPECT_THAT(run.events.logs,
-                        Contains(Pair(LogLevel::kInfo, "Reading ROM from ECU, Denso SH72543 Diesel using CAN")));
+                        Contains(Pair(LogLevel::kInfo, "Reading ROM from Subaru Denso SH72543 Diesel using CAN")));
             EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "OBK not active, initialising ECU...")));
             EXPECT_THAT(run.events.logs,
                         Contains(Pair(LogLevel::kInfo, "Bench programming: accessing, please wait...")));
@@ -342,7 +342,7 @@ TEST_F(SubaruDensoSh72543CanDieselExecutorWrite, WriteErasesThenFlashesBlockZero
     EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.notices, Contains("Writing ROM, please wait..."));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Writing ROM to ECU, Denso SH72543 Diesel using CAN")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Writing ROM to Subaru Denso SH72543 Diesel using CAN")));
     // The block index legacy reports, which is 0 for this family's single-
     // block table.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Blocks to flash: 0,  (total: 1)")));

@@ -11,6 +11,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/bootloader_operation.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/cvt_b6_chunk_exchange.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_plan.h"
@@ -538,10 +539,6 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::Run(const Subar
                                                                      const ICancellationToken& cancellation,
                                                                      IEventSink& events)
 {
-    const bool read = plan.Operation() == FlashOperation::kRead;
-    PhaseSequence phases(events, read ? 2 : 3);
-    PhaseReporter connect = phases.Start(read ? "Connect to TCU" : "Connect", 1);
-
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
 
@@ -554,58 +551,24 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::Run(const Subar
     uds::UdsClient other_uds_client(other_channel, clock, events);
 
     Ctx ctx{cancellation, events, clock, uds_client, other_uds_client, channel};
-
-    LogInfo(ctx, "Connecting to Subaru TCU Hitachi CAN bootloader, please wait...");
-    if (const Status connected = ConnectBootloader(ctx); !connected.has_value())
-    {
-        return std::unexpected(connected.error());
-    }
-    connect.Complete();
-
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        events.Notice("Reading ROM, please wait...");
-        LogInfo(ctx, "Reading ROM from TCU Subaru Hitachi using CAN");
-
-        PhaseReporter read_phase = phases.Start("Read ROM", static_cast<int>(plan.TransferRegion().length));
-        Result<bytes::Bytes> window = DumpFlashRange(ctx, read_phase);
-        if (!window.has_value())
+    return RunBootloaderOperation(
+        plan, events, "Subaru TCU CVT Hitachi M32R", [&] { return ConnectBootloader(ctx); },
+        [&](PhaseReporter& progress)
         {
-            return std::unexpected(window.error());
-        }
-        read_phase.Complete();
-
-        // Legacy pads the unread low 0x8000 region with 0x00 (lines
-        // 705-712) -- unlike MH8111/MH8104 (Tasks 4-5), which pad with
-        // 0xFF; see the plan's kReadRegion comment and the umbrella's
-        // per-family read-padding note.
-        bytes::Bytes rom(kWindow.start, 0x00);
-        rom.insert(rom.end(), window->begin(), window->end());
-        return FlashExecutionResult{
-            .operation = FlashOperation::kRead,
-            .read_bytes = std::move(rom),
-        };
-    }
-
-    // build_subaru_tcu_cvt_hitachi_m32r_can_plan refuses TestWrite; the
-    // guard is repeated here so a plan built another way cannot turn a dry
-    // run into a real erase and write.
-    if (plan.Operation() != FlashOperation::kWrite)
-    {
-        return Fail(ErrorKind::kUnsupported,
-                    "test_write is not supported by the Subaru TCU CVT Hitachi M32R CAN family");
-    }
-
-    events.Notice("Writing ROM, please wait...");
-    LogInfo(ctx, "Writing ROM to Subaru TCU Hitachi using CAN");
-    if (const Status written = WriteMem(ctx, plan.ImageOrEmpty(), phases); !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    return FlashExecutionResult{
-        .operation = plan.Operation(),
-        .read_bytes = std::nullopt,
-    };
+            return DumpFlashRange(ctx, progress)
+                .transform(
+                    [](const bytes::Bytes& window)
+                    {
+                        // Legacy pads the unread low 0x8000 region with 0x00 (lines
+                        // 705-712) -- unlike MH8111/MH8104 (Tasks 4-5), which pad with
+                        // 0xFF; see the plan's kReadRegion comment and the umbrella's
+                        // per-family read-padding note.
+                        bytes::Bytes rom(kWindow.start, 0x00);
+                        rom.append_range(window);
+                        return rom;
+                    });
+        },
+        [&](bytes::ByteView image, PhaseSequence& phases) { return WriteMem(ctx, image, phases); });
 }
 
 } // namespace fastecu::flash

@@ -27,8 +27,7 @@ struct SubaruDensoSh72531CanPlan
 template <> struct DensoIso15765BootloaderProfileOf<SubaruDensoSh72531CanPlan>
 {
     static constexpr DensoIso15765BootloaderProfile kValue{
-        .log_name = "Denso SH72531",
-        .family_name = "Subaru Denso SH72531 CAN",
+        .unit = "Subaru Denso SH72531",
         .obk_active_log = "OBK is active!", // OBK probe, lines 107-128
         .identity_query = DensoIdentityQuery::kEcuIdService,
         // The tolerant probes in connect_bootloader (lines 283-341) read with

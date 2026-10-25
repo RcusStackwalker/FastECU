@@ -11,6 +11,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/bootloader_operation.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
@@ -491,57 +492,13 @@ Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::Run(const SubaruHitac
                                                                IClock& clock, const ICancellationToken& cancellation,
                                                                IEventSink& events)
 {
-    const bool read = plan.Operation() == FlashOperation::kRead;
-    PhaseSequence phases(events, read ? 2 : 3);
-    PhaseReporter connect = phases.Start(read ? "Connect to ECU" : "Connect", 1);
-
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
     Ctx ctx{cancellation, events, clock, uds_client, channel};
-
-    LogInfo(ctx, "Connecting to Subaru ECU 512Kb Hitachi CAN bootloader, please wait...");
-    if (const Status connected = ConnectBootloader(ctx); !connected.has_value())
-    {
-        return std::unexpected(connected.error());
-    }
-    connect.Complete();
-
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        events.Notice("Reading ROM, please wait...");
-        LogInfo(ctx, "Reading ROM from ECU Subaru using CAN");
-
-        PhaseReporter read_phase = phases.Start("Read ROM", static_cast<int>(plan.TransferRegion().length));
-        Result<bytes::Bytes> rom = DumpFlashRange(ctx, read_phase);
-        if (!rom.has_value())
-        {
-            return std::unexpected(rom.error());
-        }
-        read_phase.Complete();
-        return FlashExecutionResult{
-            .operation = FlashOperation::kRead,
-            .read_bytes = std::move(*rom),
-        };
-    }
-
-    // build_subaru_hitachi_m32r_can_plan refuses TestWrite; the guard is
-    // repeated here so a plan built another way cannot turn a dry run into a
-    // real erase and write.
-    if (plan.Operation() != FlashOperation::kWrite)
-    {
-        return Fail(ErrorKind::kUnsupported, "test_write is not supported by the Subaru Hitachi M32R CAN family");
-    }
-
-    events.Notice("Writing ROM, please wait...");
-    LogInfo(ctx, "Writing ROM to Subaru Hitachi WA12212970WWW using CAN");
-    if (const Status written = WriteMem(ctx, plan.ImageOrEmpty(), phases); !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    return FlashExecutionResult{
-        .operation = plan.Operation(),
-        .read_bytes = std::nullopt,
-    };
+    return RunBootloaderOperation(
+        plan, events, "Subaru Hitachi M32R", [&] { return ConnectBootloader(ctx); },
+        [&](PhaseReporter& progress) { return DumpFlashRange(ctx, progress); },
+        [&](bytes::ByteView image, PhaseSequence& phases) { return WriteMem(ctx, image, phases); });
 }
 
 } // namespace fastecu::flash
