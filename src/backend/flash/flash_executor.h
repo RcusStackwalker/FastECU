@@ -372,6 +372,9 @@ class FamilyExecutor : public Interface
   public:
     using TransportType = typename Interface::TransportType;
     using ConfigType = typename Interface::ConfigType;
+    using PlanType = Plan;
+    using InterfaceType = Interface;
+    using ValidatorType = Validator;
 
     Result<ConfigType> TransportSetup(const FlashPlan& plan) const final
     {
@@ -412,6 +415,22 @@ class FamilyExecutor : public Interface
         return Validator::Validate(plan);
     }
 };
+
+// An executor whose TransportSetup and Execute are FamilyExecutor's, with the
+// family's own PlanValidator: the only executors that run plan admission. The
+// workflow binds only these, so a new executor that implements an interface
+// directly, or swaps in another validator, fails to compile there instead of
+// silently skipping admission.
+template <typename Executor>
+concept AdmittingExecutor =
+    requires {
+        typename Executor::PlanType;
+        typename Executor::InterfaceType;
+        typename Executor::ValidatorType;
+    } &&
+    std::derived_from<Executor, FamilyExecutor<typename Executor::PlanType, typename Executor::InterfaceType,
+                                               typename Executor::ValidatorType>> &&
+    std::same_as<typename Executor::ValidatorType, PlanValidator<typename Executor::PlanType>>;
 
 // An executor already bound to a transport it is known to accept. FlashWorker
 // holds this instead of the two halves, so no caller can pair an executor with

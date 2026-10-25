@@ -337,5 +337,32 @@ TEST_F(FamilyExecutorTest, CanExecuteCancelledAfterAdmissionChecks)
     EXPECT_THAT(events_.logs, ::testing::IsEmpty());
 }
 
+// A hand-written executor: implements the interface directly, so nothing runs
+// plan admission for it.
+class UnadmittedExecutor final : public IKlineFlashExecutor
+{
+  public:
+    Result<KlineConfig> TransportSetup(const FlashPlan& /*plan*/) const override
+    {
+        return KlineConfig{};
+    }
+
+    Result<FlashExecutionResult> Execute(const FlashPlan& plan, IKlineFlashTransport& /*transport*/, IClock& /*clock*/,
+                                         const ICancellationToken& /*cancellation*/, IEventSink& /*events*/) override
+    {
+        return FlashExecutionResult{.operation = plan.Operation(), .read_bytes = std::nullopt};
+    }
+};
+
+TEST(AdmittingExecutorTest, RejectsAnExecutorThatSkipsFamilyExecutor)
+{
+    static_assert(!AdmittingExecutor<UnadmittedExecutor>);
+}
+
+TEST(AdmittingExecutorTest, RejectsAFamilyExecutorWithACustomValidator)
+{
+    static_assert(!AdmittingExecutor<ProbeExecutor>);
+}
+
 } // namespace
 } // namespace fastecu::flash
