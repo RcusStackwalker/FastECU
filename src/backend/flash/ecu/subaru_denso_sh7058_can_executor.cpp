@@ -171,35 +171,23 @@ Result<bytes::Bytes> SecurityKey(Context& context, bytes::ByteView seed, const s
     return Fail(ErrorKind::kInternal, "unknown petrol security variant");
 }
 
-// The initial legacy probe reads the raw serial buffer and continues when the
-// frame is short, malformed, or addressed to another CAN id: those return no
-// PDU. The strict post-upload probe keeps the validating channel receive.
+// The initial legacy probe continues when the frame is short, malformed, or
+// addressed to another CAN id: those return no PDU. The strict post-upload
+// probe fails on them.
 Result<std::optional<bytes::Bytes>> ProbeKernelIdTolerantly(Context& context, bytes::ByteView request)
 {
-    if (const Status checkpoint = CancelledIfRequested(context, "cancelled before CAN request");
-        !checkpoint.has_value())
+    Result<std::optional<bytes::Bytes>> reply =
+        ChannelRequestOptional(context, request, kLongTimeout, kKernelProbeDelay);
+    if (!reply.has_value())
     {
-        return std::unexpected(checkpoint.error());
-    }
-    if (const Status sent = context.channel.Send(request, context.cancellation); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    if (const Status slept = context.clock.Sleep(kKernelProbeDelay, context.cancellation); !slept.has_value())
-    {
-        return std::unexpected(slept.error());
-    }
-    Result<std::optional<bytes::Bytes>> raw = context.transport.Read(kLongTimeout, context.cancellation);
-    if (!raw.has_value())
-    {
-        if (raw.error().kind == ErrorKind::kCancelled || raw.error().kind == ErrorKind::kDisconnected)
+        if (reply.error().kind == ErrorKind::kCancelled || reply.error().kind == ErrorKind::kDisconnected)
         {
-            return std::unexpected(raw.error());
+            return std::unexpected(reply.error());
         }
         LogError(context, "Wrong response from ECU while requesting kernel ID");
         return std::nullopt;
     }
-    if (!raw->has_value())
+    if (!reply->has_value())
     {
         return std::nullopt;
     }
@@ -207,13 +195,7 @@ Result<std::optional<bytes::Bytes>> ProbeKernelIdTolerantly(Context& context, by
     {
         return std::unexpected(checkpoint.error());
     }
-    const bytes::Bytes& frame = **raw;
-    if (frame.size() < CanFlashUdsChannel::kEnvelopeSize || bytes::ReadU32Be(frame) != context.response_id)
-    {
-        LogError(context, "Wrong response from ECU while requesting kernel ID");
-        return std::nullopt;
-    }
-    return bytes::Bytes(frame.begin() + static_cast<std::ptrdiff_t>(CanFlashUdsChannel::kEnvelopeSize), frame.end());
+    return reply;
 }
 
 // A timeout means no kernel is running.

@@ -106,6 +106,17 @@ TEST_F(BeefCanSessionTest, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDevice
     }
 }
 
+TEST_F(BeefCanSessionTest, LogFailureNamesTimeoutsAndBadRepliesAndStaysSilentOtherwise)
+{
+    Session(kHexTcu).LogFailure(Error{ErrorKind::kTimeout, "late"});
+    Session(kHexTcu).LogFailure(Error{ErrorKind::kBadResponse, "garbled"});
+    Session(kHexTcu).LogFailure(Error{ErrorKind::kCancelled, "stop"});
+    Session(kHexTcu).LogFailure(Error{ErrorKind::kDisconnected, "gone"});
+
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU"),
+                                          Pair(LogLevel::kError, "Wrong response from TCU: garbled")));
+}
+
 TEST_F(BeefCanSessionTest, NonfatalQueryPassesCancelAndDisconnectThrough)
 {
     for (const ErrorKind kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})

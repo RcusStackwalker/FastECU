@@ -55,6 +55,18 @@ void BeefCanSession::LogWrongPdu(bytes::ByteView pdu)
     LogError(MakeView(), std::format("Wrong response from {}: {}", profile_.device, rendered));
 }
 
+void BeefCanSession::LogFailure(const Error& failure)
+{
+    if (failure.kind == ErrorKind::kTimeout)
+    {
+        LogError(MakeView(), "No valid response from ECU");
+    }
+    else if (failure.kind == ErrorKind::kBadResponse)
+    {
+        LogWrongReply(failure);
+    }
+}
+
 Result<std::optional<bytes::Bytes>> BeefCanSession::NonfatalQuery(bytes::ByteView pdu)
 {
     View view = MakeView();

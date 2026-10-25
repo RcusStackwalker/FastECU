@@ -965,12 +965,9 @@ TEST(SubaruDensoSh7058CanDieselExecutor, IdentityQueriesAndSessionThreeToFortyTh
               transport.writes.end());
 }
 
-// The frozen diesel oracle checks the complete serial frame before looking
-// at the security PDU: lines 393-408 of revision 59f4e442 reject a frame of
-// five bytes or fewer as "No valid response from ECU". This catches a
-// regression that would let a stripped, service-only 0x67 frame reach the
-// later seed-payload validation and report the wrong operator record.
-TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecuritySeedFrameUsesTheOracleNoValidResponseRecord)
+// A service-only 0x67 reply carries no seed or key, so it is refused before
+// the payload checks run.
+TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecuritySeedReplyIsRefused)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
     ASSERT_THAT(plan, IsOk());
@@ -991,10 +988,12 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecuritySeedFrameUsesTheOracleNoVa
     EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
     ASSERT_THAT(events.logs, Not(IsEmpty()));
-    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string{"No valid response from ECU"}}));
+    EXPECT_EQ(
+        events.logs.back(),
+        (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: security access reply is too short"}}));
 }
 
-TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyFrameUsesTheOracleNoValidResponseRecord)
+TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyReplyIsRefused)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
     ASSERT_THAT(plan, IsOk());
@@ -1017,14 +1016,13 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyFrameUsesTheOracleNoVal
     EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
     ASSERT_THAT(events.logs, Not(IsEmpty()));
-    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string{"No valid response from ECU"}}));
+    EXPECT_EQ(
+        events.logs.back(),
+        (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: security access reply is too short"}}));
 }
 
-// RequestDownload uses the generic legacy error slice (received.mid(8)),
-// unlike the security requests' mid(4). The literal seven-byte negative
-// frame therefore has no byte at offset eight and must retain the oracle's
-// "Not a valid answer" record rather than the NRC's "Invalid key" text.
-TEST(SubaruDensoSh7058CanDieselExecutor, RequestDownloadNegativeUsesTheGenericOracleErrorSlice)
+// A negative RequestDownload reply is logged with its NRC description.
+TEST(SubaruDensoSh7058CanDieselExecutor, RequestDownloadNegativeLogsTheNrcDescription)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
     ASSERT_THAT(plan, IsOk());
@@ -1043,13 +1041,10 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RequestDownloadNegativeUsesTheGenericOr
     EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
     ASSERT_THAT(events.logs, Not(IsEmpty()));
-    EXPECT_EQ(events.logs.back(),
-              (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: Not a valid answer"}}));
+    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: Invalid key"}}));
 }
 
-// Security negative replies use the separate received.mid(4) oracle slice,
-// so this same NRC remains human-readable for the stock seed request.
-TEST(SubaruDensoSh7058CanDieselExecutor, SecurityNegativeUsesTheSecurityOracleErrorSlice)
+TEST(SubaruDensoSh7058CanDieselExecutor, SecurityNegativeLogsTheNrcDescription)
 {
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
     ASSERT_THAT(plan, IsOk());
@@ -1096,7 +1091,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, MalformedNegativeWrongIdTimeoutAndDisco
          {0x00, 0x00, 0x07, 0xE8, 0x67},
          ErrorKind::kInternal,
          ErrorKind::kBadResponse,
-         "No valid response from ECU"},
+         "Wrong response from ECU: security access reply is too short"},
         {"negative",
          ReplyKind::kFrame,
          {0x00, 0x00, 0x07, 0xE8, 0x7F, 0x27, 0x35},
@@ -1108,7 +1103,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, MalformedNegativeWrongIdTimeoutAndDisco
          {0x00, 0x00, 0x07, 0xE9, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44},
          ErrorKind::kInternal,
          ErrorKind::kBadResponse,
-         "Wrong response from ECU: Not a valid answer"},
+         "Wrong response from ECU: expected CAN reply id 0x7e8, got 0x7e9"},
         {"timeout", ReplyKind::kNoFrame, {}, ErrorKind::kInternal, ErrorKind::kTimeout, "No valid response from ECU"},
         {"disconnect", ReplyKind::kError, {}, ErrorKind::kDisconnected, ErrorKind::kDisconnected, ""},
     }};

@@ -73,104 +73,25 @@ struct Context
     IEventSink& events;
     IClock& clock;
     ICanFlashTransport& transport;
-    std::uint32_t request_id;
-    std::uint32_t response_id;
     uds::UdsClient& uds;
-    CanFlashUdsChannel& channel;
+    uds::IUdsChannel& channel;
     BeefCanSession session;
 };
-
-Result<std::optional<bytes::Bytes>> RawChannelRequestOptional(Context& context, bytes::ByteView pdu,
-                                                              std::chrono::milliseconds timeout,
-                                                              std::chrono::milliseconds delay = 0ms)
-{
-    if (const Status sent = SendChannelRequest(context, pdu, delay); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    // BEEF's legacy operator diagnostics inspect the complete serial frame,
-    // including the CAN envelope, before deciding between the two exact
-    // records.  Do not route this one exchange through the validating UDS
-    // channel, which intentionally strips that evidence.
-    return context.transport.Read(timeout, context.cancellation);
-}
-
-void LogOracleFrameFailure(Context& context, bytes::ByteView frame, std::size_t nrc_offset)
-{
-    if (frame.size() <= nrc_offset)
-    {
-        LogError(context, "No valid response from ECU");
-        return;
-    }
-    LogError(context, std::format("Wrong response from ECU: {}", uds::Describe(frame.subspan(nrc_offset))));
-}
-
-std::size_t StrictOracleNrcOffset(bytes::ByteView request)
-{
-    // Security seed/key records inspect received.mid(4), while every other
-    // strict exchange in connect_bootloader()/upload_kernel() inspects
-    // received.mid(8). Keep this call-site distinction instead of allowing
-    // the UDS NRC decoder to normalize it away.
-    return !request.empty() && request.front() == uds::kSidSecurityAccess ? 4U : 8U;
-}
-
-void LogStrictFrameFailure(Context& context, bytes::ByteView request, bytes::ByteView frame)
-{
-    // Each strict legacy call first checks received.length() > 5. The
-    // diagnostic slice is then independent: a non-security seven-byte
-    // negative frame reaches mid(8), which is empty and deliberately renders
-    // "Not a valid answer" rather than decoding its real NRC at byte four.
-    if (frame.size() <= 5)
-    {
-        LogError(context, "No valid response from ECU");
-        return;
-    }
-    const std::size_t nrc_offset = StrictOracleNrcOffset(request);
-    const bytes::ByteView nrc = frame.size() > nrc_offset ? frame.subspan(nrc_offset) : bytes::ByteView{};
-    LogError(context, std::format("Wrong response from ECU: {}", uds::Describe(nrc)));
-}
-
-void LogStrictFailure(Context& context, bytes::ByteView request, const Error& failure)
-{
-    if (failure.kind == ErrorKind::kTimeout)
-    {
-        LogError(context, "No valid response from ECU");
-        return;
-    }
-    if (failure.kind != ErrorKind::kBadResponse)
-    {
-        return;
-    }
-
-    if (const auto& raw = context.channel.LastReceivedFrame(); raw.has_value())
-    {
-        LogStrictFrameFailure(context, request, *raw);
-        return;
-    }
-
-    std::string detail = failure.detail;
-    if (detail.starts_with("malformed UDS response:") || detail.starts_with("expected CAN reply id") ||
-        detail.starts_with("expected response to SID") || detail.starts_with("unexpected response during") ||
-        detail.starts_with("invalid diesel") || detail.starts_with("short "))
-    {
-        detail = "Not a valid answer";
-    }
-    LogError(context, std::format("Wrong response from ECU: {}", detail));
-}
 
 Result<bytes::Bytes> StrictRequest(Context& context, bytes::ByteView pdu, const uds::ExchangePolicy& policy)
 {
     Result<bytes::Bytes> reply = context.uds.Request(pdu, policy, context.cancellation);
     if (!reply.has_value())
     {
-        LogStrictFailure(context, pdu, reply.error());
+        context.session.LogFailure(reply.error());
         return std::unexpected(reply.error());
     }
-    if (const auto& raw = context.channel.LastReceivedFrame();
-        raw.has_value() && !pdu.empty() && pdu.front() == uds::kSidSecurityAccess && raw->size() <= 5)
+    // A security-access reply with no service payload is refused.
+    if (!pdu.empty() && pdu.front() == uds::kSidSecurityAccess && reply->size() <= 1)
     {
-        LogStrictFrameFailure(context, pdu, *raw);
-        return Fail(ErrorKind::kBadResponse, "strict CAN response is shorter than the legacy minimum");
+        const Error shorter{ErrorKind::kBadResponse, "security access reply is too short"};
+        context.session.LogFailure(shorter);
+        return std::unexpected(shorter);
     }
     return reply;
 }
@@ -186,8 +107,9 @@ Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expe
     const bytes::ByteView payload = uds::Payload(*reply);
     if (payload.size() < expected.size() || !std::equal(expected.begin(), expected.end(), payload.begin()))
     {
-        LogError(context, "Wrong response from ECU: Not a valid answer");
-        return Fail(ErrorKind::kBadResponse, std::format("unexpected response during {}", label));
+        const Error mismatch{ErrorKind::kBadResponse, std::format("unexpected response during {}", label)};
+        context.session.LogFailure(mismatch);
+        return std::unexpected(mismatch);
     }
     return {};
 }
@@ -202,8 +124,9 @@ Status StrictService(Context& context, bytes::ByteView pdu, bytes::Byte expected
     }
     if (reply->empty() || reply->front() != expected_service)
     {
-        LogError(context, "Wrong response from ECU: Not a valid answer");
-        return Fail(ErrorKind::kBadResponse, std::format("unexpected response during {}", label));
+        const Error mismatch{ErrorKind::kBadResponse, std::format("unexpected response during {}", label)};
+        context.session.LogFailure(mismatch);
+        return std::unexpected(mismatch);
     }
     return {};
 }
@@ -217,53 +140,23 @@ Result<bytes::Bytes> SecurityKey(Context&, bytes::ByteView seed)
     return DensoSeedKey(seed);
 }
 
-// A kernel ID reply: the whole CAN frame, kept for failure logs, and its PDU.
-struct KernelIdReply
+// The initial legacy probe continues when the frame is short, malformed, or
+// addressed to another CAN id: those return no reply. The strict post-upload
+// probe fails on them.
+Result<std::optional<bytes::Bytes>> ProbeKernelIdTolerantly(Context& context, bytes::ByteView request,
+                                                            bool *response_received)
 {
-    bytes::Bytes frame;
-    bytes::Bytes pdu;
-};
-
-// Empty when the frame is not addressed from the ECU.
-std::optional<KernelIdReply> SplitEnvelope(const Context& context, bytes::Bytes frame)
-{
-    if (frame.size() < CanFlashUdsChannel::kEnvelopeSize || bytes::ReadU32Be(frame) != context.response_id)
+    Result<std::optional<bytes::Bytes>> reply =
+        ChannelRequestOptional(context, request, kLongTimeout, kKernelProbeDelay);
+    if (!reply.has_value() && reply.error().kind != ErrorKind::kBadResponse)
     {
-        return std::nullopt;
-    }
-    bytes::Bytes pdu(frame.begin() + static_cast<std::ptrdiff_t>(CanFlashUdsChannel::kEnvelopeSize), frame.end());
-    return KernelIdReply{std::move(frame), std::move(pdu)};
-}
-
-// The initial legacy probe reads the raw serial buffer and continues when the
-// frame is short, malformed, or addressed to another CAN id: those return no
-// reply. The strict post-upload probe keeps the validating channel receive.
-Result<std::optional<KernelIdReply>> ProbeKernelIdTolerantly(Context& context, bytes::ByteView request,
-                                                             bool *response_received)
-{
-    if (const Status checkpoint = CancelledIfRequested(context, "cancelled before CAN request");
-        !checkpoint.has_value())
-    {
-        return std::unexpected(checkpoint.error());
-    }
-    if (const Status sent = context.channel.Send(request, context.cancellation); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    if (const Status slept = context.clock.Sleep(kKernelProbeDelay, context.cancellation); !slept.has_value())
-    {
-        return std::unexpected(slept.error());
-    }
-    Result<std::optional<bytes::Bytes>> raw = context.transport.Read(kLongTimeout, context.cancellation);
-    if (!raw.has_value())
-    {
-        if (raw.error().kind == ErrorKind::kCancelled || raw.error().kind == ErrorKind::kDisconnected)
+        if (reply.error().kind == ErrorKind::kCancelled || reply.error().kind == ErrorKind::kDisconnected)
         {
-            return std::unexpected(raw.error());
+            return std::unexpected(reply.error());
         }
         return std::nullopt;
     }
-    if (!raw->has_value())
+    if (reply.has_value() && !reply->has_value())
     {
         return std::nullopt;
     }
@@ -275,43 +168,36 @@ Result<std::optional<KernelIdReply>> ProbeKernelIdTolerantly(Context& context, b
     {
         *response_received = true;
     }
-    const bytes::Bytes frame = **raw;
-    std::optional<KernelIdReply> reply = SplitEnvelope(context, frame);
     if (!reply.has_value())
     {
-        LogOracleFrameFailure(context, frame, 8);
+        context.session.LogFailure(reply.error());
+        return std::nullopt;
     }
     return reply;
 }
 
 // A timeout means no kernel is running; a frame from another CAN id fails.
-Result<std::optional<KernelIdReply>> ProbeKernelIdStrictly(Context& context, bytes::ByteView request,
-                                                           bool *response_received)
+Result<std::optional<bytes::Bytes>> ProbeKernelIdStrictly(Context& context, bytes::ByteView request,
+                                                          bool *response_received)
 {
-    Result<std::optional<bytes::Bytes>> raw =
-        RawChannelRequestOptional(context, request, kLongTimeout, kKernelProbeDelay);
-    if (!raw.has_value())
+    Result<std::optional<bytes::Bytes>> reply =
+        ChannelRequestOptional(context, request, kLongTimeout, kKernelProbeDelay);
+    if (!reply.has_value())
     {
-        if (raw.error().kind == ErrorKind::kTimeout)
+        if (reply.error().kind == ErrorKind::kTimeout)
         {
             return std::nullopt;
         }
-        return std::unexpected(raw.error());
+        if (reply.error().kind == ErrorKind::kBadResponse && response_received != nullptr)
+        {
+            *response_received = true;
+        }
+        context.session.LogFailure(reply.error());
+        return reply;
     }
-    if (!raw->has_value())
-    {
-        return std::nullopt;
-    }
-    if (response_received != nullptr)
+    if (reply->has_value() && response_received != nullptr)
     {
         *response_received = true;
-    }
-    const bytes::Bytes frame = **raw;
-    std::optional<KernelIdReply> reply = SplitEnvelope(context, frame);
-    if (!reply.has_value())
-    {
-        LogOracleFrameFailure(context, frame, 8);
-        return std::unexpected(Error{ErrorKind::kBadResponse, "unexpected CAN response id"});
     }
     return reply;
 }
@@ -323,9 +209,9 @@ Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolera
     // zero bytes are outside the declared BEEF body but are present on the
     // legacy wire and therefore remain literal here.
     const bytes::Bytes request{0xBE, 0xEF, 0x00, 0x01, kKernelId, 0x00, 0x00, 0x00};
-    Result<std::optional<KernelIdReply>> reply = tolerate_malformed
-                                                     ? ProbeKernelIdTolerantly(context, request, response_received)
-                                                     : ProbeKernelIdStrictly(context, request, response_received);
+    Result<std::optional<bytes::Bytes>> reply = tolerate_malformed
+                                                    ? ProbeKernelIdTolerantly(context, request, response_received)
+                                                    : ProbeKernelIdStrictly(context, request, response_received);
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
@@ -334,21 +220,19 @@ Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolera
     {
         return std::optional<std::string>{};
     }
-    Result<BeefMessage> parsed = ParseBeef((*reply)->pdu);
+    Result<BeefMessage> parsed = ParseBeef(**reply);
     if (parsed.has_value() && parsed->opcode == static_cast<bytes::Byte>(kKernelId | 0x40U))
     {
         return std::optional<std::string>{std::string(parsed->payload.begin(), parsed->payload.end())};
     }
-    LogOracleFrameFailure(context, (*reply)->frame, 8);
+    const Error failure =
+        parsed.has_value() ? Error{ErrorKind::kBadResponse, "unexpected kernel ID response opcode"} : parsed.error();
+    context.session.LogFailure(failure);
     if (tolerate_malformed)
     {
         return std::optional<std::string>{};
     }
-    if (!parsed.has_value())
-    {
-        return std::unexpected(parsed.error());
-    }
-    return Fail(ErrorKind::kBadResponse, "unexpected kernel ID response opcode");
+    return std::unexpected(failure);
 }
 
 // Logs the ECU's identity; a read prefixes the CAL ID to the image name.
@@ -596,8 +480,6 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::Run(const Subar
         events,
         clock,
         transport,
-        family.request_id,
-        family.response_id,
         uds_client,
         channel,
         BeefCanSession(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanDieselBeefProfile)};

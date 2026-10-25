@@ -37,6 +37,11 @@ class BeefCanSession
     // only cancellation or a disconnect aborts.
     Result<std::optional<bytes::Bytes>> NonfatalQuery(bytes::ByteView pdu);
 
+    // Logs why a strict exchange failed: a timeout is "No valid response", a
+    // bad reply names the device and the error detail, anything else is
+    // silent (the caller returns it).
+    void LogFailure(const Error& failure);
+
     // A BEEF request whose reply must carry `opcode | 0x40` and at least
     // `minimum_payload` payload bytes; returns that payload. Failures are
     // returned, not logged.
