@@ -51,6 +51,7 @@ namespace
 {
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::Each;
 using ::testing::Eq;
@@ -59,6 +60,7 @@ using ::testing::IsSupersetOf;
 using ::testing::Not;
 using ::testing::Optional;
 using ::testing::Pair;
+using ::testing::StrEq;
 
 struct DieselVariant
 {
@@ -1289,19 +1291,22 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProprietaryReadRejectsMalformedWrongOpc
         ReplyKind kind;
         bytes::Bytes reply;
         ErrorKind expected;
+        std::string_view detail;
     };
     const std::array<ErrorCase, 4> cases{{
         {"malformed-length",
          ReplyKind::kFrame,
          {0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x05, 0x43, 0x00},
-         ErrorKind::kBadResponse},
+         ErrorKind::kBadResponse,
+         "invalid BEEF response length"},
         {"wrong-opcode", ReplyKind::kFrame, BeefResponse(0x44, bytes::Bytes(kReadPageSize, bytes::Byte{0})),
-         ErrorKind::kBadResponse},
+         ErrorKind::kBadResponse, "unexpected BEEF response opcode 0x44, expected 0x43"},
         {"wrong-id",
          ReplyKind::kFrame,
          {0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x43},
-         ErrorKind::kBadResponse},
-        {"timeout", ReplyKind::kNoFrame, {}, ErrorKind::kTimeout},
+         ErrorKind::kBadResponse,
+         "expected CAN reply id 0x7e8, got 0x7e9"},
+        {"timeout", ReplyKind::kNoFrame, {}, ErrorKind::kTimeout, "no CAN response within the read timeout"},
     }};
     for (const ErrorCase& test_case : cases)
     {
@@ -1328,7 +1333,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProprietaryReadRejectsMalformedWrongOpc
 
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-        EXPECT_THAT(result, IsErr(test_case.expected));
+        EXPECT_THAT(result, IsErrWith(test_case.expected, StrEq(std::string{test_case.detail})));
         // The session's exchange returns the failure and logs nothing.
         EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kError, _))));
         EXPECT_TRUE(transport.ScriptConsumed());
