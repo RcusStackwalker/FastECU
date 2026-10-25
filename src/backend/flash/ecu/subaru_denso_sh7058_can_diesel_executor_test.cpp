@@ -56,6 +56,7 @@ using ::testing::Eq;
 using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::Optional;
+using ::testing::Pair;
 
 struct DieselVariant
 {
@@ -1277,22 +1278,19 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProprietaryReadRejectsMalformedWrongOpc
         ReplyKind kind;
         bytes::Bytes reply;
         ErrorKind expected;
-        std::string_view operator_record;
     };
     const std::array<ErrorCase, 4> cases{{
         {"malformed-length",
          ReplyKind::kFrame,
          {0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x05, 0x43, 0x00},
-         ErrorKind::kBadResponse,
-         "Wrong response from ECU: Not a valid answer"},
+         ErrorKind::kBadResponse},
         {"wrong-opcode", ReplyKind::kFrame, BeefResponse(0x44, bytes::Bytes(kReadPageSize, bytes::Byte{0})),
-         ErrorKind::kBadResponse, "Wrong response from ECU: Not a valid answer"},
+         ErrorKind::kBadResponse},
         {"wrong-id",
          ReplyKind::kFrame,
          {0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x43},
-         ErrorKind::kBadResponse,
-         "Wrong response from ECU: Not a valid answer"},
-        {"timeout", ReplyKind::kNoFrame, {}, ErrorKind::kTimeout, "No valid response from ECU"},
+         ErrorKind::kBadResponse},
+        {"timeout", ReplyKind::kNoFrame, {}, ErrorKind::kTimeout},
     }};
     for (const ErrorCase& test_case : cases)
     {
@@ -1320,7 +1318,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProprietaryReadRejectsMalformedWrongOpc
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(test_case.expected));
-        EXPECT_TRUE(HasExactLog(events, LogLevel::kError, test_case.operator_record));
+        // The session's exchange returns the failure and logs nothing.
+        EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kError, _))));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
 }

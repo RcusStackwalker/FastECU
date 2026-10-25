@@ -4,25 +4,21 @@
 #include <chrono>
 #include <cstdint>
 #include <format>
-#include <iterator>
-#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
-#include <vector>
 
-#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/beef_can_session.h"
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
-#include "src/backend/flash/transfer_progress.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
 // Every exchange below is transcribed from revision 59f4e442 of
@@ -57,7 +53,6 @@ constexpr std::chrono::milliseconds kKernelTransferTimeout = kMediumTimeout;
 constexpr std::size_t kKernelUploadBlockSize = 128;
 
 constexpr bytes::Byte kKernelId = 0x01;
-constexpr bytes::Byte kKernelCrc = 0x02;
 
 constexpr uds::ExchangePolicy kStrictPolicy{
     .pre_read_delay = kExtraShortTimeout,
@@ -82,6 +77,7 @@ struct Context
     std::uint32_t response_id;
     uds::UdsClient& uds;
     CanFlashUdsChannel& channel;
+    BeefCanSession session;
 };
 
 Result<std::optional<bytes::Bytes>> RawChannelRequestOptional(Context& context, bytes::ByteView pdu,
@@ -107,85 +103,6 @@ void LogOracleFrameFailure(Context& context, bytes::ByteView frame, std::size_t 
         return;
     }
     LogError(context, std::format("Wrong response from ECU: {}", uds::Describe(frame.subspan(nrc_offset))));
-}
-
-Result<bytes::Bytes> BeefExchange(Context& context, bytes::Byte opcode, bytes::ByteView payload,
-                                  std::size_t minimum_payload, std::chrono::milliseconds timeout)
-{
-    Result<std::optional<bytes::Bytes>> received =
-        RawChannelRequestOptional(context, BeefRequest(opcode, payload), timeout);
-    if (!received.has_value())
-    {
-        if (received.error().kind != ErrorKind::kCancelled && received.error().kind != ErrorKind::kDisconnected)
-        {
-            LogError(context, "No valid response from ECU");
-        }
-        return std::unexpected(received.error());
-    }
-    if (!received->has_value())
-    {
-        LogError(context, "No valid response from ECU");
-        return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
-    }
-
-    const bytes::Bytes& frame = **received;
-    if (frame.size() < CanFlashUdsChannel::kEnvelopeSize)
-    {
-        LogOracleFrameFailure(context, frame, 8);
-        return Fail(ErrorKind::kBadResponse, "CAN frame is shorter than its envelope");
-    }
-    if (bytes::ReadU32Be(frame) != context.response_id)
-    {
-        LogOracleFrameFailure(context, frame, 8);
-        return Fail(ErrorKind::kBadResponse, "unexpected CAN response id");
-    }
-
-    Result<BeefMessage> parsed = ParseBeef(bytes::ByteView(frame).subspan(CanFlashUdsChannel::kEnvelopeSize));
-    if (!parsed.has_value())
-    {
-        LogOracleFrameFailure(context, frame, 8);
-        return std::unexpected(parsed.error());
-    }
-    const bytes::Byte expected = static_cast<bytes::Byte>(opcode | 0x40U);
-    if (parsed->opcode != expected)
-    {
-        LogOracleFrameFailure(context, frame, 8);
-        return Fail(ErrorKind::kBadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
-                                                         parsed->opcode, expected));
-    }
-    if (parsed->payload.size() < minimum_payload)
-    {
-        LogOracleFrameFailure(context, frame, 8);
-        return Fail(ErrorKind::kBadResponse, "short BEEF response payload");
-    }
-    return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
-}
-
-Result<std::optional<bytes::Bytes>> NonfatalQuery(Context& context, bytes::ByteView pdu)
-{
-    Result<std::optional<bytes::Bytes>> received =
-        ChannelRequestOptional(context, pdu, kReadTimeout, kExtraShortTimeout);
-    if (!received.has_value())
-    {
-        if (received.error().kind == ErrorKind::kCancelled || received.error().kind == ErrorKind::kDisconnected)
-        {
-            return std::unexpected(received.error());
-        }
-        if (received.error().kind == ErrorKind::kTimeout)
-        {
-            LogError(context, "No valid response from ECU");
-        }
-        else
-        {
-            LogError(context, "Wrong response from ECU: Not a valid answer");
-        }
-        return std::optional<bytes::Bytes>{};
-    }
-    if (!received->has_value())
-    {
-        LogError(context, "No valid response from ECU");
-    }
-    return received;
 }
 
 std::size_t StrictOracleNrcOffset(bytes::ByteView request)
@@ -434,120 +351,23 @@ Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolera
     return Fail(ErrorKind::kBadResponse, "unexpected kernel ID response opcode");
 }
 
-Result<std::optional<std::string>> IdentityString(Context& context, bytes::ByteView request, bytes::Byte first,
-                                                  bytes::Byte second, std::string_view label)
-{
-    Result<std::optional<bytes::Bytes>> reply = NonfatalQuery(context, request);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    if (!reply->has_value())
-    {
-        return std::optional<std::string>{};
-    }
-    const bytes::Bytes& pdu = **reply;
-    if (pdu.size() < 3 || pdu[0] != first || pdu[1] != second)
-    {
-        LogError(context, std::format("Wrong response from ECU: {}", uds::Describe(pdu)));
-        return std::optional<std::string>{};
-    }
-    const std::string value(pdu.begin() + 3, pdu.end());
-    LogInfo(context, std::format("{}: {}", label, value));
-    return std::optional<std::string>{value};
-}
-
-Result<bool> RequestSession(Context& context, bytes::Byte subfunction)
-{
-    Result<std::optional<bytes::Bytes>> reply =
-        NonfatalQuery(context, bytes::Bytes{uds::kSidDiagnosticSessionControl, subfunction});
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    if (!reply->has_value())
-    {
-        return false;
-    }
-    const bytes::Bytes& pdu = **reply;
-    if (pdu.size() >= 2 && pdu[0] == 0x50 && pdu[1] == subfunction)
-    {
-        return true;
-    }
-    LogError(context, std::format("Wrong response from ECU: {}", uds::Describe(pdu)));
-    return false;
-}
-
-// A read names its image after the ECU ID.
-Status RequestEcuId(Context& context, bool read_operation, std::optional<std::string>& rom_id)
-{
-    LogInfo(context, "Requesting ECU ID");
-    Result<std::optional<bytes::Bytes>> ecu_reply = NonfatalQuery(context, bytes::Bytes{0xAA});
-    if (!ecu_reply.has_value())
-    {
-        return std::unexpected(ecu_reply.error());
-    }
-    if (!ecu_reply->has_value())
-    {
-        return {};
-    }
-    const bytes::Bytes& pdu = **ecu_reply;
-    if (pdu.size() < 9 || pdu[0] != 0xEA)
-    {
-        LogError(context, std::format("Wrong response from ECU: {}", uds::Describe(pdu)));
-        return {};
-    }
-    const std::string ecu_id = std::format("{:02X}{:02X}{:02X}{:02X}{:02X}", pdu[4], pdu[5], pdu[6], pdu[7], pdu[8]);
-    LogInfo(context, std::format("ECU ID: {}", ecu_id));
-    if (read_operation)
-    {
-        rom_id = ecu_id + "_";
-    }
-    return {};
-}
-
-Status RequestCvn(Context& context)
-{
-    LogInfo(context, "Requesting CVN");
-    Result<std::optional<bytes::Bytes>> cvn_reply =
-        NonfatalQuery(context, bytes::Bytes{uds::kSidVehicleInfoRequest, 0x06});
-    if (!cvn_reply.has_value())
-    {
-        return std::unexpected(cvn_reply.error());
-    }
-    if (!cvn_reply->has_value())
-    {
-        return {};
-    }
-    const bytes::Bytes& pdu = **cvn_reply;
-    if (pdu.size() >= 3 && pdu[0] == 0x49 && pdu[1] == 0x06)
-    {
-        LogInfo(context, std::format("CVN: {}", UppercaseHexCompact(bytes::ByteView(pdu).subspan(3))));
-    }
-    else
-    {
-        LogError(context, std::format("Wrong response from ECU: {}", uds::Describe(pdu)));
-    }
-    return {};
-}
-
 // Logs the ECU's identity; a read prefixes the CAL ID to the image name.
 Status RequestIdentity(Context& context, bool read_operation, std::optional<std::string>& rom_id)
 {
-    if (Status ecu_id = RequestEcuId(context, read_operation, rom_id); !ecu_id.has_value())
+    if (Status ecu_id = context.session.RequestEcuId(read_operation, rom_id); !ecu_id.has_value())
     {
         return ecu_id;
     }
     LogInfo(context, "Requesting VIN");
     Result<std::optional<std::string>> vin =
-        IdentityString(context, bytes::Bytes{uds::kSidVehicleInfoRequest, 0x02}, 0x49, 0x02, "VIN");
+        context.session.IdentityString(bytes::Bytes{uds::kSidVehicleInfoRequest, 0x02}, 0x49, 0x02, "VIN");
     if (!vin.has_value())
     {
         return std::unexpected(vin.error());
     }
     LogInfo(context, "Requesting CAL ID");
-    Result<std::optional<std::string>> cal_id = IdentityString(
-        context, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId}, 0x49, 0x04, "CAL ID");
+    Result<std::optional<std::string>> cal_id = context.session.IdentityString(
+        bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId}, 0x49, 0x04, "CAL ID");
     if (!cal_id.has_value())
     {
         return std::unexpected(cal_id.error());
@@ -556,7 +376,7 @@ Status RequestIdentity(Context& context, bool read_operation, std::optional<std:
     {
         rom_id = **cal_id + "_" + rom_id.value_or(std::string{});
     }
-    return RequestCvn(context);
+    return context.session.RequestCvn();
 }
 
 Status UnlockSecurity(Context& context)
@@ -649,12 +469,12 @@ Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_ali
     }
 
     LogInfo(context, "Requesting session mode");
-    Result<bool> connected_03 = RequestSession(context, 0x03);
+    Result<bool> connected_03 = context.session.RequestSession(0x03);
     if (!connected_03.has_value())
     {
         return std::unexpected(connected_03.error());
     }
-    Result<bool> connected_43 = RequestSession(context, 0x43);
+    Result<bool> connected_43 = context.session.RequestSession(0x43);
     if (!connected_43.has_value())
     {
         return std::unexpected(connected_43.error());
@@ -734,36 +554,7 @@ auto Exchanger(Context& context)
 {
     return [&context](bytes::Byte opcode, bytes::ByteView payload, std::size_t minimum_payload,
                       std::chrono::milliseconds timeout)
-    { return BeefExchange(context, opcode, payload, minimum_payload, timeout); };
-}
-
-Result<std::uint32_t> QueryCrc(Context& context, const MemoryRegion& block)
-{
-    return QueryBeefCrc(context, block, [&](bytes::ByteView payload)
-                        { return BeefExchange(context, kKernelCrc, payload, 4, kExtraLongTimeout); });
-}
-
-Result<CompareResult> CompareBlocks(Context& context, const FlashPlan& plan, bytes::ByteView image,
-                                    PhaseReporter *progress, bool after_reflash = false)
-{
-    return CompareBeefBlocks(context, plan.EraseRegions(), plan.TransferRegion().start, image, progress, after_reflash,
-                             "diesel", [&](const MemoryRegion& block) { return QueryCrc(context, block); });
-}
-
-Status InitializeFlash(Context& context, bool test_write)
-{
-    return InitializeBeefFlash(context, test_write, false, [&](bytes::Byte opcode, std::size_t minimum_payload)
-                               { return BeefExchange(context, opcode, {}, minimum_payload, kMediumTimeout); });
-}
-
-Status WriteMemory(Context& context, const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress)
-{
-    return WriteBeefMemory(
-        context, plan.ImageOrEmpty(), plan.TransferRegion().start, plan.EraseRegions(),
-        plan.Operation() == FlashOperation::kTestWrite, phases, compare_progress, "diesel", Exchanger(context),
-        [&](PhaseReporter *progress, bool after_reflash)
-        { return CompareBlocks(context, plan, plan.ImageOrEmpty(), progress, after_reflash); },
-        [&](bool test_write) { return InitializeFlash(context, test_write); });
+    { return context.session.Exchange(opcode, payload, minimum_payload, timeout); };
 }
 
 } // namespace
@@ -800,7 +591,16 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::Run(const Subar
 {
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
-    Context context{cancellation, events, clock, transport, family.request_id, family.response_id, uds_client, channel};
+    Context context{
+        cancellation,
+        events,
+        clock,
+        transport,
+        family.request_id,
+        family.response_id,
+        uds_client,
+        channel,
+        BeefCanSession(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanDieselBeefProfile)};
 
     const bool read_operation = plan.Operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read_operation ? 2 : 4);
@@ -842,7 +642,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::Run(const Subar
     events.Notice("Writing ROM, please wait...");
     LogInfo(context, "Writing ROM to Subaru 07+ Diesel 32-bit using CAN");
     PhaseReporter compare_phase = phases.Start("Compare", static_cast<int>(plan.EraseRegions().size()));
-    if (const Status written = WriteMemory(context, plan, phases, compare_phase); !written.has_value())
+    if (const Status written = context.session.WriteMemory(plan, phases, compare_phase); !written.has_value())
     {
         return std::unexpected(written.error());
     }
