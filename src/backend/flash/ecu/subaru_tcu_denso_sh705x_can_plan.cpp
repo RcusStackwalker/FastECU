@@ -157,25 +157,16 @@ Result<FlashPlan> BuildSubaruTcuDensoSh705xCanPlan(FlashOperation operation, std
     {
         return Fail(ErrorKind::kInvalidConfig, "TCU catalog does not match the flash device table");
     }
-    Result<FlashPlanFields> fields = detail::WholeRomKernelPlanFields<128>(
-        operation, protocol_name, mcu_type, std::move(image), std::move(kernel), entry->kernel_load_address, *device);
-    if (!fields.has_value())
-    {
-        return std::unexpected(fields.error());
-    }
-    fields->family = FlashFamily::kSubaruTcuDensoSh705xCan;
-    fields->transport = TransportKind::kCanIso15765;
-    fields->family_plan = WireParameters();
-    Result<FlashPlan> plan = ValidateAndBuild(std::move(*fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (Status valid = ValidateSubaruTcuDensoSh705xCanPlan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return detail::BuildWholeRomKernelPlan<128>(
+        {
+            .operation = operation,
+            .family = FlashFamily::kSubaruTcuDensoSh705xCan,
+            .transport = TransportKind::kCanIso15765,
+            .target_id = std::string(protocol_name),
+            .mcu_name = std::string(mcu_type),
+            .family_plan = WireParameters(),
+        },
+        std::move(image), std::move(kernel), entry->kernel_load_address, *device, ValidateSubaruTcuDensoSh705xCanPlan);
 }
 
 } // namespace fastecu::flash

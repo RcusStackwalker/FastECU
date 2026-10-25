@@ -139,25 +139,16 @@ Result<FlashPlan> BuildSubaruDensoSh7058CanPlan(FlashOperation operation, std::s
     {
         return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 catalog does not match the flash device table");
     }
-    Result<FlashPlanFields> fields = detail::WholeRomKernelPlanFields<128>(
-        operation, protocol_name, mcu_type, std::move(image), std::move(kernel), kKernelLoadAddress, *device);
-    if (!fields.has_value())
-    {
-        return std::unexpected(fields.error());
-    }
-    fields->family = FlashFamily::kSubaruDensoSh7058Can;
-    fields->transport = TransportKind::kCanIso15765;
-    fields->family_plan = SubaruDensoSh7058CanPlan{.security = entry->security};
-    Result<FlashPlan> plan = ValidateAndBuild(std::move(*fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh7058CanPlan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return detail::BuildWholeRomKernelPlan<128>(
+        {
+            .operation = operation,
+            .family = FlashFamily::kSubaruDensoSh7058Can,
+            .transport = TransportKind::kCanIso15765,
+            .target_id = std::string(protocol_name),
+            .mcu_name = std::string(mcu_type),
+            .family_plan = SubaruDensoSh7058CanPlan{.security = entry->security},
+        },
+        std::move(image), std::move(kernel), kKernelLoadAddress, *device, ValidateSubaruDensoSh7058CanPlan);
 }
 
 } // namespace fastecu::flash

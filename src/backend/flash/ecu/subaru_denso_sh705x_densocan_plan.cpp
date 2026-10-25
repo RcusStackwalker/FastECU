@@ -140,26 +140,18 @@ Result<FlashPlan> BuildSubaruDensoSh705xDensocanPlan(FlashOperation operation, s
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN catalog does not match the flash device table");
     }
-    Result<FlashPlanFields> fields = detail::WholeRomKernelPlanFields<6>(
-        operation, protocol_name, mcu_type, std::move(image), std::move(kernel), entry->kernel_load_address, *device);
-    if (!fields.has_value())
-    {
-        return std::unexpected(fields.error());
-    }
-    fields->family = FlashFamily::kSubaruDensoSh705xDensoCan;
-    fields->transport = TransportKind::kCanRawIso15765;
-    fields->family_plan = WireParameters();
-    fields->confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}};
-    Result<FlashPlan> plan = ValidateAndBuild(std::move(*fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705xDensocanPlan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return detail::BuildWholeRomKernelPlan<6>(
+        {
+            .operation = operation,
+            .family = FlashFamily::kSubaruDensoSh705xDensoCan,
+            .transport = TransportKind::kCanRawIso15765,
+            .target_id = std::string(protocol_name),
+            .mcu_name = std::string(mcu_type),
+            .family_plan = WireParameters(),
+            .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}},
+        },
+        std::move(image), std::move(kernel), entry->kernel_load_address, *device,
+        ValidateSubaruDensoSh705xDensocanPlan);
 }
 
 } // namespace fastecu::flash

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "src/backend/flash/flash_plan.h"
+#include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/ports/result.h"
 
@@ -58,17 +59,18 @@ Status ValidateRegions(const FlashPlan& plan, const FlashDevice& device);
 bool EraseGeometryMatches(std::span<const MemoryRegion> regions, const FlashDevice& device);
 std::vector<MemoryRegion> MakeEraseRegions(const FlashDevice& device);
 
-// The plan fields a kernel-loaded whole-ROM family's builder shares, for a
-// device the caller has already validated: the kernel must fit the device's
-// kernel region from `kernel_load_address`, a read carries no image, any
-// other operation carries exactly one whole-ROM image and erases every flash
-// block, and the transfer covers the whole ROM. The caller adds its family,
-// transport, wire parameters and confirmations.
+// Builds a kernel-loaded whole-ROM family's plan on a device the caller has
+// already validated. The caller's `fields` carry the family's identity:
+// operation, family, transport, target, MCU, wire parameters and
+// confirmations. This adds the rest: the kernel must fit the device's kernel
+// region from `kernel_load_address`, a read carries no image, any other
+// operation carries exactly one whole-ROM image and erases every flash block,
+// and the transfer covers the whole ROM. The built plan must then pass the
+// family's own `validate`.
 template <std::uint64_t KernelBlockSize>
-Result<FlashPlanFields> WholeRomKernelPlanFields(FlashOperation operation, std::string_view protocol_name,
-                                                 std::string_view mcu_type, std::optional<bytes::Bytes> image,
-                                                 KernelImage kernel, std::uint32_t kernel_load_address,
-                                                 const FlashDevice& device)
+Result<FlashPlan> BuildWholeRomKernelPlan(FlashPlanFields fields, std::optional<bytes::Bytes> image, KernelImage kernel,
+                                          std::uint32_t kernel_load_address, const FlashDevice& device,
+                                          Status (*validate)(const FlashPlan&))
 {
     if (Status upload = ValidateKernelUpload<KernelBlockSize>(kernel.bytes.size(), kernel.load_address,
                                                               kernel_load_address, device.kblocks[0]);
@@ -76,7 +78,7 @@ Result<FlashPlanFields> WholeRomKernelPlanFields(FlashOperation operation, std::
     {
         return std::unexpected(upload.error());
     }
-    const bool reading = operation == FlashOperation::kRead;
+    const bool reading = fields.operation == FlashOperation::kRead;
     if (reading && image.has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, "read plans must not carry an image");
@@ -85,14 +87,22 @@ Result<FlashPlanFields> WholeRomKernelPlanFields(FlashOperation operation, std::
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
     }
-    return FlashPlanFields{
-        .operation = operation,
-        .target_id = std::string(protocol_name),
-        .mcu_name = std::string(mcu_type),
-        .transfer_region = {device.fblocks[0].start, device.romsize},
-        .erase_regions = reading ? std::vector<MemoryRegion>{} : MakeEraseRegions(device),
-        .image = reading ? std::nullopt : std::move(image),
-        .kernel = std::move(kernel),
-    };
+    fields.transfer_region = {device.fblocks[0].start, device.romsize};
+    if (!reading)
+    {
+        fields.erase_regions = MakeEraseRegions(device);
+        fields.image = std::move(image);
+    }
+    fields.kernel = std::move(kernel);
+    Result<FlashPlan> plan = ValidateAndBuild(std::move(fields));
+    if (!plan.has_value())
+    {
+        return plan;
+    }
+    if (Status valid = validate(*plan); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    return plan;
 }
 } // namespace fastecu::flash::detail

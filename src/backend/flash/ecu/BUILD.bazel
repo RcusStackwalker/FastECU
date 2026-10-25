@@ -1909,6 +1909,7 @@ cc_library(
     visibility = ["//visibility:private"],
     deps = [
         "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
         "//src/backend/flash/kernel:memory_models",
         "//src/backend/ports",
     ],
