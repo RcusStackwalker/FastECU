@@ -40,6 +40,7 @@ is an ADR.
 | [0026](0026-extend-fuzzing-to-backend-parsers-and-persist-the-corpus.md) | Fuzzing extends to backend parsers and the scheduled corpus is persisted |
 | [0027](0027-use-native-bazel-coverage-for-sonar.md) | Sonar coverage comes from native `bazel coverage`, with a Bazel-pinned scanner |
 | [0028](0028-raise-first-party-warnings-one-flag-at-a-time.md) | First-party warnings are raised one flag at a time, with no source-level suppressions |
+| [0029](0029-lower-nloc-with-sonar-nominated-right-sized-abstractions.md) | SonarCloud duplication nominates, NLOC measures, and each loop step is one right-sized abstraction |
 
 ## Retired numbers
 
@@ -56,4 +57,4 @@ and the numbers are not reused. Their rationale is in Git history.
 | 0013 | `bytes::composeBe` for wire frames | Bytes and wire frames |
 | 0014 | `.has_value()` over implicit `operator bool` | Error handling |
 
-The next new ADR is 0029.
+The next new ADR is 0030.

@@ -176,3 +176,20 @@ _Avoid_: Our code, internal code
 The per-compiler collection of warnings enabled for all first-party code, on top
 of the compiler's default level. Any warning in it fails the build.
 _Avoid_: Warning level, lint rules
+
+**Duplication group**:
+A set of places in production code that SonarCloud reports as copies of one
+fragment. It nominates where to look; it is not itself a reason to share code.
+_Avoid_: Cluster, clone
+
+**Right-sized abstraction**:
+A shared unit, named in domain language, whose interface is smaller than what it
+hides, that every caller uses whole and that shares only behavior proven
+equivalent on the wire. Removing duplication is its occasion; lowering NLOC is
+its measure.
+_Avoid_: Helper, common code, utility
+
+**Unsuitable group**:
+A duplication group judged, by reading alone, to have no right-sized
+abstraction, usually because the copies legitimately differ by family.
+_Avoid_: False positive, noise

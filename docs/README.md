@@ -25,7 +25,7 @@ links as needed; the index is navigation, not a required reading list.
 | [Domain language](../GLOSSARY.md) | Calibration, terminal-script, and logging domain terms |
 | [Focused references](reference/) | Detailed compatibility contracts and bounded domain evidence |
 | [Coding style](coding-style.md) | Writing/testing conventions |
-| [Tooling](tooling.md) | Running static analysis, mutation testing, fuzzing, and the NLOC hill-climbing loop locally and in CI |
+| [Tooling](tooling.md) | Running static analysis, mutation testing, fuzzing, and the Sonar dedup loop locally and in CI |
 | [ADRs](adr/README.md) | Structural decisions, historical context, and supersession |
 | [Technical debt](tech-debt.md) | Unresolved defects and cleanup actions |
 | [Modularization plan](modularization-plan.md) | Remaining Android milestones and exit criteria |

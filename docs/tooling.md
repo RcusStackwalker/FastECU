@@ -1,7 +1,7 @@
 # Tooling
 
-How to run the static-analysis, mutation and fuzzing checks and the NLOC
-hill-climbing loop locally, and how CI runs them. The rules they enforce live in the [coding style guide](coding-style.md).
+How to run the static-analysis, mutation and fuzzing checks and the Sonar
+dedup loop locally, and how CI runs them. The rules they enforce live in the [coding style guide](coding-style.md).
 
 ## Build code generation
 
@@ -365,101 +365,49 @@ Experiment results and qualification evidence are recorded in
 For executor-level profiling, see the
 [flash executor performance investigation](reference/executor-test-performance.md).
 
-## NLOC hill-climbing loop
+## Sonar dedup loop
 
-The decision is [ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md).
-An agent runs it with `/loop /hill-climbing-nloc`: each iteration of the
-[project skill](../.claude/skills/hill-climbing-nloc/SKILL.md) settles the
-open loop PR or produces the next one with the commands below.
+The decision is [ADR 0029](adr/0029-lower-nloc-with-sonar-nominated-right-sized-abstractions.md);
+the design is the [spec](superpowers/specs/2026-10-25-sonar-dedup-loop-design.md).
+SonarCloud's duplication groups nominate where to look, and first-party NLOC
+measures each step.
 
-```sh
-python3 scripts/nloc_loop.py measure            # total, production and test NLOC
-python3 scripts/nloc_loop.py candidates         # ranked duplicate-cluster queue
-python3 scripts/nloc_loop.py guards snapshot    # test cases and coverage of HEAD
-python3 scripts/nloc_loop.py guards check --kind test-only   # HEAD against its base
-python3 scripts/nloc_loop.py ledger record <cluster> failed --reason mutation
-python3 scripts/nloc_loop.py ledger list        # attempts and the streak of failed ones
-python3 scripts/nloc_loop.py trend --pr <n> --kind test-only --before <base NLOC>
+An agent runs it with `/goal run /sonar-dedup-loop iterations until it prints
+DONE` (or `/loop /sonar-dedup-loop`): each iteration of the
+[project skill](../.claude/skills/sonar-dedup-loop/SKILL.md) settles the open
+`sonar-dedup` PR or opens the next one.
+
+```bash
+python3 scripts/dedup_loop.py measure            # total, production and test NLOC
+python3 scripts/dedup_loop.py measure --json
+python3 scripts/dedup_loop.py candidates         # ranked duplication groups from SonarCloud
+python3 scripts/dedup_loop.py fresh              # exit 0 when master's analysis is of origin/master
+python3 scripts/dedup_loop.py ledger record <id> unsuitable --members-json '[["path", "fn"]]' --reason "..."
+python3 scripts/dedup_loop.py ledger list        # judgments, attempts, and the failure streak
+python3 scripts/dedup_loop.py trend add --pr <n> --before <NLOC> --dup-before <lines>
+python3 scripts/dedup_loop.py trend fill-after   # master's duplicated_lines after the last merge
+python3 scripts/dedup_loop.py verdict --pr <n> --nloc-before <N> --nloc-after <N> \
+    --changed-file <names> --mutation-reports <dir>
 ```
 
-`measure` runs the manual-stage `nloc` prek hook, which shares the `lizard`
-hook's pinned dependencies and excludes. A file is test code when it is under
-`tests/`, `testing/` or `testdata/`, or its name starts with `tst_` or contains
-`_test.` or `_test_`.
+NLOC is Lizard's count over `src/`, `apps/` and `tests/`, from the manual-stage
+`nloc` prek hook. `candidates` reads master's last SonarCloud analysis (public
+API, no token), keys each group by the functions it occupies (the manual-stage
+`nloc-functions` hook), drops blocks the checkout no longer has, and skips
+groups the [ledger](reference/sonar-dedup-ledger.json) has settled or whose
+files an open non-loop PR touches. Master is analysed only on release, so the
+list can be stale. The [trend](reference/dedup-trend.csv) records NLOC and
+master's duplicated lines per loop PR.
 
-`candidates` runs the manual-stage `jscpd` prek hook (settings in
-`.jscpd.json`; its ignore list mirrors `sonar.cpd.exclusions`) and a Bazel
-`cquery` for the sources that build on the host. Duplicate pairs that share a
-fragment, or overlap within a file, form one cluster; transitive links can
-join fragments that are only similar to their neighbours, so read the
-occurrences before choosing an abstraction. Occurrences in files that do not
-build on the host are dropped, as are clusters saving fewer than 50 NLOC and
-clusters already in the ledger. Test-only clusters are listed first, each kind
-by estimated savings. The cluster ID is stable across line shifts.
-
-`ledger record` takes `open`, `merged`, `closed`, `failed` (a guard failed after
-the work was done), `unsuitable` (judged by reading, before any work) and the
-older `rejected`, which counts as `failed`. The streak that stops the loop
-counts trailing failed attempts; an unsuitable cluster costs no work, so it
-neither counts nor breaks the streak.
-
-`trend` measures the working tree and appends a row to
-`docs/reference/nloc-trend.csv`; run it on the loop PR's branch before merge.
-
-`guards snapshot` runs `bazel coverage --config=coverage //...` and records the
-clean HEAD's executed test cases (from each test's `test.xml`, found through the
-build event file `.nloc-loop/coverage/bep.json`; skipped and disabled cases
-excluded) and per-file covered lines from the combined lcov report in
-`.nloc-loop/snapshots/<commit>.json`. Test results are cached, so a retake only
-reruns the tests the commit affects. A failing test fails the snapshot. Take
-one on the base (the merge-base with `origin/master`) before branching and one
-on the loop PR's HEAD; `guards check` compares them and exits 1 when a guard
-fails:
-
-- Both kinds: executed test cases do not drop.
-- Test-only: no production file changed, and every production line covered
-  on the base is still covered.
-- Production, judged on lines rather than per-file ratios (a ratio punishes
-  moving well-covered code into a shared file; ADR 0023):
-  - *unchanged lines stay covered*: a line a changed production file shares
-    with the base (mapped through `git diff -U0`) and the base covered is still
-    covered;
-  - *uncovered lines not added*: the executable lines the PR adds that no test
-    runs (new files included) do not outnumber the uncovered lines it deletes.
-    Moving code keeps the count equal; adding code needs its own tests.
-
-  Snapshots taken before the guards tracked uncovered lines are rejected with a
-  request to re-run `guards snapshot`.
-
-The mutation guards run in CI ([ADR 0023](adr/0023-hill-climb-nloc-with-kind-specific-guards.md))
-on PRs labelled `nloc-loop`, through the [`nloc-loop` workflow](../.github/workflows/nloc-loop.yml).
-`pr-kind` derives the kind from the changed files; the PR title does not
-decide it. A test-only PR's base and head each run Mull in six shards over the
-portable tests that depend on its changed test sources (`mutation-scope`, in
-either checkout), and every mutant the base kills must still be killed. A
-production PR's changed lines are mutated, and any survivor fails. The
-`nloc-loop verdict` check reports the outcome; make it a required check for
-it to block a merge. A test-only change to UI or platform tests has no
-mutation scope, so only the local guards apply. Locally:
-
-```sh
-python3 scripts/nloc_loop.py pr-kind --base <sha> --head <sha>
-python3 scripts/nloc_loop.py mutation-scope --base <sha> --head <sha>
-python3 scripts/nloc_loop.py guards mutation --base-reports <dir> --reports <dir> --shards 6
-```
-
-- **NLOC**: Lizard's `Total nloc` over first-party C++ in `src/`, `apps/`
-  and `tests/` with the prek excludes. Non-blank, non-comment lines on the
-  clang-formatted tree. Avoid "line count", which is ambiguous.
-- **Candidate cluster**: a group of duplicated blocks reported by jscpd,
-  ranked by estimated savings.
-- **Loop PR**: one iteration of the loop: a pull request that lowers NLOC by
-  at least 50 and passes the guards for its kind.
-- **Test-only PR**: a loop PR whose production sources are byte-identical to
-  the base.
-- **Production PR**: a loop PR that changes production sources.
-- **Ledger**: the gitignored record of attempted clusters and their outcomes,
-  which keeps rejected clusters from being retried.
+The `sonar-dedup verdict` job in `pr.yml` runs on PRs labelled `sonar-dedup`
+after the SonarCloud and mutation jobs. It fails unless NLOC drops by at least
+10 (a PR changing only the ledger and trend is exempt), the PR's SonarCloud
+analysis reports no new duplicated and no new uncovered lines, and the
+mutation job's reports hold no surviving mutant. It reuses those reports and
+does not run Mull again. Mutation testing stays advisory for other PRs.
+It judges with the base's copy of the script, refuses a SonarCloud analysis of
+an older push, fails when either upstream job did not succeed, and fails a loop
+PR that changes the loop's own tooling.
 
 ## Fuzzing
 

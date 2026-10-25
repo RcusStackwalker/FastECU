@@ -58,10 +58,8 @@ profile flags and uncached tests. It does not supersede another ADR.
 ## Consequences
 
 - The `llvm-cov show` report format, `sonar.cfamily.llvm-cov.reportPath` and
-  `scripts/coverage-local.sh` are gone. `scripts/nloc_loop.py` runs
-  `bazel coverage` and reads lcov, and counts test cases from every target's
-  `test.xml`. NLOC and coverage snapshots taken before the change are not
-  comparable and must be retaken.
+  `scripts/coverage-local.sh` are gone. The NLOC loop's coverage guards, which
+  ran `bazel coverage` and read lcov, were retired by ADR 0024.
 - Cached test results now apply to coverage: a flaky test's cached pass, and
   its coverage, persists until its inputs change.
 - `--experimental_generate_llvm_lcov` is needed on every host. Only
