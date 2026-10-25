@@ -808,3 +808,66 @@ SH72543R checklist exists. Hardware remains experimental. Named ECU/adapter
 read/write/cancellation traces, recovery, physical erase scope/block-0
 preservation and programmed-image readback remain bench gaps. Full repository,
 static, coverage and platform gates remain controller-owned.
+
+## Denso SH705x CAN EEPROM
+
+Task 16, 2026-10-25; source revision `4e1a8220`. Explicit public guard alias
+and adapter routing retain all production `.cpp`/helper bodies and polls.
+The suite's test-only invocation helper now borrows `const ICancellationToken&`
+so ManualCancellationToken works alongside the existing default fake; no
+production API changes. Workflow BindAdmittedAttempt keeps EEPROM retry staging.
+
+| Boundary | Retained owner and guard effect |
+| --- | --- |
+| Admission/connect | Invalid plan still wins over precancel. Connect entry, CanRawExchange before/after Write, after delay and successful Read polls remain; delegated errors still precede after-call cancellation. Identity content tolerance, seed/key/session validation and kernel-alive shortcut remain. |
+| Upload | Upload-entry check, size/checksum/encryption preparation, gated SID34 reply, each chunk-entry and after-Write/Read poll remain. The last B6 frame is still header-only. Start 37/31 acknowledgments, settle delays and single strict post-upload probe remain. |
+| EEPROM page | Outer loop check, after-request and after-header polls, page accumulation pre/post checks, 100-poll short-page tolerance, framing stripping, address arithmetic, progress and 1 ms inter-page delay remain. |
+| Lifecycle/workflow | Setup/Open/Close/unblock remain runner-owned; the guard forwards actual restart without a new gate, but EEPROM never invokes restart. Existing guard-owner forwarding and actual BEEF TCU integration tests cover restart; no invented EEPROM restart fixture. Modes 2/3/4, operator preview/discard and ignition staging stay workflow-owned. |
+
+The predecessor `CancellationDuringKernelUploadReturnsCancelled` had an
+inaccurate comment: instrumenting its unchanged token-aware baseline proves
+`CancelOnCheck(75)` actually stops after accepted session-set Write **11**
+(`00 00 07 e0 10 02 42`), before its Read or SID34. There are **10** delegated
+Reads; the last reply is seed-key ack `00 00 00 00 67 02`. Result detail is
+`cancelled after write`; logs end at `Set session mode`, with no progress or
+upload events. This disagreed with the initial brief's accepted-SID34 description
+and was reported before reconciliation. The controller authorized preserving
+the measured boundary. The predecessor name and eleven-Write assertion remain;
+ManualCancellationToken now cancels at that accepted session-set Write and
+pins the trigger, exact reply/error/log prefix and absence of SID34/B6.
+Observation log: `/private/tmp/postop16-observe.log`; temporary instrumentation
+was removed without changing production.
+
+Separate deterministic preservation cases cancel after the accepted SID34 reply
+(**12 Writes / 12 Reads**, `cancelled after read`, no first B6) and after an
+accepted B6 Write (**13 Writes / 12 Reads**, `cancelled after kernel chunk write`,
+zero chunk-ack Read attempts, no subsequent Write, one Close via BoundAttempt).
+All three pass unguarded and guarded. Retained post-operation checks mask guard
+bypass at those boundaries; these are family preservation evidence. The
+actual-alias synthetic selection proof alone exposes the extra delegated Read
+when runner construction is bypassed. No unmasked deterministic real-family
+boundary or changed refusal metadata was found; the guard additionally covers
+the concurrent interval after a retained entry poll. No polls were removed.
+
+Verification: baseline XML **13**, candidate **16**, no predecessor classname/name
+pair lost. Selection RED and declaration mutation fail compilation on the absent
+alias; runner bypass fails family selection and shared probes on one extra Read.
+After restoration the family and three shared targets pass **4/4** using
+`bazel test --config=release`. Final combined gate includes both Hitachi suites,
+EEPROM, `guarded_attempt_expectations_test`, `bound_flash_attempt_test`,
+`guarded_can_flash_transport_test`, actual
+`subaru_tcu_denso_sh705x_can_executor_test` and `flash_workflow_test`: **8/8** pass.
+Final Gazelle, scoped clang-format and diff review pass. Evidence:
+`/private/tmp/postop16-*`, `/private/tmp/postop-final-combined.log` and
+`/private/tmp/postop-denso_sh705x_eeprom_can-baseline.xml`.
+
+`python3 scripts/nloc_loop.py measure --json`: baseline
+154000 / 68488 production / 85512 test; final 154105 / 68491 / 85614.
+Growth: production **+3**, test **+102**. Batch Tasks 14–16 therefore adds
+production **+9**, test **+208**, including the five-NLOC shared failure hook;
+this is support/regression coverage growth, not savings or compression.
+Qualification matrix and connection prerequisites consulted; no dedicated CAN
+EEPROM checklist exists. Hardware remains experimental. Named adapter/EEPROM
+read comparisons, modes/ignition retry, upload/cancellation traces and the
+SH7058 kernel load address `0xFFFF3000` require bench evidence. Full repository,
+static, coverage and platform delivery gates remain controller-owned.

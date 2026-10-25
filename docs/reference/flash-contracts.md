@@ -68,6 +68,13 @@ a concurrently failed delegated Read. Its
 [SH72543R evidence](can-cancellation-migration-results.md#hitachi-sh72543r-can)
 records the preserved policy and independent selection proof.
 
+Denso SH705x CAN EEPROM explicitly selects the guard while retaining raw
+exchange, kernel chunk and EEPROM page checkpoints. Cancellation after an
+accepted B6 Write still stops at `cancelled after kernel chunk write` before
+its acknowledgment Read. The
+[EEPROM evidence](can-cancellation-migration-results.md#denso-sh705x-can-eeprom)
+records the measured predecessor boundary and separate upload characterizations.
+
 ## Plan admission
 
 Every flash executor derives from

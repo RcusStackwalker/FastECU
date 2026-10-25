@@ -1,4 +1,6 @@
 #pragma once
+
+#include "src/backend/flash/guarded_can_flash_transport.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/flash/flash_executor.h"
 
@@ -21,6 +23,9 @@ namespace fastecu::flash
 // reasoning, and task-9-report.md for the writeup.
 class DensoSh705xEepromCanExecutor final : public FamilyExecutor<DensoSh705xEepromCanPlan, ICanFlashExecutor>
 {
+  public:
+    using CancellationGuard = GuardedCanFlashTransport;
+
   private:
     Result<Iso15765Config> Setup(const DensoSh705xEepromCanPlan& can_plan) const override;
     Result<FlashExecutionResult> Run(const DensoSh705xEepromCanPlan& can_plan, const FlashPlan& plan,
