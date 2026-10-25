@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryDir>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cstdlib>
@@ -17,6 +18,9 @@
 #include "src/backend/config/builtin_catalog.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/platform/desktop/common/flash/desktop_flash_workflow_ports.h"
+
+using ::testing::_;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -68,7 +72,7 @@ TEST(BuiltinCatalogCapability, EveryOfferedOperationIsAcceptedAndEveryOtherIsUns
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     const std::optional<config::ConfigPaths> paths = BundledKernelPaths(directory);
-    ASSERT_TRUE(paths.has_value());
+    ASSERT_THAT(paths, Optional(_));
 
     for (const config::ProtocolSpec& protocol : config::BuiltinCatalog().Protocols())
     {

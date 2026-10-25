@@ -10,6 +10,7 @@
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 
 using ::testing::ElementsAre;
+using ::testing::IsEmpty;
 
 TEST(TestBytes, readU16Le_readsLowByteFirst)
 {
@@ -150,8 +151,8 @@ TEST(TestBytes, qByteArrayToHex_preservesTrailingSpaceFormat)
 TEST(TestBytes, emptyConversions)
 {
     const QByteArray empty;
-    EXPECT_TRUE(bytes::View(empty).empty());
-    EXPECT_TRUE(bytes::FromQByteArray(empty).empty());
+    EXPECT_THAT(bytes::View(empty), IsEmpty());
+    EXPECT_THAT(bytes::FromQByteArray(empty), IsEmpty());
     EXPECT_TRUE(bytes::ToQByteArray(bytes::ByteView{}).isEmpty());
 }
 

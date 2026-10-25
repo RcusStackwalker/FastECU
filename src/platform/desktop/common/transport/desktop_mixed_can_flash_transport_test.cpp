@@ -28,6 +28,8 @@ namespace
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Optional;
 
 constexpr MixedCanConfig Config()
 {
@@ -180,7 +182,7 @@ TEST(TestDesktopMixedCanFlashTransport, rawFrameAddsAndParsesBigEndianId)
         .WillOnce(::testing::Return(QByteArray::fromHex("000000217a96000000000000")));
     const auto frame = transport.ReadRaw(800ms, cancellation);
     ASSERT_THAT(frame, IsOk());
-    ASSERT_TRUE(frame->has_value());
+    ASSERT_THAT(*frame, Optional(_));
     ASSERT_EQ(frame->value().id, 0x21U);
     ASSERT_EQ(frame->value().payload, (bytes::Bytes{0x7a, 0x96, 0, 0, 0, 0, 0, 0}));
 }

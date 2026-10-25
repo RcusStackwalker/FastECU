@@ -30,6 +30,9 @@ using ReadResult = fastecu::Result<std::optional<bytes::Bytes>>;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
 using ::testing::StrEq;
 
 enum class ReadPath
@@ -119,7 +122,7 @@ TEST_P(TransportReads, SaturatesTimeoutAndPreservesBytes)
         ExpectRead(test.expected, [](std::uint16_t) { return QByteArray("\x00\x80\xff", 3); });
         const auto result = Read(test.timeout, cancellation_);
         ASSERT_THAT(result, IsOk());
-        ASSERT_TRUE(result->has_value());
+        ASSERT_THAT(*result, Optional(_));
         EXPECT_EQ(result->value(), (bytes::Bytes{0x00, 0x80, 0xff}));
         ::testing::Mock::VerifyAndClearExpectations(&serial_.Fake());
     }
@@ -130,7 +133,7 @@ TEST_P(TransportReads, SilenceIsAnEmptyOptional)
     ExpectRead(10, [](std::uint16_t) { return QByteArray{}; });
     const auto result = Read(10ms, cancellation_);
     ASSERT_THAT(result, IsOk());
-    EXPECT_FALSE(result->has_value());
+    EXPECT_THAT(*result, Eq(std::nullopt));
 }
 
 TEST_P(TransportReads, CancellationPrecedesDisconnectAndSkipsDriver)
@@ -231,7 +234,7 @@ TEST_P(TransportReads, UnblockPreservesInflightBytesAndSuppressesNextRead)
                });
     const auto inflight = Read(10ms, cancellation_);
     ASSERT_THAT(inflight, IsOk());
-    ASSERT_TRUE(inflight->has_value());
+    ASSERT_THAT(*inflight, Optional(_));
     EXPECT_EQ(inflight->value(), bytes::Bytes{0xaa});
     ::testing::Mock::VerifyAndClearExpectations(&serial_.Fake());
     EXPECT_CALL(serial_.Fake(), ReadSerialData(::testing::_)).Times(0);

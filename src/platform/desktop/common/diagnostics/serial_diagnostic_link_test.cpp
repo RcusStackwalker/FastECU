@@ -27,6 +27,8 @@ using ::testing::Return;
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Optional;
 
 TEST(TestSerialDiagnosticLink, klineOpenResetsAppliesEverySetterThenOpens)
 {
@@ -188,7 +190,7 @@ TEST(TestSerialDiagnosticLink, writeIsEchoCheckedAndReadsSelectTheFacadeCall)
     const auto frame = link.Read(200ms, token);
     ASSERT_TRUE(frame.has_value() && frame->has_value());
     const auto& payload = *frame;
-    ASSERT_TRUE(payload.has_value());
+    ASSERT_THAT(payload, Optional(_));
     ASSERT_EQ(payload->size(), std::size_t{2});
     const auto none = link.ReadObd(200ms, token);
     ASSERT_TRUE(none.has_value() && !none->has_value());

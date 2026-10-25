@@ -1,5 +1,6 @@
 // Catalog/file characterization migrated from src/backend/definitions/file_actions.cpp.
 #include <gmock/gmock-matchers.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <QDir>
@@ -20,8 +21,11 @@ namespace
 using fastecu::definition::DefinitionFormat;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::_;
 using testing::ElementsAre;
+using ::testing::Eq;
 using testing::Field;
+using ::testing::Optional;
 
 fastecu::definition::DefinitionHeaderInput Header(std::string id = "NEW_XML")
 {
@@ -182,7 +186,7 @@ TEST_F(DefinitionCatalogSessionIntegration, RomOpenFindsAnAuthoredDefinitionOuts
                                                 config_.session);
     auto outcome = opener.OpenFile(Path("rom.bin"));
     ASSERT_THAT(outcome, IsOk());
-    ASSERT_TRUE(outcome->contents.definition.has_value());
+    ASSERT_THAT(outcome->contents.definition, Optional(_));
     EXPECT_EQ(outcome->contents.definition->id, "NEW_XML");
     EXPECT_EQ(outcome->contents.definition->definition.source, Path("outside.xml"));
 }
@@ -200,7 +204,7 @@ TEST_F(DefinitionCatalogSessionIntegration, RomOpenReportsAnIndexedFileDeletedAf
     auto outcome =
         opener.AdoptReadImage({.rom = std::vector<std::uint8_t>(512), .filename = "read.bin", .rom_id = "NEW_XML"});
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(outcome->contents.definition, Eq(std::nullopt));
     EXPECT_THAT(config_.events.notices, testing::Contains("Ecu definitions file: Unable to open ECU definition file " +
                                                           Path("defs/gone.xml") + " for reading"));
 }

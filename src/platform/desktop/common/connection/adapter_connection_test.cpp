@@ -18,7 +18,9 @@ using fastecu::desktop::connection::AdapterConnection;
 using fastecu::desktop::connection::LogTransport;
 using fastecu::desktop::connection::LogTransportFromText;
 using ::testing::_;
+using ::testing::Eq;
 using ::testing::InSequence;
+using ::testing::Optional;
 using ::testing::Return;
 
 TEST(TestAdapterConnection, parsesTheToolbarTransportText)
@@ -185,9 +187,9 @@ TEST(TestAdapterConnection, batteryIsReadOnlyFromAnOpenPort)
     EXPECT_CALL(serial.Fake(), GetUseOpenport2Adapter()).WillOnce(Return(false)).WillOnce(Return(true));
     EXPECT_CALL(serial.Fake(), ReadVbatt()).WillOnce(Return(12500UL));
     AdapterConnection connection(*serial);
-    ASSERT_TRUE(!connection.BatteryMillivolts().has_value());
+    ASSERT_THAT(connection.BatteryMillivolts(), Eq(std::nullopt));
     const std::optional<unsigned long> reading = connection.BatteryMillivolts();
-    ASSERT_TRUE(reading.has_value());
+    ASSERT_THAT(reading, Optional(_));
     ASSERT_EQ(*reading, 12500UL);
 }
 
