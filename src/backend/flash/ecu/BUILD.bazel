@@ -1500,6 +1500,7 @@ cc_library(
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
         "//src/backend/flash:flash_executor",
+        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -1514,6 +1515,9 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
+        "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
+        "//src/backend/flash/testing:execute_with_cancellation_guard",
+        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",

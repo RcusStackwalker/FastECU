@@ -217,3 +217,45 @@ port divergences remain documented in the matrix. Physical identity, erase
 scope/boot-region preservation, successful read/write and the new cancellation
 boundary still need bench evidence; no dedicated family checklist is linked
 from this matrix row.
+
+## Subaru TCU CVT Mitsubishi MH8111 CAN
+
+Task 5, 2026-10-25; source revision `f2f9caa5`, family source unchanged from
+`0e5ac306`. Header alias/include and direct-suite adapter routing opt in this
+family. Audit covered the executor, shared CVT B6 exchange and crypto, UDS
+wrappers, raw channel paths and callers: family/conformance suites and the
+KernelFreeCanWorkflow binding in `flash_workflow.cpp`.
+
+| Boundary | Retained owner and guard effect |
+| --- | --- |
+| Admission/preparation | Existing validation/precancellation order and original-port lifecycle remain. |
+| Connect | All seven exchanges stay on 0x7e1/0x7e9, unlike Hitachi's separate diagnostic channel. Nonfatal identity/session, fatal seed/key/jump and raw alive response keep their decisions and 2000 ms timeouts. |
+| Read | Raw setup's unusual SID/reply pairing retained; read-loop poll/decryption/0xFF padding/progress unchanged. Raw stop permits six sends, accepts any content and succeeds after silence exhaustion; transport errors still propagate. |
+| Erase | Twenty UDS erase attempts retain success matching and cancellation propagation while other failures retry. Guard changes only entry refusal, including pending continuation Reads. |
+| Write | Write-loop poll retained; upper block 0x80000/0x100000 geometry, halved setup length and 256-byte chunks remain. Shared B6 Read remains content-blind with 2000 ms timeout; guard newly refuses it after cancellation from accepted Write. |
+| Close/checksum/events | Close checks the standard positive SID, tolerates unchecked trailing content and retries twenty times; checksum's twenty attempts and fatal exhaustion stay. Existing logging/progress and no-final-sweep semantics remain. Runner closes once and retains error precedence. |
+
+Both loop polls remain. Real-family BoundAttempt proof reuses the existing
+connect/erase/full-block script, cancels at first accepted B6 Write and checks
+zero inner chunk-reply Reads with `kCancelled`; this is a new refusal boundary.
+The separate selection test uses the actual alias with the bounded probe.
+
+`bazel test --config=release
+//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8111_can_executor_test`: 20 baseline
+cases passed. Blind B6 regression RED observed 1 Read instead of 0. Selection
+RED and declaration mutation fail compilation for missing alias. Runner bypass
+fails real B6/selection cases and shared bound probe on extra Reads. Restored
+candidate: 22 XML cases pass; all predecessor cases retained, including silent
+and uninspected chunk replies, fatal transport errors, close exhaustion,
+checksum, addressed upper-block writes and invalid-plan/precancel cases. Family
+plus Task 2's three shared verification targets passed 4/4, including restored
+run. Gazelle dependency regeneration, formatting and diff checks passed.
+
+`python3 scripts/nloc_loop.py measure --json`: 153386 / 68443 / 84943 before;
+153429 / 68446 / 84983 after. Delta production **+3**, test **+40**. No savings
+or compression claimed. Matrix `experimental` status is unchanged; no hardware
+used. Its nonoverlapping read/write windows, halved declared setup length and
+ported erase-retry correction remain qualification gaps. Physical identity,
+boot-region preservation, write/readback from the programmed upper block and
+cancellation-boundary bench evidence remain outstanding; the matrix row links
+no dedicated family checklist.
