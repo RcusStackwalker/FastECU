@@ -568,3 +568,50 @@ test **+205** (including **+1 test NLOC** from self-review).
 Existing shared support is reused; no support fixture or test compression was
 introduced. Full repository/platform delivery gates remain controller-owned.
 No hardware qualification status changed; all recorded bench gaps remain open.
+
+## Denso SH7058 BEEF petrol
+
+Task 11, 2026-10-25; source revision `5b5dd5e8`. The concrete executor now
+selects `GuardedCanFlashTransport`; all direct suite Execute calls use the
+conditional adapter. Production executor/helper bodies and all polls remain.
+
+| Boundary | Retained owner and guard effect |
+| --- | --- |
+| Admission/preparation | Family validation precedes precancellation. The three petrol reset/configuration polls, reset, quiet period, configure/open and close remain on the owned port. |
+| Connect | Tolerant kernel/identity/session queries retain terminal cancellation/disconnect and nonfatal malformed/stale failures. RaceRom RAM/security, strict UDS pending bounds and clocks remain unchanged. Shared request and post-probe polls remain. |
+| Upload | Upload-loop and discard-entry/after-read polls remain. Accepted B6 Write followed by cancellation now refuses the raw discard Read before delegation; baseline delegated one blind-inner Read before the retained after-read poll returned cancellation. No next B6 or transfer-exit follows either outcome. Ordinary malformed/wrong-ID/timeout/adapter discard results remain ignored. |
+| Read/CRC | BEEF validation, raw ROM bytes, page/compare polls, range guards, progress and 5 ms compare waits remain. CRC stale drain retains its pre-read poll and tolerance of ordinary stale errors; cancellation/disconnect are terminal. |
+| Flash/final | Initialization, erase, write/block/commit polls, recovery warnings, confirmation decisions and final completion remain with their current owners. Guard only refuses new Read/Write; accepted operations, post-operation checks and error precedence remain unchanged. |
+
+The real BoundAttempt B6 test records zero attempted discard Reads after the
+accepted Write and no subsequent attempted Write. It leaves the discard queued
+and closes once. Cancellation still returns `kCancelled`; its diagnostic now
+comes from guard entry (`CAN read cancelled before delegation`) instead of the
+baseline after-read upload poll. The accepted-write prefix and upload notice/logs
+remain; upload progress after the discard and later kernel/read events do not
+occur. Existing exact transcript/log/progress and ignored-reply tests pass.
+The actual-alias synthetic selection test independently proves runner wiring.
+
+Verification (`bazel test --config=release`): family target plus
+`beef_can_session_test`, `denso_beef_can_common_test`,
+`//src/backend/flash/testing:guarded_attempt_expectations_test`,
+`//src/backend/flash:bound_flash_attempt_test` and
+`//src/backend/flash:guarded_can_flash_transport_test` passed **6/6**. Baseline
+preservation suite passed **28/28**; candidate XML passed **30/30** and comparison
+of classname/name sets lost no predecessor case. Raw-discard regression RED
+failed with one extra delegated Read; missing-alias RED failed compilation with
+`no type named CancellationGuard`. Removing the alias reproduced that failure;
+bypassing BoundAttempt guarding failed both new family proofs and the shared
+bound probe. Restored sources passed all six targets. Logs/XML are under
+`/private/tmp/beef11-*`; Gazelle and scoped formatting passed, followed by scoped
+self-review and `git diff --check`.
+
+`python3 scripts/nloc_loop.py measure --json`: baseline
+153705 total / 68475 production / 85230 test; final
+153753 / 68477 / 85276. Growth: production **+2**, test **+46**; existing support
+reused, no compression or new fixture framework. The qualification matrix keeps
+this family experimental. No dedicated BEEF CAN checklist exists; connection
+bench prerequisites were consulted. Named adapter/ECU traces, read comparison,
+write/test-write/verify/recovery and cancellation at accepted B6 remain bench
+gaps; these software tests establish no hardware qualification. Full repository,
+static analysis and platform delivery gates remain controller-owned.
