@@ -62,3 +62,12 @@ cc_library(
         "//src/backend/config:catalog",
     ],
 )
+
+cc_library(
+    name = "cancellation_blind_can_transport",
+    hdrs = ["cancellation_blind_can_transport.h"],
+    deps = [
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+    ],
+)

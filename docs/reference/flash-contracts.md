@@ -24,7 +24,7 @@ a new gate. BoundAttempt constructs the executor's nested CancellationGuard
 only around Execute, after Open. Preparation, configuration, Open, Close and
 unblock remain on the owned transport. Execution failure wins over Close
 failure; a Close-only failure is returned. Non-opted-in families retain their
-existing path. Direct Colt Execute callers must supply the guard. Shared CAN
+existing path. Direct Execute callers of opted-in executors must supply the guard. Shared CAN
 test runners use the executor-selected
 [direct-call adapter](../../src/backend/flash/testing/execute_with_cancellation_guard.h).
 The [migration results](can-cancellation-migration-results.md#shared-test-support)
@@ -40,8 +40,9 @@ Complete ROM data and verification failures retain their meaning after late
 cancellation. Family abort returns and confirmations remain separate owners.
 
 The [pilot results](colt-cancellation-centralization-results.md) own measurements,
-preserved cases and mutation evidence. The implemented ownership change remains
-Colt-only. [ADR 0025](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements)
+preserved cases and mutation evidence. Additional explicit opt-ins and their
+retained checkpoints are recorded in the
+[CAN migration results](can-cancellation-migration-results.md). [ADR 0025](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements)
 sets the requirements for explicit opt-in by additional CAN and mixed-CAN
 executors; it does not opt them in. Test compression needs separate assessment,
 and hardware status remains unchanged.
