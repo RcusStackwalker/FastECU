@@ -641,10 +641,8 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::Run(const Subar
 {
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     Ctx ctx{cancellation, events, clock, channel};
-    return RunBootloaderOperation(
-        plan, events, "Subaru TCU CVT Mitsu MH8104", [&] { return ConnectBootloader(ctx); },
-        [&](PhaseReporter& progress) { return DumpFlashRange(ctx, progress); },
-        [&](bytes::ByteView image, PhaseSequence& phases) { return WriteMem(ctx, image, phases); });
+    return RunBootloaderOperation(plan, "Subaru TCU CVT Mitsu MH8104", ctx, ConnectBootloader, DumpFlashRange,
+                                  WriteMem);
 }
 
 } // namespace fastecu::flash

@@ -259,10 +259,11 @@ DensoIso15765BootloaderExecutor<Plan>::Run(const Plan& family, const FlashPlan& 
     uds::UdsClient uds_client(channel, clock, events);
     const Ctx ctx{cancellation, events, clock, uds_client, channel};
     return RunBootloaderOperation(
-        plan, events, kProfile.unit, [&] { return ConnectBootloader(ctx, transport, kProfile); },
-        [&](PhaseReporter& progress) { return ReadMemory(ctx, kProfile, family, plan.TransferRegion(), progress); },
-        [&](bytes::ByteView image, PhaseSequence& phases)
-        { return WriteMemory(ctx, kProfile, image, plan.TransferRegion(), phases); });
+        plan, kProfile.unit, ctx, [&](const Ctx& c) { return ConnectBootloader(c, transport, kProfile); },
+        [&](const Ctx& c, PhaseReporter& progress)
+        { return ReadMemory(c, kProfile, family, plan.TransferRegion(), progress); },
+        [&](const Ctx& c, bytes::ByteView image, PhaseSequence& phases)
+        { return WriteMemory(c, kProfile, image, plan.TransferRegion(), phases); });
 }
 
 template class DensoIso15765BootloaderExecutor<SubaruDenso1n83m_1_5mCanPlan>;

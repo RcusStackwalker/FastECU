@@ -495,10 +495,7 @@ Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::Run(const SubaruHitac
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
     Ctx ctx{cancellation, events, clock, uds_client, channel};
-    return RunBootloaderOperation(
-        plan, events, "Subaru Hitachi M32R", [&] { return ConnectBootloader(ctx); },
-        [&](PhaseReporter& progress) { return DumpFlashRange(ctx, progress); },
-        [&](bytes::ByteView image, PhaseSequence& phases) { return WriteMem(ctx, image, phases); });
+    return RunBootloaderOperation(plan, "Subaru Hitachi M32R", ctx, ConnectBootloader, DumpFlashRange, WriteMem);
 }
 
 } // namespace fastecu::flash

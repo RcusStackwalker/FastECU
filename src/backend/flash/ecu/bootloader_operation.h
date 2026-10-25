@@ -19,18 +19,21 @@ namespace fastecu::flash
 // shape. `unit` names the bootloader in those texts, e.g.
 // "Subaru Hitachi M32R".
 //
-//   connect() -> Status
-//   read(PhaseReporter&) -> Result<bytes::Bytes>, the complete read image
-//   write(bytes::ByteView image, PhaseSequence&) -> Status
-template <typename Connect, typename Read, typename Write>
-Result<FlashExecutionResult> RunBootloaderOperation(const FlashPlan& plan, IEventSink& events, std::string_view unit,
+// Each step takes the family's executor context, whose event sink carries
+// the phases, notices and log lines:
+//   connect(ctx) -> Status
+//   read(ctx, PhaseReporter&) -> Result<bytes::Bytes>, the complete read image
+//   write(ctx, bytes::ByteView image, PhaseSequence&) -> Status
+template <typename Ctx, typename Connect, typename Read, typename Write>
+Result<FlashExecutionResult> RunBootloaderOperation(const FlashPlan& plan, std::string_view unit, Ctx& ctx,
                                                     Connect connect, Read read, Write write)
 {
+    IEventSink& events = ctx.events;
     const bool reading = plan.Operation() == FlashOperation::kRead;
     PhaseSequence phases(events, reading ? 2 : 3);
     PhaseReporter connecting = phases.Start("Connect", 1);
     events.Log(LogLevel::kInfo, std::format("Connecting to {} CAN bootloader, please wait...", unit));
-    if (const Status connected = connect(); !connected.has_value())
+    if (const Status connected = connect(ctx); !connected.has_value())
     {
         return std::unexpected(connected.error());
     }
@@ -41,7 +44,7 @@ Result<FlashExecutionResult> RunBootloaderOperation(const FlashPlan& plan, IEven
         events.Notice("Reading ROM, please wait...");
         events.Log(LogLevel::kInfo, std::format("Reading ROM from {} using CAN", unit));
         PhaseReporter read_phase = phases.Start("Read ROM", static_cast<int>(plan.TransferRegion().length));
-        Result<bytes::Bytes> rom = read(read_phase);
+        Result<bytes::Bytes> rom = read(ctx, read_phase);
         if (!rom.has_value())
         {
             return std::unexpected(rom.error());
@@ -66,7 +69,7 @@ Result<FlashExecutionResult> RunBootloaderOperation(const FlashPlan& plan, IEven
 
     events.Notice("Writing ROM, please wait...");
     events.Log(LogLevel::kInfo, std::format("Writing ROM to {} using CAN", unit));
-    if (const Status written = write(plan.ImageOrEmpty(), phases); !written.has_value())
+    if (const Status written = write(ctx, plan.ImageOrEmpty(), phases); !written.has_value())
     {
         return std::unexpected(written.error());
     }
