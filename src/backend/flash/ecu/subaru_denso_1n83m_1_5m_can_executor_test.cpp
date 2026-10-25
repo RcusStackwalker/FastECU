@@ -604,6 +604,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationAtTheReadStopIsSwallowed)
     expected.insert(expected.end(), 0x100, 0xFF);
     EXPECT_THAT(*result->read_bytes, test_bytes::BytesEq(expected));
     EXPECT_EQ(stopWriteAttempts, 0);
+    EXPECT_EQ(transport.write_attempts, readsBeforeStop);
     EXPECT_EQ(transport.read_attempts, readsBeforeStop);
     EXPECT_TRUE(cancellation.Cancelled());
     EXPECT_TRUE(transport.ScriptConsumed());
