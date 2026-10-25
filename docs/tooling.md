@@ -372,13 +372,39 @@ the design is the [spec](superpowers/specs/2026-10-25-sonar-dedup-loop-design.md
 SonarCloud's duplication groups nominate where to look, and first-party NLOC
 measures each step.
 
+An agent runs it with `/goal run /sonar-dedup-loop iterations until it prints
+DONE` (or `/loop /sonar-dedup-loop`): each iteration of the
+[project skill](../.claude/skills/sonar-dedup-loop/SKILL.md) settles the open
+`sonar-dedup` PR or opens the next one.
+
 ```bash
 python3 scripts/dedup_loop.py measure            # total, production and test NLOC
 python3 scripts/dedup_loop.py measure --json
+python3 scripts/dedup_loop.py candidates         # ranked duplication groups from SonarCloud
+python3 scripts/dedup_loop.py fresh              # exit 0 when master's analysis is of origin/master
+python3 scripts/dedup_loop.py ledger record <id> unsuitable --members-json '[["path", "fn"]]' --reason "..."
+python3 scripts/dedup_loop.py ledger list        # judgments, attempts, and the failure streak
+python3 scripts/dedup_loop.py trend add --pr <n> --before <NLOC> --dup-before <lines>
+python3 scripts/dedup_loop.py trend fill-after   # master's duplicated_lines after the last merge
+python3 scripts/dedup_loop.py verdict --pr <n> --nloc-before <N> --nloc-after <N> \
+    --changed-file <names> --mutation-reports <dir>
 ```
 
 NLOC is Lizard's count over `src/`, `apps/` and `tests/`, from the manual-stage
-`nloc` prek hook.
+`nloc` prek hook. `candidates` reads master's last SonarCloud analysis (public
+API, no token), keys each group by the functions it occupies (the manual-stage
+`nloc-functions` hook), drops blocks the checkout no longer has, and skips
+groups the [ledger](reference/sonar-dedup-ledger.json) has settled or whose
+files an open non-loop PR touches. Master is analysed only on release, so the
+list can be stale. The [trend](reference/dedup-trend.csv) records NLOC and
+master's duplicated lines per loop PR.
+
+The `sonar-dedup verdict` job in `pr.yml` runs on PRs labelled `sonar-dedup`
+after the SonarCloud and mutation jobs. It fails unless NLOC drops by at least
+10 (a PR changing only the ledger and trend is exempt), the PR's SonarCloud
+analysis reports no new duplicated and no new uncovered lines, and the
+mutation job's reports hold no surviving mutant. It reuses those reports and
+does not run Mull again. Mutation testing stays advisory for other PRs.
 
 ## Fuzzing
 
