@@ -41,27 +41,15 @@ bytes::Bytes Framed(bytes::ByteView payload, const SubaruTcuHitachiM32rKlinePlan
     return ssm_protocol::AddHeader(payload, p.tester_id, p.target_id);
 }
 
-Result<std::optional<bytes::Bytes>> ExchangeOptional(IKlineFlashTransport& transport,
-                                                     const ICancellationToken& cancellation, bytes::ByteView payload,
-                                                     const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
+M32rSsmEndpoint EndpointOf(const SubaruTcuHitachiM32rKlinePlan& p)
 {
-    return ExchangeM32rSsmOptional(transport, cancellation, payload, p.tester_id, p.target_id,
-                                   std::chrono::milliseconds{timeout});
+    return M32rSsmEndpoint{p.tester_id, p.target_id, M32rSsmPeer::kTcu};
 }
 
 Result<bytes::Bytes> Exchange(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
                               bytes::ByteView payload, const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
 {
-    auto response = ExchangeOptional(transport, cancellation, payload, p, timeout);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    if (!response->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no response from TCU");
-    }
-    return std::move(**response);
+    return ExchangeM32rSsmRequired(transport, cancellation, payload, EndpointOf(p), std::chrono::milliseconds{timeout});
 }
 
 // send_sid_a0_block_read's exact wire pacing: write, delay(100), read,
@@ -122,26 +110,14 @@ Result<std::optional<bytes::Bytes>> ExchangeBlockRead(IKlineFlashTransport& tran
 
 Status ExpectPrefix(bytes::ByteView response, std::initializer_list<bytes::Byte> prefix)
 {
-    if (response.size() < 4 + prefix.size())
-    {
-        return Fail(ErrorKind::kBadResponse, "response is too short");
-    }
-    if (!M32rSsmPayloadHasPrefix(response, bytes::ByteView(prefix.begin(), prefix.size())))
-    {
-        return Fail(ErrorKind::kBadResponse, "wrong response from TCU");
-    }
-    return {};
+    return ExpectM32rSsmPrefix(response, prefix, M32rSsmPeer::kTcu);
 }
 
 Status RequestPrefix(IKlineFlashTransport& transport, const ICancellationToken& cancellation, bytes::Bytes request,
                      std::initializer_list<bytes::Byte> expected, const SubaruTcuHitachiM32rKlinePlan& p)
 {
-    auto response = Exchange(transport, cancellation, request, p, kConnectTimeoutMs);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    return ExpectPrefix(*response, expected);
+    return RequestM32rSsmPrefix(transport, cancellation, request, EndpointOf(p), expected,
+                                std::chrono::milliseconds{kConnectTimeoutMs});
 }
 
 // Legacy: received.remove(0, 8); received.remove(5, ...) -- bytes 8..12 of the
