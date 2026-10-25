@@ -129,6 +129,12 @@ all shared polls and family error/tolerance policy remain. The
 [petrol migration evidence](can-cancellation-migration-results.md#denso-sh7058-beef-petrol)
 records the boundary, measurements and outstanding bench work.
 
+Denso SH7058 BEEF diesel also selects the CAN guard. Its raw B6 discard and
+pending UDS Read refuse new delegation after cancellation; the existing CRC
+pre-drain checkpoint remains. The
+[diesel evidence](can-cancellation-migration-results.md#denso-sh7058-beef-diesel)
+records the exact delegated timeout prefix and unchanged pending timeout policy.
+
 ## Denso BEEF CAN kernel
 
 [BeefCanKernel](../../src/backend/flash/ecu/beef_can_kernel.h) owns three
