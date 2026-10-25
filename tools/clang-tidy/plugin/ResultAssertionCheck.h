@@ -13,7 +13,7 @@ class ResultAssertionCheck : public clang::tidy::ClangTidyCheck
     void check(const clang::ast_matchers::MatchFinder::MatchResult& result) override;
 
   private:
-    void DiagnoseBoolean(const clang::Stmt& statement);
+    void DiagnoseBoolean(const clang::Stmt& statement, clang::QualType type);
     void DiagnoseError(const clang::Expr& expression);
     void CheckConversion(const clang::CXXMemberCallExpr& conversion);
     bool InResultApi(const clang::Stmt& statement) const;

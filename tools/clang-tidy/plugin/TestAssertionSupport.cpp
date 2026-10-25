@@ -16,12 +16,12 @@ namespace fastecu::tidy
 {
 namespace
 {
-const clang::ClassTemplateSpecializationDecl *ResultDeclaration(clang::QualType type)
+const clang::ClassTemplateSpecializationDecl *StdSpecialization(clang::QualType type, llvm::StringRef name)
 {
     type = type.getNonReferenceType().getCanonicalType();
     const auto *record = type->getAsCXXRecordDecl();
     const auto *specialization = llvm::dyn_cast_or_null<clang::ClassTemplateSpecializationDecl>(record);
-    if (!specialization || specialization->getName() != "expected")
+    if (!specialization || specialization->getName() != name)
         return nullptr;
     const clang::DeclContext *scope = specialization->getDeclContext();
     while (const auto *space = llvm::dyn_cast<clang::NamespaceDecl>(scope))
@@ -31,7 +31,13 @@ const clang::ClassTemplateSpecializationDecl *ResultDeclaration(clang::QualType 
         scope = space->getParent();
     }
     const auto *space = llvm::dyn_cast<clang::NamespaceDecl>(scope);
-    if (!space || !space->isStdNamespace())
+    return space && space->isStdNamespace() ? specialization : nullptr;
+}
+
+const clang::ClassTemplateSpecializationDecl *ResultDeclaration(clang::QualType type)
+{
+    const auto *specialization = StdSpecialization(type, "expected");
+    if (!specialization)
         return nullptr;
     const auto& arguments = specialization->getTemplateArgs();
     if (arguments.size() != 2 || arguments[1].getKind() != clang::TemplateArgument::Type)
@@ -74,6 +80,16 @@ class FormatterFinder : public clang::RecursiveASTVisitor<FormatterFinder>
 bool IsResultType(clang::QualType type)
 {
     return ResultDeclaration(type) != nullptr;
+}
+
+bool IsExpectedType(clang::QualType type)
+{
+    return StdSpecialization(type, "expected") != nullptr;
+}
+
+bool IsOptionalType(clang::QualType type)
+{
+    return StdSpecialization(type, "optional") != nullptr;
 }
 
 bool IsByteRange(clang::QualType type)

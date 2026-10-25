@@ -232,9 +232,12 @@ EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
 - **Pass the operation straight to the assertion** when its result is used
   once, unless a local is needed to preserve operation or cleanup order.
 - `Not(IsOk())` only when the contract permits any error, inside a
-  `NOLINTBEGIN/NOLINTEND(fastecu-result-assertion)` block that says why. Plain
-  `std::optional` checks and the low-level Result API tests use ordinary
-  assertions.
+  `NOLINTBEGIN/NOLINTEND(fastecu-result-assertion)` block that says why. Only
+  the low-level Result API tests use ordinary assertions.
+- **Other `std::expected` types** use `IsOk()` and `IsErrThat(m)`, which
+  takes a matcher for the error value. **`std::optional`** uses
+  `Optional(m)` (`Optional(_)` for presence alone) and `Eq(std::nullopt)`; a
+  bare `has_value()` or `explicit operator bool` assertion prints `false`.
 - Helpers that fallibly build plans return `Result<FlashPlan>` and propagate
   errors without asserting or throwing to unwrap. The test body asserts
   `IsOk()`. A fatal assertion in a helper returns only from the helper.
@@ -248,7 +251,9 @@ EXPECT_EQ(result.error().kind, ErrorKind::kTimeout);
 
 **Assert containers with gmock matchers** (`ElementsAre`, `Each`, `Field`),
 not element-checking loops or equality algorithms reduced to `EXPECT_TRUE`.
-Ordinary `EXPECT_EQ` container equality remains allowed.
+Ordinary `EXPECT_EQ` container equality remains allowed. Assert emptiness with
+`IsEmpty()` / `Not(IsEmpty())` rather than `EXPECT_TRUE(c.empty())`, so a
+failure prints the contents.
 
 For uniform ROM buffers, use `test_bytes::BytesFilledWith(value)` from
 [byte_matchers.h](../src/algorithms/protocol/testing/byte_matchers.h). It checks

@@ -27,6 +27,8 @@ bool IsUniformBytePredicate(const clang::Expr *expression, clang::ASTContext& co
 bool IsByteRange(clang::QualType type);
 bool IsElementAssertionLoop(const clang::Stmt& statement, clang::ASTContext& context);
 bool IsResultType(clang::QualType type);
+bool IsExpectedType(clang::QualType type);
+bool IsOptionalType(clang::QualType type);
 bool IsResultPlanType(clang::QualType type);
 bool IsTestSource(clang::SourceLocation location, const clang::SourceManager& source);
 bool IsTestFunction(const clang::FunctionDecl& function, const clang::SourceManager& source);
