@@ -94,15 +94,7 @@ Result<FlashPlan> BuildWholeRomKernelPlan(FlashPlanFields fields, std::optional<
         fields.image = std::move(image);
     }
     fields.kernel = std::move(kernel);
-    Result<FlashPlan> plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return plan;
-    }
-    if (Status valid = validate(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return ValidateAndBuild(std::move(fields))
+        .and_then([validate](FlashPlan plan) { return validate(plan).transform([&plan] { return std::move(plan); }); });
 }
 } // namespace fastecu::flash::detail
