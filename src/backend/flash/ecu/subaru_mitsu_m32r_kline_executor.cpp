@@ -28,16 +28,8 @@ Result<std::optional<bytes::Bytes>> ExchangeOptional(IKlineFlashTransport& trans
 Result<bytes::Bytes> Exchange(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
                               bytes::ByteView payload, const SubaruMitsuM32rKlinePlan& p)
 {
-    auto response = ExchangeOptional(transport, cancellation, payload, p);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    if (!response->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no response from ECU");
-    }
-    return std::move(**response);
+    return ExchangeM32rSsmRequired(transport, cancellation, payload,
+                                   M32rSsmEndpoint{p.tester_id, p.target_id, M32rSsmPeer::kEcu}, 2000ms);
 }
 
 Status ExpectService(bytes::ByteView response, std::initializer_list<bytes::Byte> service)
