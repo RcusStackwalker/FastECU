@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -28,6 +29,9 @@
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
+#include "src/backend/flash/testing/guarded_attempt_expectations.h"
+#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
+#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -547,8 +551,9 @@ TEST(SubaruDenso1n83m_4mCanExecutor, BenchJumpExhaustionPreservesReadCountAndTim
     SubaruDenso1n83m_4mCanExecutor executor;
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(
+        fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+        fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.logs,
                 testing::Contains(testing::Pair(fastecu::LogLevel::kError,
@@ -611,7 +616,8 @@ TEST(SubaruDenso1n83m_4mCanExecutor, InCarJumpExhaustionAndCancellationPreserveT
         SubaruDenso1n83m_4mCanExecutor executor;
         const auto plan = ReadPlan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+        EXPECT_THAT(fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock,
+                                                                          cancellation, events),
                     fastecu::testing::IsErr(outcome != 2 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
         const auto& timeouts = transport.ReadTimeouts();
@@ -635,5 +641,42 @@ TEST(SubaruDenso1n83m_4mCanExecutor, InCarJumpExhaustionAndCancellationPreserveT
                                                     : "Kernel jump acknowledged")));
         EXPECT_EQ(clock.sleep_calls, sleeps);
     }
+}
+
+TEST(SubaruDenso1n83m_4mCanExecutor, CancellationAfterTolerantSetupWriteRefusesBlindReply)
+{
+    fastecu::ManualCancellationToken cancellation;
+    auto transport = std::make_unique<fastecu::flash::testing::CancellationBlindCanTransport>();
+    auto *inner = transport.get();
+    inner->Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
+    inner->Exchange(Request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x3D, 0x3F, 0x00}),
+                    Response({0x74, 0x20, 0x01, 0x05}));
+    int readsAtSetup = 0;
+    inner->on_write = [&](bytes::ByteView data)
+    {
+        if (data.size() > 4 && data[4] == 0x34)
+        {
+            readsAtSetup = inner->read_attempts;
+            cancellation.Cancel();
+        }
+    };
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruDenso1n83m_4mCanExecutor>(),
+                                                    std::move(transport));
+    RecordingClock clock;
+    RecordingEventSink events;
+    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    const int setupReplyReadAttempts = inner->read_attempts - readsAtSetup;
+    EXPECT_EQ(setupReplyReadAttempts, 0);
+    EXPECT_TRUE(cancellation.Cancelled());
+    EXPECT_FALSE(inner->ScriptConsumed());
+}
+
+TEST(SubaruDenso1n83m_4mCanExecutor, SelectedGuardIsUsedByBoundAttempt)
+{
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruDenso1n83m_4mCanExecutor>(*plan);
 }
 } // namespace
