@@ -1089,6 +1089,30 @@ TEST(SubaruTcuHitachiM32rCanExecutor, StopFrameMismatchIsNotFatal)
                 Contains(Pair(fastecu::LogLevel::kError, HasSubstr("Wrong response from TCU for dump stop"))));
 }
 
+TEST(SubaruTcuHitachiM32rCanExecutor, TransportErrorOnTheStopFrameIsNotTolerated)
+{
+    // Only a silent or wrong TCU is stepped over; a dead adapter ends the run.
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptFullConnect(transport);
+    ScriptReadWindow(transport);
+    ScriptDumpLoop(transport);
+    {
+        const auto section = transport.Section("dump stop (transport error)");
+        transport.ExpectWrite(StopRequest());
+        transport.QueueError(ErrorKind::kDisconnected, "adapter gone at stop");
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = ReadPlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, HasSubstr("adapter gone at stop")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
 TEST(SubaruTcuHitachiM32rCanExecutor, StopFrameSilenceIsNotFatal)
 {
     ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};

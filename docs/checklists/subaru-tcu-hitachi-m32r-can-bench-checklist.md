@@ -48,6 +48,7 @@ any hardware you are not prepared to destroy.**
       - Answer (blocks 3–10 only / chip-wide): ________________
       - Evidence: ________________
       - Date and operator: ________________
+      - Record the raw reply bytes to `31 02 01 FF FF FF FF` from the sacrificial-TCU erase above (hex, not a paraphrase): ________________. The port requires the payload to start `31 02 01`, which it inherited from legacy, whose mismatch check never stopped anything (its `return STATUS_ERROR` was commented out), so no evidence shows a real kernel answers that way. If it answers `71 02 01` or anything else, the port logs "Erasing error! Do not panic…" and aborts the write after the flash is already erased. Do not change the expected bytes without this evidence.
 
 ## 1. Preconditions
 
@@ -172,4 +173,5 @@ Complete only after sections 0 through 4 have all passed.
 - [ ] TCU / ROM id: ________________
 - [ ] Adapter: ________________
 - [ ] Erase scope answer from section 0: ________________
+- [ ] Raw erase reply bytes: ________________
 - [ ] Operator initials: ________________
