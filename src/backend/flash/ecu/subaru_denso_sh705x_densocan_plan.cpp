@@ -140,44 +140,17 @@ Result<FlashPlan> BuildSubaruDensoSh705xDensocanPlan(FlashOperation operation, s
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN catalog does not match the flash device table");
     }
-    if (Status upload = detail::ValidateKernelUpload<6>(kernel.bytes.size(), kernel.load_address,
-                                                        entry->kernel_load_address, device->kblocks[0]);
-        !upload.has_value())
+    Result<FlashPlanFields> fields = detail::WholeRomKernelPlanFields<6>(
+        operation, protocol_name, mcu_type, std::move(image), std::move(kernel), entry->kernel_load_address, *device);
+    if (!fields.has_value())
     {
-        return std::unexpected(upload.error());
+        return std::unexpected(fields.error());
     }
-    if (operation == FlashOperation::kRead)
-    {
-        if (image.has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "DensoCAN read plans must not carry an image");
-        }
-    }
-    else if (!image.has_value() || image->size() != device->romsize)
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device->romsize));
-    }
-
-    std::vector<MemoryRegion> erase_regions;
-    if (operation != FlashOperation::kRead)
-    {
-        erase_regions = detail::MakeEraseRegions(*device);
-    }
-
-    FlashPlanFields fields{
-        .operation = operation,
-        .family = FlashFamily::kSubaruDensoSh705xDensoCan,
-        .transport = TransportKind::kCanRawIso15765,
-        .target_id = std::string(protocol_name),
-        .mcu_name = std::string(mcu_type),
-        .transfer_region = {device->fblocks[0].start, device->romsize},
-        .erase_regions = std::move(erase_regions),
-        .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
-        .kernel = std::move(kernel),
-        .family_plan = WireParameters(),
-        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}},
-    };
-    Result<FlashPlan> plan = ValidateAndBuild(std::move(fields));
+    fields->family = FlashFamily::kSubaruDensoSh705xDensoCan;
+    fields->transport = TransportKind::kCanRawIso15765;
+    fields->family_plan = WireParameters();
+    fields->confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}};
+    Result<FlashPlan> plan = ValidateAndBuild(std::move(*fields));
     if (!plan.has_value())
     {
         return std::unexpected(plan.error());
