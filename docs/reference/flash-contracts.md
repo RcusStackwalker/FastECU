@@ -24,7 +24,12 @@ a new gate. BoundAttempt constructs the executor's nested CancellationGuard
 only around Execute, after Open. Preparation, configuration, Open, Close and
 unblock remain on the owned transport. Execution failure wins over Close
 failure; a Close-only failure is returned. Non-opted-in families retain their
-existing path. Direct Colt Execute callers must supply the guard.
+existing path. Direct Colt Execute callers must supply the guard. Shared CAN
+test runners use the executor-selected
+[direct-call adapter](../../src/backend/flash/testing/execute_with_cancellation_guard.h).
+The [migration results](can-cancellation-migration-results.md#shared-test-support)
+record its opt-in and cancellation-blind runner proofs; this support alone does
+not migrate another executor.
 
 Colt's read and comparison loops report cancellation through the next exchange,
 including its address in the warning. A precancelled direct Execute call is

@@ -65,3 +65,42 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "execute_with_cancellation_guard",
+    testonly = True,
+    hdrs = ["execute_with_cancellation_guard.h"],
+    deps = ["//src/backend/flash:flash_executor"],
+)
+
+cc_library(
+    name = "guarded_attempt_expectations",
+    testonly = True,
+    hdrs = ["guarded_attempt_expectations.h"],
+    deps = [
+        ":scripted_flash_transports",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "guarded_attempt_expectations_test",
+    srcs = ["guarded_attempt_expectations_test.cpp"],
+    deps = [
+        ":execute_with_cancellation_guard",
+        ":guarded_attempt_expectations",
+        ":scripted_flash_transports",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash:guarded_can_flash_transport",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)

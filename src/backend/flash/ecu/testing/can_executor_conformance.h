@@ -10,6 +10,7 @@
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
+#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -107,7 +108,7 @@ TYPED_TEST_P(CanExecutorConformance, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     auto foreign = ValidateAndBuild(std::move(fields));
     ASSERT_THAT(foreign, fastecu::testing::IsOk());
 
-    const auto result = executor.Execute(*foreign, transport, clock, cancellation, events);
+    const auto result = ExecuteWithCancellationGuard(executor, *foreign, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                                     ::testing::HasSubstr("does not match this executor")));
@@ -127,7 +128,7 @@ TYPED_TEST_P(CanExecutorConformance, RefusesATestWritePlanRatherThanWritingForRe
     const auto plan = TypeParam::HandBuiltPlan(FlashOperation::kTestWrite);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kUnsupported));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
@@ -154,7 +155,7 @@ TYPED_TEST_P(CanExecutorConformance, ReadPropagatesADisconnectedTransport)
     const auto plan = TypeParam::ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -177,7 +178,7 @@ TYPED_TEST_P(CanExecutorConformance, ReadStopsAtTheNextChunkWhenCancelledMidRead
     const auto plan = TypeParam::ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -213,7 +214,8 @@ TYPED_TEST_P(CanExecutorConformance, ConnectProbesReadWithThisFamilysProbeTimeou
     const auto plan = TypeParam::ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
+    ASSERT_THAT(ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+                fastecu::testing::IsOk());
     // kProbeCount is counted empirically against a full bench-connect +
     // read-setup + full dump + stop-command run, not hand-derived from the
     // source: for most families it is dominated by one read per dump chunk
@@ -239,7 +241,7 @@ TYPED_TEST_P(CanExecutorConformance, ReadReportsAnEmptyReplyAsTimeout)
     const auto plan = TypeParam::ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+    EXPECT_THAT(ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -258,7 +260,7 @@ TYPED_TEST_P(CanExecutorConformance, ReadTimeoutPropagates)
     const auto plan = TypeParam::ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+    EXPECT_THAT(ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
