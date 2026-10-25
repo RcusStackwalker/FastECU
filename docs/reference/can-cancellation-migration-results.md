@@ -392,3 +392,46 @@ is linked from its row. Physical identity, erase/window safety, full-size read,
 write/readback, timing and cancellation-boundary bench evidence remain open.
 N83M 1.5M additionally retains its recorded stock-read checksum-table gate.
 Full repository delivery gates remain controller-owned.
+
+## Denso ISO-15765 N83M 4M
+
+Task 8, 2026-10-25; source revision `541ad561`. Production executor bodies,
+profiles, both shared loop polls, UdsClient and clocks remain unchanged.
+
+The preceding shared boundary audit applies. This profile's tolerant setup
+continues after wrong/absent content and still propagates transport failures;
+its existing malformed-reply, no-frame and bench-discard tests remain. The real
+BoundAttempt test cancels after the accepted first 0x34 setup Write with a blind
+inner port. Baseline delegates one setup reply Read; the guard refuses it with
+`kCancelled`, zero setup-reply Reads and a queued reply. Cancellation is not
+converted to tolerated absence. Six best-effort stop/close attempts and all
+profile timeout values remain unchanged.
+
+Focused command: `bazel test --config=release
+//src/backend/flash/ecu:subaru_denso_1n83m_4m_can_executor_test`, plus
+`//src/backend/flash/ecu:denso_iso15765_bootloader_executor_test`,
+`//src/backend/flash/ecu:denso_iso15765_can_common_test`,
+`//src/backend/flash/testing:guarded_attempt_expectations_test`,
+`//src/backend/flash:bound_flash_attempt_test` and
+`//src/backend/flash:guarded_can_flash_transport_test`. Restored candidate passed
+**6/6** targets. Baseline XML **23** cases; candidate **25**, with every
+predecessor case retained (XML classname/name set comparison), including invalid
+plans before precancel and existing family abort cases. Behavior-baseline tests
+fail only on the newly refused blind Read. The actual-alias bounded selection
+proof fails compilation before the declaration, independently of family polls.
+Removing only this specialization's alias again fails compilation. Temporarily
+bypassing BoundAttempt guard construction fails both selection and real-family
+boundary cases plus the shared bound probe on extra Reads. Both mutations were
+restored and the six targets passed again. Gazelle regenerated only named ecu
+BUILD dependencies; scoped formatting and diff review passed.
+
+`python3 scripts/nloc_loop.py measure --json`: 153532 / 68460 /
+85072 before; 153578 / 68465 / 85113 after
+(total / production / test). Production **+5 NLOC**;
+test **+41 NLOC**. No compression or savings claimed.
+The [qualification matrix](../flash-qualification-matrix.md) still marks this
+family experimental; no hardware was used and no dedicated family checklist
+is linked from its row. Physical identity, erase/window safety, full-size read,
+write/readback, timing and cancellation-boundary bench evidence remain open.
+N83M 1.5M additionally retains its recorded stock-read checksum-table gate.
+Full repository delivery gates remain controller-owned.
