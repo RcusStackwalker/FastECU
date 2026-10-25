@@ -20,7 +20,6 @@ constexpr std::chrono::milliseconds kNonfatalSendDelay{50};
 
 constexpr bytes::Byte kKernelCrc = 0x02;
 constexpr std::chrono::milliseconds kCrcTimeout{3000};
-constexpr std::chrono::milliseconds kInitializeTimeout{500};
 
 } // namespace
 
@@ -217,8 +216,9 @@ Result<CompareResult> BeefCanSession::CompareBlocks(const FlashPlan& plan, bytes
 Status BeefCanSession::InitializeFlash(bool test_write)
 {
     View view = MakeView();
-    return InitializeBeefFlash(view, test_write, false, [&](bytes::Byte opcode, std::size_t minimum_payload)
-                               { return BeefExchange(view, opcode, {}, minimum_payload, kInitializeTimeout); });
+    return InitializeBeefFlash(view, test_write, profile_.upper_hex_sizes,
+                               [&](bytes::Byte opcode, std::size_t minimum_payload)
+                               { return BeefExchange(view, opcode, {}, minimum_payload, profile_.init_timeout); });
 }
 
 Status BeefCanSession::WriteMemory(const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress)

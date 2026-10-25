@@ -1,6 +1,9 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
+
+#include "src/backend/flash/ecu/denso_beef_can_profile.h"
 
 namespace fastecu::flash
 {
@@ -13,5 +16,13 @@ struct SubaruTcuDensoSh705xCanPlan
     int bitrate{500000};
     bool extended_id{false};
 };
+
+inline constexpr DensoBeefCanProfile kSubaruTcuDensoSh705xCanBeefProfile{.device = "TCU",
+                                                                         .family = "TCU",
+                                                                         .wrong_reply = BeefWrongReply::kErrorDetail,
+                                                                         .pdu_format = BeefPduFormat::kHex,
+                                                                         .init_timeout =
+                                                                             std::chrono::milliseconds{2000},
+                                                                         .upper_hex_sizes = true};
 
 } // namespace fastecu::flash

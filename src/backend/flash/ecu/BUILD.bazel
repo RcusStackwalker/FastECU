@@ -164,6 +164,7 @@ cc_library(
 cc_library(
     name = "subaru_tcu_denso_sh705x_can_types",
     hdrs = ["subaru_tcu_denso_sh705x_can_types.h"],
+    deps = [":denso_beef_can_profile"],
 )
 
 cc_library(
@@ -442,6 +443,7 @@ cc_library(
     srcs = ["subaru_tcu_denso_sh705x_can_executor.cpp"],
     hdrs = ["subaru_tcu_denso_sh705x_can_executor.h"],
     implementation_deps = [
+        ":beef_can_session",
         ":denso_beef_can_common",
         ":denso_iso15765_crypto",
         ":flash_phase_progress",

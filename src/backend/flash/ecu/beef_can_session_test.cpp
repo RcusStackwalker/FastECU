@@ -454,6 +454,32 @@ TEST_F(BeefCanSessionFlashTest, InitializeFlashSelectsTestOrRealWriteMode)
     EXPECT_TRUE(channel_.ScriptConsumed());
 }
 
+TEST_F(BeefCanSessionFlashTest, InitializeFlashUsesTheProfileTimeoutAndHexCase)
+{
+    constexpr DensoBeefCanProfile kUpperCase{.device = "TCU",
+                                             .family = "TCU",
+                                             .wrong_reply = BeefWrongReply::kErrorDetail,
+                                             .pdu_format = BeefPduFormat::kHex,
+                                             .init_timeout = 2000ms,
+                                             .upper_hex_sizes = true};
+    for (const DensoBeefCanProfile *profile : {&kBare, &kUpperCase})
+    {
+        SCOPED_TRACE(profile->family);
+        channel_.ExpectSend(BeefCall(0x05));
+        channel_.QueueReceive(BeefReply(0x45, bytes::Bytes{0x00, 0x00, 0x0A, 0xBC}));
+        channel_.ExpectSend(BeefCall(0x06));
+        channel_.QueueReceive(BeefReply(0x46, bytes::Bytes{0x00, 0x00, 0x0A, 0xBC}));
+        channel_.ExpectSend(BeefCall(0x20));
+        channel_.QueueReceive(BeefReply(0x60, {}));
+
+        ASSERT_THAT(Session(*profile).InitializeFlash(false), IsOk());
+
+        EXPECT_EQ(channel_.last_timeout, profile == &kBare ? 500ms : 2000ms);
+        EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, profile == &kBare ? ": 0x0abc" : ": 0x0ABC")));
+        events_.logs.clear();
+    }
+}
+
 TEST_F(BeefCanSessionFlashTest, WriteMemoryWithNoDifferenceFlashesNothing)
 {
     const auto plan = PlanFor(FlashOperation::kWrite);

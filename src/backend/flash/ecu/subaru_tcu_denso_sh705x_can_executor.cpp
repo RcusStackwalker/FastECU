@@ -16,6 +16,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/beef_can_session.h"
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
@@ -60,7 +61,6 @@ constexpr int kFlashBufferSize = 0x200;
 constexpr int kFlashCommitSize = 0x1000;
 
 constexpr bytes::Byte kKernelId = 0x41;
-constexpr bytes::Byte kKernelCrc = 0x02;
 constexpr bytes::Byte kKernelReadArea = 0x03;
 constexpr bytes::Byte kKernelProgVolt = 0x04;
 constexpr bytes::Byte kKernelWriteBuffer = 0x22;
@@ -84,6 +84,7 @@ struct Context
     std::uint32_t response_id;
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
+    BeefCanSession session;
 };
 
 bytes::Bytes SeedKey(bytes::ByteView seed)
@@ -236,31 +237,6 @@ Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolera
     return std::optional<std::string>{};
 }
 
-Result<std::optional<bytes::Bytes>> NonfatalQuery(Context& context, bytes::ByteView pdu)
-{
-    Result<std::optional<bytes::Bytes>> received =
-        ChannelRequestOptional(context, pdu, kReadTimeout, kExtraShortTimeout);
-    if (!received.has_value())
-    {
-        if (received.error().kind == ErrorKind::kCancelled || received.error().kind == ErrorKind::kDisconnected)
-        {
-            return std::unexpected(received.error());
-        }
-        if (received.error().kind == ErrorKind::kTimeout)
-        {
-            LogError(context, "No valid response from ECU");
-            return std::optional<bytes::Bytes>{};
-        }
-        LogError(context, std::format("Wrong response from TCU: {}", received.error().detail));
-        return std::optional<bytes::Bytes>{};
-    }
-    if (!received->has_value())
-    {
-        LogError(context, "No valid response from ECU");
-    }
-    return received;
-}
-
 Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expected, std::string_view label,
                      std::optional<std::size_t> minimum_size = std::nullopt)
 {
@@ -300,54 +276,20 @@ Status StrictSeed(Context& context, bytes::Bytes& key)
 // Their successful values form the legacy read ROM id.
 Status RequestIdentity(Context& context, bool read_operation, std::optional<std::string>& rom_id)
 {
-    LogInfo(context, "Requesting ECU ID");
-    Result<std::optional<bytes::Bytes>> ecu_reply = NonfatalQuery(context, bytes::Bytes{0xAA});
-    if (!ecu_reply.has_value())
+    if (Status ecu_id = context.session.RequestEcuId(read_operation, rom_id); !ecu_id.has_value())
     {
-        return std::unexpected(ecu_reply.error());
-    }
-    if (ecu_reply->has_value())
-    {
-        const bytes::Bytes& pdu = **ecu_reply;
-        if (pdu.size() >= 9 && pdu[0] == 0xEA)
-        {
-            // Legacy lines 152-164 render these five bytes as ten uppercase
-            // hexadecimal characters before logging/storing the ROM id.
-            const std::string ecu_id =
-                std::format("{:02X}{:02X}{:02X}{:02X}{:02X}", pdu[4], pdu[5], pdu[6], pdu[7], pdu[8]);
-            LogInfo(context, std::format("ECU ID: {}", ecu_id));
-            if (read_operation)
-            {
-                rom_id = ecu_id + "_";
-            }
-        }
-        else
-        {
-            LogError(context, std::format("Wrong response from TCU: {}", bytes::ToHex(pdu)));
-        }
+        return ecu_id;
     }
     LogInfo(context, "Requesting CAL ID");
-    Result<std::optional<bytes::Bytes>> cal_reply =
-        NonfatalQuery(context, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId});
-    if (!cal_reply.has_value())
+    Result<std::optional<std::string>> cal_id = context.session.IdentityString(
+        bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId}, 0x49, 0x04, "CAL ID");
+    if (!cal_id.has_value())
     {
-        return std::unexpected(cal_reply.error());
+        return std::unexpected(cal_id.error());
     }
-    if (!cal_reply->has_value())
+    if (read_operation && cal_id->has_value())
     {
-        return {};
-    }
-    const bytes::Bytes& pdu = **cal_reply;
-    if (pdu.size() < 3 || pdu[0] != 0x49 || pdu[1] != 0x04)
-    {
-        LogError(context, std::format("Wrong response from TCU: {}", bytes::ToHex(pdu)));
-        return {};
-    }
-    const std::string cal_id(pdu.begin() + 3, pdu.end());
-    LogInfo(context, std::format("CAL ID: {}", cal_id));
-    if (read_operation)
-    {
-        rom_id = cal_id + "_" + rom_id.value_or(std::string{});
+        rom_id = **cal_id + "_" + rom_id.value_or(std::string{});
     }
     return {};
 }
@@ -521,7 +463,7 @@ Result<bytes::Bytes> ReadMemory(Context& context, const FlashPlan& plan, PhaseRe
         }
         const std::uint32_t address = region.start + offset;
         const auto payload = ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kKernelPageSize});
-        Result<bytes::Bytes> reply = BeefExchange(context, kKernelReadArea, payload, kKernelPageSize, kReadTimeout);
+        Result<bytes::Bytes> reply = context.session.Exchange(kKernelReadArea, payload, kKernelPageSize, kReadTimeout);
         if (!reply.has_value())
         {
             return std::unexpected(reply.error());
@@ -542,25 +484,6 @@ Result<bytes::Bytes> ReadMemory(Context& context, const FlashPlan& plan, PhaseRe
     return rom;
 }
 
-Result<std::uint32_t> QueryCrc(Context& context, const MemoryRegion& block)
-{
-    return QueryBeefCrc(context, block, [&](bytes::ByteView payload)
-                        { return BeefExchange(context, kKernelCrc, payload, 4, kExtraLongTimeout); });
-}
-
-Result<CompareResult> CompareBlocks(Context& context, const FlashPlan& plan, bytes::ByteView image,
-                                    PhaseReporter *progress, bool after_reflash = false)
-{
-    return CompareBeefBlocks(context, plan.EraseRegions(), plan.TransferRegion().start, image, progress, after_reflash,
-                             "TCU", [&](const MemoryRegion& block) { return QueryCrc(context, block); });
-}
-
-Status InitializeFlash(Context& context)
-{
-    return InitializeBeefFlash(context, false, true, [&](bytes::Byte opcode, std::size_t minimum_payload)
-                               { return BeefExchange(context, opcode, {}, minimum_payload, kReadTimeout); });
-}
-
 Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan, const MemoryRegion& block,
                   std::size_t& flash_bytes_index, std::size_t flash_bytes_count, PhaseReporter& progress)
 {
@@ -579,7 +502,7 @@ Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan
     LogInfo(context, std::format("Flash page erase addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
     LogInfo(context, "Erasing flash page...");
     const auto erase_payload = ComposeBe(block.start);
-    Result<bytes::Bytes> erased = BeefExchange(context, kKernelBlankPage, erase_payload, 0, kExtraLongTimeout);
+    Result<bytes::Bytes> erased = context.session.Exchange(kKernelBlankPage, erase_payload, 0, kExtraLongTimeout);
     if (!erased.has_value())
     {
         return std::unexpected(erased.error());
@@ -597,7 +520,7 @@ Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan
         const std::size_t chunk_offset = static_cast<std::size_t>(start - block.start);
         const bytes::ByteView chunk = image.subspan(image_offset + chunk_offset, kFlashBufferSize);
         const bytes::Bytes write_payload = ComposeBe(start, chunk);
-        Result<bytes::Bytes> written = BeefExchange(context, kKernelWriteBuffer, write_payload, 0, kLongTimeout);
+        Result<bytes::Bytes> written = context.session.Exchange(kKernelWriteBuffer, write_payload, 0, kLongTimeout);
         if (!written.has_value())
         {
             return std::unexpected(written.error());
@@ -634,7 +557,7 @@ Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan
             LogInfo(context, std::format(" crc32: 0x{:08x}", image_crc));
             const auto commit_payload = ComposeBe(commit_start, std::uint16_t{kFlashCommitSize}, image_crc);
             Result<bytes::Bytes> committed =
-                BeefExchange(context, kKernelCommitBuffer, commit_payload, 0, kExtraLongTimeout);
+                context.session.Exchange(kKernelCommitBuffer, commit_payload, 0, kExtraLongTimeout);
             if (!committed.has_value())
             {
                 return std::unexpected(committed.error());
@@ -653,7 +576,7 @@ Status ReflashBlock(Context& context, bytes::ByteView image, const FlashPlan& pl
     // operator recovery warning from the legacy worker.
     LogInfo(context, std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
     LogInfo(context, "Check flash voltage");
-    Result<bytes::Bytes> voltage = BeefExchange(context, kKernelProgVolt, {}, 2, kMediumTimeout);
+    Result<bytes::Bytes> voltage = context.session.Exchange(kKernelProgVolt, {}, 2, kMediumTimeout);
     if (!voltage.has_value())
     {
         return std::unexpected(voltage.error());
@@ -677,7 +600,7 @@ Status WriteMemory(Context& context, const FlashPlan& plan, PhaseSequence& phase
 {
     // write_mem(), revision 59f4e442 lines 784-900.
     const bytes::ByteView image = plan.ImageOrEmpty();
-    Result<CompareResult> before = CompareBlocks(context, plan, image, &compare_progress);
+    Result<CompareResult> before = context.session.CompareBlocks(plan, image, &compare_progress);
     if (!before.has_value())
     {
         return std::unexpected(before.error());
@@ -699,7 +622,7 @@ Status WriteMemory(Context& context, const FlashPlan& plan, PhaseSequence& phase
         }
     }
     LogInfo(context, "--- Start writing ROM file to ECU flash memory ---");
-    if (const Status initialized = InitializeFlash(context); !initialized.has_value())
+    if (const Status initialized = context.session.InitializeFlash(false); !initialized.has_value())
     {
         return initialized;
     }
@@ -727,7 +650,7 @@ Status WriteMemory(Context& context, const FlashPlan& plan, PhaseSequence& phase
     }
     write_progress.Complete();
 
-    Result<CompareResult> after = CompareBlocks(context, plan, image, nullptr, true);
+    Result<CompareResult> after = context.session.CompareBlocks(plan, image, nullptr, true);
     if (!after.has_value())
     {
         return std::unexpected(after.error());
@@ -754,7 +677,16 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::Run(const SubaruTc
 {
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
-    Context context{cancellation, events, clock, transport, family.request_id, family.response_id, uds_client, channel};
+    Context context{
+        cancellation,
+        events,
+        clock,
+        transport,
+        family.request_id,
+        family.response_id,
+        uds_client,
+        channel,
+        BeefCanSession(transport, clock, cancellation, events, channel, kSubaruTcuDensoSh705xCanBeefProfile)};
 
     const bool read_operation = plan.Operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read_operation ? 2 : 4);

@@ -27,29 +27,21 @@
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/result.h"
 
-// Helpers shared by the Denso BEEF dialect CAN executors:
-// SubaruDensoSh7058CanExecutor, SubaruDensoSh7058CanDieselExecutor and
-// SubaruTcuDensoSh705xCanExecutor.
+// Internals of the Denso BEEF dialect CAN executors: SubaruDensoSh7058CanExecutor,
+// SubaruDensoSh7058CanDieselExecutor and SubaruTcuDensoSh705xCanExecutor.
 //
-// Each family was ported standalone with duplication tolerated, so factoring
-// happened only once all three and their independent characterization tests
-// were visible. Comparing all 22 signatures common to the three, exactly these
-// bodies were byte-identical. parse_beef matched petrol and diesel only and
-// stayed family-local, because a two-way match is where the original port design
-// says to stop. The TCU copy has since proved to differ from them in comments
-// alone, so ParseBeef, BeefMessage, UppercaseHexCompact and the request half
-// of the channel exchange (SendChannelRequest) are shared below.
+// BeefCanSession owns the conversation these helpers implement: the tolerant
+// query, identity, CRC compare, flash init and write. It takes the family's
+// wording from a DensoBeefCanProfile and calls the templates below, so callers
+// of those flows use the session, not these functions.
 //
-// Everything substantial was compared and deliberately left family-local:
-// connect_bootloader, flash_block, upload_kernel, write_memory,
-// compare_blocks, read_memory, beef_exchange, upload_b6_discard,
-// nonfatal_query, strict_payload, discard_stale_frame, query_crc and
-// reflash_block all differ across all three in timeouts, retry counts,
-// geometry, address indexing, startup ordering or log wording.
-//
-// Inside upload_kernel, the encrypted payload, initial download request and
-// 0xB6 block walk are shared. Each family keeps its own size checks, wording,
-// reply handling and kernel start.
+// Executors still call this header directly for what stays family-local:
+// ParseBeef and BeefRequest for kernel-ID probing, the 0xB6 kernel-upload
+// helpers (BeefKernelPayload, UploadBeefKernelBlocks, DiscardB6Reply), and
+// ReadBeefMemory for the petrol and diesel reads. connect_bootloader, flash
+// the TCU's read and flash-block loops, security and kernel upload
+// differ per family in timeouts, retry counts, geometry and log wording, and
+// stay in each executor.
 //
 // The executor suites do NOT read these helpers back: each carries wire
 // expectations transcribed independently from its legacy oracle, so a wrong
