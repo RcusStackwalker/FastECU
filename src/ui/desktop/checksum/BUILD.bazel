@@ -36,6 +36,7 @@ fastecu_gtest(
         "//src/algorithms/memory:memory_image",
         "//src/algorithms/memory:memory_map",
         "//src/algorithms/memory/testing:memory_views",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

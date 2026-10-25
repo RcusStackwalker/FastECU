@@ -1,6 +1,7 @@
 #include "src/ui/desktop/checksum/checksum_correction_command.h"
 
 #include <QWidget>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <array>
@@ -8,6 +9,12 @@
 #include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
 #include "src/algorithms/memory/testing/memory_views.h"
+#include "src/backend/ports/testing/result_matchers.h"
+
+using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
 
 // ChecksumResult is in the global namespace -- see the namespace note above.
 using fastecu::checksum::ChecksumSelection;
@@ -96,7 +103,7 @@ TEST(ChecksumCorrectionCommand, DecliningGateReturnsUnchangedWithNoFamilyDialog)
 
     ChecksumCorrectionResult result = command.run(imageOf(rom), false, subaruM32rKlineSelection(), nullptr);
 
-    EXPECT_FALSE(result.corrected_rom_data.has_value());
+    EXPECT_THAT(result.corrected_rom_data, Eq(std::nullopt));
     EXPECT_FALSE(result.canceled_due_to_missing_module);
     EXPECT_EQ(command.family_result_dialog_count, 0);
 }
@@ -108,7 +115,7 @@ TEST(ChecksumCorrectionCommand, AcceptingGateWithoutLinkedDefinitionCorrectsRom)
 
     ChecksumCorrectionResult result = command.run(imageOf(rom), false, subaruM32rKlineSelection(), nullptr);
 
-    ASSERT_TRUE(result.corrected_rom_data.has_value());
+    ASSERT_THAT(result.corrected_rom_data, Optional(_));
     EXPECT_EQ(command.family_result_dialog_count, 1);
     EXPECT_EQ(command.last_family_result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(command.last_family_result.message, "Subaru Hitachi M32R K-Line ECU Checksum");
@@ -122,7 +129,7 @@ TEST(ChecksumCorrectionCommand, GateNotConsultedWhenDefinitionAlreadyLinked)
 
     ChecksumCorrectionResult result = command.run(imageOf(rom), true, subaruM32rKlineSelection(), nullptr);
 
-    ASSERT_TRUE(result.corrected_rom_data.has_value());
+    ASSERT_THAT(result.corrected_rom_data, Optional(_));
 }
 
 TEST(ChecksumCorrectionCommand, HeaderOnlyDefinitionBypassesMissingDefinitionGate)
@@ -136,7 +143,7 @@ TEST(ChecksumCorrectionCommand, HeaderOnlyDefinitionBypassesMissingDefinitionGat
 
     const auto result = command.run(imageOf(rom), kHasDefinition, subaruM32rKlineSelection(), nullptr);
 
-    ASSERT_TRUE(result.corrected_rom_data.has_value());
+    ASSERT_THAT(result.corrected_rom_data, Optional(_));
     EXPECT_EQ(command.missing_definition_dialog_count, 0);
     EXPECT_EQ(command.family_result_dialog_count, 1);
 }
@@ -150,7 +157,7 @@ TEST(ChecksumCorrectionCommand, DisabledDieselChecksumPreservesRomData)
     const ChecksumCorrectionResult result =
         command.run(imageOf(rom), true, subaruDensoSh7058DieselSelection(), nullptr);
 
-    ASSERT_TRUE(result.corrected_rom_data.has_value());
+    ASSERT_THAT(result.corrected_rom_data, Optional(_));
     EXPECT_EQ(*result.corrected_rom_data, rom);
     EXPECT_EQ(command.last_family_result.status, ChecksumResult::Status::kDisabled);
 }
@@ -162,7 +169,7 @@ TEST(ChecksumCorrectionCommand, BadRomSizeShowsDialogAndMakesNoCorrection)
 
     ChecksumCorrectionResult result = command.run(imageOf(rom), true, subaruM32rKlineSelection(), nullptr);
 
-    EXPECT_FALSE(result.corrected_rom_data.has_value());
+    EXPECT_THAT(result.corrected_rom_data, Eq(std::nullopt));
     EXPECT_EQ(command.bad_rom_size_dialog_count, 1);
 }
 
@@ -203,7 +210,7 @@ TEST(ChecksumCorrectionCommand, UnknownMcuTypeReturnsUnmodifiedRomAndRunsNoDialo
     const ChecksumCorrectionResult result = command.run(imageOf(rom), true, selection, nullptr);
 
     EXPECT_TRUE(result.unknown_mcu_type);
-    EXPECT_FALSE(result.corrected_rom_data.has_value());
+    EXPECT_THAT(result.corrected_rom_data, Eq(std::nullopt));
     EXPECT_EQ(command.bad_rom_size_dialog_count, 0);
     EXPECT_EQ(command.family_result_dialog_count, 0);
 }
@@ -222,7 +229,7 @@ TEST(ChecksumCorrectionCommand, ValidMcuCorrectsRomAndReturnsChangedBytes)
     const bytes::Bytes original = rom;
     const ChecksumCorrectionResult result = command.run(imageOf(rom), true, selection, nullptr);
 
-    ASSERT_TRUE(result.corrected_rom_data.has_value());
+    ASSERT_THAT(result.corrected_rom_data, Optional(_));
     EXPECT_EQ(result.corrected_rom_data->size(), 524288U);
     EXPECT_NE(*result.corrected_rom_data, rom);
     EXPECT_EQ(rom, original);
@@ -249,11 +256,11 @@ TEST(ChecksumCorrectionCommand, CorrectedBytesAreTheRomFileNotTheEcuRange)
     };
     const auto image = memory::MemoryImage::Create(
         memory::MemoryMap::Create(blocks, memory::ByteCount{0x200000}).value(), bytes::Bytes(0x200000, 0));
-    ASSERT_TRUE(image.has_value());
+    ASSERT_THAT(image, IsOk());
 
     const ChecksumCorrectionResult result = command.run(*image, true, subaruSh72543rSelection(), nullptr);
 
-    ASSERT_TRUE(result.corrected_rom_data.has_value());
+    ASSERT_THAT(result.corrected_rom_data, Optional(_));
     EXPECT_EQ(bytes::ReadU16Be(*result.corrected_rom_data, 0x0FFFFE), 0x5AA5U);
     EXPECT_EQ(bytes::ReadU16Be(*result.corrected_rom_data, 0x1FFFFE), 0U);
 }
@@ -266,7 +273,7 @@ TEST(ChecksumCorrectionCommand, ACorrectionIntoReadOnlyMemoryChangesNothingAndWa
 
     const ChecksumCorrectionResult result = command.run(image, true, subaruSh72543rSelection(), nullptr);
 
-    EXPECT_FALSE(result.corrected_rom_data.has_value());
+    EXPECT_THAT(result.corrected_rom_data, Eq(std::nullopt));
     EXPECT_EQ(command.family_result_dialog_count, 1);
     EXPECT_EQ(command.last_family_result.status, ChecksumResult::Status::kUnsupportedRom);
 }

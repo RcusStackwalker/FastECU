@@ -49,6 +49,7 @@ using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::IsEmpty;
 using ::testing::Not;
+using ::testing::Optional;
 using ::testing::Pair;
 using ::testing::Return;
 using ::testing::SizeIs;
@@ -259,7 +260,7 @@ TEST_F(CalibrationOperationCoordinator, AcceptedWriteWarningSkipsCorrection)
 
     const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, "/kernels/");
 
-    ASSERT_TRUE(prepared.has_value());
+    ASSERT_THAT(prepared, Optional(_));
     EXPECT_THAT(prepared->image, ElementsAre(9, 2, 3));
     EXPECT_EQ(prepared->protocol.name, "proto_b");
     EXPECT_EQ(prepared->protocol.mcu, "M32R");
@@ -275,7 +276,7 @@ TEST_F(CalibrationOperationCoordinator, CorrectedWriteUsesOnlyOperationBytes)
 
     const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, "/kernels/");
 
-    ASSERT_TRUE(prepared.has_value());
+    ASSERT_THAT(prepared, Optional(_));
     EXPECT_THAT(checksum_image_, ElementsAre(9, 2, 3));
     EXPECT_FALSE(checksum_has_definition_);
     EXPECT_THAT(prepared->image, ElementsAre(4, 5, 6));
@@ -298,7 +299,7 @@ TEST_F(CalibrationOperationCoordinator, ChecksumLogsKeepLegacyTextAndOrder)
         calibration::SessionContents{.image = memory::testing::IdentityImage(bytes::Bytes(0x1a, 0))}};
     expectChecksum({.canceled_due_to_missing_module = true});
 
-    ASSERT_TRUE(coordinator_.prepareWrite(&session_, "/kernels/").has_value());
+    ASSERT_THAT(coordinator_.prepareWrite(&session_, "/kernels/"), Optional(_));
 
     EXPECT_THAT(logs_, ElementsAre(Pair(LogLevel::kDebug, "Protocol: proto_a"), Pair(LogLevel::kDebug, "Make: Subaru"),
                                    Pair(LogLevel::kDebug, "Checksum: yes"),
@@ -346,7 +347,7 @@ TEST_F(CalibrationOperationCoordinator, ChecksumImageIsPlacedBySelectedProtocols
         calibration::SessionContents{.image = memory::testing::IdentityImage(bytes::Bytes(8, 0))}};
     expectChecksum({});
 
-    ASSERT_TRUE(coordinator_.prepareWrite(&session_, "/kernels/").has_value());
+    ASSERT_THAT(coordinator_.prepareWrite(&session_, "/kernels/"), Optional(_));
 
     EXPECT_EQ(checksum_span_start_, memory::FlashAddress{0x1000});
     EXPECT_THAT(checksum_image_, ElementsAreArray(bytes::Bytes(8, 0)));
@@ -360,7 +361,7 @@ TEST_F(CalibrationOperationCoordinator, ChecksumImageOfAnUnmappedSizeIsPlacedByT
         calibration::SessionContents{.image = memory::testing::IdentityImage(bytes::Bytes(9, 0))}};
     expectChecksum({});
 
-    ASSERT_TRUE(coordinator_.prepareWrite(&session_, "/kernels/").has_value());
+    ASSERT_THAT(coordinator_.prepareWrite(&session_, "/kernels/"), Optional(_));
 
     EXPECT_EQ(checksum_span_start_, memory::FlashAddress{0});
     EXPECT_THAT(checksum_image_, SizeIs(9));
@@ -376,7 +377,7 @@ TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksu
 
     const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, "/kernels/");
 
-    ASSERT_TRUE(prepared.has_value());
+    ASSERT_THAT(prepared, Optional(_));
     ASSERT_THAT(cfg_.session.SelectedRow(), IsOk());
     EXPECT_EQ(*cfg_.session.SelectedRow(), 2U);
     EXPECT_EQ(session_.Protocol().flash_method, "proto_a");
@@ -445,7 +446,7 @@ TEST_P(UncorrectedWriteStillPrepares, WithOriginalBytes)
 
     const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, "/kernels/");
 
-    ASSERT_TRUE(prepared.has_value());
+    ASSERT_THAT(prepared, Optional(_));
     EXPECT_THAT(prepared->image, ElementsAre(9, 2, 3));
     EXPECT_THAT(session_.File(), ElementsAre(9, 2, 3));
     EXPECT_THAT(
@@ -484,7 +485,7 @@ TEST_P(DefinitionlessOrNonemptyMethodDoesNotReselect, ButRefreshesKernelAndMcu)
 
     const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, "/kernels/");
 
-    ASSERT_TRUE(prepared.has_value());
+    ASSERT_THAT(prepared, Optional(_));
     EXPECT_EQ(session_.Protocol().flash_method, GetParam().flash_method);
     // A reselection by "proto_a" would have moved to row 2.
     ASSERT_THAT(cfg_.session.SelectedRow(), IsOk());
@@ -527,7 +528,7 @@ TEST_P(KernelDirectoryJoining, MatchesFlashKernelPath)
 
     const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&session_, GetParam().directory);
 
-    ASSERT_TRUE(prepared.has_value());
+    ASSERT_THAT(prepared, Optional(_));
     EXPECT_EQ(session_.Protocol().kernel_path, GetParam().expected_path);
     EXPECT_EQ(prepared->kernel_path, GetParam().expected_path);
 }
@@ -691,7 +692,7 @@ TEST_F(CalibrationOperationCoordinator, WriteImagesAreTheRomFileAsOpened)
 
     const std::optional<PreparedWrite> prepared = coordinator_.prepareWrite(&packed, "/kernels");
 
-    ASSERT_TRUE(prepared.has_value());
+    ASSERT_THAT(prepared, Optional(_));
     EXPECT_THAT(prepared->image, ElementsAre(1, 2, 3, 4));
 }
 

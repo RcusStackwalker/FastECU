@@ -14,6 +14,7 @@
 #include <QKeyEvent>
 #include <QMdiSubWindow>
 #include <QTableWidget>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -29,6 +30,8 @@ namespace
 using fastecu::calibration::SessionId;
 using fastecu::definition::DefinitionFormat;
 using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Optional;
 
 struct MapFixture
 {
@@ -546,7 +549,7 @@ TEST(CalibrationMaps, EditTargetResolvesThroughMdiWindowAfterOpeningFailureRecov
                                                        table->rowCount() - 1, table->columnCount() - 1),
                             true);
 
-    EXPECT_TRUE(fastecu::ui::selectedNumericTarget(&window, *session, 0).has_value());
+    EXPECT_THAT(fastecu::ui::selectedNumericTarget(&window, *session, 0), Optional(_));
 }
 
 TEST(CalibrationMaps, SelectAllSelectsTheBodyAndLeavesTheAxesOut)

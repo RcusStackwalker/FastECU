@@ -6,6 +6,7 @@
 #include <QTemporaryDir>
 #include <QThread>
 #include <gmock/gmock-matchers.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <stdexcept>
 
@@ -26,6 +27,9 @@ using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 using fastecu::testing::SignalRecorder;
 using fastecu::testing::WaitUntil;
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
 
 Result<DesktopLoggingRunStart> makeRequest(const QString& directory, LoggingTarget target = LoggingTarget::kTcu,
                                            const std::string& protocol = "SSM", const std::string& name = "rpm")
@@ -110,7 +114,7 @@ TEST_F(DesktopLoggingRunTest, capturedSnapshotAndFreshCacheBelongToTheRun)
     ASSERT_THAT(builtRequest2, fastecu::testing::IsOk());
     request = std::move(*builtRequest2);
     const auto view = run_.view();
-    ASSERT_TRUE(view.active_snapshot.has_value());
+    ASSERT_THAT(view.active_snapshot, Optional(_));
     EXPECT_EQ(view.active_snapshot->Target(), LoggingTarget::kTcu);
     EXPECT_THAT(view.active_snapshot->Selection().lower_panel_ids, ::testing::ElementsAre("rpm", "coolant"));
     EXPECT_TRUE(view.values.ParameterValue("SSM", "rpm").isEmpty());
@@ -158,7 +162,7 @@ TEST_F(DesktopLoggingRunTest, failedAcquisitionReportsBufferedCsvFailureAfterRol
     QObject::connect(&run_, &DesktopLoggingRun::csvError, &run_,
                      [&](const QString&)
                      {
-                         EXPECT_FALSE(run_.view().active_snapshot.has_value());
+                         EXPECT_THAT(run_.view().active_snapshot, Eq(std::nullopt));
                          EXPECT_FALSE(run_.view().csv_open);
                          EXPECT_FALSE(run_.view().acquisition_running);
                      });
@@ -194,7 +198,7 @@ TEST_F(DesktopLoggingRunTest, sampleErrorSubscriberStopsBeforeHealthyPeer)
     emit engine_.valuesUpdated(
         {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 99}});
     EXPECT_EQ(errors.Count(), 1U);
-    EXPECT_FALSE(run_.view().active_snapshot.has_value());
+    EXPECT_THAT(run_.view().active_snapshot, Eq(std::nullopt));
     EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
     EXPECT_EQ(readFile(path), "Time,rpm,coolant\n");
 }
@@ -223,7 +227,7 @@ TEST_F(DesktopLoggingRunTest, replacementDuringSampleErrorDiscardsOldBatch)
     emit engine_.valuesUpdated(
         {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 99}});
     EXPECT_TRUE(replaced);
-    ASSERT_TRUE(run_.view().active_snapshot.has_value());
+    ASSERT_THAT(run_.view().active_snapshot, Optional(_));
     EXPECT_EQ(run_.view().active_snapshot->Target(), LoggingTarget::kEcu);
     EXPECT_TRUE(run_.view().acquisition_running);
     EXPECT_TRUE(run_.view().csv_open);
@@ -264,7 +268,7 @@ TEST_F(DesktopLoggingRunTest, replacementDuringPresentationDiscardsOldCsvRow)
                      });
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 99}});
     EXPECT_TRUE(replaced);
-    ASSERT_TRUE(run_.view().active_snapshot.has_value());
+    ASSERT_THAT(run_.view().active_snapshot, Optional(_));
     EXPECT_TRUE(run_.view().acquisition_running);
     EXPECT_TRUE(run_.view().csv_open);
     EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
@@ -293,7 +297,7 @@ TEST_F(DesktopLoggingRunTest, shutdownDuringSampleErrorDiscardsOldBatch)
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 43}});
     EXPECT_EQ(errors.Count(), 1U);
     EXPECT_EQ(presentations.Count(), 0U);
-    EXPECT_FALSE(run_.view().active_snapshot.has_value());
+    EXPECT_THAT(run_.view().active_snapshot, Eq(std::nullopt));
     EXPECT_FALSE(run_.view().acquisition_running);
     EXPECT_FALSE(run_.view().csv_open);
     EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
@@ -327,7 +331,7 @@ TEST_F(DesktopLoggingRunTest, failedReplacementDoesNotResumeOldBatch)
         {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 99}});
     EXPECT_TRUE(attempted);
     EXPECT_EQ(presentations.Count(), 0U);
-    EXPECT_FALSE(run_.view().active_snapshot.has_value());
+    EXPECT_THAT(run_.view().active_snapshot, Eq(std::nullopt));
     EXPECT_FALSE(run_.view().acquisition_running);
     EXPECT_FALSE(run_.view().csv_open);
     EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
@@ -345,7 +349,7 @@ TEST_F(DesktopLoggingRunTest, sampleErrorKeepsHealthyPeerWhenRunIsUnchanged)
     emit engine_.valuesUpdated(
         {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 43}});
     EXPECT_EQ(errors.Count(), 1U);
-    EXPECT_TRUE(run_.view().active_snapshot.has_value());
+    EXPECT_THAT(run_.view().active_snapshot, Optional(_));
     EXPECT_TRUE(run_.view().acquisition_running);
     EXPECT_EQ(run_.view().values.ParameterValue("SSM", "rpm"), "43");
     EXPECT_TRUE(readFile(run_.view().csv_path).contains(",43,\n"));
@@ -367,7 +371,7 @@ TEST_F(DesktopLoggingRunTest, stopDuringPresentationDiscardsPendingCsvRow)
                      });
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 99}});
     EXPECT_TRUE(stopped);
-    EXPECT_FALSE(run_.view().active_snapshot.has_value());
+    EXPECT_THAT(run_.view().active_snapshot, Eq(std::nullopt));
     EXPECT_FALSE(run_.view().csv_open);
     EXPECT_EQ(readFile(path), "Time,rpm,coolant\n");
 }
@@ -403,7 +407,7 @@ TEST_F(DesktopLoggingRunTest, completionReleasesOutputBeforeAnImmediateRestart)
                                  return;
                              }
                              restarted = true;
-                             EXPECT_FALSE(run_.view().active_snapshot.has_value());
+                             EXPECT_THAT(run_.view().active_snapshot, Eq(std::nullopt));
                              EXPECT_FALSE(run_.view().csv_open);
                              EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
                              auto builtRequest21 = makeRequest(directory_.path(), LoggingTarget::kEcu);
@@ -413,7 +417,7 @@ TEST_F(DesktopLoggingRunTest, completionReleasesOutputBeforeAnImmediateRestart)
     run_.stop();
     QObject::disconnect(subscription);
     EXPECT_TRUE(restarted);
-    ASSERT_TRUE(run_.view().active_snapshot.has_value());
+    ASSERT_THAT(run_.view().active_snapshot, Optional(_));
     EXPECT_EQ(run_.view().active_snapshot->Target(), LoggingTarget::kEcu);
     EXPECT_TRUE(run_.view().csv_open);
 }
@@ -428,7 +432,7 @@ TEST_F(DesktopLoggingRunTest, shutdownClosesOutputAndUsesTheNonModalOutcomePath)
     run_.shutdown();
     run_.shutdown();
     EXPECT_FALSE(engine_.IsRunning());
-    EXPECT_FALSE(run_.view().active_snapshot.has_value());
+    EXPECT_THAT(run_.view().active_snapshot, Eq(std::nullopt));
     EXPECT_FALSE(run_.view().csv_open);
     EXPECT_TRUE(run_.view().values.ParameterValue("SSM", "rpm").isEmpty());
     EXPECT_EQ(errors.Count(), 0U);
@@ -512,7 +516,7 @@ TEST_P(DesktopLoggingRunFailure, csvOpenAndWriteFailuresLeaveAcquisitionActiveAn
     QObject::connect(&run, &DesktopLoggingRun::csvError, &run,
                      [&](const QString&)
                      {
-                         EXPECT_TRUE(run.view().active_snapshot.has_value());
+                         EXPECT_THAT(run.view().active_snapshot, Optional(_));
                          EXPECT_TRUE(run.view().acquisition_running);
                          EXPECT_FALSE(run.view().csv_open);
                      });
@@ -594,7 +598,7 @@ TEST_F(DesktopLoggingRunTest, csvErrorSubscriberStopsAfterFailureStateCommits)
     injected->fail_writes = true;
     emit engine_.valuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
     EXPECT_FALSE(run.view().acquisition_running);
-    EXPECT_FALSE(run.view().active_snapshot.has_value());
+    EXPECT_THAT(run.view().active_snapshot, Eq(std::nullopt));
     EXPECT_EQ(errors.Count(), 1U);
 }
 
@@ -641,7 +645,7 @@ TEST_P(DesktopLoggingRunStartFailure, failedStartRollsBackInitializedStateAndCsv
     ASSERT_THAT(builtRequest31, fastecu::testing::IsOk());
     EXPECT_THAT(run.start(std::move(*builtRequest31)), IsErr(expected));
     EXPECT_TRUE(initialized);
-    EXPECT_FALSE(run.view().active_snapshot.has_value());
+    EXPECT_THAT(run.view().active_snapshot, Eq(std::nullopt));
     EXPECT_FALSE(run.view().csv_open);
     EXPECT_TRUE(run.view().values.ParameterValue("SSM", "rpm").isEmpty());
     EXPECT_FALSE(engine.IsRunning());
@@ -698,7 +702,7 @@ TEST_P(DesktopLoggingRunCompletion, engineCompletionReasonsReleaseRunAndCsv)
     QObject::connect(&run, &DesktopLoggingRun::sessionEnded, &run,
                      [&](SessionEndReason, const QString&)
                      {
-                         EXPECT_FALSE(run.view().active_snapshot.has_value());
+                         EXPECT_THAT(run.view().active_snapshot, Eq(std::nullopt));
                          EXPECT_FALSE(run.view().csv_open);
                          EXPECT_FALSE(run.view().acquisition_running);
                      });
