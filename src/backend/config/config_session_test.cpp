@@ -30,8 +30,11 @@ using fastecu::config::testing::Setting;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using ::testing::_;
 using ::testing::AllOf;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 template <typename CatalogReference>
 constexpr bool kCanConstructSession =
@@ -97,8 +100,8 @@ TEST(ConfigSessionInitialize, AbsentSettingsTakeCompiledInDefaults)
     EXPECT_EQ(s.selected_log_protocol, "");
     EXPECT_EQ(s.ecuflash_definition_files_directory, "");
     EXPECT_EQ(s.romraider_logger_definition_file, "");
-    EXPECT_TRUE(s.calibration_files.empty());
-    EXPECT_TRUE(s.romraider_definition_files.empty());
+    EXPECT_THAT(s.calibration_files, IsEmpty());
+    EXPECT_THAT(s.romraider_definition_files, IsEmpty());
 }
 
 TEST(ConfigSessionInitialize, LoadedScalarsOverrideDefaults)
@@ -196,7 +199,7 @@ TEST(ConfigSessionInitialize, FailedInitializationExposesNothing)
     f.Put(f.paths.config_file, "<config");
     ASSERT_THAT(f.Initialize(), IsErr(ErrorKind::kInvalidConfig));
 
-    EXPECT_TRUE(f.session.Vehicles().empty());
+    EXPECT_THAT(f.session.Vehicles(), IsEmpty());
     EXPECT_THAT(f.session.SelectedRow(), IsErr(ErrorKind::kInternal));
     EXPECT_EQ(f.session.SelectedVehicle(), nullptr);
     const std::size_t writes = f.file_repository.write_calls.size();
@@ -211,14 +214,14 @@ TEST(ConfigSessionInitialize, AFailedReinitializationDropsTheEarlierState)
     f.Put(f.paths.config_file, "<config");
     ASSERT_THAT(f.Initialize(), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_FALSE(f.session.Initialized());
-    EXPECT_TRUE(f.session.Vehicles().empty());
+    EXPECT_THAT(f.session.Vehicles(), IsEmpty());
 }
 
 TEST(ConfigSessionInitialize, AccessBeforeInitializationIsChecked)
 {
     ConfigSessionFixture f;
     EXPECT_FALSE(f.session.Initialized());
-    EXPECT_TRUE(f.session.Vehicles().empty());
+    EXPECT_THAT(f.session.Vehicles(), IsEmpty());
     EXPECT_THAT(f.session.SelectedRow(), IsErr(ErrorKind::kInternal));
     EXPECT_EQ(f.session.SelectedVehicle(), nullptr);
     EXPECT_THAT(f.session.Save(), IsErr(ErrorKind::kInternal));
@@ -237,7 +240,7 @@ TEST_P(UnusableSavedVehicle, SelectsNothingAndForgetsIt)
     ASSERT_THAT(f.Initialize(), IsOk());
     EXPECT_EQ(f.session.SelectedVehicle(), nullptr);
     EXPECT_THAT(f.session.SelectedRow(), IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(f.session.Settings().selected_vehicle_id.empty());
+    EXPECT_THAT(f.session.Settings().selected_vehicle_id, IsEmpty());
 }
 
 INSTANTIATE_TEST_SUITE_P(ConfigSessionInitialize, UnusableSavedVehicle,
@@ -508,7 +511,7 @@ TEST(ConfigSessionBuiltin, TheMutDmaVehicleLogsMutDmaAndOffersNoFlashOperation)
     f.catalog = BuiltinCatalog();
     ASSERT_THAT(f.Initialize(), IsOk());
     const auto row = BuiltinCatalog().FindVehicle("mitsubishi-unknown-unk-ecu-unk--mitsu-ecu-m32r-kline-mut-dma");
-    ASSERT_TRUE(row.has_value());
+    ASSERT_THAT(row, Optional(_));
 
     ASSERT_THAT(f.session.SelectRow(*row), IsOk());
 

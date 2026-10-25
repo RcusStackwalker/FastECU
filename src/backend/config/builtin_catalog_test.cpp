@@ -13,6 +13,7 @@
 #include <gtest/gtest.h>
 
 #include "src/algorithms/memory/memory_map.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 namespace
 {
@@ -31,7 +32,11 @@ using fastecu::memory::MemoryErrorKind;
 using fastecu::memory::MemoryMap;
 using fastecu::memory::Writability;
 using Backing = std::variant<FileBacking, FillBacking>;
+using fastecu::testing::IsErrThat;
+using ::testing::_;
+using ::testing::Eq;
 using ::testing::IsEmpty;
+using ::testing::Optional;
 
 const ProtocolSpec& ProtocolNamed(std::string_view name)
 {
@@ -88,7 +93,7 @@ TEST(BuiltinCatalogFixes, Sh7059DieselDensoCanYearIs2011)
 {
     const auto row = BuiltinCatalog().FindVehicle(
         "subaru-all-sh7059-denso-can-diesel-models-sh7059-2011--sub-ecu-denso-sh7059-diesel-densocan");
-    ASSERT_TRUE(row.has_value());
+    ASSERT_THAT(row, Optional(_));
     EXPECT_EQ(BuiltinCatalog().Vehicles()[*row].year, "2011");
 }
 
@@ -97,16 +102,16 @@ TEST(BuiltinCatalogFixes, UnisiaJecsM377xDeclareNoKernelLoadAddress)
     for (std::string_view name : {"sub_ecu_unisia_jecs_m3779x", "sub_ecu_unisia_jecs_m3775x"})
     {
         SCOPED_TRACE(::testing::PrintToString(name));
-        EXPECT_TRUE(ProtocolNamed(name).kernel.empty()) << name;
-        EXPECT_FALSE(ProtocolNamed(name).kernel_load_address.has_value()) << name;
+        EXPECT_THAT(ProtocolNamed(name).kernel, IsEmpty()) << name;
+        EXPECT_THAT(ProtocolNamed(name).kernel_load_address, Eq(std::nullopt)) << name;
     }
 }
 
 TEST(BuiltinCatalogFixes, Sh72543DieselUploadsNoKernel)
 {
     const ProtocolSpec& protocol = ProtocolNamed("sub_ecu_denso_sh72543_can_diesel");
-    EXPECT_TRUE(protocol.kernel.empty());
-    EXPECT_FALSE(protocol.kernel_load_address.has_value());
+    EXPECT_THAT(protocol.kernel, IsEmpty());
+    EXPECT_THAT(protocol.kernel_load_address, Eq(std::nullopt));
 }
 
 TEST(BuiltinCatalogFixes, Sh7058DensoCanEepromLoadsItsKernelWhereTheFlashFamilyDoes)
@@ -165,7 +170,7 @@ TEST(BuiltinCatalogFixes, CobbAliasesNowSelectTheirVehicles)
 TEST(BuiltinCatalogFixes, MutDmaLoggingHasAMitsubishiVehicle)
 {
     const auto row = BuiltinCatalog().FindVehicle("mitsubishi-unknown-unk-ecu-unk--mitsu-ecu-m32r-kline-mut-dma");
-    ASSERT_TRUE(row.has_value());
+    ASSERT_THAT(row, Optional(_));
     const auto& vehicle = BuiltinCatalog().Vehicles()[*row];
     EXPECT_EQ(vehicle.make, "Mitsubishi");
     EXPECT_EQ(vehicle.protocol->log_protocol, "MUT_DMA");
@@ -195,7 +200,7 @@ TEST(BuiltinCatalogMemoryMaps, Mc68PackedFilesReadErasedFlashInTheRamRange)
     {
         SCOPED_TRACE(::testing::PrintToString(protocol));
         const std::optional<MemoryMap> map = MapFor(protocol, 0x28000);
-        ASSERT_TRUE(map.has_value());
+        ASSERT_THAT(map, Optional(_));
         const MemoryBlock *ram = map->BlockAt(FlashAddress{0x20000});
         const MemoryBlock *high = map->BlockAt(FlashAddress{0x28000});
         ASSERT_NE(ram, nullptr) << protocol;
@@ -214,7 +219,7 @@ TEST(BuiltinCatalogMemoryMaps, Mc68FullFilesHoldReadOnlyBytesForTheRamRange)
     {
         SCOPED_TRACE(::testing::PrintToString(protocol));
         const std::optional<MemoryMap> map = MapFor(protocol, 0x30000);
-        ASSERT_TRUE(map.has_value());
+        ASSERT_THAT(map, Optional(_));
         const MemoryBlock *ram = map->BlockAt(FlashAddress{0x20000});
         const MemoryBlock *high = map->BlockAt(FlashAddress{0x28000});
         ASSERT_NE(ram, nullptr) << protocol;
@@ -232,7 +237,7 @@ TEST(BuiltinCatalogMemoryMaps, Mc68FilesOfOtherSizesAreRejectedNotPadded)
     {
         SCOPED_TRACE(::testing::PrintToString(file_size));
         const auto map = SelectMemoryMap(&ProtocolNamed("sub_ecu_denso_mc68hc16y5_02"), file_size);
-        ASSERT_FALSE(map.has_value()) << file_size;
+        ASSERT_THAT(map, IsErrThat(_)) << file_size;
         EXPECT_EQ(map.error().kind, MemoryErrorKind::kFileSizeMismatch) << file_size;
     }
 }
@@ -250,7 +255,7 @@ TEST(BuiltinCatalogMemoryMaps, N83mFilesStartAtTheirImageAddress)
     {
         SCOPED_TRACE(::testing::PrintToString(file));
         const std::optional<MemoryMap> map = MapFor(file.protocol, file.file_size);
-        ASSERT_TRUE(map.has_value());
+        ASSERT_THAT(map, Optional(_));
         const MemoryBlock *lead = map->BlockAt(FlashAddress{0x08F9C000});
         const MemoryBlock *main = map->BlockAt(FlashAddress{0x08FAC000});
         EXPECT_EQ(map->BlockAt(FlashAddress{0}), nullptr) << file.protocol;
@@ -272,8 +277,8 @@ TEST(BuiltinCatalogMemoryMaps, ColtFullFilesWriteTheTopRegionButNotTheBootloader
 {
     const std::optional<MemoryMap> full = MapFor("mitsu_ecu_m32r_can_512kb", 0x80000);
     const std::optional<MemoryMap> userspace = MapFor("mitsu_ecu_m32r_can", 0x60000);
-    ASSERT_TRUE(full.has_value());
-    ASSERT_TRUE(userspace.has_value());
+    ASSERT_THAT(full, Optional(_));
+    ASSERT_THAT(userspace, Optional(_));
 
     ASSERT_NE(full->BlockAt(FlashAddress{0x7FFF}), nullptr);
     ASSERT_NE(full->BlockAt(FlashAddress{0x60000}), nullptr);
@@ -288,7 +293,7 @@ TEST(BuiltinCatalogMemoryMaps, ProtocolsDeclaringNoMapGetTheIdentityMapAtAnySize
     {
         SCOPED_TRACE(::testing::PrintToString(file_size));
         const std::optional<MemoryMap> map = MapFor("sub_ecu_denso_sh7058", file_size);
-        ASSERT_TRUE(map.has_value());
+        ASSERT_THAT(map, Optional(_));
         ASSERT_EQ(map->Blocks().size(), 1U) << file_size;
         EXPECT_EQ(map->Blocks()[0].range.Start(), FlashAddress{0}) << file_size;
         EXPECT_EQ(map->Blocks()[0].range.Size(), ByteCount{file_size}) << file_size;
@@ -327,7 +332,7 @@ TEST(BuiltinCatalogMemoryMaps, FastEcuReadFilesOpenWithTheirProtocolsMap)
          }))
     {
         SCOPED_TRACE(::testing::PrintToString(file));
-        EXPECT_TRUE(MapFor(file.protocol, file.file_size).has_value()) << file.protocol;
+        EXPECT_THAT(MapFor(file.protocol, file.file_size), Optional(_)) << file.protocol;
     }
 }
 
@@ -336,7 +341,7 @@ TEST(BuiltinCatalogMemoryMaps, FastEcuReadFilesOpenWithTheirProtocolsMap)
 TEST(BuiltinCatalogMemoryMaps, Mh8111ReadFilesHoldNoWritableBytes)
 {
     const std::optional<MemoryMap> map = MapFor("sub_tcu_cvt_mitsu_mh8111_can", 0x80000);
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, Optional(_));
     EXPECT_THAT(map->Blocks(), ::testing::Each(::testing::Field(&MemoryBlock::writability, Writability::kReadOnly)));
 }
 
@@ -355,7 +360,7 @@ TEST(BuiltinCatalogMemoryMaps, OnlyN83mDefinitionsCountFromTheirImageAddress)
         }
     }
     const std::optional<MemoryMap> map = MapFor("sub_ecu_denso_1n83m_4m_can", 0x3E4000);
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, Optional(_));
     EXPECT_EQ(map->DefinitionBase(), FlashAddress{0x08F9C000});
 }
 
