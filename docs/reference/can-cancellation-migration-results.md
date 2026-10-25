@@ -373,8 +373,9 @@ Focused command: `bazel test --config=release
 `//src/backend/flash:guarded_can_flash_transport_test`. Restored candidate passed
 **6/6** targets. Baseline XML **29** cases; candidate **31**, with every
 predecessor case retained (XML classname/name set comparison), including invalid
-plans before precancel and existing family abort cases. Behavior-baseline tests
-fail only on the newly refused blind Read. The actual-alias bounded selection
+plans before precancel and existing family abort cases. Behavior-baseline regressions
+expose extra delegated Reads and corresponding result/queued-reply differences;
+preserved-behavior characterizations pass. The actual-alias bounded selection
 proof fails compilation before the declaration, independently of family polls.
 Removing only this specialization's alias again fails compilation. Temporarily
 bypassing BoundAttempt guard construction fails both selection and real-family
@@ -416,8 +417,9 @@ Focused command: `bazel test --config=release
 `//src/backend/flash:guarded_can_flash_transport_test`. Restored candidate passed
 **6/6** targets. Baseline XML **23** cases; candidate **25**, with every
 predecessor case retained (XML classname/name set comparison), including invalid
-plans before precancel and existing family abort cases. Behavior-baseline tests
-fail only on the newly refused blind Read. The actual-alias bounded selection
+plans before precancel and existing family abort cases. Behavior-baseline regressions
+expose extra delegated Reads and corresponding result/queued-reply differences;
+preserved-behavior characterizations pass. The actual-alias bounded selection
 proof fails compilation before the declaration, independently of family polls.
 Removing only this specialization's alias again fails compilation. Temporarily
 bypassing BoundAttempt guard construction fails both selection and real-family
@@ -459,8 +461,9 @@ Focused command: `bazel test --config=release
 `//src/backend/flash:guarded_can_flash_transport_test`. Restored candidate passed
 **6/6** targets. Baseline XML **22** cases; candidate **25**, with every
 predecessor case retained (XML classname/name set comparison), including invalid
-plans before precancel and existing family abort cases. Behavior-baseline tests
-fail only on the newly refused blind Read. The actual-alias bounded selection
+plans before precancel and existing family abort cases. Behavior-baseline regressions
+expose extra delegated Reads and corresponding result/queued-reply differences;
+preserved-behavior characterizations pass. The actual-alias bounded selection
 proof fails compilation before the declaration, independently of family polls.
 Removing only this specialization's alias again fails compilation. Temporarily
 bypassing BoundAttempt guard construction fails both selection and real-family
@@ -503,8 +506,9 @@ Focused command: `bazel test --config=release
 `//src/backend/flash:guarded_can_flash_transport_test`. Restored candidate passed
 **6/6** targets. Baseline XML **26** cases; candidate **28**, with every
 predecessor case retained (XML classname/name set comparison), including invalid
-plans before precancel and existing family abort cases. Behavior-baseline tests
-fail only on the newly refused blind Read. The actual-alias bounded selection
+plans before precancel and existing family abort cases. Behavior-baseline regressions
+expose extra delegated Reads and corresponding result/queued-reply differences;
+preserved-behavior characterizations pass. The actual-alias bounded selection
 proof fails compilation before the declaration, independently of family polls.
 Removing only this specialization's alias again fails compilation. Temporarily
 bypassing BoundAttempt guard construction fails both selection and real-family
@@ -522,3 +526,45 @@ is linked from its row. Physical identity, erase/window safety, full-size read,
 write/readback, timing and cancellation-boundary bench evidence remain open.
 N83M 1.5M additionally retains its recorded stock-read checksum-table gate.
 Full repository delivery gates remain controller-owned.
+
+## Tasks 7–10 aggregate and self-review
+
+Four explicit plan-policy specializations opt in the four Denso ISO-15765
+bootloader instantiations; the default policy stays empty. Both shared executor
+loop polls, production .cpp bodies, profiles, UdsClient and clocks are unchanged.
+All direct calls in the four family suites use the conditional adapter; shared
+bootloader tests already use the adapted ExecutorRun helper. No predecessor
+case or assertion was removed. Baseline XML totals **100** cases and candidate
+XML totals **109** (31, 25, 25, 28); classname/name set comparison lost no cases.
+
+Each family has both an actual-alias synthetic selection proof and an unmasked
+real-family BoundAttempt boundary test. All four missing-declaration mutations
+fail compilation; all four runner-bypass mutations fail the family's selection
+and real-boundary cases plus the shared bound probe. Both mutation sources were
+restored before per-family commits. Baseline preserved late-stop/final-pacing
+characterizations pass; blind-inner refusal regressions expose intentionally
+new boundaries. Diesel's baseline also reaches an unscripted fatal raw Write
+and returns Internal after consuming its pending continuation; the guard
+refuses the continuation and later fatal Write with cancellation instead.
+
+Self-review additionally asserts N83M 1.5M's total attempted Writes equal the
+exact OBK/setup/page prefix. The accepted-operation stop hook alone could miss
+an attempted unscripted stop Write. This extra assertion passes with the direct
+adapter temporarily bypassed for the late-stop case, as preservation requires;
+the adapter was restored. SH72531's final-pacing case already has the same total
+attempt count assertion. Shared definition-header includes were ordered during
+this review; no code behavior changed.
+
+Final combined `bazel test --config=release` over all four families, shared
+bootloader/common suites, `guarded_attempt_expectations_test`,
+`bound_flash_attempt_test` and `guarded_can_flash_transport_test` passed **9/9**.
+Final Gazelle/buildifier, scoped clang-format, XML preservation review and
+`git diff --check` passed. Each task's normal commit hooks also passed.
+
+Final NLOC: 153705 total / 68475 production /
+85230 test versus 153474 / 68449 / 85025 at
+`00d4125d`. Batch growth: production **+26**,
+test **+205** (including **+1 test NLOC** from self-review).
+Existing shared support is reused; no support fixture or test compression was
+introduced. Full repository/platform delivery gates remain controller-owned.
+No hardware qualification status changed; all recorded bench gaps remain open.
