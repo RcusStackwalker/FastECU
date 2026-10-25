@@ -18,7 +18,9 @@
 #include "src/backend/config/catalog.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 
+using ::testing::_;
 using ::testing::ElementsAre;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -54,7 +56,7 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     EXPECT_EQ(plan->Transport(), TransportKind::kCanIso15765);
     EXPECT_EQ(plan->TargetId(), "sub_ecu_eeprom_denso_sh7058_can");
     EXPECT_EQ(plan->McuName(), "SH7058");
-    ASSERT_TRUE(plan->Kernel().has_value());
+    ASSERT_THAT(plan->Kernel(), Optional(_));
     EXPECT_EQ(plan->Kernel()->load_address, 0xFFFF3000U);
     EXPECT_THAT(plan->Kernel()->bytes, ElementsAre(0x01, 0x02, 0x03));
     // The kernel is the only file read.
@@ -93,7 +95,7 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     EXPECT_EQ(plan->Transport(), TransportKind::kKline);
     EXPECT_EQ(plan->TargetId(), "sub_ecu_eeprom_denso_sh7055_kline");
     EXPECT_EQ(plan->McuName(), "SH7055");
-    ASSERT_TRUE(plan->Kernel().has_value());
+    ASSERT_THAT(plan->Kernel(), Optional(_));
     EXPECT_EQ(plan->Kernel()->load_address, 0xFFFF6004U);
     EXPECT_THAT(plan->Kernel()->bytes, ElementsAre(0xaa, 0xbb));
     EXPECT_EQ(repository.read_handles, (std::vector<std::string>{"kernels/ssmk_kline_sh7055.bin"}));

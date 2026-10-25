@@ -7,11 +7,17 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/result_matchers.h"
+
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -129,8 +135,8 @@ TEST(SubaruDensoSh7058CanDieselPlan, BuildsBothExactGenerationsForEveryOperation
             EXPECT_EQ(plan->McuName(), diesel.mcu);
             EXPECT_EQ(plan->TransferRegion().start, 0U);
             EXPECT_EQ(plan->TransferRegion().length, diesel.rom_size);
-            EXPECT_TRUE(plan->Confirmations().empty());
-            ASSERT_TRUE(plan->Kernel().has_value());
+            EXPECT_THAT(plan->Confirmations(), IsEmpty());
+            ASSERT_THAT(plan->Kernel(), Optional(_));
             EXPECT_EQ(plan->Kernel()->load_address, diesel.kernel_address);
             EXPECT_EQ(plan->Kernel()->id, std::string(diesel.protocol) + "-kernel");
 
@@ -142,12 +148,12 @@ TEST(SubaruDensoSh7058CanDieselPlan, BuildsBothExactGenerationsForEveryOperation
 
             if (operation == FlashOperation::kRead)
             {
-                EXPECT_FALSE(plan->Image().has_value());
-                EXPECT_TRUE(plan->EraseRegions().empty());
+                EXPECT_THAT(plan->Image(), Eq(std::nullopt));
+                EXPECT_THAT(plan->EraseRegions(), IsEmpty());
             }
             else
             {
-                ASSERT_TRUE(plan->Image().has_value());
+                ASSERT_THAT(plan->Image(), Optional(_));
                 EXPECT_EQ(plan->Image()->size(), diesel.rom_size);
                 ASSERT_EQ(plan->EraseRegions().size(), BlocksFor(diesel).size());
                 for (std::size_t index = 0; index < BlocksFor(diesel).size(); ++index)

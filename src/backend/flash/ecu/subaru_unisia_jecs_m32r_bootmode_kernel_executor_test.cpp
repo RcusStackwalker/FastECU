@@ -22,6 +22,8 @@ namespace
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::IsEmpty;
+using ::testing::Not;
 using Line = ScriptedKlineFlashTransport::ControlLineAction;
 
 // 200 bytes: two 128-byte chunks once padded.
@@ -142,7 +144,7 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, APlanWithoutTheConfirmationTouc
     ScriptedKlineFlashTransport transport;
     RunContext context;
     EXPECT_THAT(RunScripted(*plan, transport, context), IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(transport.control_line_trace.empty());
+    EXPECT_THAT(transport.control_line_trace, IsEmpty());
     EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 
@@ -169,7 +171,7 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CancellationAtEachCheckpointDro
         RunContext context;
         context.cancellation.CancelOnCheck(check);
         EXPECT_THAT(RunScripted(plan, transport, context), IsErr(ErrorKind::kCancelled)) << "check " << check;
-        ASSERT_FALSE(transport.control_line_trace.empty());
+        ASSERT_THAT(transport.control_line_trace, Not(IsEmpty()));
         EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines) << "check " << check;
         // Check N stops before chunk N-2.
         EXPECT_EQ(transport.WritesConsumed(), check - 2) << "check " << check;
@@ -211,7 +213,7 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CancelledAtEntryTouchesNoContro
 
     EXPECT_THAT(RunScripted(*plan, transport, context),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
-    EXPECT_TRUE(transport.control_line_trace.empty());
+    EXPECT_THAT(transport.control_line_trace, IsEmpty());
     EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 

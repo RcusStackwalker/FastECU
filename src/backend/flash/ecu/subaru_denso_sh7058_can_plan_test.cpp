@@ -6,10 +6,16 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/result_matchers.h"
+
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -107,8 +113,8 @@ TEST(SubaruDensoSh7058CanPlan, BuildsEveryExactSecurityVariantOperationAndGeomet
             EXPECT_EQ(plan->McuName(), "SH7058");
             EXPECT_EQ(plan->TransferRegion().start, 0U);
             EXPECT_EQ(plan->TransferRegion().length, kRomSize);
-            EXPECT_TRUE(plan->Confirmations().empty());
-            ASSERT_TRUE(plan->Kernel().has_value());
+            EXPECT_THAT(plan->Confirmations(), IsEmpty());
+            ASSERT_THAT(plan->Kernel(), Optional(_));
             EXPECT_EQ(plan->Kernel()->id, "petrol-sh7058-kernel");
             EXPECT_EQ(plan->Kernel()->load_address, kKernelAddress);
 
@@ -121,12 +127,12 @@ TEST(SubaruDensoSh7058CanPlan, BuildsEveryExactSecurityVariantOperationAndGeomet
 
             if (operation == FlashOperation::kRead)
             {
-                EXPECT_FALSE(plan->Image().has_value());
-                EXPECT_TRUE(plan->EraseRegions().empty());
+                EXPECT_THAT(plan->Image(), Eq(std::nullopt));
+                EXPECT_THAT(plan->EraseRegions(), IsEmpty());
             }
             else
             {
-                ASSERT_TRUE(plan->Image().has_value());
+                ASSERT_THAT(plan->Image(), Optional(_));
                 EXPECT_EQ(plan->Image()->size(), kRomSize);
                 ASSERT_EQ(plan->EraseRegions().size(), kSh7058Blocks.size());
                 for (std::size_t block = 0; block < kSh7058Blocks.size(); ++block)

@@ -1,6 +1,7 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -22,7 +23,10 @@ namespace
 {
 using namespace fastecu;
 using namespace fastecu::flash;
+using ::testing::_;
 using ::testing::DoAll;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 // Matches the executor's private kRomSize/block_size: 0x80000 / 96 = 5461
 // remainder 32, so the ROM read is 5462 blocks with a 32-byte tail.
@@ -240,7 +244,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ConnectSendsTheFiveLegacyExchangesInOrde
     const auto result = executor.Execute(std::move(*built_plan_2), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
     // Pins the [5, size-1) slice at both ends: the first block's leading byte
     // and the tail block's trailing byte are what an off-by-one would eat.
@@ -280,7 +284,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ReadsTheRomIn96ByteBlocksWithA32ByteTail
     const auto result = executor.Execute(std::move(*built_plan_3), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
     ExpectRomBlock(*result->read_bytes, 0, kBlockSize);
     ExpectRomBlock(*result->read_bytes, kRomSize - last_length, last_length);
@@ -320,7 +324,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockUpToFiveTimes)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     const auto& read_bytes = result->read_bytes;
-    ASSERT_TRUE(read_bytes.has_value());
+    ASSERT_THAT(read_bytes, Optional(_));
     EXPECT_EQ(read_bytes->size(), kRomSize);
     ExpectRomBlock(*read_bytes, 0, kBlockSize);
 }
@@ -366,7 +370,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockWhenAReadProducesNoFrame)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     const auto& read_bytes = result->read_bytes;
-    ASSERT_TRUE(read_bytes.has_value());
+    ASSERT_THAT(read_bytes, Optional(_));
     EXPECT_EQ(read_bytes->size(), kRomSize);
     ExpectRomBlock(*read_bytes, 0, kBlockSize);
     ExpectRomBlock(*read_bytes, kRomSize - 32U, 32U);
@@ -601,7 +605,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PrecancelledRunIsRefusedInAdmission)
     EXPECT_THAT(SubaruTcuHitachiM32rKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(transport.header_mode_calls.empty());
+    EXPECT_THAT(transport.header_mode_calls, IsEmpty());
 }
 
 TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheSeedResponseIsTooShort)

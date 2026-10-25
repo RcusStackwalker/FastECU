@@ -8,7 +8,11 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::_;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -157,7 +161,7 @@ TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
             operation, "sub_ecu_denso_sh7055_02", "SH7055",
             bytes::Bytes(kFlashDevices[static_cast<std::size_t>(index)].romsize, bytes::Byte{0}), TestKernel());
         ASSERT_THAT(exact, fastecu::testing::IsOk());
-        ASSERT_TRUE(exact->Image().has_value());
+        ASSERT_THAT(exact->Image(), Optional(_));
         EXPECT_EQ(exact->Image()->size(), kFlashDevices[static_cast<std::size_t>(index)].romsize);
     }
 }

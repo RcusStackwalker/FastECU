@@ -27,7 +27,10 @@
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 
+using ::testing::_;
 using ::testing::ElementsAre;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -428,7 +431,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, InvalidPlanIsRefusedBeforeAnyIo)
         fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                     ::testing::Eq("security variant is not supported on the K-Line transport")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(transport.header_mode_calls.empty());
+    EXPECT_THAT(transport.header_mode_calls, IsEmpty());
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, InvalidPlanWinsOverPrecancel)
@@ -456,8 +459,8 @@ TEST(DensoSh705xEepromKlineExecutorTest, PrecancelledRunIsRefusedInAdmission)
     EXPECT_THAT(DensoSh705xEepromKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(transport.header_mode_calls.empty());
-    EXPECT_TRUE(events.logs.empty());
+    EXPECT_THAT(transport.header_mode_calls, IsEmpty());
+    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, FullBootloaderStockSecurityMode2MatchesLegacyTrace)
@@ -480,7 +483,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, FullBootloaderStockSecurityMode2Matches
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -504,7 +507,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, KernelAlreadyRunningSkipsBootloaderMatc
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -539,7 +542,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, NonAlignedKernelIsPaddedBeforeEncryptio
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -651,7 +654,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeIsOffForBootloaderOnForReadTh
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
     // false before connect_bootloader()/upload_kernel() (self-framed via
     // SsmProtocol::addHeader(), must not double-frame), true right before

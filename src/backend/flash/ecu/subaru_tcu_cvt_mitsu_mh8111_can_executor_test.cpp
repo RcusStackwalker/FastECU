@@ -53,8 +53,11 @@ using fastecu::flash::SubaruTcuCvtMitsuMh8111CanPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
+using ::testing::_;
+using ::testing::Eq;
 using testing::HasSubstr;
 using testing::IsEmpty;
+using ::testing::Optional;
 
 constexpr std::string_view kProtocol = "sub_tcu_cvt_mitsu_mh8111_can";
 constexpr std::string_view kMcu = "MH8111";
@@ -519,7 +522,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReturnsTheLowerWindowPaddedWithFF)
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     ASSERT_EQ(result->read_bytes->size(), kReadStart + kReadLength);
     // Padded with 0xFF, NOT 0x00 -- this family differs from Task 3's
     // Hitachi CAN sibling here.
@@ -597,7 +600,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteErasesThenFlashesTheUpperBlockAtAd
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
 }
 

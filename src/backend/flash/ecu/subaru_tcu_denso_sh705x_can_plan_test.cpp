@@ -6,10 +6,16 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/result_matchers.h"
+
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -129,8 +135,8 @@ TEST(SubaruTcuDensoSh705xCanPlan, BuildsExactCapabilitiesWireAndGeometry)
             EXPECT_EQ(plan->McuName(), test_case.mcu);
             EXPECT_EQ(plan->TransferRegion().start, 0U);
             EXPECT_EQ(plan->TransferRegion().length, test_case.rom_size);
-            EXPECT_TRUE(plan->Confirmations().empty());
-            ASSERT_TRUE(plan->Kernel().has_value());
+            EXPECT_THAT(plan->Confirmations(), IsEmpty());
+            ASSERT_THAT(plan->Kernel(), Optional(_));
             EXPECT_EQ(plan->Kernel()->load_address, test_case.kernel_load_address);
 
             const auto& wire = std::get<SubaruTcuDensoSh705xCanPlan>(plan->FamilyPlan());
@@ -141,12 +147,12 @@ TEST(SubaruTcuDensoSh705xCanPlan, BuildsExactCapabilitiesWireAndGeometry)
 
             if (operation == FlashOperation::kRead)
             {
-                EXPECT_FALSE(plan->Image().has_value());
-                EXPECT_TRUE(plan->EraseRegions().empty());
+                EXPECT_THAT(plan->Image(), Eq(std::nullopt));
+                EXPECT_THAT(plan->EraseRegions(), IsEmpty());
             }
             else
             {
-                ASSERT_TRUE(plan->Image().has_value());
+                ASSERT_THAT(plan->Image(), Optional(_));
                 EXPECT_EQ(plan->Image()->size(), test_case.rom_size);
                 ASSERT_EQ(plan->EraseRegions().size(), test_case.blocks.size());
                 for (std::size_t block = 0; block < test_case.blocks.size(); ++block)

@@ -70,11 +70,14 @@ using fastecu::RecordingEventSink;
 using fastecu::flash::BuildMitsuColtM32rCanPlan;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::MitsuColtM32rCanExecutor;
+using ::testing::_;
 using testing::Contains;
 using testing::Each;
+using ::testing::Eq;
 using testing::HasSubstr;
 using testing::IsEmpty;
 using testing::Not;
+using ::testing::Optional;
 using testing::Pair;
 
 constexpr std::string_view kProtocol384 = "mitsu_ecu_m32r_can";
@@ -507,7 +510,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
                 fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("does not match this executor")));
     EXPECT_THAT(events.logs, IsEmpty());
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
 }
 
 TEST(MitsuColtM32rCanExecutor, TransportSetupReturnsThePlansWireParameters)
@@ -558,7 +561,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
         ASSERT_THAT(ExecuteGuarded(executor, *plan, transport, clock, cancellation, events),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig))
             << test.name;
-        EXPECT_FALSE(transport.last_config.has_value()) << test.name;
+        EXPECT_THAT(transport.last_config, Eq(std::nullopt)) << test.name;
         EXPECT_EQ(transport.WritesConsumed(), 0U) << test.name;
     }
 }
@@ -584,7 +587,7 @@ TEST(MitsuColtM32rCanExecutor, ReadReturnsEachProtocolCapacityFromAddressZero)
         const auto result = ExecuteGuarded(executor, *plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, fastecu::testing::IsOk()) << protocol;
-        ASSERT_TRUE(result->read_bytes.has_value());
+        ASSERT_THAT(result->read_bytes, Optional(_));
         ASSERT_EQ(result->read_bytes->size(), size);
         EXPECT_EQ(result->read_bytes->front(), 0x00);
         EXPECT_EQ(result->read_bytes->back(), 0xff);
@@ -797,7 +800,7 @@ TEST(MitsuColtM32rCanExecutor, ReadEmitsMonotonicProgress)
 
     ASSERT_THAT(ExecuteGuarded(executor, *plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
 
-    ASSERT_FALSE(events.phase_progress_calls.empty());
+    ASSERT_THAT(events.phase_progress_calls, Not(IsEmpty()));
     EXPECT_THAT(events.phase_progress_calls, Each(testing::Field(&fastecu::RecordedPhaseProgress::phase_count, 2)));
     std::vector<std::string> entered;
     for (const auto& event : events.phase_progress_calls)
@@ -946,7 +949,7 @@ TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches
     // Nothing from the bootstrap arm ran.
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Top 128KB written via redirect"))));
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     std::vector<std::string> entered;
     for (const auto& event : events.phase_progress_calls)
     {
@@ -1320,7 +1323,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBeforeA
 
     ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x80000")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
     EXPECT_THAT(events.logs, IsEmpty());
 }
 
@@ -2084,7 +2087,7 @@ TEST(MitsuColtM32rCanExecutor, FinalReadSuccessSurvivesLateCancellation)
     const auto result = ExecuteGuarded(executor, *plan, transport, clock, token, events);
     EXPECT_TRUE(events.Triggered());
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), 0x60000U);
     EXPECT_THAT(*result->read_bytes, test_bytes::BytesFilledWith(0x5A));
     EXPECT_EQ(transport.write_attempts, 2051U);

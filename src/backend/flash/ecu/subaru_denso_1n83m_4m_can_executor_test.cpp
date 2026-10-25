@@ -49,9 +49,12 @@ using fastecu::flash::SubaruDenso1n83m_4mCanPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
+using ::testing::_;
 using testing::Contains;
 using testing::Each;
+using ::testing::Eq;
 using testing::IsEmpty;
+using ::testing::Optional;
 using testing::Pair;
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_1n83m_4m_can";
@@ -355,7 +358,7 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedConnectAndDumpSetupRes
     auto [clock, events, cancellation, result] = ExecutorRun<SubaruDenso1n83m_4mCanExecutor>(*plan, transport);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     ASSERT_EQ(result->read_bytes->size(), kImageSize);
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(0x10000, kBlockLength), test_bytes::BytesFilledWith(0x5A));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -427,7 +430,7 @@ TEST_F(SubaruDenso1n83m_4mCanExecutorWrite, WriteErasesThenFlashesBlockOne)
         ExecutorRun<SubaruDenso1n83m_4mCanExecutor, fastecu::RecordingClock>(*plan, transport);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.notices, Contains("Writing ROM, please wait..."));
     // Every 0xB6 chunk was matched byte-for-byte by the scripted exchanges

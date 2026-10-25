@@ -16,8 +16,12 @@ using fastecu::ErrorKind;
 using fastecu::FakeCancellationToken;
 using fastecu::flash::CanFlashUdsChannel;
 using fastecu::flash::ScriptedCanFlashTransport;
+using ::testing::_;
 using testing::ElementsAre;
+using ::testing::Eq;
 using testing::HasSubstr;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 constexpr std::uint32_t kRequestId = 0x7e0;
 constexpr std::uint32_t kResponseId = 0x7e8;
@@ -43,9 +47,9 @@ TEST(CanFlashUdsChannelTest, StripsTheReplyIdOnReceive)
     const auto received = channel.Receive(500ms, cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsOk());
-    ASSERT_TRUE(received->has_value());
+    ASSERT_THAT(*received, Optional(_));
     EXPECT_THAT(**received, ElementsAre(0x50, 0x03));
-    ASSERT_TRUE(channel.LastReceivedFrame().has_value());
+    ASSERT_THAT(channel.LastReceivedFrame(), Optional(_));
     EXPECT_THAT(*channel.LastReceivedFrame(), ElementsAre(0x00, 0x00, 0x07, 0xE8, 0x50, 0x03));
 }
 
@@ -59,7 +63,7 @@ TEST(CanFlashUdsChannelTest, PassesATimeoutThroughAsAnEmptyOptional)
     const auto received = channel.Receive(500ms, cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsOk());
-    EXPECT_FALSE(received->has_value());
+    EXPECT_THAT(*received, Eq(std::nullopt));
 }
 
 TEST(CanFlashUdsChannelTest, RejectsAFrameShorterThanTheEnvelope)
@@ -97,8 +101,8 @@ TEST(CanFlashUdsChannelTest, AcceptsAnEnvelopeOnlyFrameAsAnEmptyPdu)
     const auto received = channel.Receive(500ms, cancellation);
 
     ASSERT_THAT(received, fastecu::testing::IsOk());
-    ASSERT_TRUE(received->has_value());
-    EXPECT_TRUE((*received)->empty());
+    ASSERT_THAT(*received, Optional(_));
+    EXPECT_THAT(*(*received), IsEmpty());
 }
 
 TEST(CanFlashUdsChannelTest, PropagatesATransportError)

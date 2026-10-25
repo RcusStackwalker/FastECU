@@ -1,6 +1,7 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
@@ -9,6 +10,10 @@
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
+
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
 
 namespace
 {
@@ -148,7 +153,7 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     bytes::Bytes expected(0x80000);
     for (std::uint32_t i = 0; i < expected.size(); ++i)
@@ -307,7 +312,7 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
     RecordingEventSink events;
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
 }
 
 TEST(SubaruHitachiM32rKlineExecutor, CancellationAfterEraseIsNotReportedAsSuccess)

@@ -52,6 +52,10 @@ using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 using ::testing::Each;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Not;
+using ::testing::Optional;
 
 struct DieselVariant
 {
@@ -655,7 +659,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, AlreadyRunningKernelReadsBothLiteralRom
         const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsOk());
-        ASSERT_TRUE(result->read_bytes.has_value());
+        ASSERT_THAT(result->read_bytes, Optional(_));
         EXPECT_EQ(result->read_bytes->size(), variant.rom_size);
         EXPECT_EQ(bytes::Bytes(result->read_bytes->begin(), result->read_bytes->begin() + 16),
                   (bytes::Bytes{0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x0F, 0xED, 0xCB, 0xA9, 0x87, 0x65,
@@ -687,7 +691,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, AlreadyRunningKernelReadsBothLiteralRom
         EXPECT_TRUE(HasExactLog(events, LogLevel::kInfo,
                                 std::format("Kernel read addr: 0x{:08X} length: 0x00000400, 1024000 B/s      1 s",
                                             variant.rom_size - 0x400)));
-        ASSERT_FALSE(events.phase_progress_calls.empty());
+        ASSERT_THAT(events.phase_progress_calls, Not(IsEmpty()));
         EXPECT_EQ(events.phase_progress_calls.front(), (RecordedPhaseProgress{"Kernel", 1, 2, 0, 1}));
         EXPECT_EQ(events.phase_progress_calls.back(),
                   (RecordedPhaseProgress{"Read", 2, 2, static_cast<int>(variant.rom_size),
@@ -972,7 +976,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecuritySeedFrameUsesTheOracleNoVa
 
     EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
-    ASSERT_FALSE(events.logs.empty());
+    ASSERT_THAT(events.logs, Not(IsEmpty()));
     EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string{"No valid response from ECU"}}));
 }
 
@@ -998,7 +1002,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyFrameUsesTheOracleNoVal
 
     EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
-    ASSERT_FALSE(events.logs.empty());
+    ASSERT_THAT(events.logs, Not(IsEmpty()));
     EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string{"No valid response from ECU"}}));
 }
 
@@ -1024,7 +1028,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RequestDownloadNegativeUsesTheGenericOr
 
     EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
-    ASSERT_FALSE(events.logs.empty());
+    ASSERT_THAT(events.logs, Not(IsEmpty()));
     EXPECT_EQ(events.logs.back(),
               (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: Not a valid answer"}}));
 }
@@ -1051,7 +1055,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, SecurityNegativeUsesTheSecurityOracleEr
 
     EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
-    ASSERT_FALSE(events.logs.empty());
+    ASSERT_THAT(events.logs, Not(IsEmpty()));
     EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: Invalid key"}}));
 }
 
@@ -1254,7 +1258,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, TestWriteDisablesFlashAndValidatesWitho
                       BeefRequest(0x23, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0xF7, 0x22, 0xEF, 0x49})),
             transport.writes.end());
         EXPECT_TRUE(HasExactLog(events, LogLevel::kInfo, "Write flash buffer: 0x00000000 (0% - 512000 B/s, ~ 1 s)"));
-        ASSERT_FALSE(events.phase_progress_calls.empty());
+        ASSERT_THAT(events.phase_progress_calls, Not(IsEmpty()));
         EXPECT_EQ(events.phase_progress_calls.front(), (RecordedPhaseProgress{"Kernel", 1, 4, 0, 1}));
         EXPECT_EQ(events.phase_progress_calls.back(), (RecordedPhaseProgress{"Complete", 4, 4, 1, 1}));
     }
@@ -1400,7 +1404,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, DisconnectAtAnyReadOfAColdWriteIsReport
 
         ColdWriteOutcome clean;
         run(std::nullopt, clean);
-        ASSERT_FALSE(clean.error.has_value());
+        ASSERT_THAT(clean.error, Eq(std::nullopt));
         for (std::size_t index = 0; index < clean.reads; ++index)
         {
             SCOPED_TRACE(std::format("{} read {}", variant.protocol, index));
@@ -1594,7 +1598,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringKernelProbeStopsBefor
 
     EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.scripted.WritesConsumed(), 1U);
-    EXPECT_TRUE(transport.read_timeouts.empty());
+    EXPECT_THAT(transport.read_timeouts, IsEmpty());
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringKernelUploadStopsBeforeNextBlock)

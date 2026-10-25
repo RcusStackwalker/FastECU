@@ -18,6 +18,10 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
+
 namespace fastecu::flash
 {
 namespace
@@ -227,7 +231,7 @@ TEST(BoundFlashAttemptTest, ConfiguresAndOpensBeforeExecuteAndClosesOnce)
     Harness h(std::move(*built_plan));
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsOk());
-    ASSERT_TRUE(h.transport->last_config.has_value());
+    ASSERT_THAT(h.transport->last_config, Optional(_));
     EXPECT_EQ(h.transport->last_config->baud, kSetup.baud);
     EXPECT_EQ(h.transport->last_config->tester_id, kSetup.tester_id);
     EXPECT_TRUE(h.executor->saw_open_transport);
@@ -242,7 +246,7 @@ TEST(BoundFlashAttemptTest, InvalidPlanTouchesNoTransportCall)
     h.executor->setup_ok = false;
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_FALSE(h.transport->last_config.has_value());
+    EXPECT_THAT(h.transport->last_config, Eq(std::nullopt));
     EXPECT_EQ(h.transport->close_call_count, 0);
     EXPECT_EQ(h.executor->execute_calls, 0);
 }
@@ -279,7 +283,7 @@ TEST(BoundFlashAttemptTest, CancelledBeforeConfigureDoesNotConfigure)
     h.cancellation.SetCancelled(true);
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_FALSE(h.transport->last_config.has_value());
+    EXPECT_THAT(h.transport->last_config, Eq(std::nullopt));
 }
 
 TEST(BoundFlashAttemptTest, CancellationIsNotUniversallyPolledBetweenConfigureAndOpen)
@@ -290,7 +294,7 @@ TEST(BoundFlashAttemptTest, CancellationIsNotUniversallyPolledBetweenConfigureAn
     h.cancellation.CancelOnCheck(2);
 
     ASSERT_THAT(h.Run(), fastecu::testing::IsOk());
-    EXPECT_TRUE(h.transport->last_config.has_value());
+    EXPECT_THAT(h.transport->last_config, Optional(_));
     EXPECT_EQ(h.executor->execute_calls, 1);
     EXPECT_EQ(h.transport->close_call_count, 1);
 }

@@ -44,6 +44,8 @@ using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using ::testing::IsEmpty;
+using ::testing::Not;
 using ::testing::Optional;
 using ::testing::Pair;
 using ::testing::StrEq;
@@ -844,7 +846,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, StartupCancellationBeforeResetTouchesNoL
     const auto result = attempt->Run(clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
-    EXPECT_TRUE(observed->lifecycle.empty());
+    EXPECT_THAT(observed->lifecycle, IsEmpty());
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, StartupCancellationAfterResetSkipsConfigureOpenAndClose)
@@ -901,15 +903,15 @@ TEST(SubaruDensoSh705xDensoCanExecutor, AlreadyRunningKernelReadsEveryPageAndRet
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), test_case.rom_size);
     // revision-59f4e442 read_mem() appends the BEEF page payload untouched.
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(4), ElementsAre(0x00, 0x00, 0x00, 0x00));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.ModeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::kIso15765Kernel}));
     EXPECT_EQ(events.logs, ExpectedLegacyReadLogs(test_case.rom_size));
-    EXPECT_FALSE(events.progress_calls.empty());
-    ASSERT_FALSE(events.phase_progress_calls.empty());
+    EXPECT_THAT(events.progress_calls, Not(IsEmpty()));
+    ASSERT_THAT(events.phase_progress_calls, Not(IsEmpty()));
     EXPECT_EQ(events.phase_progress_calls.front().phase_name, "Kernel");
     EXPECT_EQ(events.phase_progress_calls.front().phase_count, 2);
     EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Read");
@@ -933,7 +935,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadKeepsRawBeefBoundaryPageBytesForRepr
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(8),
                 ElementsAre(0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B));
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(8),
@@ -1085,7 +1087,7 @@ void ExpectFirstWriteChunkResponseEnds(const bytes::Bytes& response, ErrorKind e
 void ExpectLegacyRecoveryWarningIsLast(const RecordingEventSink& events)
 {
     EXPECT_EQ(ExactLogCount(events, LogLevel::kError, kReflashRecoveryWarning), 1);
-    ASSERT_FALSE(events.logs.empty());
+    ASSERT_THAT(events.logs, Not(IsEmpty()));
     EXPECT_EQ(events.logs.back().first, LogLevel::kError);
     EXPECT_EQ(events.logs.back().second, kReflashRecoveryWarning);
 }
@@ -1194,7 +1196,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, AllCatalogGeometriesUseFullPagedReads)
         auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsOk()) << test_case.protocol;
-        ASSERT_TRUE(result->read_bytes.has_value());
+        ASSERT_THAT(result->read_bytes, Optional(_));
         EXPECT_EQ(result->read_bytes->size(), test_case.rom_size);
         EXPECT_TRUE(transport.ScriptConsumed());
     }
@@ -1856,7 +1858,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, PrecancelledRunIsRefusedInAdmission)
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.reset_connection_call_count, 0);
     EXPECT_EQ(transport.clear_receive_buffer_call_count, 0);
-    EXPECT_TRUE(events.logs.empty());
+    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 } // namespace

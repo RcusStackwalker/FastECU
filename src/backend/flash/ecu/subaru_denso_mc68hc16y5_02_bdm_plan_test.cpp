@@ -17,7 +17,11 @@ namespace
 {
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::_;
 using ::testing::Each;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_mc68hc16y5_02_bdm";
 constexpr std::string_view kMcu = "MC68HC16Y5";
@@ -62,8 +66,8 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, ReadCoversTheAddressSpaceImage)
     EXPECT_EQ(plan->Family(), FlashFamily::kSubaruDensoMc68hc16y502Bdm);
     EXPECT_EQ(plan->Transport(), TransportKind::kKline);
     EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0, 0x30000}));
-    EXPECT_FALSE(plan->Image().has_value());
-    EXPECT_FALSE(plan->Kernel().has_value());
+    EXPECT_THAT(plan->Image(), Eq(std::nullopt));
+    EXPECT_THAT(plan->Kernel(), Eq(std::nullopt));
     EXPECT_EQ(std::get<SubaruDensoMc68hc16y5_02BdmPlan>(plan->FamilyPlan()).baud, 115200);
 }
 
@@ -72,13 +76,13 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, WritePadsTheKernelAndCarriesItAsTheImage)
     const auto plan = BuildSubaruDensoMc68hc16y502BdmPlan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt,
                                                           Kernel(bytes::Bytes(33, 0xab)));
     ASSERT_THAT(plan, IsOk());
-    ASSERT_TRUE(plan->Image().has_value());
+    ASSERT_THAT(plan->Image(), Optional(_));
     const bytes::Bytes& image = *plan->Image();
     ASSERT_EQ(image.size(), 64U);
     EXPECT_THAT(bytes::ByteView(image).first(33), Each(0xab));
     EXPECT_THAT(bytes::ByteView(image).subspan(33), Each(0x00));
     EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0x20000, 64}));
-    EXPECT_FALSE(plan->Kernel().has_value());
+    EXPECT_THAT(plan->Kernel(), Eq(std::nullopt));
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, WriteAcceptsAKernelThatFillsTheRamBlockExactly)
@@ -227,14 +231,14 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, WriteCarriesTheKernelBootstrapConsentAndRe
     const auto read =
         BuildSubaruDensoMc68hc16y502BdmPlan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt, std::nullopt);
     ASSERT_THAT(read, IsOk());
-    EXPECT_TRUE(read->Confirmations().empty());
+    EXPECT_THAT(read->Confirmations(), IsEmpty());
 
     const auto write = BuildSubaruDensoMc68hc16y502BdmPlan(FlashOperation::kWrite, kProtocol, kMcu, std::nullopt,
                                                            Kernel(bytes::Bytes(0x20, 0x01)));
     ASSERT_THAT(write, IsOk());
     ASSERT_EQ(write->Confirmations().size(), 1U);
     EXPECT_EQ(write->Confirmations().front().id, ConfirmationSpec::Id::kKernelBootstrap);
-    EXPECT_TRUE(write->Confirmations().front().arguments.empty());
+    EXPECT_THAT(write->Confirmations().front().arguments, IsEmpty());
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, ValidatorAcceptsTheBuilderShapes)

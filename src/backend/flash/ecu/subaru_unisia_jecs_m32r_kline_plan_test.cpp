@@ -18,6 +18,8 @@ namespace
 {
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::Eq;
+using ::testing::IsEmpty;
 
 struct Variant
 {
@@ -73,9 +75,9 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, ReadCoversEachVariantFromTheReadBase)
         EXPECT_EQ(plan->Family(), FlashFamily::kSubaruUnisiaJecsM32rKline);
         EXPECT_EQ(plan->Transport(), TransportKind::kKline);
         EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0x100000, variant.rom_size})) << variant.protocol;
-        EXPECT_FALSE(plan->Image().has_value());
-        EXPECT_FALSE(plan->Kernel().has_value());
-        EXPECT_TRUE(plan->Confirmations().empty()) << "Read never raises programming voltage";
+        EXPECT_THAT(plan->Image(), Eq(std::nullopt));
+        EXPECT_THAT(plan->Kernel(), Eq(std::nullopt));
+        EXPECT_THAT(plan->Confirmations(), IsEmpty()) << "Read never raises programming voltage";
         const auto& wire = std::get<SubaruUnisiaJecsM32rKlinePlan>(plan->FamilyPlan());
         EXPECT_EQ(wire.initial_baud, 4800);
         EXPECT_EQ(wire.tester_id, 0xf0);
@@ -103,7 +105,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, WriteCarriesTheImageAndAsksForVppOnlyWithout
         const auto supplied = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kWrite, variant.protocol, variant.mcu,
                                                                  bytes::Bytes(variant.rom_size, 0x5a), true);
         ASSERT_THAT(supplied, IsOk()) << variant.protocol;
-        EXPECT_TRUE(supplied->Confirmations().empty());
+        EXPECT_THAT(supplied->Confirmations(), IsEmpty());
     }
 }
 
@@ -146,7 +148,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, AcceptsBootmodeProtocolsForReadOnly)
                                                              std::nullopt, false);
         ASSERT_THAT(read, IsOk()) << variant.protocol;
         EXPECT_EQ(read->TransferRegion(), (MemoryRegion{0x100000, variant.rom_size}));
-        EXPECT_TRUE(read->Confirmations().empty());
+        EXPECT_THAT(read->Confirmations(), IsEmpty());
         EXPECT_THAT(ValidateSubaruUnisiaJecsM32rKlinePlan(*read), IsOk());
 
         for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})

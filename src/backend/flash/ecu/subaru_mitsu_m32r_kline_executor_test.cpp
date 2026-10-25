@@ -13,6 +13,10 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Optional;
+
 namespace
 {
 using namespace fastecu;
@@ -55,7 +59,7 @@ TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
 
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
@@ -88,7 +92,7 @@ TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
 
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_FALSE(transport.last_config.has_value());
+    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureResponses)
@@ -149,7 +153,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(0x8000), test_bytes::BytesFilledWith(0xff));
     bytes::Bytes expected(0x80000, 0xff);

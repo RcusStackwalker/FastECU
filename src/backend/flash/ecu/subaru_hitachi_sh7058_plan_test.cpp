@@ -2,9 +2,12 @@
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <vector>
+
+using ::testing::IsEmpty;
 
 namespace fastecu::flash
 {
@@ -95,12 +98,12 @@ TEST(SubaruHitachiSh7058Plan, ReadCarriesTheStartKlineReadConsentAndWriteNone)
     ASSERT_THAT(read, fastecu::testing::IsOk());
     ASSERT_EQ(read->Confirmations().size(), 1U);
     EXPECT_EQ(read->Confirmations().front().id, ConfirmationSpec::Id::kStartKlineRead);
-    EXPECT_TRUE(read->Confirmations().front().arguments.empty());
+    EXPECT_THAT(read->Confirmations().front().arguments, IsEmpty());
 
     auto write = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                               bytes::Bytes(0x100000));
     ASSERT_THAT(write, fastecu::testing::IsOk());
-    EXPECT_TRUE(write->Confirmations().empty());
+    EXPECT_THAT(write->Confirmations(), IsEmpty());
 }
 
 TEST(SubaruHitachiSh7058Plan, ValidatorAcceptsTheBuilderShapes)

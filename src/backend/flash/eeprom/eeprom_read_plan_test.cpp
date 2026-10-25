@@ -18,7 +18,11 @@
 #include "src/backend/config/catalog.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 
+using ::testing::_;
 using ::testing::ElementsAre;
+using ::testing::IsEmpty;
+using ::testing::Not;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -76,7 +80,7 @@ TEST(BuildEepromReadPlanTest, KlineProtocolProducesAKlinePlan)
     EXPECT_EQ(plan->Transport(), TransportKind::kKline);
     EXPECT_EQ(plan->McuName(), "SH7055");
     EXPECT_EQ(plan->TargetId(), "sub_ecu_eeprom_denso_sh7055_kline");
-    ASSERT_TRUE(plan->Kernel().has_value());
+    ASSERT_THAT(plan->Kernel(), Optional(_));
     EXPECT_EQ(plan->Kernel()->load_address, 0xFFFF6004U);
     EXPECT_THAT(plan->Kernel()->bytes, ElementsAre(0xaa, 0xbb));
 }
@@ -91,7 +95,7 @@ TEST(BuildEepromReadPlanTest, CanProtocolProducesACanPlan)
     EXPECT_EQ(plan->Family(), FlashFamily::kDensoSh705xEepromCan);
     EXPECT_EQ(plan->Transport(), TransportKind::kCanIso15765);
     EXPECT_EQ(plan->McuName(), "SH7058");
-    ASSERT_TRUE(plan->Kernel().has_value());
+    ASSERT_THAT(plan->Kernel(), Optional(_));
     EXPECT_EQ(plan->Kernel()->load_address, 0xFFFF3000U);
 }
 
@@ -259,7 +263,7 @@ TEST(BuildEepromReadPlanTest, EveryBuiltinEepromProtocolBuildsWithItsBundledKern
         }
         InMemoryFileRepository repository;
         repository.files["kernels/" + std::string(protocol.kernel)] = BundledKernel(protocol.kernel);
-        ASSERT_FALSE(repository.files.begin()->second.empty()) << protocol.kernel;
+        ASSERT_THAT(repository.files.begin()->second, Not(IsEmpty())) << protocol.kernel;
         for (EepromReadMode mode : {EepromReadMode::kMode2, EepromReadMode::kMode3, EepromReadMode::kMode4})
         {
             SCOPED_TRACE(::testing::PrintToString(mode));

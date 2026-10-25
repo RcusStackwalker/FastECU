@@ -13,6 +13,12 @@
 #include <type_traits>
 #include <variant>
 
+using fastecu::testing::IsOk;
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Optional;
+
 namespace fastecu::flash
 {
 namespace
@@ -251,7 +257,7 @@ TEST(FlashValidationTest, ReadPlanHasNoImageButKeepsItsKernel)
     auto plan = ValidateAndBuild(ValidReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_TRUE(plan->ImageOrEmpty().empty());
+    EXPECT_THAT(plan->ImageOrEmpty(), IsEmpty());
     EXPECT_EQ(plan->KernelOrEmpty().id, "k");
     EXPECT_EQ(plan->KernelOrEmpty().load_address, 0xffff2000U);
     EXPECT_EQ(plan->KernelOrEmpty().bytes, bytes::Bytes{0x01});
@@ -329,10 +335,10 @@ TEST(FlashValidationTest, RomImagePlacesTheImageByItsMemoryMap)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     const std::optional<memory::MemoryImage>& rom = plan->RomImage();
-    ASSERT_TRUE(rom.has_value());
+    ASSERT_THAT(rom, Optional(_));
     const auto view = rom->Render(
         memory::AddressRange<memory::FlashSpace>::Make(memory::FlashAddress{0x30}, memory::ByteCount{1}).value());
-    ASSERT_TRUE(view.has_value());
+    ASSERT_THAT(view, IsOk());
     EXPECT_EQ(view->Data()[0], 0x20);
 }
 
@@ -344,7 +350,7 @@ TEST(FlashValidationTest, AWriteImageWithoutAMemoryMapHasNoRomImage)
     auto plan = ValidateAndBuild(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_FALSE(plan->RomImage().has_value());
+    EXPECT_THAT(plan->RomImage(), Eq(std::nullopt));
 }
 
 TEST(FlashValidationTest, AReadPlanHasNoRomImage)
@@ -352,7 +358,7 @@ TEST(FlashValidationTest, AReadPlanHasNoRomImage)
     auto plan = ValidateAndBuild(ValidReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_FALSE(plan->RomImage().has_value());
+    EXPECT_THAT(plan->RomImage(), Eq(std::nullopt));
 }
 
 TEST(FlashValidationTest, EmptyTargetIdIsRejected)
@@ -430,7 +436,7 @@ TEST(FlashValidationTest, ReadWithImagePresentIsRejected)
 TEST(FlashValidationTest, EmptyKernelIdIsRejected)
 {
     auto fields = ValidReadFields();
-    ASSERT_TRUE(fields.kernel.has_value());
+    ASSERT_THAT(fields.kernel, Optional(_));
     fields.kernel->id.clear();
 
     ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -439,7 +445,7 @@ TEST(FlashValidationTest, EmptyKernelIdIsRejected)
 TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
 {
     auto fields = ValidReadFields();
-    ASSERT_TRUE(fields.kernel.has_value());
+    ASSERT_THAT(fields.kernel, Optional(_));
     fields.kernel->bytes.clear();
 
     ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -560,7 +566,7 @@ TEST(FlashValidationTest, ZeroConfirmationsIsNowAccepted)
     auto plan = ValidateAndBuild(std::move(fields));
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_TRUE(plan->Confirmations().empty());
+    EXPECT_THAT(plan->Confirmations(), IsEmpty());
 }
 
 } // namespace
@@ -600,8 +606,8 @@ TEST(FlashValidation, AcceptsAPlanWithNoKernelAndNoConfirmations)
     const auto plan = fastecu::flash::ValidateAndBuild(KernellessReadFields());
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_FALSE(plan->Kernel().has_value());
-    EXPECT_TRUE(plan->Confirmations().empty());
+    EXPECT_THAT(plan->Kernel(), Eq(std::nullopt));
+    EXPECT_THAT(plan->Confirmations(), IsEmpty());
     EXPECT_EQ(plan->ExperimentalFamilyId(), "MitsuColtM32rCan");
 }
 
@@ -662,6 +668,6 @@ TEST(FlashValidation, KernellessPlanYieldsAnEmptyKernel)
     auto plan = fastecu::flash::ValidateAndBuild(KernellessReadFields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_TRUE(plan->KernelOrEmpty().id.empty());
-    EXPECT_TRUE(plan->KernelOrEmpty().bytes.empty());
+    EXPECT_THAT(plan->KernelOrEmpty().id, IsEmpty());
+    EXPECT_THAT(plan->KernelOrEmpty().bytes, IsEmpty());
 }

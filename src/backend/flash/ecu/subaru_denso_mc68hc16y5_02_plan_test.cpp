@@ -14,6 +14,9 @@
 #include <cstdint>
 #include <utility>
 
+using ::testing::_;
+using ::testing::Optional;
+
 namespace fastecu::flash
 {
 namespace
@@ -133,7 +136,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, StockAndEcutekTestWritesCarryExactImage)
                                                      testing::PackedMc68Image(std::move(rom)),
                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        ASSERT_TRUE(plan->Image().has_value());
+        ASSERT_THAT(plan->Image(), Optional(_));
         EXPECT_EQ(plan->Image()->size(), kFlashDevices[static_cast<std::size_t>(index)].romsize);
     }
 }
@@ -149,7 +152,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, PackedAndFullRomFilesBothBuildAWritePlan)
                                                      "MC68HC16Y5", std::move(image),
                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        ASSERT_TRUE(plan->RomImage().has_value());
+        ASSERT_THAT(plan->RomImage(), Optional(_));
         EXPECT_EQ(plan->RomImage()->Map().FileSize(), memory::ByteCount{file_size});
         EXPECT_EQ(plan->Image()->size(), file_size);
         EXPECT_THAT(ValidateSubaruDensoMc68hc16y502Plan(*plan), fastecu::testing::IsOk());

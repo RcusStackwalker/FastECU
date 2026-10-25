@@ -13,6 +13,8 @@
 #include "src/backend/flash/flash_plan.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
+using ::testing::Eq;
+
 namespace fastecu::flash::testing
 {
 
@@ -64,7 +66,7 @@ TEST_P(SingleWindowPlanContract, ReadPlanCarriesTheTransferRegion)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_THAT(plan->TransferRegion(), RegionIs(c.read_region));
     EXPECT_THAT(plan->EraseRegions(), ::testing::IsEmpty());
-    EXPECT_FALSE(plan->Kernel().has_value());
+    EXPECT_THAT(plan->Kernel(), Eq(std::nullopt));
     EXPECT_THAT(plan->Confirmations(), ::testing::IsEmpty());
 }
 

@@ -18,7 +18,9 @@ using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using ::testing::_;
 using ::testing::ElementsAre;
+using ::testing::Optional;
 
 class ProbeCanTransport : public ScriptedCanFlashTransport
 {
@@ -250,7 +252,7 @@ TEST_P(GuardedCanFlashTransportLifecycle, LifecycleRestartAndUnblockForwardAfter
     EXPECT_EQ(inner.configure_call_count, 1);
     EXPECT_EQ(inner.open_call_count, 1);
     EXPECT_EQ(inner.close_call_count, 1);
-    ASSERT_TRUE(inner.last_config.has_value());
+    ASSERT_THAT(inner.last_config, Optional(_));
     ExpectConfig(*inner.last_config);
     ExpectConfig(inner.restart_config);
     EXPECT_EQ(inner.restart_token, &token);

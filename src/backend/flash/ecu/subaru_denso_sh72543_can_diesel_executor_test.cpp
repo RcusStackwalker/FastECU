@@ -46,6 +46,7 @@ using fastecu::flash::SubaruDensoSh72543CanDieselPlan;
 using namespace fastecu::flash::testing;
 using testing::Contains;
 using testing::Each;
+using ::testing::Eq;
 using testing::IsEmpty;
 using testing::Pair;
 
@@ -338,7 +339,7 @@ TEST_F(SubaruDensoSh72543CanDieselExecutorWrite, WriteErasesThenFlashesBlockZero
         ExecutorRun<SubaruDensoSh72543CanDieselExecutor, fastecu::RecordingClock>(*plan, transport);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.notices, Contains("Writing ROM, please wait..."));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Writing ROM to ECU, Denso SH72543 Diesel using CAN")));

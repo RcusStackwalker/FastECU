@@ -28,6 +28,7 @@ using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
+using ::testing::IsEmpty;
 using Line = ScriptedKlineFlashTransport::ControlLineAction;
 using Op = ScriptedKlineFlashTransport::Operation;
 
@@ -303,7 +304,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancelledBeforeVoltageNeverRai
     context.cancellation.SetCancelled(true);
     EXPECT_THAT(RunScripted(plan, transport, context),
                 IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
-    EXPECT_TRUE(transport.control_line_trace.empty());
+    EXPECT_THAT(transport.control_line_trace, IsEmpty());
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancelledMidProgrammingReportsCancelled)

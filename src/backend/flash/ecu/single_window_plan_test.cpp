@@ -18,8 +18,11 @@ using fastecu::flash::SingleWindowPlanSpec;
 using fastecu::flash::SubaruDensoSh72531CanPlan;
 using fastecu::flash::TransportKind;
 using fastecu::flash::ValidateSingleWindowPlan;
+using ::testing::_;
+using ::testing::Eq;
 using testing::HasSubstr;
 using testing::IsEmpty;
+using ::testing::Optional;
 
 constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_sh72531_can"}};
 constexpr MemoryRegion kBlock{0x00008000, 0x00137F00};
@@ -61,7 +64,7 @@ TEST(SingleWindowPlan, ReadPlanCarriesReadRegionAndNoErase)
     EXPECT_EQ(plan->TransferRegion().start, 0x00008000U);
     EXPECT_EQ(plan->TransferRegion().length, 0x00137F00U);
     EXPECT_THAT(plan->EraseRegions(), IsEmpty());
-    EXPECT_FALSE(plan->Kernel().has_value());
+    EXPECT_THAT(plan->Kernel(), Eq(std::nullopt));
 }
 
 TEST(SingleWindowPlan, WritePlanCarriesImageAndOneEraseRegion)
@@ -72,7 +75,7 @@ TEST(SingleWindowPlan, WritePlanCarriesImageAndOneEraseRegion)
     ASSERT_EQ(plan->EraseRegions().size(), 1U);
     EXPECT_EQ(plan->EraseRegions()[0].start, 0x00008000U);
     EXPECT_EQ(plan->EraseRegions()[0].length, 0x00137F00U);
-    ASSERT_TRUE(plan->Image().has_value());
+    ASSERT_THAT(plan->Image(), Optional(_));
     EXPECT_EQ(plan->Image()->size(), 0x140000U);
 }
 

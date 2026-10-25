@@ -11,6 +11,10 @@
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
+using ::testing::_;
+using ::testing::IsEmpty;
+using ::testing::Optional;
+
 namespace fastecu::flash
 {
 class SubaruUnisiaJecsExecutorTestPeer
@@ -164,7 +168,7 @@ TEST(SubaruUnisiaJecsExecutor, PrecancelledRunIsRefusedInAdmission)
     EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(events.logs.empty());
+    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, ReadsEveryAddressThroughRawTransport)
@@ -182,7 +186,7 @@ TEST(SubaruUnisiaJecsExecutor, ReadsEveryAddressThroughRawTransport)
     RecordingEventSink events;
     const auto result = ExecuteRead(transport, clock, cancellation, events);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     ASSERT_EQ(result->read_bytes->size(), 0x10000U);
     EXPECT_EQ(result->read_bytes->at(0x00ff), 0xff);
     EXPECT_EQ(result->read_bytes->at(0x0100), 0x01);
@@ -298,7 +302,7 @@ TEST(SubaruUnisiaJecsExecutor, FailureFromWakeWriteStopsBeforeAnyRead)
     const auto result = ExecuteRead(transport, clock, cancellation, events);
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(events.progress_calls.empty());
+    EXPECT_THAT(events.progress_calls, IsEmpty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, ShortWakeWriteIsDisconnected)
@@ -309,7 +313,7 @@ TEST(SubaruUnisiaJecsExecutor, ShortWakeWriteIsDisconnected)
     FakeCancellationToken cancellation;
     RecordingEventSink events;
     EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kDisconnected));
-    EXPECT_TRUE(events.progress_calls.empty());
+    EXPECT_THAT(events.progress_calls, IsEmpty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, FailureFromWakeFlushReadPropagates)
@@ -321,7 +325,7 @@ TEST(SubaruUnisiaJecsExecutor, FailureFromWakeFlushReadPropagates)
     FakeCancellationToken cancellation;
     RecordingEventSink events;
     EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kTimeout));
-    EXPECT_TRUE(events.progress_calls.empty());
+    EXPECT_THAT(events.progress_calls, IsEmpty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, RawWriteFailuresStopBeforeRawRead)
@@ -338,7 +342,7 @@ TEST(SubaruUnisiaJecsExecutor, RawWriteFailuresStopBeforeRawRead)
         RecordingEventSink events;
         EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events),
                     fastecu::testing::IsErr(ErrorKind::kDisconnected));
-        EXPECT_TRUE(events.progress_calls.empty());
+        EXPECT_THAT(events.progress_calls, IsEmpty());
     }
 }
 
@@ -351,7 +355,7 @@ TEST(SubaruUnisiaJecsExecutor, FailureFromRawReadPropagates)
     FakeCancellationToken cancellation;
     RecordingEventSink events;
     EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kTimeout));
-    EXPECT_TRUE(events.progress_calls.empty());
+    EXPECT_THAT(events.progress_calls, IsEmpty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, CancellationDuringWakeDelayStopsBeforeFlushRead)
@@ -364,7 +368,7 @@ TEST(SubaruUnisiaJecsExecutor, CancellationDuringWakeDelayStopsBeforeFlushRead)
     RecordingEventSink events;
     EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 1U);
-    EXPECT_TRUE(events.progress_calls.empty());
+    EXPECT_THAT(events.progress_calls, IsEmpty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, CancellationDuringAddressDelayStopsBeforeRawRead)
@@ -379,7 +383,7 @@ TEST(SubaruUnisiaJecsExecutor, CancellationDuringAddressDelayStopsBeforeRawRead)
     RecordingEventSink events;
     EXPECT_THAT(ExecuteRead(transport, clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 2U);
-    EXPECT_TRUE(events.progress_calls.empty());
+    EXPECT_THAT(events.progress_calls, IsEmpty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, CancellationBeforeRetryPreventsSecondWrite)
@@ -398,7 +402,7 @@ TEST(SubaruUnisiaJecsExecutor, CancellationBeforeRetryPreventsSecondWrite)
     EXPECT_THAT(SubaruUnisiaJecsExecutorTestPeer::ReadRange(0x1234, 0x1235, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(std::ranges::count(transport.trace, 'W'), 1);
-    EXPECT_TRUE(events.progress_calls.empty());
+    EXPECT_THAT(events.progress_calls, IsEmpty());
 }
 
 TEST(SubaruUnisiaJecsExecutor, CancellationAfterOneBytePreventsNextAddressWrite)

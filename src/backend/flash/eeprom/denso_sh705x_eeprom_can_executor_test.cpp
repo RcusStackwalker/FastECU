@@ -34,7 +34,10 @@
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 
+using ::testing::_;
 using ::testing::ElementsAre;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 
 namespace fastecu::flash
 {
@@ -655,7 +658,7 @@ TEST(DensoSh705xEepromCanExecutorTest, PrecancelledRunIsRefusedInAdmission)
     EXPECT_THAT(DensoSh705xEepromCanExecutor{}.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(events.logs.empty());
+    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, KernelAlreadyRunningSkipsBootloaderMatchesLegacyTrace)
@@ -672,7 +675,7 @@ TEST(DensoSh705xEepromCanExecutorTest, KernelAlreadyRunningSkipsBootloaderMatche
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -692,7 +695,7 @@ TEST(DensoSh705xEepromCanExecutorTest, FullBootloaderStockSecurityMode2MatchesLe
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(*result->read_bytes, ExpectedDecodedEeprom256Bytes());
     EXPECT_TRUE(transport.ScriptConsumed());
 }

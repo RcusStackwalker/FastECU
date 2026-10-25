@@ -28,6 +28,10 @@
 using ::testing::_;
 using ::testing::DoAll;
 using ::testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::IsEmpty;
+using ::testing::Not;
+using ::testing::Optional;
 using ::testing::Return;
 
 namespace fastecu::flash
@@ -375,9 +379,9 @@ TEST(SubaruDensoSh7055_02Executor, BoundAttemptPreservesBothConfigureToOpenCance
     RecordingEventSink events;
 
     ASSERT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_TRUE(observed_transport->last_config.has_value());
+    EXPECT_THAT(observed_transport->last_config, Optional(_));
     EXPECT_EQ(observed_transport->close_call_count, 0);
-    EXPECT_TRUE(observed_transport->control_line_trace.empty());
+    EXPECT_THAT(observed_transport->control_line_trace, IsEmpty());
 }
 
 TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
@@ -423,11 +427,11 @@ TEST(SubaruDensoSh7055_02Executor, KernelAliveReadReturnsNoRomId)
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(result->read_bytes->size(), device->romsize);
-    EXPECT_FALSE(result->rom_id.has_value());
+    EXPECT_THAT(result->rom_id, Eq(std::nullopt));
     EXPECT_TRUE(transport.ScriptConsumed());
-    EXPECT_TRUE(transport.baud_calls.empty());
+    EXPECT_THAT(transport.baud_calls, IsEmpty());
 }
 
 TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyBeforeTransportIo)
@@ -447,10 +451,10 @@ TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyB
 
         ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                     fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-        EXPECT_FALSE(transport.last_config.has_value());
+        EXPECT_THAT(transport.last_config, Eq(std::nullopt));
         EXPECT_EQ(transport.WritesConsumed(), 0U);
-        EXPECT_TRUE(transport.read_timeouts.empty());
-        EXPECT_TRUE(transport.control_line_trace.empty());
+        EXPECT_THAT(transport.read_timeouts, IsEmpty());
+        EXPECT_THAT(transport.control_line_trace, IsEmpty());
     }
 }
 
@@ -550,7 +554,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
     auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->read_bytes.has_value());
+    ASSERT_THAT(result->read_bytes, Optional(_));
     EXPECT_EQ(*result->read_bytes, expected);
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -693,7 +697,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
-    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 4U + device->numblocks);
     EXPECT_EQ(transport.programming_voltage_line_write_index, 4U + device->numblocks);
@@ -1412,7 +1416,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadPreservesAbsentVersusPresentEmptyResponse
         EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
         EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
                                                         ::testing::Eq("Wrong response from ECU during read")));
-        ASSERT_FALSE(transport.read_timeouts.empty());
+        ASSERT_THAT(transport.read_timeouts, Not(IsEmpty()));
         EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
         EXPECT_TRUE(transport.ScriptConsumed());
     }
@@ -1432,8 +1436,8 @@ TEST(SubaruDensoSh7055_02Executor, PrecancelledRunIsRefusedInAdmission)
 
     ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(transport.control_line_trace.empty());
-    EXPECT_TRUE(events.logs.empty());
+    EXPECT_THAT(transport.control_line_trace, IsEmpty());
+    EXPECT_THAT(events.logs, IsEmpty());
 }
 
 } // namespace
