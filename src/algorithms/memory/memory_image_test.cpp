@@ -1,4 +1,5 @@
 #include "src/algorithms/memory/memory_image.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 #include <array>
 #include <cstdint>
@@ -13,6 +14,9 @@ namespace fastecu::memory
 {
 namespace
 {
+using fastecu::testing::IsErrThat;
+using fastecu::testing::IsOk;
+using ::testing::_;
 using ::testing::Each;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
@@ -63,11 +67,11 @@ MemoryImage PackedMc68Image()
 TEST(MemoryImage, CreateRejectsAFileOfAnotherSize)
 {
     const auto map = MemoryMap::Identity(ByteCount{0x100});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     const auto image = MemoryImage::Create(*map, bytes::Bytes(0x200, 0x00));
 
-    ASSERT_FALSE(image.has_value());
+    ASSERT_THAT(image, IsErrThat(_));
     EXPECT_EQ(image.error().kind, MemoryErrorKind::kFileSizeMismatch);
 }
 
@@ -87,9 +91,9 @@ TEST(MemoryImage, RenderPlacesFileBytesAtTheirEcuAddresses)
     const auto after_gap = image.Render(Range(0x28000, 1));
     const auto last = image.Render(Range(0x2FFFF, 1));
 
-    ASSERT_TRUE(before_gap.has_value());
-    ASSERT_TRUE(after_gap.has_value());
-    ASSERT_TRUE(last.has_value());
+    ASSERT_THAT(before_gap, IsOk());
+    ASSERT_THAT(after_gap, IsOk());
+    ASSERT_THAT(last, IsOk());
     EXPECT_THAT(before_gap->Data(), ElementsAre(0xA1));
     EXPECT_THAT(after_gap->Data(), ElementsAre(0xB2));
     EXPECT_THAT(last->Data(), ElementsAre(0xC3));
@@ -102,7 +106,7 @@ TEST(MemoryImage, RenderAcrossAFillBlockReadsItsFillByte)
 
     const auto view = image.Render(Range(0x1FFFF, 0x8002));
 
-    ASSERT_TRUE(view.has_value());
+    ASSERT_THAT(view, IsOk());
     const bytes::ByteView data = view->Data();
     ASSERT_EQ(data.size(), 0x8002U);
     EXPECT_EQ(data.front(), 0xA1);
@@ -118,7 +122,7 @@ TEST(MemoryImage, RenderUsesEachFillBlocksOwnByte)
 
     const auto view = image.Render(Range(0x0, 0x8));
 
-    ASSERT_TRUE(view.has_value());
+    ASSERT_THAT(view, IsOk());
     EXPECT_THAT(view->Data(), ElementsAre(0x00, 0x00, 0x00, 0x00, 1, 2, 3, 4));
 }
 
@@ -128,7 +132,7 @@ TEST(MemoryImage, RenderRejectsAddressesNoBlockHolds)
 
     const auto view = image.Render(Range(0x2FFFF, 2));
 
-    ASSERT_FALSE(view.has_value());
+    ASSERT_THAT(view, IsErrThat(_));
     EXPECT_EQ(view.error().kind, MemoryErrorKind::kUnmapped);
 }
 
@@ -136,7 +140,7 @@ TEST(MemoryImage, ARenderedViewDoesNotFollowLaterWrites)
 {
     MemoryImage image = PackedMc68Image();
     const auto view = image.Render(Range(0x28000, 1));
-    ASSERT_TRUE(view.has_value());
+    ASSERT_THAT(view, IsOk());
 
     ASSERT_EQ(WriteError(image, 0x28000, bytes::Bytes{0x55}), std::nullopt);
 
@@ -241,7 +245,7 @@ TEST(MemoryImage, CheckWriteRejectsReadOnlyBlocks)
 
     const auto checked = image.CheckWrite(FlashAddress{0x7FFF}, ByteCount{2});
 
-    ASSERT_FALSE(checked.has_value());
+    ASSERT_THAT(checked, IsErrThat(_));
     EXPECT_EQ(checked.error().kind, MemoryErrorKind::kNotWritable);
 }
 
@@ -253,7 +257,7 @@ TEST(MemoryImage, CheckWriteNamesAReadOnlyBlockBeforeALaterGap)
     MemoryImage image = ImageOf(blocks, bytes::Bytes(0x10, 0x00));
 
     const auto checked = image.CheckWrite(FlashAddress{0x8}, ByteCount{0x10});
-    ASSERT_FALSE(checked.has_value());
+    ASSERT_THAT(checked, IsErrThat(_));
     EXPECT_EQ(checked.error().kind, MemoryErrorKind::kNotWritable);
     EXPECT_EQ(checked.error().detail, "address 0x8 is in a block that is not writable");
     EXPECT_EQ(WriteError(image, 0x8, bytes::Bytes(0x10, 0x11)), MemoryErrorKind::kNotWritable);

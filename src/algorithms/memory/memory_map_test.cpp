@@ -1,4 +1,5 @@
 #include "src/algorithms/memory/memory_map.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 #include <array>
 #include <cstdint>
@@ -10,6 +11,10 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using fastecu::testing::IsErrThat;
+using fastecu::testing::IsOk;
+using ::testing::_;
 
 namespace fastecu::memory
 {
@@ -64,7 +69,7 @@ TEST(MemoryMap, AcceptsThePackedMc68Layout)
     const auto blocks = PackedMc68Blocks();
     const auto map = MemoryMap::Create(blocks, ByteCount{0x28000});
 
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
     EXPECT_EQ(map->Blocks().size(), 3U);
     EXPECT_EQ(map->FileSize(), ByteCount{0x28000});
 }
@@ -73,7 +78,7 @@ TEST(MemoryMap, BlockAtFindsTheBlockHoldingAnAddress)
 {
     const auto blocks = PackedMc68Blocks();
     const auto map = MemoryMap::Create(blocks, ByteCount{0x28000});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_EQ(map->BlockAt(FlashAddress{0x0}), &map->Blocks()[0]);
     EXPECT_EQ(map->BlockAt(FlashAddress{0x1FFFF}), &map->Blocks()[0]);
@@ -88,7 +93,7 @@ TEST(MemoryMap, AcceptsAddressesThatNoBlockHolds)
     const std::array blocks{FileBlock(0x08F9C000, 0x100, 0x0)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0x100});
 
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
     EXPECT_EQ(map->BlockAt(FlashAddress{0x0}), nullptr);
     EXPECT_EQ(map->BlockAt(FlashAddress{0x08F9C0FF}), &map->Blocks()[0]);
 }
@@ -97,7 +102,7 @@ TEST(MemoryMap, IdentityHoldsTheWholeFileWritableAtAddressZero)
 {
     const auto map = MemoryMap::Identity(ByteCount{0x80000});
 
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
     ASSERT_EQ(map->Blocks().size(), 1U);
     const MemoryBlock& block = map->Blocks()[0];
     EXPECT_EQ(block.range, Range(0x0, 0x80000));
@@ -109,7 +114,7 @@ TEST(MemoryMap, IdentityRejectsAnEmptyFile)
 {
     const auto map = MemoryMap::Identity(ByteCount{0});
 
-    ASSERT_FALSE(map.has_value());
+    ASSERT_THAT(map, IsErrThat(_));
     EXPECT_EQ(map.error().kind, MemoryErrorKind::kInvalidLayout);
 }
 
@@ -176,7 +181,7 @@ TEST(MemoryMap, DefinitionBaseIsZeroUnlessDeclared)
     const auto blocks = PackedMc68Blocks();
     const auto map = MemoryMap::Create(blocks, ByteCount{0x28000});
 
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
     EXPECT_EQ(map->DefinitionBase(), FlashAddress{0});
 }
 
@@ -186,7 +191,7 @@ TEST(MemoryMap, KeepsTheDeclaredDefinitionBase)
     const std::array blocks{FileBlock(0x08F9C000, 0x100, 0x0)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0x100}, FlashAddress{0x08F9C000});
 
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
     EXPECT_EQ(map->DefinitionBase(), FlashAddress{0x08F9C000});
 }
 
@@ -194,7 +199,7 @@ TEST(MemoryMap, ToFlashAddressAddsTheDefinitionBase)
 {
     const std::array blocks{FileBlock(0x08F9C000, 0x40, 0x0)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0x40}, FlashAddress{0x08F9C000});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_EQ(map->ToFlashAddress(DefinitionAddress{0x10}), FlashAddress{0x08F9C010});
 }
@@ -203,7 +208,7 @@ TEST(MemoryMap, ToFlashAddressFailsPastTheAddressSpace)
 {
     const std::array blocks{FileBlock(0xFFFFFF00, 0x40, 0x0)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0x40}, FlashAddress{0xFFFFFF00});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_EQ(map->ToFlashAddress(DefinitionAddress{0xFF}), FlashAddress{0xFFFFFFFF});
     EXPECT_EQ(map->ToFlashAddress(DefinitionAddress{0x100}), std::nullopt);
@@ -213,7 +218,7 @@ TEST(MemoryMap, FileOffsetOfFollowsTheBlocksFileBacking)
 {
     const auto blocks = PackedMc68Blocks();
     const auto map = MemoryMap::Create(blocks, ByteCount{0x28000});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_EQ(map->FileOffsetOf(Range(0x10, 4)), FileOffset{0x10});
     EXPECT_EQ(map->FileOffsetOf(Range(0x28010, 4)), FileOffset{0x20010});
@@ -223,7 +228,7 @@ TEST(MemoryMap, FileOffsetOfNeedsOneFileBackedBlockToHoldTheWholeRange)
 {
     const auto blocks = PackedMc68Blocks();
     const auto map = MemoryMap::Create(blocks, ByteCount{0x28000});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_EQ(map->FileOffsetOf(Range(0x20010, 4)), std::nullopt); // fill block
     EXPECT_EQ(map->FileOffsetOf(Range(0x1FFFE, 4)), std::nullopt); // into the fill block
@@ -234,7 +239,7 @@ TEST(MemoryMap, FileOffsetOfDoesNotSpanAdjacentFileBlocks)
 {
     const std::array blocks{FileBlock(0x0, 0x10, 0x0), FileBlock(0x10, 0x10, 0x10, Writability::kReadOnly)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0x20});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_EQ(map->FileOffsetOf(Range(0x0E, 4)), std::nullopt);
 }
@@ -243,7 +248,7 @@ TEST(MemoryMap, SlicesSplitARangeAtBlockBoundariesInAddressOrder)
 {
     const std::array blocks{FileBlock(0x000, 0x100, 0x0), FillBlock(0x200, 0x100), FileBlock(0x300, 0x100, 0x100)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0x200});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_THAT(Described(*map, map->Slices(Range(0x80, 0x300))),
                 ::testing::ElementsAre(std::tuple{0, 0x80U, 0x80U}, std::tuple{-1, 0x100U, 0x100U},
@@ -254,7 +259,7 @@ TEST(MemoryMap, SlicesBeforeAndAfterEveryBlockAreGaps)
 {
     const std::array blocks{FileBlock(0x100, 0x100, 0x0)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0x100});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_THAT(Described(*map, map->Slices(Range(0x0, 0x80))), ::testing::ElementsAre(std::tuple{-1, 0x0U, 0x80U}));
     EXPECT_THAT(Described(*map, map->Slices(Range(0x80, 0x200))),
@@ -268,7 +273,7 @@ TEST(MemoryMap, SliceFileStartFollowsTheBlocksFileBacking)
 {
     const auto blocks = PackedMc68Blocks();
     const auto map = MemoryMap::Create(blocks, ByteCount{0x28000});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     const std::vector<BlockSlice> slices = map->Slices(Range(0x1FFF0, 0x8020));
     ASSERT_EQ(slices.size(), 3U);
@@ -282,7 +287,7 @@ TEST(MemoryMap, SlicesOfASingleAddress)
 {
     const std::array blocks{FileBlock(0x000, 0x100, 0x0), FileBlock(0x200, 0x100, 0x100)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0x200});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_THAT(Described(*map, map->Slices(Range(0xFF, 1))), ::testing::ElementsAre(std::tuple{0, 0xFFU, 1U}));
     EXPECT_THAT(Described(*map, map->Slices(Range(0x100, 1))), ::testing::ElementsAre(std::tuple{-1, 0x100U, 1U}));
@@ -294,7 +299,7 @@ TEST(MemoryMap, SlicesOfARangeExactlyOnABlocksEdges)
 {
     const std::array blocks{FileBlock(0x000, 0x100, 0x0), FillBlock(0x200, 0x100), FileBlock(0x300, 0x100, 0x100)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0x200});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_THAT(Described(*map, map->Slices(Range(0x200, 0x100))),
                 ::testing::ElementsAre(std::tuple{1, 0x200U, 0x100U}));
@@ -306,7 +311,7 @@ TEST(MemoryMap, SlicesReachABlockEndingAtTheTopOfTheAddressSpace)
 {
     const std::array blocks{FileBlock(0xFFFFFF00, 0xFF, 0x0)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0xFF});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_THAT(Described(*map, map->Slices(Range(0xFFFFFE00, 0x1FF))),
                 ::testing::ElementsAre(std::tuple{-1, 0xFFFFFE00U, 0x100U}, std::tuple{0, 0xFFFFFF00U, 0xFFU}));
@@ -318,7 +323,7 @@ TEST(MemoryMapSpan, RunsFromTheFirstBlockStartToTheLastBlockEnd)
 {
     const std::array blocks{FileBlock(0x100, 0x10, 0x0, Writability::kReadOnly), FileBlock(0x200, 0x20, 0x10)};
     const auto map = MemoryMap::Create(blocks, ByteCount{0x30});
-    ASSERT_TRUE(map.has_value());
+    ASSERT_THAT(map, IsOk());
 
     EXPECT_EQ(map->Span(), Range(0x100, 0x120));
 }

@@ -1,8 +1,11 @@
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <ranges>
 
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
+
+using ::testing::IsEmpty;
 using namespace mitsu_colt_can_cdbg;
 
 TEST(TestMitsuColtCanCdbgProtocol, init_frame_layout)
@@ -140,11 +143,11 @@ TEST(TestMitsuColtCanCdbgProtocol, decode_frame_rejects_mismatched_frame_index)
 {
     std::vector<CdbgChannel> frame_items = {{0x804FBF, 1}};
     const CdbgFrame frame{1, 0x2A, 0, 0, 0, 0, 0, 0}; // index byte is 1, not 0
-    ASSERT_TRUE(DecodeFrame(0, frame_items, frame).empty());
+    ASSERT_THAT(DecodeFrame(0, frame_items, frame), IsEmpty());
 }
 TEST(TestMitsuColtCanCdbgProtocol, decode_frame_rejects_too_short_frame)
 {
     std::vector<CdbgChannel> frame_items = {{0x804FBF, 4}};
     const bytes::Bytes frame{0x00, 0x11}; // needs 1+4=5 bytes, only has 2
-    ASSERT_TRUE(DecodeFrame(0, frame_items, frame).empty());
+    ASSERT_THAT(DecodeFrame(0, frame_items, frame), IsEmpty());
 }

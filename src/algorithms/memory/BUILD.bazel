@@ -38,6 +38,7 @@ fastecu_portable_gtest(
     srcs = ["memory_map_test.cpp"],
     deps = [
         ":memory_map",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -59,6 +60,7 @@ fastecu_portable_gtest(
     srcs = ["memory_image_test.cpp"],
     deps = [
         ":memory_image",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

@@ -1,4 +1,5 @@
 #include "src/algorithms/memory/testing/memory_views.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 #include <array>
 
@@ -9,6 +10,8 @@ namespace fastecu::memory
 {
 namespace
 {
+using fastecu::testing::IsErrThat;
+using ::testing::_;
 using ::testing::ElementsAre;
 
 TEST(MemoryViews, ViewOfPlacesTheBytesAtTheGivenAddress)
@@ -24,7 +27,7 @@ TEST(MemoryViews, ImageAtHonoursWritability)
 {
     MemoryImage image = testing::ImageAt(FlashAddress{0}, bytes::Bytes{1}, Writability::kReadOnly);
 
-    EXPECT_FALSE(image.Write(FlashAddress{0}, bytes::Bytes{2}).has_value());
+    EXPECT_THAT(image.Write(FlashAddress{0}, bytes::Bytes{2}), IsErrThat(_));
 }
 
 TEST(MemoryViews, IdentityImageHoldsTheFileAtAddressZero)
