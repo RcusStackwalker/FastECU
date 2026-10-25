@@ -62,6 +62,12 @@ check; successful reads retain `SH7058 write cancelled`. The
 [SH7058 evidence](can-cancellation-migration-results.md#hitachi-sh7058-can)
 distinguishes preserved family behavior from the synthetic selection proof.
 
+Hitachi SH72543R CAN explicitly selects the guard and retains Send, Receive,
+Sleep and finalization checks. Receive still gives cancellation precedence over
+a concurrently failed delegated Read. Its
+[SH72543R evidence](can-cancellation-migration-results.md#hitachi-sh72543r-can)
+records the preserved policy and independent selection proof.
+
 ## Plan admission
 
 Every flash executor derives from

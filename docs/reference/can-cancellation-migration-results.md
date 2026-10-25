@@ -763,3 +763,48 @@ consulted; no dedicated SH7058 CAN checklist exists. Hardware remains
 experimental: named ECU/adapter traces, read/write verification, recovery and
 cancellation at exchange/erase/program/finalization boundaries remain bench gaps.
 Full repository/static/coverage/platform gates remain controller-owned.
+
+## Hitachi SH72543R CAN
+
+Task 15, 2026-10-25; source revision `320fd021`. Public guard opt-in and
+adapter routing retain every production body, checkpoint, clock and validation.
+Workflow callers use `KernelFreeCanWorkflow`/BoundAttempt; all direct suite
+Execute calls use the shared adapter.
+
+| Boundary | Retained owner and guard effect |
+| --- | --- |
+| Admission/setup | Plan and wire validation, unsupported test-write, precancel, preparation/configuration/Open and close-once ownership remain. |
+| Send/Receive/Sleep | Send checks before and after Write; Receive checks before and after Read, with cancellation winning over a concurrently returned error. Sleep checks before/after its cancellable clock call. These checks mask deterministic bypass at accepted I/O boundaries; guard still refuses the concurrent interval after the last entry poll. |
+| Connect/read | Optional identity/session content tolerance, exact seed/key and 1024-byte page validation, six nonfatal stop attempts, post-read completion checkpoint, identity metadata and progress remain. |
+| Encrypt/erase | Pre-encryption checkpoint, absolute image offsets, protected address window, one erase Write with 21 Reads, pacing and after-positive-erase checkpoint remain. |
+| Program/final | All 8096 B6 frames and tolerant data response content, per-exchange checkpoints, after-program check, independent twenty-attempt close/checksum retries and final completion checkpoint remain. |
+
+`CancellationStillWinsOverConcurrentReadFailure` uses the shared blind port's
+failure hook with exact delegated `kDisconnected / read failed`; the token is
+asserted cancelled and the family still returns `kCancelled / flash cancelled`
+after one Write/Read, without another request. Real-family BoundAttempt
+accepted-Write cancellation retains that same diagnostic, zero Reads, a queued
+reply and one Close. Both pass unguarded: they preserve family policy and do
+not prove bypass detection. The actual-alias synthetic selection proof provides
+that detection. No unmasked deterministic real-family boundary or changed
+family refusal metadata was observed. Complete-write, tolerated failures,
+validation, finalization retry and every predecessor assertion remain.
+
+Verification uses `bazel test --config=release` for the family plus
+`guarded_attempt_expectations_test`, `bound_flash_attempt_test` and
+`guarded_can_flash_transport_test`: **4/4** pass after restoration. Baseline
+XML **38**, candidate **41**; no predecessor classname/name pair lost.
+Missing-alias RED and declaration mutation fail compilation; temporary runner
+bypass fails family selection and shared probes on one extra delegated Read.
+Sources restored; Gazelle, scoped clang-format and diff review pass. Evidence:
+`/private/tmp/postop15-*` and
+`/private/tmp/postop-subaru_hitachi_sh72543r_can-baseline.xml`.
+
+`python3 scripts/nloc_loop.py measure --json`: baseline
+153948 / 68485 production / 85463 test; final 154000 / 68488 / 85512.
+Growth: production **+3**, test **+49**; existing support reused, no compression.
+Qualification matrix and connection prerequisites consulted; no dedicated
+SH72543R checklist exists. Hardware remains experimental. Named ECU/adapter
+read/write/cancellation traces, recovery, physical erase scope/block-0
+preservation and programmed-image readback remain bench gaps. Full repository,
+static, coverage and platform gates remain controller-owned.

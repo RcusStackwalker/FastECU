@@ -1899,6 +1899,9 @@ fastecu_portable_gtest(
         ":subaru_hitachi_sh72543r_can_plan",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
+        "//src/backend/flash/testing:execute_with_cancellation_guard",
+        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
@@ -1921,6 +1924,7 @@ cc_library(
     deps = [
         ":subaru_hitachi_sh72543r_can_plan",
         "//src/backend/flash:flash_executor",
+        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
