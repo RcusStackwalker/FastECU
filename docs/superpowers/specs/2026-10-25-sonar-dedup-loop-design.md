@@ -141,14 +141,10 @@ After a loop PR merges, the loop starts a master SonarCloud analysis itself
 equals `origin/master` HEAD. While it waits, it may prepare the next PR from the
 older list, but only for a group whose files the merge did not touch.
 
-**Prerequisite, the first build step** (the owner does not know the
-setting; reading it needs a SonarCloud token): SonarCloud's new-code period for
-`master`. "Previous version" (or a fixed reference): unversioned extra analyses
-are harmless. "Previous analysis": every extra run resets the baseline that the
-release-time quality gate uses, so the loop must not trigger master analyses,
-and falls back to treating the stale analysis as nominations only (ledger
-`merged` entries suppress stale groups; the trend's "after" column waits for
-the next release).
+SonarCloud's new-code period for `master` is "previous version" (checked
+2026-10-25) and `sonar.projectVersion` is unset, so these extra analyses leave
+the release-time quality gate's baseline alone; the loop dispatches them
+through `.github/workflows/sonar-master.yml`.
 
 ### Merge evidence
 
