@@ -20,8 +20,12 @@ using fastecu::logging::LoggerDefinitionService;
 using fastecu::logging::testing::kConfWithEcu;
 using fastecu::logging::testing::kDefinition;
 using test_bytes::BytesOf;
+using ::testing::_;
 using ::testing::ElementsAre;
+using ::testing::Eq;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
+using ::testing::Optional;
 using ::testing::SizeIs;
 
 class LoggerDefinitionServiceTest : public ::testing::Test
@@ -94,12 +98,12 @@ TEST_F(LoggerDefinitionServiceTest, LoadSelectionReturnsTheStoredEntry)
 
     const auto stored = Service().LoadSelection("logger.cfg", "ECUID1");
     ASSERT_THAT(stored, fastecu::testing::IsOk());
-    ASSERT_TRUE(stored->has_value()) << "ECUID1 has an <ecu> element";
+    ASSERT_THAT(*stored, Optional(_)) << "ECUID1 has an <ecu> element";
     EXPECT_EQ((*stored)->protocol, "SSM");
     EXPECT_THAT((*stored)->gauge_ids, ElementsAre("P2"));
     EXPECT_THAT((*stored)->lower_panel_ids, ElementsAre("P2"));
     EXPECT_THAT((*stored)->switch_ids, ElementsAre("S1"));
-    EXPECT_TRUE(writer_.replace_calls.empty()) << "reading must not write";
+    EXPECT_THAT(writer_.replace_calls, IsEmpty()) << "reading must not write";
 }
 
 TEST_F(LoggerDefinitionServiceTest, LoadSelectionReturnsNulloptForAnAbsentEcuWithoutWriting)
@@ -108,10 +112,10 @@ TEST_F(LoggerDefinitionServiceTest, LoadSelectionReturnsNulloptForAnAbsentEcuWit
 
     const auto stored = Service().LoadSelection("logger.cfg", "OTHERECU");
     ASSERT_THAT(stored, fastecu::testing::IsOk());
-    EXPECT_FALSE(stored->has_value()) << "an absent ECU is not an error";
+    EXPECT_THAT(*stored, Eq(std::nullopt)) << "an absent ECU is not an error";
     // The no-definition-loaded caller relies on this: asking must not seed a
     // default the way load_or_initialize_selection does.
-    EXPECT_TRUE(writer_.replace_calls.empty()) << "an absent ECU must not be initialized";
+    EXPECT_THAT(writer_.replace_calls, IsEmpty()) << "an absent ECU must not be initialized";
     EXPECT_EQ(repository_.files.at("logger.cfg"), BytesOf(kConfWithEcu));
 }
 
@@ -119,7 +123,7 @@ TEST_F(LoggerDefinitionServiceTest, LoadSelectionPropagatesAnUnreadableHandle)
 {
     ASSERT_THAT(Service().LoadSelection("missing.cfg", "ECUID1"),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(writer_.replace_calls.empty());
+    EXPECT_THAT(writer_.replace_calls, IsEmpty());
 }
 
 TEST_F(LoggerDefinitionServiceTest, LoadSelectionPropagatesAParseFailure)
@@ -147,7 +151,7 @@ TEST_F(LoggerDefinitionServiceTest, SaveSelectionPropagatesAnUnreadableHandle)
 {
     ASSERT_THAT(Service().SaveSelection("missing.cfg", "ECUID1", fastecu::logging::LoggerSelection{}),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(writer_.replace_calls.empty()) << "a failed read must not write";
+    EXPECT_THAT(writer_.replace_calls, IsEmpty()) << "a failed read must not write";
 }
 
 TEST_F(LoggerDefinitionServiceTest, SaveSelectionPropagatesAWriteSelectionFailure)
@@ -156,7 +160,7 @@ TEST_F(LoggerDefinitionServiceTest, SaveSelectionPropagatesAWriteSelectionFailur
 
     ASSERT_THAT(Service().SaveSelection("logger.cfg", "ECUID1", fastecu::logging::LoggerSelection{}),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(writer_.replace_calls.empty()) << "a refused write must not reach the writer";
+    EXPECT_THAT(writer_.replace_calls, IsEmpty()) << "a refused write must not reach the writer";
 }
 
 TEST_F(LoggerDefinitionServiceTest, SaveSelectionPropagatesAReplaceFailure)
@@ -179,6 +183,6 @@ TEST_F(LoggerDefinitionServiceTest, SaveSelectionPersistsAMissingEcuIncludingUnr
     ASSERT_THAT(Service().SaveSelection("logger.cfg", "NEWECU", fallback), fastecu::testing::IsOk());
     const auto stored = fastecu::logging::ReadSelection(writer_.files.at("logger.cfg"), "NEWECU", "logger.cfg");
     ASSERT_THAT(stored, fastecu::testing::IsOk());
-    ASSERT_TRUE(stored->has_value());
+    ASSERT_THAT(*stored, Optional(_));
     EXPECT_EQ(**stored, fallback);
 }

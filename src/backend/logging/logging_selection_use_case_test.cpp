@@ -27,8 +27,12 @@ using fastecu::logging::RestoreOutcome;
 using fastecu::logging::testing::kConfWithEcu;
 using fastecu::logging::testing::kDefinition;
 using fastecu::logging::testing::kEmptyConf;
+using fastecu::testing::IsErrThat;
+using fastecu::testing::IsOk;
 using test_bytes::BytesOf;
+using ::testing::_;
 using ::testing::ElementsAre;
+using ::testing::IsEmpty;
 using ::testing::SizeIs;
 
 // Every ID list empty, protocol retained.
@@ -69,7 +73,7 @@ TEST_F(LoggingSelectionUseCaseInstall, InstallsTheConfiguredDefinitionAndResetsT
 
     const auto installed = UseCase().InstallDefinition({.configured_handle = "defs.xml", .log_protocol = "SSM"});
 
-    ASSERT_TRUE(installed.has_value());
+    ASSERT_THAT(installed, IsOk());
     EXPECT_EQ(installed->resolved_handle, "defs.xml");
     EXPECT_FALSE(installed->bundled_handle_used);
     EXPECT_THAT(model_.Definition().parameters, SizeIs(2));
@@ -84,7 +88,7 @@ TEST_F(LoggingSelectionUseCaseInstall, ReportsTheBundledHandleWhenNoneIsConfigur
     const auto installed = UseCase().InstallDefinition(
         {.configured_handle = "", .log_protocol = "CDBG", .config_files_directory = "/home/u/.FastECU/"});
 
-    ASSERT_TRUE(installed.has_value());
+    ASSERT_THAT(installed, IsOk());
     EXPECT_TRUE(installed->bundled_handle_used);
     EXPECT_EQ(installed->resolved_handle, "/home/u/.FastECU/logger_cdbg_example.xml");
 }
@@ -98,7 +102,7 @@ TEST_F(LoggingSelectionUseCaseInstall, BundledHandleIsReportedEvenWhenItsLoadFai
     const auto installed = UseCase().InstallDefinition(
         {.configured_handle = "", .log_protocol = "CDBG", .config_files_directory = "/home/u/.FastECU/"});
 
-    ASSERT_FALSE(installed.has_value());
+    ASSERT_THAT(installed, IsErrThat(_));
     EXPECT_TRUE(installed.error().bundled_handle_used);
     EXPECT_EQ(installed.error().handle, "/home/u/.FastECU/logger_cdbg_example.xml");
 }
@@ -109,7 +113,7 @@ TEST_F(LoggingSelectionUseCaseInstall, ConfiguredHandleIsNeverReportedAsBundled)
 
     const auto installed = UseCase().InstallDefinition({.configured_handle = "defs.xml", .log_protocol = "CDBG"});
 
-    ASSERT_TRUE(installed.has_value());
+    ASSERT_THAT(installed, IsOk());
     EXPECT_FALSE(installed->bundled_handle_used);
 }
 
@@ -121,7 +125,7 @@ TEST_F(LoggingSelectionUseCaseInstall, UnreadableDefinitionFailsAtLoadAndLeavesT
 
     const auto installed = UseCase().InstallDefinition({.configured_handle = "missing.xml", .log_protocol = "SSM"});
 
-    ASSERT_FALSE(installed.has_value());
+    ASSERT_THAT(installed, IsErrThat(_));
     EXPECT_EQ(installed.error().handle, "missing.xml");
     EXPECT_EQ(model_.Definition(), definition);
     EXPECT_EQ(model_.Selection(), selection);
@@ -135,7 +139,7 @@ TEST_F(LoggingSelectionUseCaseInstall, EmptyHandleForANonCdbgProtocolInstallsNot
     // Resolution yields an empty handle for non-CDBG protocols; loading it fails.
     const auto installed = UseCase().InstallDefinition({.configured_handle = "", .log_protocol = "SSM"});
 
-    ASSERT_FALSE(installed.has_value());
+    ASSERT_THAT(installed, IsErrThat(_));
     EXPECT_EQ(installed.error().handle, "");
     EXPECT_EQ(model_.Selection(), selection);
 }
@@ -146,7 +150,7 @@ class LoggingSelectionUseCaseRestore : public LoggingSelectionUseCaseTest
     void SetUp() override
     {
         repository_.files["defs.xml"] = BytesOf(kDefinition);
-        ASSERT_TRUE(UseCase().InstallDefinition({.configured_handle = "defs.xml", .log_protocol = "SSM"}).has_value());
+        ASSERT_THAT(UseCase().InstallDefinition({.configured_handle = "defs.xml", .log_protocol = "SSM"}), IsOk());
     }
 };
 
@@ -167,7 +171,7 @@ TEST_F(LoggingSelectionUseCaseRestore, AppliesTheEcusStoredEntry)
                 fastecu::testing::IsOkAnd(RestoreOutcome::kRestored));
     EXPECT_THAT(model_.Selection().gauge_ids, ElementsAre("P2"));
     EXPECT_THAT(model_.Selection().switch_ids, ElementsAre("S1"));
-    EXPECT_TRUE(writer_.replace_calls.empty());
+    EXPECT_THAT(writer_.replace_calls, IsEmpty());
 }
 
 TEST_F(LoggingSelectionUseCaseRestore, InitializesAndPersistsTheDefaultForAnAbsentEcu)
@@ -204,7 +208,7 @@ TEST_F(LoggingSelectionUseCaseTest, EmptyDefinitionClearsWithoutPersisting)
     EXPECT_THAT(UseCase().RestorePendingSelection("conf.xml", "ECUID1", "SSM"),
                 fastecu::testing::IsOkAnd(RestoreOutcome::kClearedNoDefinition));
     EXPECT_EQ(model_.Selection(), Cleared("SSM"));
-    EXPECT_TRUE(writer_.replace_calls.empty());
+    EXPECT_THAT(writer_.replace_calls, IsEmpty());
     EXPECT_EQ(repository_.files.at("conf.xml"), BytesOf(kEmptyConf));
 }
 

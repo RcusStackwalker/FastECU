@@ -12,7 +12,10 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::IsEmpty;
 
 namespace
 {
@@ -305,7 +308,7 @@ TEST(LoggingUseCaseTest, UnknownProtocolChannelTerminatesAsInternal)
     ASSERT_THAT(RunUntilCancelled(std::move(*built_session_8), protocol, sink, 2),
                 fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
     EXPECT_EQ(protocol.stops, 1);
-    EXPECT_TRUE(sink.sample_batches.empty());
+    EXPECT_THAT(sink.sample_batches, IsEmpty());
 }
 
 TEST(LoggingUseCaseTest, PrimaryErrorWinsOverStopFailure)

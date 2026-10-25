@@ -1,5 +1,6 @@
 #include <array>
 #include "src/backend/ports/testing/result_matchers.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -17,6 +18,8 @@
 #include "src/backend/logging/protocols/portable_ssm_logging_protocol.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+
+using ::testing::IsEmpty;
 
 namespace
 {
@@ -238,7 +241,7 @@ TEST(SsmLoggingProtocolTest, PollReturnsNoResponseOnDirectReadTimeout)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
-    EXPECT_TRUE(result->samples.empty());
+    EXPECT_THAT(result->samples, IsEmpty());
 }
 
 TEST(SsmLoggingProtocolTest, HeaderResynchronizationRemainsDeadlineBounded)

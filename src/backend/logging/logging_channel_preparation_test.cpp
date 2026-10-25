@@ -8,6 +8,7 @@
 #include <utility>
 
 #include <gmock/gmock-matchers.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/logging/logger_definition_model.h"
@@ -22,6 +23,7 @@ using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::AllOf;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
 
 LoggerParameter Parameter()
 {
@@ -160,7 +162,7 @@ TEST(LoggingChannelPreparation, ResolvesFirstConversionAndAllowsEmptyUnits)
     p.conversions.push_back({"other", "x*2", "0.000", "0", "100", "1"});
     const auto result = PrepareLoggingChannel(p, LoggingProtocolId::kSsm);
     ASSERT_THAT(result, IsOk());
-    EXPECT_TRUE(result->unit.empty());
+    EXPECT_THAT(result->unit, IsEmpty());
     EXPECT_EQ(result->from_byte_expression, "x");
     EXPECT_EQ(result->decimal_precision, 2);
 }

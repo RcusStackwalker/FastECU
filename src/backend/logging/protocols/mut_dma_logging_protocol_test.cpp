@@ -1,12 +1,15 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include <chrono>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/protocol/testing/scripted_kline_transport.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/backend/logging/protocols/portable_mut_dma_logging_protocol.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
+
+using ::testing::IsEmpty;
 
 namespace
 {
@@ -135,7 +138,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
-    EXPECT_TRUE(result->samples.empty());
+    EXPECT_THAT(result->samples, IsEmpty());
 }
 
 TEST(MutDmaLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterClosesMidSession)
