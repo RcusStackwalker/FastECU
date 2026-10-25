@@ -53,38 +53,38 @@ class BeefCanSessionTest : public ::testing::Test
   protected:
     BeefCanSession Session(const DensoBeefCanProfile& profile)
     {
-        return BeefCanSession(transport, clock, cancellation, events, channel, profile);
+        return BeefCanSession(transport_, clock_, cancellation_, events_, channel_, profile);
     }
 
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-    uds::ScriptedUdsChannel channel;
+    ScriptedCanFlashTransport transport_;
+    FakeClock clock_;
+    FakeCancellationToken cancellation_;
+    RecordingEventSink events_;
+    uds::ScriptedUdsChannel channel_;
 };
 
 TEST_F(BeefCanSessionTest, NonfatalQueryTimeoutLogsNoValidResponse)
 {
-    channel.ExpectSend(bytes::Bytes{0xAA});
-    channel.QueueError(ErrorKind::kTimeout);
+    channel_.ExpectSend(bytes::Bytes{0xAA});
+    channel_.QueueError(ErrorKind::kTimeout);
 
     const auto reply = Session(kBare).NonfatalQuery(bytes::Bytes{0xAA});
 
-    EXPECT_THAT(reply, IsOk());
+    ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(*reply, Eq(std::nullopt));
-    EXPECT_THAT(events.logs, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
 TEST_F(BeefCanSessionTest, NonfatalQueryNoFrameLogsNoValidResponse)
 {
-    channel.ExpectSend(bytes::Bytes{0xAA});
-    channel.QueueNoFrame();
+    channel_.ExpectSend(bytes::Bytes{0xAA});
+    channel_.QueueNoFrame();
 
     const auto reply = Session(kBare).NonfatalQuery(bytes::Bytes{0xAA});
 
-    EXPECT_THAT(reply, IsOk());
+    ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(*reply, Eq(std::nullopt));
-    EXPECT_THAT(events.logs, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
 struct WrongReplyCase
@@ -100,14 +100,14 @@ class BeefCanSessionWrongReplyTest : public BeefCanSessionTest, public ::testing
 
 TEST_P(BeefCanSessionWrongReplyTest, NonfatalQueryBadReplyLogsPerProfile)
 {
-    channel.ExpectSend(bytes::Bytes{0xAA});
-    channel.QueueError(ErrorKind::kBadResponse, "boom");
+    channel_.ExpectSend(bytes::Bytes{0xAA});
+    channel_.QueueError(ErrorKind::kBadResponse, "boom");
 
     const auto reply = Session(GetParam().profile).NonfatalQuery(bytes::Bytes{0xAA});
 
-    EXPECT_THAT(reply, IsOk());
+    ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(*reply, Eq(std::nullopt));
-    EXPECT_THAT(events.logs, ElementsAre(Pair(LogLevel::kError, GetParam().expected)));
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, GetParam().expected)));
 }
 
 INSTANTIATE_TEST_SUITE_P(Profiles, BeefCanSessionWrongReplyTest,
@@ -121,35 +121,36 @@ TEST_F(BeefCanSessionTest, NonfatalQueryPassesCancelAndDisconnectThrough)
 {
     for (const ErrorKind kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
-        channel.ExpectSend(bytes::Bytes{0xAA});
-        channel.QueueError(kind);
+        SCOPED_TRACE(static_cast<int>(kind));
+        channel_.ExpectSend(bytes::Bytes{0xAA});
+        channel_.QueueError(kind);
 
         EXPECT_THAT(Session(kBare).NonfatalQuery(bytes::Bytes{0xAA}), IsErrWith(kind, _));
     }
-    EXPECT_THAT(events.logs, IsEmpty());
+    EXPECT_THAT(events_.logs, IsEmpty());
 }
 
 TEST_F(BeefCanSessionTest, NonfatalQueryReturnsTheFrame)
 {
-    channel.ExpectSend(bytes::Bytes{0x10, 0x03});
-    channel.QueueReceive(bytes::Bytes{0x50, 0x03});
+    channel_.ExpectSend(bytes::Bytes{0x10, 0x03});
+    channel_.QueueReceive(bytes::Bytes{0x50, 0x03});
 
     const auto reply = Session(kBare).NonfatalQuery(bytes::Bytes{0x10, 0x03});
 
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(*reply, Optional(Eq(bytes::Bytes{0x50, 0x03})));
-    EXPECT_THAT(events.logs, IsEmpty());
+    EXPECT_THAT(events_.logs, IsEmpty());
 }
 
 TEST_F(BeefCanSessionTest, NonfatalQueryUsesTheReadTimeoutAndPostSendDelay)
 {
-    channel.ExpectSend(bytes::Bytes{0xAA});
-    channel.QueueNoFrame();
+    channel_.ExpectSend(bytes::Bytes{0xAA});
+    channel_.QueueNoFrame();
 
     ASSERT_THAT(Session(kBare).NonfatalQuery(bytes::Bytes{0xAA}), IsOk());
 
-    EXPECT_EQ(channel.last_timeout, 2000ms);
-    EXPECT_EQ(clock.Elapsed(), 50ms);
+    EXPECT_EQ(channel_.last_timeout, 2000ms);
+    EXPECT_EQ(clock_.Elapsed(), 50ms);
 }
 
 bytes::Bytes BeefReply(bytes::Byte opcode, bytes::ByteView payload)
@@ -161,20 +162,20 @@ bytes::Bytes BeefReply(bytes::Byte opcode, bytes::ByteView payload)
 
 TEST_F(BeefCanSessionTest, ExchangeWrapsAndUnwrapsBeef)
 {
-    channel.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
-    channel.QueueReceive(BeefReply(0x45, bytes::Bytes{0x00, 0x00, 0x10, 0x00}));
+    channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
+    channel_.QueueReceive(BeefReply(0x45, bytes::Bytes{0x00, 0x00, 0x10, 0x00}));
 
     const auto payload = Session(kBare).Exchange(0x05, {}, 4, 500ms);
 
     ASSERT_THAT(payload, IsOk());
     EXPECT_THAT(*payload, Eq(bytes::Bytes{0x00, 0x00, 0x10, 0x00}));
-    EXPECT_EQ(channel.last_timeout, 500ms);
+    EXPECT_EQ(channel_.last_timeout, 500ms);
 }
 
 TEST_F(BeefCanSessionTest, ExchangeRejectsAWrongOpcode)
 {
-    channel.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
-    channel.QueueReceive(BeefReply(0x46, {}));
+    channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
+    channel_.QueueReceive(BeefReply(0x46, {}));
 
     EXPECT_THAT(Session(kBare).Exchange(0x05, {}, 0, 500ms),
                 IsErrWith(ErrorKind::kBadResponse, "unexpected BEEF response opcode 0x46, expected 0x45"));
@@ -182,8 +183,8 @@ TEST_F(BeefCanSessionTest, ExchangeRejectsAWrongOpcode)
 
 TEST_F(BeefCanSessionTest, ExchangeRejectsAShortPayload)
 {
-    channel.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
-    channel.QueueReceive(BeefReply(0x45, bytes::Bytes{0x01}));
+    channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
+    channel_.QueueReceive(BeefReply(0x45, bytes::Bytes{0x01}));
 
     EXPECT_THAT(Session(kBare).Exchange(0x05, {}, 4, 500ms),
                 IsErrWith(ErrorKind::kBadResponse, "short BEEF response payload"));
@@ -191,54 +192,54 @@ TEST_F(BeefCanSessionTest, ExchangeRejectsAShortPayload)
 
 TEST_F(BeefCanSessionTest, ExchangeTimeoutIsTheReturnedErrorAndLogsNothing)
 {
-    channel.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
-    channel.QueueNoFrame();
+    channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
+    channel_.QueueNoFrame();
 
     EXPECT_THAT(Session(kNotValid).Exchange(0x05, {}, 0, 500ms),
                 IsErrWith(ErrorKind::kTimeout, "no CAN response within the read timeout"));
-    EXPECT_THAT(events.logs, IsEmpty());
+    EXPECT_THAT(events_.logs, IsEmpty());
 }
 
 TEST_F(BeefCanSessionTest, ExchangeSurfacesAChannelBadResponse)
 {
-    channel.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
-    channel.QueueError(ErrorKind::kBadResponse, "expected CAN reply id 0x7e8, got 0x123");
+    channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x05});
+    channel_.QueueError(ErrorKind::kBadResponse, "expected CAN reply id 0x7e8, got 0x123");
 
     EXPECT_THAT(Session(kNotValid).Exchange(0x05, {}, 0, 500ms),
                 IsErrWith(ErrorKind::kBadResponse, "expected CAN reply id 0x7e8, got 0x123"));
-    EXPECT_THAT(events.logs, IsEmpty());
+    EXPECT_THAT(events_.logs, IsEmpty());
 }
 
 TEST_F(BeefCanSessionTest, RequestSessionAcceptsThePositiveReply)
 {
-    channel.ExpectSend(bytes::Bytes{0x10, 0x03});
-    channel.QueueReceive(bytes::Bytes{0x50, 0x03});
+    channel_.ExpectSend(bytes::Bytes{0x10, 0x03});
+    channel_.QueueReceive(bytes::Bytes{0x50, 0x03});
 
     EXPECT_THAT(Session(kBare).RequestSession(0x03), IsOkAnd(true));
-    EXPECT_THAT(events.logs, IsEmpty());
+    EXPECT_THAT(events_.logs, IsEmpty());
 }
 
 TEST_F(BeefCanSessionTest, RequestSessionStepsOverSilence)
 {
-    channel.ExpectSend(bytes::Bytes{0x10, 0x03});
-    channel.QueueNoFrame();
+    channel_.ExpectSend(bytes::Bytes{0x10, 0x03});
+    channel_.QueueNoFrame();
 
     EXPECT_THAT(Session(kBare).RequestSession(0x03), IsOkAnd(false));
-    EXPECT_THAT(events.logs, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
 TEST_F(BeefCanSessionTest, WrongRepliesRenderInTheProfilePduFormat)
 {
     const bytes::Bytes negative{0x7F, 0x10, 0x22};
-    channel.ExpectSend(bytes::Bytes{0x10, 0x03});
-    channel.QueueReceive(negative);
+    channel_.ExpectSend(bytes::Bytes{0x10, 0x03});
+    channel_.QueueReceive(negative);
     EXPECT_THAT(Session(kBare).RequestSession(0x03), IsOkAnd(false));
 
-    channel.ExpectSend(bytes::Bytes{0x10, 0x03});
-    channel.QueueReceive(negative);
+    channel_.ExpectSend(bytes::Bytes{0x10, 0x03});
+    channel_.QueueReceive(negative);
     EXPECT_THAT(Session(kNotValid).RequestSession(0x03), IsOkAnd(false));
 
-    EXPECT_THAT(events.logs,
+    EXPECT_THAT(events_.logs,
                 ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 7f 10 22 "),
                             Pair(LogLevel::kError, "Wrong response from ECU: " + uds::Describe(negative))));
 }
@@ -247,67 +248,67 @@ TEST_F(BeefCanSessionTest, RequestEcuIdParsesFiveBytesAndNamesAReadImage)
 {
     const bytes::Bytes reply{0xEA, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
     std::optional<std::string> rom_id;
-    channel.ExpectSend(bytes::Bytes{0xAA});
-    channel.QueueReceive(reply);
-    channel.ExpectSend(bytes::Bytes{0xAA});
-    channel.QueueReceive(reply);
+    channel_.ExpectSend(bytes::Bytes{0xAA});
+    channel_.QueueReceive(reply);
+    channel_.ExpectSend(bytes::Bytes{0xAA});
+    channel_.QueueReceive(reply);
 
     ASSERT_THAT(Session(kBare).RequestEcuId(false, rom_id), IsOk());
     EXPECT_THAT(rom_id, Eq(std::nullopt));
     ASSERT_THAT(Session(kBare).RequestEcuId(true, rom_id), IsOk());
     EXPECT_THAT(rom_id, Optional(Eq("0102030405_")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "ECU ID: 0102030405")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Requesting ECU ID")));
+    EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "ECU ID: 0102030405")));
+    EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting ECU ID")));
 }
 
 TEST_F(BeefCanSessionTest, RequestEcuIdStepsOverAShortReply)
 {
     std::optional<std::string> rom_id;
-    channel.ExpectSend(bytes::Bytes{0xAA});
-    channel.QueueReceive(bytes::Bytes{0xEA, 0x01});
+    channel_.ExpectSend(bytes::Bytes{0xAA});
+    channel_.QueueReceive(bytes::Bytes{0xEA, 0x01});
 
     ASSERT_THAT(Session(kBare).RequestEcuId(true, rom_id), IsOk());
     EXPECT_THAT(rom_id, Eq(std::nullopt));
-    EXPECT_THAT(events.logs, ElementsAre(Pair(LogLevel::kInfo, "Requesting ECU ID"),
-                                         Pair(LogLevel::kError, "Wrong response from ECU: ea 01 ")));
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kInfo, "Requesting ECU ID"),
+                                          Pair(LogLevel::kError, "Wrong response from ECU: ea 01 ")));
 }
 
 TEST_F(BeefCanSessionTest, RequestCvnLogsUppercaseCompactHex)
 {
-    channel.ExpectSend(bytes::Bytes{0x09, 0x06});
-    channel.QueueReceive(bytes::Bytes{0x49, 0x06, 0x01, 0xAB, 0xCD});
+    channel_.ExpectSend(bytes::Bytes{0x09, 0x06});
+    channel_.QueueReceive(bytes::Bytes{0x49, 0x06, 0x01, 0xAB, 0xCD});
 
     ASSERT_THAT(Session(kBare).RequestCvn(), IsOk());
-    EXPECT_THAT(events.logs, ElementsAre(Pair(LogLevel::kInfo, "Requesting CVN"), Pair(LogLevel::kInfo, "CVN: ABCD")));
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kInfo, "Requesting CVN"), Pair(LogLevel::kInfo, "CVN: ABCD")));
 }
 
 TEST_F(BeefCanSessionTest, RequestCvnLogsAWrongReply)
 {
-    channel.ExpectSend(bytes::Bytes{0x09, 0x06});
-    channel.QueueReceive(bytes::Bytes{0x7F, 0x09});
+    channel_.ExpectSend(bytes::Bytes{0x09, 0x06});
+    channel_.QueueReceive(bytes::Bytes{0x7F, 0x09});
 
     ASSERT_THAT(Session(kDetail).RequestCvn(), IsOk());
-    EXPECT_THAT(events.logs, ElementsAre(Pair(LogLevel::kInfo, "Requesting CVN"),
-                                         Pair(LogLevel::kError, "Wrong response from TCU: 7f 09 ")));
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kInfo, "Requesting CVN"),
+                                          Pair(LogLevel::kError, "Wrong response from TCU: 7f 09 ")));
 }
 
 TEST_F(BeefCanSessionTest, IdentityStringReturnsTheTail)
 {
-    channel.ExpectSend(bytes::Bytes{0x09, 0x02});
-    channel.QueueReceive(bytes::Bytes{0x49, 0x02, 0x01, 'V', '1'});
+    channel_.ExpectSend(bytes::Bytes{0x09, 0x02});
+    channel_.QueueReceive(bytes::Bytes{0x49, 0x02, 0x01, 'V', '1'});
 
     EXPECT_THAT(Session(kBare).IdentityString(bytes::Bytes{0x09, 0x02}, 0x49, 0x02, "VIN"),
                 IsOkAnd(Optional(Eq("V1"))));
-    EXPECT_THAT(events.logs, ElementsAre(Pair(LogLevel::kInfo, "VIN: V1")));
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kInfo, "VIN: V1")));
 }
 
 TEST_F(BeefCanSessionTest, IdentityStringStepsOverAMismatch)
 {
-    channel.ExpectSend(bytes::Bytes{0x09, 0x02});
-    channel.QueueReceive(bytes::Bytes{0x49, 0x04, 0x01, 'V'});
+    channel_.ExpectSend(bytes::Bytes{0x09, 0x02});
+    channel_.QueueReceive(bytes::Bytes{0x49, 0x04, 0x01, 'V'});
 
     EXPECT_THAT(Session(kBare).IdentityString(bytes::Bytes{0x09, 0x02}, 0x49, 0x02, "VIN"), IsOkAnd(Eq(std::nullopt)));
-    EXPECT_THAT(events.logs, ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 49 04 01 56 ")));
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 49 04 01 56 ")));
 }
 
 bytes::Bytes Be32(std::uint32_t value)
@@ -355,13 +356,11 @@ constexpr std::uint32_t kRomSize = 0x00100000;
 class BeefCanSessionFlashTest : public BeefCanSessionTest
 {
   protected:
-    FlashPlan Plan(FlashOperation operation)
+    Result<FlashPlan> PlanFor(FlashOperation operation)
     {
-        auto plan = BuildSubaruDensoSh7058CanPlan(
+        return BuildSubaruDensoSh7058CanPlan(
             operation, "sub_ecu_denso_sh7058_can", "SH7058", bytes::Bytes(kRomSize, bytes::Byte{0}),
             KernelImage{.id = "petrol-sh7058-kernel", .load_address = 0xFFFF3000, .bytes = {0x01, 0x02, 0x03, 0x04}});
-        EXPECT_THAT(plan, IsOk());
-        return std::move(*plan);
     }
 
     // One CRC query: the request, the four-byte reply, then the stale-frame
@@ -373,9 +372,9 @@ class BeefCanSessionFlashTest : public BeefCanSessionTest
         payload.push_back(static_cast<bytes::Byte>(block.length >> 16U));
         payload.push_back(static_cast<bytes::Byte>(block.length >> 8U));
         payload.push_back(static_cast<bytes::Byte>(block.length));
-        channel.ExpectSend(BeefCall(0x02, payload));
-        channel.QueueReceive(BeefReply(0x42, Be32(crc)));
-        transport.QueueNoFrame();
+        channel_.ExpectSend(BeefCall(0x02, payload));
+        channel_.QueueReceive(BeefReply(0x42, Be32(crc)));
+        transport_.QueueNoFrame();
     }
 
     void ScriptCompare(std::optional<std::size_t> differing = std::nullopt)
@@ -388,12 +387,12 @@ class BeefCanSessionFlashTest : public BeefCanSessionTest
 
     void ScriptInitialize(bytes::Byte mode_opcode)
     {
-        channel.ExpectSend(BeefCall(0x05));
-        channel.QueueReceive(BeefReply(0x45, bytes::Bytes{0x00, 0x00, 0x10, 0x00}));
-        channel.ExpectSend(BeefCall(0x06));
-        channel.QueueReceive(BeefReply(0x46, bytes::Bytes{0x00, 0x00, 0x02, 0x00}));
-        channel.ExpectSend(BeefCall(mode_opcode));
-        channel.QueueReceive(BeefReply(static_cast<bytes::Byte>(mode_opcode | 0x40), {}));
+        channel_.ExpectSend(BeefCall(0x05));
+        channel_.QueueReceive(BeefReply(0x45, bytes::Bytes{0x00, 0x00, 0x10, 0x00}));
+        channel_.ExpectSend(BeefCall(0x06));
+        channel_.QueueReceive(BeefReply(0x46, bytes::Bytes{0x00, 0x00, 0x02, 0x00}));
+        channel_.ExpectSend(BeefCall(mode_opcode));
+        channel_.QueueReceive(BeefReply(static_cast<bytes::Byte>(mode_opcode | 0x40), {}));
     }
 };
 
@@ -402,8 +401,8 @@ TEST_F(BeefCanSessionFlashTest, QueryCrcReadsFourBytesAndDrainsTheStaleFrame)
     ScriptCrc(kBlocks[0].region, 0xF722EF49);
 
     EXPECT_THAT(Session(kBare).QueryCrc(kBlocks[0].region), IsOkAnd(Eq(0xF722EF49U)));
-    EXPECT_EQ(channel.last_timeout, 3000ms);
-    EXPECT_THAT(transport.ReadTimeouts(), ElementsAre(200ms));
+    EXPECT_EQ(channel_.last_timeout, 3000ms);
+    EXPECT_THAT(transport_.ReadTimeouts(), ElementsAre(200ms));
 }
 
 class BeefCanSessionFamilyLabelTest : public BeefCanSessionFlashTest,
@@ -413,10 +412,11 @@ class BeefCanSessionFamilyLabelTest : public BeefCanSessionFlashTest,
 
 TEST_P(BeefCanSessionFamilyLabelTest, CompareBlocksNamesTheFamilyWhenABlockLeavesTheImage)
 {
-    const FlashPlan plan = Plan(FlashOperation::kWrite);
+    const auto plan = PlanFor(FlashOperation::kWrite);
+    ASSERT_THAT(plan, IsOk());
 
     EXPECT_THAT(
-        Session(*GetParam()).CompareBlocks(plan, bytes::ByteView{}, nullptr),
+        Session(*GetParam()).CompareBlocks(*plan, bytes::ByteView{}, nullptr),
         IsErrWith(ErrorKind::kInvalidConfig, std::format("{} CRC block is outside the image", GetParam()->family)));
 }
 
@@ -425,10 +425,11 @@ INSTANTIATE_TEST_SUITE_P(Profiles, BeefCanSessionFamilyLabelTest, ::testing::Val
 
 TEST_F(BeefCanSessionFlashTest, CompareBlocksFlagsOnlyDifferingBlocks)
 {
-    const FlashPlan plan = Plan(FlashOperation::kWrite);
+    const auto plan = PlanFor(FlashOperation::kWrite);
+    ASSERT_THAT(plan, IsOk());
     ScriptCompare(3);
 
-    const auto result = Session(kBare).CompareBlocks(plan, plan.ImageOrEmpty(), nullptr);
+    const auto result = Session(kBare).CompareBlocks(*plan, plan->ImageOrEmpty(), nullptr);
 
     ASSERT_THAT(result, IsOk());
     EXPECT_EQ(result->changed_count, 1U);
@@ -444,45 +445,48 @@ TEST_F(BeefCanSessionFlashTest, InitializeFlashSelectsTestOrRealWriteMode)
     ASSERT_THAT(Session(kBare).InitializeFlash(true), IsOk());
     ASSERT_THAT(Session(kBare).InitializeFlash(false), IsOk());
 
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Test write mode on, no actual flash write is performed")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Test write mode off, perform actual flash write")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, ": 0x1000")));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, ": 0x0200")));
-    EXPECT_EQ(channel.timeouts.front(), 500ms);
-    EXPECT_TRUE(channel.ScriptConsumed());
+    EXPECT_THAT(events_.logs,
+                Contains(Pair(LogLevel::kInfo, "Test write mode on, no actual flash write is performed")));
+    EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Test write mode off, perform actual flash write")));
+    EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, ": 0x1000")));
+    EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, ": 0x0200")));
+    EXPECT_EQ(channel_.timeouts.front(), 500ms);
+    EXPECT_TRUE(channel_.ScriptConsumed());
 }
 
 TEST_F(BeefCanSessionFlashTest, WriteMemoryWithNoDifferenceFlashesNothing)
 {
-    const FlashPlan plan = Plan(FlashOperation::kWrite);
+    const auto plan = PlanFor(FlashOperation::kWrite);
+    ASSERT_THAT(plan, IsOk());
     ScriptCompare();
-    PhaseSequence phases(events, 4);
+    PhaseSequence phases(events_, 4);
     PhaseReporter compare = phases.Start("Compare", static_cast<int>(kBlocks.size()));
 
-    ASSERT_THAT(Session(kBare).WriteMemory(plan, phases, compare), IsOk());
+    ASSERT_THAT(Session(kBare).WriteMemory(*plan, phases, compare), IsOk());
 
-    EXPECT_THAT(events.logs,
+    EXPECT_THAT(events_.logs,
                 Contains(Pair(LogLevel::kInfo,
                               "*** Compare results no difference between ROM and ECU data, no flashing needed! ***")));
-    EXPECT_TRUE(channel.ScriptConsumed());
+    EXPECT_TRUE(channel_.ScriptConsumed());
 }
 
 TEST_F(BeefCanSessionFlashTest, WriteMemoryFailsWithTheExchangeErrorWhenTheVoltageCheckTimesOut)
 {
-    const FlashPlan plan = Plan(FlashOperation::kWrite);
+    const auto plan = PlanFor(FlashOperation::kWrite);
+    ASSERT_THAT(plan, IsOk());
     ScriptCompare(0);
     ScriptInitialize(0x20);
-    channel.ExpectSend(BeefCall(0x04));
-    channel.QueueNoFrame();
-    PhaseSequence phases(events, 4);
+    channel_.ExpectSend(BeefCall(0x04));
+    channel_.QueueNoFrame();
+    PhaseSequence phases(events_, 4);
     PhaseReporter compare = phases.Start("Compare", static_cast<int>(kBlocks.size()));
 
-    EXPECT_THAT(Session(kBare).WriteMemory(plan, phases, compare),
+    EXPECT_THAT(Session(kBare).WriteMemory(*plan, phases, compare),
                 IsErrWith(ErrorKind::kTimeout, "no CAN response within the read timeout"));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Block 0 reflash failed.")));
+    EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Block 0 reflash failed.")));
 }
 
-// The family suites script no channel-level bad reply and no out-of-image
+// The family suites script no channel_-level bad reply and no out-of-image
 // compare, so the wording a profile selects for those is pinned here.
 TEST(DensoBeefCanProfileTest, FamilyProfilesKeepTheirLogWording)
 {
