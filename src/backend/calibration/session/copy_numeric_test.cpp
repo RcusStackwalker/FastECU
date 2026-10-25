@@ -26,6 +26,8 @@ using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 using fastecu::testing::IsOkAnd;
 using ::testing::Field;
+using ::testing::IsEmpty;
+using ::testing::Not;
 using ::testing::VariantWith;
 
 SelectionRange Cell(int row, int col)
@@ -155,7 +157,7 @@ TEST_F(CopyNumericTest, ReportsTheFirstInvalidCellAndNoText)
     ASSERT_NE(invalid, nullptr);
     EXPECT_EQ(invalid->row, 0);
     EXPECT_EQ(invalid->col, 1);
-    EXPECT_FALSE(invalid->detail.empty());
+    EXPECT_THAT(invalid->detail, Not(IsEmpty()));
 }
 
 TEST_F(CopyNumericTest, CopyNeverChangesTheSession)

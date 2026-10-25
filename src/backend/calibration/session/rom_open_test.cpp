@@ -26,10 +26,13 @@ namespace
 using definition::DefinitionFormat;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using ::testing::_;
 using ::testing::Contains;
 using ::testing::ElementsAreArray;
+using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
+using ::testing::Optional;
 
 // A synthetic 64-byte image: "TESTROM" at 0x10, 0x2A at 0x20.
 std::vector<std::uint8_t> SyntheticRom()
@@ -92,7 +95,7 @@ TEST_F(RomOpenBasics, OpensAFileWithoutDefinitionsWhenBothFormatsAreDisabled)
     ASSERT_THAT(outcome, IsOk());
     EXPECT_EQ(outcome->contents.source, (RomSource{"a.bin", "/cal/dir/a.bin", RomOrigin::kFile}));
     EXPECT_THAT(outcome->contents.image.File(), ElementsAreArray(SyntheticRom()));
-    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(outcome->contents.definition, Eq(std::nullopt));
     EXPECT_THAT(catalogs_.calls, IsEmpty());
 }
 
@@ -280,7 +283,7 @@ TEST_F(RomOpenDefinitions, MatchesLoadsAndDecodesFromThePrimaryFormat)
     const auto outcome = opener_.OpenFile("/cal/a.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    ASSERT_TRUE(outcome->contents.definition.has_value());
+    ASSERT_THAT(outcome->contents.definition, Optional(_));
     EXPECT_EQ(outcome->contents.definition->format, DefinitionFormat::kEcuFlash);
     EXPECT_EQ(outcome->contents.definition->id, "TESTROM");
     EXPECT_EQ(outcome->contents.protocol.rom_id, "TESTROM");
@@ -339,7 +342,7 @@ TEST_F(RomOpenDefinitions, TheSecondaryFormatIsTriedWhenThePrimaryFindsNothing)
     ASSERT_THAT(outcome, IsOk());
     EXPECT_EQ(catalogs_.calls, (std::vector{DefinitionFormat::kEcuFlash, DefinitionFormat::kRomRaider}));
     EXPECT_THAT(LogText(), Contains(HasSubstr("Unable to match EcuFlash definition")));
-    ASSERT_TRUE(outcome->contents.definition.has_value());
+    ASSERT_THAT(outcome->contents.definition, Optional(_));
     EXPECT_EQ(outcome->contents.definition->format, DefinitionFormat::kRomRaider);
 }
 
@@ -372,7 +375,7 @@ TEST_F(RomOpenDefinitions, ACatalogFailureIsLoggedAndTheRomStillOpens)
     const auto outcome = opener_.OpenFile("/cal/a.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(outcome->contents.definition, Eq(std::nullopt));
     EXPECT_THAT(LogText(), Contains("Unable to match EcuFlash definition [Disconnected]: no dir"));
 }
 
@@ -391,7 +394,7 @@ TEST_F(RomOpenDefinitions, EcuReportedIdIsUsedWhenMatchingFails)
     });
 
     ASSERT_THAT(outcome, IsOk());
-    ASSERT_TRUE(outcome->contents.definition.has_value());
+    ASSERT_THAT(outcome->contents.definition, Optional(_));
     EXPECT_EQ(outcome->contents.definition->id, "TESTROM");
     EXPECT_EQ(outcome->contents.protocol.rom_id, "TESTROM");
 }
@@ -411,7 +414,7 @@ TEST_F(RomOpenDefinitions, AnIdOutsideTheCatalogEndsTheAttemptSilently)
     });
 
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(outcome->contents.definition, Eq(std::nullopt));
     EXPECT_EQ(outcome->contents.protocol.rom_id, "OTHER");
     EXPECT_THAT(Notices(), IsEmpty());
 }
@@ -424,7 +427,7 @@ TEST_F(RomOpenDefinitions, MissingDefinitionFileOpensWithoutDefinitionAndNotifie
     const auto outcome = opener_.OpenFile("/cal/a.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(outcome->contents.definition, Eq(std::nullopt));
     EXPECT_THAT(LogText(), Contains(HasSubstr("Unable to read EcuFlash definition TESTROM")));
     EXPECT_THAT(Notices(),
                 Contains("Ecu definitions file: Unable to open ECU definition file /defs/gone.xml for reading"));
@@ -439,7 +442,7 @@ TEST_F(RomOpenDefinitions, AnUnparseableDefinitionThatExistsIsLoggedWithoutANoti
     const auto outcome = opener_.OpenFile("/cal/a.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(outcome->contents.definition, Eq(std::nullopt));
     EXPECT_THAT(LogText(), Contains(HasSubstr("Unable to read EcuFlash definition TESTROM")));
     EXPECT_THAT(Notices(), IsEmpty());
 }
@@ -457,7 +460,7 @@ TEST_F(RomOpenDefinitions, AMapPastTheEndOfTheFileFailsOnlyThatMap)
     auto outcome = opener_.OpenFile("/cal/short.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    ASSERT_TRUE(outcome->contents.definition.has_value());
+    ASSERT_THAT(outcome->contents.definition, Optional(_));
     EXPECT_EQ(outcome->contents.definition->definition.maps.size(), 1U);
     EXPECT_THAT(Notices(), IsEmpty());
     const CalibrationSession session(SessionId{1}, std::move(outcome->contents));
@@ -480,7 +483,7 @@ TEST_F(RomOpenDefinitions, AnIndexedDefinitionMissingFromTheCatalogNotifiesOnEcu
     });
 
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(outcome->contents.definition, Eq(std::nullopt));
     EXPECT_THAT(LogText(), Contains(HasSubstr("Unable to read EcuFlash definition TESTROM")));
     EXPECT_THAT(Notices(),
                 Contains("Ecu definitions file: Unable to open ECU definition file /defs/gone.xml for reading"));
@@ -499,7 +502,7 @@ TEST_F(RomOpenDefinitions, AnIndexedDefinitionThatStillExistsIsLoggedWithoutANot
     });
 
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(outcome->contents.definition, Eq(std::nullopt));
     EXPECT_THAT(LogText(), Contains(HasSubstr("Unable to read EcuFlash definition TESTROM")));
     EXPECT_THAT(Notices(), IsEmpty());
 }
@@ -643,7 +646,7 @@ TEST_F(RomOpenMappedDefinitions, TheInternalIdIsReadThroughTheDefinitionsMemoryM
     const auto outcome = opener_.OpenFile("/cal/m.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    ASSERT_TRUE(outcome->contents.definition.has_value());
+    ASSERT_THAT(outcome->contents.definition, Optional(_));
     EXPECT_EQ(outcome->contents.definition->id, "MAPPED");
     EXPECT_EQ(outcome->contents.protocol.flash_method, "mapped");
 }
@@ -656,7 +659,7 @@ TEST_F(RomOpenMappedDefinitions, AnIdAtTheFileOffsetAloneDoesNotMatch)
     const auto outcome = opener_.OpenFile("/cal/m.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(outcome->contents.definition, Eq(std::nullopt));
 }
 
 TEST_F(RomOpenMappedDefinitions, AFlashMethodAliasSelectsItsProtocolsMemoryMap)
@@ -667,7 +670,7 @@ TEST_F(RomOpenMappedDefinitions, AFlashMethodAliasSelectsItsProtocolsMemoryMap)
     const auto outcome = opener_.OpenFile("/cal/m.bin");
 
     ASSERT_THAT(outcome, IsOk());
-    ASSERT_TRUE(outcome->contents.definition.has_value());
+    ASSERT_THAT(outcome->contents.definition, Optional(_));
     EXPECT_EQ(outcome->contents.definition->id, "MAPPED");
 }
 

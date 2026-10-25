@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/ports/testing/in_memory_file_repository.h"
@@ -24,6 +25,7 @@ using fastecu::definition::RomDefinition;
 using fastecu::definition::Scaling;
 using fastecu::definition::StorageType;
 using fastecu::testing::IsErr;
+using ::testing::IsEmpty;
 
 TEST(ReadRom, ReadsRequestedHandleThroughRepository)
 {
@@ -52,7 +54,7 @@ TEST(ReadRom, EmptyRomIsAValidResultNotAMissingOne)
     Result<std::vector<std::uint8_t>> result = ReadRom("empty.bin", repo);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_TRUE(result->empty());
+    EXPECT_THAT(*result, IsEmpty());
 }
 
 TEST(BackupRom, WritesBytesToBackupHandle)
