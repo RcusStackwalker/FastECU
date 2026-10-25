@@ -642,6 +642,19 @@ cc_library(
     ],
 )
 
+fastecu_portable_gtest(
+    name = "bootloader_operation_test",
+    srcs = ["bootloader_operation_test.cpp"],
+    deps = [
+        ":bootloader_operation",
+        ":subaru_hitachi_m32r_can_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
 cc_library(
     name = "flash_phase_progress",
     hdrs = ["flash_phase_progress.h"],
