@@ -1,6 +1,9 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/ports/testing/in_memory_file_system.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::IsEmpty;
 
 using fastecu::DirEntry;
 using fastecu::Error;
@@ -118,7 +121,7 @@ TEST(InMemoryFileSystem, EmptyLegacyDirectoryFixtureReturnsEmptySuccess)
     auto result = fs.ListDirectory("/empty");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_TRUE(result->empty());
+    EXPECT_THAT(*result, IsEmpty());
 }
 
 TEST(InMemoryFileSystem, RejectsUnknownDirectory)

@@ -27,6 +27,7 @@
 //                                     init_j2534_connection succeed in the crash suite).
 
 #include <tuple>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "src/platform/desktop/common/testing/event_helpers.h"
 #include <QByteArray>
@@ -56,6 +57,9 @@
 #include "src/backend/protocol/imut_dma_init.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
+
+using ::testing::_;
+using ::testing::Optional;
 
 using namespace mutdma;
 using namespace std::chrono_literals;
@@ -376,7 +380,7 @@ TEST_F(MutDmaIntegrationTest, read_throughAdapter_returnsEcuReplyBytes)
 
         const auto read = tr.Read(500ms, cancellation);
         ASSERT_THAT(read, fastecu::testing::IsOk());
-        ASSERT_TRUE(read->has_value());
+        ASSERT_THAT(*read, Optional(_));
         ASSERT_EQ(bytes::ToQByteArray(read->value()), reply);
     }
     ::close(master);

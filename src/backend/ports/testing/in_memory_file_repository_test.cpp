@@ -1,7 +1,10 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::IsEmpty;
 
 TEST(InMemoryFileRepository, WriteThenReadRoundTrips)
 {
@@ -90,5 +93,5 @@ TEST(InMemoryFileRepository, WriteErrorIsReturnedAndNothingIsStored)
 
     EXPECT_THAT(written, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, ::testing::StrEq("read-only")));
     EXPECT_FALSE(repo.files.contains("a.cfg"));
-    EXPECT_TRUE(repo.write_calls.empty());
+    EXPECT_THAT(repo.write_calls, IsEmpty());
 }

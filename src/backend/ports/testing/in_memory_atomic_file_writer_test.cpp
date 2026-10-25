@@ -2,7 +2,11 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::Eq;
+using ::testing::IsEmpty;
 
 TEST(InMemoryAtomicFileWriter, SuccessfulReplacementRecordsCallAndStoresContents)
 {
@@ -39,7 +43,7 @@ TEST(InMemoryAtomicFileWriter, ResetClearsCallsFilesAndInjectedError)
 
     writer.Reset();
 
-    EXPECT_TRUE(writer.files.empty());
-    EXPECT_TRUE(writer.replace_calls.empty());
-    EXPECT_FALSE(writer.replace_error.has_value());
+    EXPECT_THAT(writer.files, IsEmpty());
+    EXPECT_THAT(writer.replace_calls, IsEmpty());
+    EXPECT_THAT(writer.replace_error, Eq(std::nullopt));
 }
