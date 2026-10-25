@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/m32r_ssm_exchange.h"
 
 #include <algorithm>
+#include <format>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
@@ -21,6 +22,57 @@ Result<std::optional<bytes::Bytes>> ExchangeM32rSsmOptional(IKlineFlashTransport
         return Fail(ErrorKind::kCancelled, "cancelled after write");
     }
     return ReceiveM32rSsmOnce(transport, cancellation, timeout);
+}
+
+namespace
+{
+const char *PeerName(M32rSsmPeer peer)
+{
+    return peer == M32rSsmPeer::kTcu ? "TCU" : "ECU";
+}
+} // namespace
+
+Result<bytes::Bytes> ExchangeM32rSsmRequired(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
+                                             bytes::ByteView payload, const M32rSsmEndpoint& endpoint,
+                                             std::chrono::milliseconds timeout)
+{
+    auto response =
+        ExchangeM32rSsmOptional(transport, cancellation, payload, endpoint.tester_id, endpoint.target_id, timeout);
+    if (!response.has_value())
+    {
+        return std::unexpected(response.error());
+    }
+    if (!response->has_value())
+    {
+        return Fail(ErrorKind::kTimeout, std::format("no response from {}", PeerName(endpoint.peer)));
+    }
+    return std::move(**response);
+}
+
+Status ExpectM32rSsmPrefix(bytes::ByteView response, bytes::ByteView prefix, M32rSsmPeer peer)
+{
+    constexpr std::size_t kEnvelopeBytes = 4;
+    if (response.size() < kEnvelopeBytes + prefix.size())
+    {
+        return Fail(ErrorKind::kBadResponse, "response is too short");
+    }
+    if (!M32rSsmPayloadHasPrefix(response, prefix))
+    {
+        return Fail(ErrorKind::kBadResponse, std::format("wrong response from {}", PeerName(peer)));
+    }
+    return {};
+}
+
+Status RequestM32rSsmPrefix(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
+                            bytes::ByteView payload, const M32rSsmEndpoint& endpoint, bytes::ByteView prefix,
+                            std::chrono::milliseconds timeout)
+{
+    auto response = ExchangeM32rSsmRequired(transport, cancellation, payload, endpoint, timeout);
+    if (!response.has_value())
+    {
+        return std::unexpected(response.error());
+    }
+    return ExpectM32rSsmPrefix(*response, prefix, endpoint.peer);
 }
 
 Status SendM32rSsmFrame(IKlineFlashTransport& transport, const ICancellationToken& cancellation,

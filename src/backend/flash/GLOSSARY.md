@@ -71,6 +71,13 @@ failure of the transport itself aborts the operation.
 _Avoid_: Tolerant probe (an absent reply aborts that), non-fatal query (that
 also steps over transport failures)
 
+**Required reply**:
+An exchange whose absent reply is a timeout and whose short or wrong reply is a
+bad-response error, worded per peer (ECU or TCU). A present empty reply is
+still a reply. The counterpart of a Tolerant reply; the M32R SSM kind lives in
+[m32r_ssm_exchange.h](ecu/m32r_ssm_exchange.h).
+_Avoid_: Strict reply, mandatory exchange
+
 **Fire-and-forget run**:
 The in-car arm's opening writes to the other modules on the bus, whose replies
 are read and discarded without inspection.

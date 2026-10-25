@@ -393,4 +393,121 @@ TEST_F(M32rSsmPrimitivesTest, ReceiveErrorWinsOverCancellation)
     EXPECT_EQ(transport_.write_calls, 0);
     EXPECT_TRUE(transport_.ScriptConsumed());
 }
+
+class M32rSsmRequiredReplyTest : public ::testing::Test
+{
+  protected:
+    static M32rSsmEndpoint Endpoint(M32rSsmPeer peer)
+    {
+        return M32rSsmEndpoint{0xf0, 0x10, peer};
+    }
+
+    Result<bytes::Bytes> Required(M32rSsmPeer peer = M32rSsmPeer::kEcu)
+    {
+        return ExchangeM32rSsmRequired(transport_, cancellation_, kPayload, Endpoint(peer), 731ms);
+    }
+
+    Status Request(bytes::ByteView prefix, M32rSsmPeer peer = M32rSsmPeer::kEcu)
+    {
+        return RequestM32rSsmPrefix(transport_, cancellation_, kPayload, Endpoint(peer), prefix, 731ms);
+    }
+
+    ManualCancellationToken cancellation_;
+    ExchangeTransport transport_{cancellation_};
+};
+
+TEST_F(M32rSsmRequiredReplyTest, RequiredReturnsTheReplyBytesUnchangedWithTheCallersTimeout)
+{
+    transport_.Exchange(kFrame, bytes::Bytes{0x01, 0x02});
+    EXPECT_THAT(Required(), IsOkAnd(ElementsAre(0x01, 0x02)));
+    EXPECT_THAT(transport_.read_timeouts, ElementsAre(731ms));
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
+
+TEST_F(M32rSsmRequiredReplyTest, RequiredAbsentReplyIsATimeoutNamingTheEcu)
+{
+    transport_.ExpectWrite(kFrame);
+    transport_.QueueNoFrame();
+    EXPECT_THAT(Required(M32rSsmPeer::kEcu), IsErrWith(ErrorKind::kTimeout, Eq("no response from ECU")));
+}
+
+TEST_F(M32rSsmRequiredReplyTest, RequiredAbsentReplyIsATimeoutNamingTheTcu)
+{
+    transport_.ExpectWrite(kFrame);
+    transport_.QueueNoFrame();
+    EXPECT_THAT(Required(M32rSsmPeer::kTcu), IsErrWith(ErrorKind::kTimeout, Eq("no response from TCU")));
+}
+
+TEST_F(M32rSsmRequiredReplyTest, RequiredPresentEmptyReplyIsReturnedAsAReply)
+{
+    transport_.Exchange(kFrame, bytes::Bytes{});
+    EXPECT_THAT(Required(), IsOkAnd(ElementsAre()));
+}
+
+TEST_F(M32rSsmRequiredReplyTest, RequiredCancelledBeforeWritePerformsNoIo)
+{
+    cancellation_.Cancel();
+    EXPECT_THAT(Required(), IsErrWith(ErrorKind::kCancelled, Eq("cancelled before write")));
+    EXPECT_EQ(transport_.write_calls, 0);
+    EXPECT_EQ(transport_.read_calls, 0);
+}
+
+TEST_F(M32rSsmRequiredReplyTest, RequiredReadFailureIsReturnedUnchanged)
+{
+    transport_.ExpectWrite(kFrame);
+    transport_.QueueError(ErrorKind::kDisconnected, "read fault");
+    EXPECT_THAT(Required(M32rSsmPeer::kTcu), IsErrWith(ErrorKind::kDisconnected, Eq("read fault")));
+}
+
+TEST(M32rSsmExpectPrefix, AcceptsAnExactAndALongerResponse)
+{
+    const bytes::Bytes prefix{0x67, 0x01};
+    EXPECT_THAT(ExpectM32rSsmPrefix(bytes::Bytes{0, 0, 0, 0, 0x67, 0x01}, prefix, M32rSsmPeer::kEcu), IsOk());
+    EXPECT_THAT(ExpectM32rSsmPrefix(bytes::Bytes{0, 0, 0, 0, 0x67, 0x01, 0xaa}, prefix, M32rSsmPeer::kEcu), IsOk());
+}
+
+TEST(M32rSsmExpectPrefix, RejectsAResponseOneByteShortAsTooShortWithoutNamingThePeer)
+{
+    const bytes::Bytes prefix{0x67, 0x01};
+    EXPECT_THAT(ExpectM32rSsmPrefix(bytes::Bytes{0, 0, 0, 0, 0x67}, prefix, M32rSsmPeer::kTcu),
+                IsErrWith(ErrorKind::kBadResponse, Eq("response is too short")));
+}
+
+TEST(M32rSsmExpectPrefix, EmptyPrefixNeedsFourBytes)
+{
+    EXPECT_THAT(ExpectM32rSsmPrefix(bytes::Bytes{0, 0, 0}, bytes::ByteView{}, M32rSsmPeer::kEcu),
+                IsErrWith(ErrorKind::kBadResponse, Eq("response is too short")));
+    EXPECT_THAT(ExpectM32rSsmPrefix(bytes::Bytes{0, 0, 0, 0}, bytes::ByteView{}, M32rSsmPeer::kEcu), IsOk());
+}
+
+TEST(M32rSsmExpectPrefix, RejectsAMismatchNamingThePeer)
+{
+    const bytes::Bytes response{0, 0, 0, 0, 0x7f, 0x01};
+    EXPECT_THAT(ExpectM32rSsmPrefix(response, bytes::Bytes{0x67, 0x01}, M32rSsmPeer::kEcu),
+                IsErrWith(ErrorKind::kBadResponse, Eq("wrong response from ECU")));
+    EXPECT_THAT(ExpectM32rSsmPrefix(response, bytes::Bytes{0x67, 0x01}, M32rSsmPeer::kTcu),
+                IsErrWith(ErrorKind::kBadResponse, Eq("wrong response from TCU")));
+}
+
+TEST(M32rSsmExpectPrefix, TakesABracedPrefix)
+{
+    EXPECT_THAT(ExpectM32rSsmPrefix(bytes::Bytes{0, 0, 0, 0, 0xc1}, {0xc1}, M32rSsmPeer::kEcu), IsOk());
+}
+
+TEST_F(M32rSsmRequiredReplyTest, RequestPrefixReturnsTheExchangeErrorWithoutCheckingThePrefix)
+{
+    transport_.ExpectWrite(kFrame);
+    transport_.QueueNoFrame();
+    EXPECT_THAT(Request(bytes::Bytes{0xc1}, M32rSsmPeer::kTcu),
+                IsErrWith(ErrorKind::kTimeout, Eq("no response from TCU")));
+}
+
+TEST_F(M32rSsmRequiredReplyTest, RequestPrefixChecksThePrefixOfTheReply)
+{
+    transport_.Exchange(kFrame, bytes::Bytes{0, 0, 0, 0, 0xc1});
+    EXPECT_THAT(Request(bytes::Bytes{0xc1}), IsOk());
+    transport_.Exchange(kFrame, bytes::Bytes{0, 0, 0, 0, 0x7f});
+    EXPECT_THAT(Request(bytes::Bytes{0xc1}), IsErrWith(ErrorKind::kBadResponse, Eq("wrong response from ECU")));
+    EXPECT_TRUE(transport_.ScriptConsumed());
+}
 } // namespace
