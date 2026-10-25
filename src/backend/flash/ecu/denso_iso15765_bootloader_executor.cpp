@@ -14,6 +14,7 @@
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
+#include "src/backend/flash/ecu/bootloader_operation.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_plan.h"
@@ -252,71 +253,17 @@ Result<FlashExecutionResult>
 DensoIso15765BootloaderExecutor<Plan>::Run(const Plan& family, const FlashPlan& plan, ICanFlashTransport& transport,
                                            IClock& clock, const ICancellationToken& cancellation, IEventSink& events)
 {
-    constexpr const Profile& kProfile = DensoIso15765BootloaderProfileOf<Plan>::kValue;
-
-    const bool read = plan.Operation() == FlashOperation::kRead;
-    PhaseSequence phases(events, read ? 2 : 3);
-    PhaseReporter connect = phases.Start("Connect", 1);
+    static constexpr const Profile& kProfile = DensoIso15765BootloaderProfileOf<Plan>::kValue;
 
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
     const Ctx ctx{cancellation, events, clock, uds_client, channel};
-
-    LogInfo(ctx, std::format("Connecting to ECU {} CAN bootloader, please wait...", kProfile.log_name));
-    if (const Status connected = ConnectBootloader(ctx, transport, kProfile); !connected.has_value())
-    {
-        return std::unexpected(connected.error());
-    }
-    connect.Complete();
-
-    if (read)
-    {
-        events.Notice("Reading ROM, please wait...");
-        LogInfo(ctx, std::format("Reading ROM from ECU, {} using CAN", kProfile.log_name));
-
-        PhaseReporter read_phase = phases.Start("Read ROM", static_cast<int>(plan.TransferRegion().length));
-        Result<bytes::Bytes> rom = ReadMemory(ctx, kProfile, family, plan.TransferRegion(), read_phase);
-        if (!rom.has_value())
-        {
-            return std::unexpected(rom.error());
-        }
-        read_phase.Complete();
-        return FlashExecutionResult{
-            .operation = FlashOperation::kRead,
-            .read_bytes = std::move(*rom),
-        };
-    }
-
-    // Each family's plan builder refuses TestWrite; the guard is repeated here
-    // so a plan built another way cannot turn a dry run into a real erase and
-    // write. Legacy threaded test_write all the way down to reflash_block and
-    // then never consulted it.
-    //
-    // It cannot fire as the code stands: the plan validation at the top of
-    // Execute() rejects TestWrite before any I/O, and the Read branch has
-    // already returned, so FlashOperation has no third value left to reach
-    // here. The bootloader-dialect factoring pass reviewed it across all four
-    // families and kept it: it costs nothing at runtime and is the last
-    // thing between a non-Write operation and a real erase-and-write of an
-    // ECU should that entry validation ever be relaxed or the enum gain a
-    // value. Do not delete it as "dead code".
-    if (plan.Operation() != FlashOperation::kWrite)
-    {
-        return Fail(ErrorKind::kUnsupported,
-                    std::format("test_write is not supported by the {} family", kProfile.family_name));
-    }
-
-    events.Notice("Writing ROM, please wait...");
-    LogInfo(ctx, std::format("Writing ROM to ECU, {} using CAN", kProfile.log_name));
-    if (const Status written = WriteMemory(ctx, kProfile, plan.ImageOrEmpty(), plan.TransferRegion(), phases);
-        !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    return FlashExecutionResult{
-        .operation = plan.Operation(),
-        .read_bytes = std::nullopt,
-    };
+    return RunBootloaderOperation(
+        plan, kProfile.unit, ctx, [&](const Ctx& c) { return ConnectBootloader(c, transport, kProfile); },
+        [&](const Ctx& c, PhaseReporter& progress)
+        { return ReadMemory(c, kProfile, family, plan.TransferRegion(), progress); },
+        [&](const Ctx& c, bytes::ByteView image, PhaseSequence& phases)
+        { return WriteMemory(c, kProfile, image, plan.TransferRegion(), phases); });
 }
 
 template class DensoIso15765BootloaderExecutor<SubaruDenso1n83m_1_5mCanPlan>;

@@ -286,11 +286,11 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, OperatorFacingLogLinesNameThe1_5MFamily)
         [](const auto& run, const auto&)
         {
             const auto& logs = run.events.logs;
-            EXPECT_THAT(logs, testing::Contains(
-                                  testing::Pair(fastecu::LogLevel::kInfo,
-                                                "Connecting to ECU Denso 1N83M 1.5MB CAN bootloader, please wait...")));
+            EXPECT_THAT(logs, testing::Contains(testing::Pair(
+                                  fastecu::LogLevel::kInfo,
+                                  "Connecting to Subaru Denso 1N83M 1.5MB CAN bootloader, please wait...")));
             EXPECT_THAT(logs, testing::Contains(testing::Pair(fastecu::LogLevel::kInfo,
-                                                              "Reading ROM from ECU, Denso 1N83M 1.5MB using CAN")));
+                                                              "Reading ROM from Subaru Denso 1N83M 1.5MB using CAN")));
             EXPECT_THAT(logs, testing::Each(testing::Pair(testing::_, testing::Not(testing::HasSubstr("4MB")))));
         });
 }
@@ -329,7 +329,7 @@ TEST_F(SubaruDenso1n83m_1_5mCanExecutorWrite, WriteErasesThenFlashesBlockOne)
     // The write path's own identity line, the third of the three legacy named
     // the 4MB sibling in.
     EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::kInfo,
-                                                             "Writing ROM to ECU, Denso 1N83M 1.5MB using CAN")));
+                                                             "Writing ROM to Subaru Denso 1N83M 1.5MB using CAN")));
     EXPECT_THAT(events.logs, testing::Each(testing::Pair(testing::_, testing::Not(testing::HasSubstr("4MB")))));
     // The image base is already pinned by the scripted exchanges:
     // scriptReflashChunks builds every 0xB6 frame from encrypted.subspan(addr

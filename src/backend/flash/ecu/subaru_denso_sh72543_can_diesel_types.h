@@ -31,8 +31,7 @@ struct SubaruDensoSh72543CanDieselPlan
 template <> struct DensoIso15765BootloaderProfileOf<SubaruDensoSh72543CanDieselPlan>
 {
     static constexpr DensoIso15765BootloaderProfile kValue{
-        .log_name = "Denso SH72543 Diesel",
-        .family_name = "Subaru Denso SH72543 Diesel CAN",
+        .unit = "Subaru Denso SH72543 Diesel",
         // OBK probe, lines 108-128: the only connect exchange that reads with
         // serial_read_short_timeout (line 118).
         .obk_active_log = "OBK is active!",

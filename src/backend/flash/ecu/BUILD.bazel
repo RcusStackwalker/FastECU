@@ -633,6 +633,29 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "bootloader_operation",
+    hdrs = ["bootloader_operation.h"],
+    deps = [
+        ":flash_phase_progress",
+        "//src/algorithms/protocol",
+        "//src/backend/flash:flash_executor",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "bootloader_operation_test",
+    srcs = ["bootloader_operation_test.cpp"],
+    deps = [
+        ":bootloader_operation",
+        ":subaru_hitachi_m32r_can_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "flash_phase_progress",
     hdrs = ["flash_phase_progress.h"],
     deps = ["//src/backend/ports"],
@@ -1483,6 +1506,7 @@ cc_library(
     srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp"],
     hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_executor.h"],
     implementation_deps = [
+        ":bootloader_operation",
         ":cvt_b6_chunk_exchange",
         ":flash_phase_progress",
         ":subaru_tcu_cvt_mitsu_can_common",
@@ -1541,6 +1565,7 @@ cc_library(
     srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp"],
     hdrs = ["subaru_tcu_cvt_mitsu_mh8104_can_executor.h"],
     implementation_deps = [
+        ":bootloader_operation",
         ":flash_phase_progress",
         ":subaru_tcu_cvt_mitsu_can_common",
         ":uds_client_exchange_common",
@@ -1581,6 +1606,7 @@ cc_library(
     srcs = ["subaru_tcu_cvt_hitachi_m32r_can_executor.cpp"],
     hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_executor.h"],
     implementation_deps = [
+        ":bootloader_operation",
         ":cvt_b6_chunk_exchange",
         ":flash_phase_progress",
         ":uds_client_exchange_common",
@@ -1622,6 +1648,7 @@ cc_library(
     srcs = ["subaru_hitachi_m32r_can_executor.cpp"],
     hdrs = ["subaru_hitachi_m32r_can_executor.h"],
     implementation_deps = [
+        ":bootloader_operation",
         ":flash_phase_progress",
         ":uds_client_exchange_common",
         "//src/algorithms/protocol",
@@ -2035,6 +2062,7 @@ cc_library(
     srcs = ["denso_iso15765_bootloader_executor.cpp"],
     hdrs = ["denso_iso15765_bootloader_executor.h"],
     implementation_deps = [
+        ":bootloader_operation",
         ":denso_iso15765_can_common",
         ":flash_phase_progress",
         ":subaru_denso_1n83m_1_5m_can_plan",

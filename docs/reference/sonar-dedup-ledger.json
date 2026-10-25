@@ -1,3 +1,42 @@
 {
-  "attempts": []
+  "attempts": [
+    {
+      "date": "2026-10-25",
+      "group": "31bc0895cb96",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8104CanExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8111CanExecutor::Run"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 911,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-25",
+      "group": "07a897f35841",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtHitachiM32rCanExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8104CanExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8111CanExecutor::Run"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 911,
+      "reason": ""
+    }
+  ]
 }
