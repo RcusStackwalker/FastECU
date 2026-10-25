@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -159,6 +160,26 @@ class ProbeExecutor final : public FamilyExecutor<DensoSh705xEepromKlinePlan, IK
     }
 };
 
+class CanProbeExecutor final : public FamilyExecutor<DensoSh705xEepromCanPlan, ICanFlashExecutor, CountingValidator>
+{
+  public:
+    const FlashPlan *run_plan = nullptr;
+
+  private:
+    Result<Iso15765Config> Setup(const DensoSh705xEepromCanPlan& family) const override
+    {
+        return Iso15765ConfigFrom(family);
+    }
+
+    Result<FlashExecutionResult> Run(const DensoSh705xEepromCanPlan& /*family*/, const FlashPlan& plan,
+                                     ICanFlashTransport& /*transport*/, IClock& /*clock*/,
+                                     const ICancellationToken& /*cancellation*/, IEventSink& /*events*/) override
+    {
+        run_plan = &plan;
+        return FlashExecutionResult{.operation = plan.Operation(), .read_bytes = std::nullopt};
+    }
+};
+
 class FamilyExecutorTest : public ::testing::Test
 {
   protected:
@@ -283,6 +304,37 @@ TEST_F(FamilyExecutorTest, AdmissionReachedThroughInterface)
     EXPECT_THAT(through_interface.TransportSetup(*plan), fastecu::testing::IsOk());
     EXPECT_THAT(through_interface.Execute(*plan, transport_, clock_, cancellation_, events_), fastecu::testing::IsOk());
     EXPECT_EQ(CountingValidator::calls_, 2);
+}
+
+TEST_F(FamilyExecutorTest, CanExecuteRefusesForeignFamilyBeforeValidator)
+{
+    auto foreign = ValidateAndBuild(KlineReadFields());
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
+    CanProbeExecutor can_executor;
+    ScriptedCanFlashTransport can_transport;
+
+    const auto result = can_executor.Execute(*foreign, can_transport, clock_, cancellation_, events_);
+
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                    ::testing::Eq("plan family does not match this executor")));
+    EXPECT_EQ(CountingValidator::calls_, 0);
+    EXPECT_EQ(can_executor.run_plan, nullptr);
+}
+
+TEST_F(FamilyExecutorTest, CanExecuteCancelledAfterAdmissionChecks)
+{
+    auto plan = ValidateAndBuild(ForeignCanReadFields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    CanProbeExecutor can_executor;
+    ScriptedCanFlashTransport can_transport;
+    cancellation_.SetCancelled(true);
+
+    const auto result = can_executor.Execute(*plan, can_transport, clock_, cancellation_, events_);
+
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
+    EXPECT_EQ(CountingValidator::calls_, 1);
+    EXPECT_EQ(can_executor.run_plan, nullptr);
+    EXPECT_THAT(events_.logs, ::testing::IsEmpty());
 }
 
 } // namespace
