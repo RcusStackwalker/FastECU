@@ -33,32 +33,21 @@ Result<std::optional<bytes::Bytes>> ExchangeOptional(IKlineFlashTransport& trans
                                    std::chrono::milliseconds{timeout});
 }
 
+M32rSsmEndpoint EndpointOf(const SubaruHitachiM32rKlinePlan& p)
+{
+    return M32rSsmEndpoint{p.tester_id, p.target_id, M32rSsmPeer::kEcu};
+}
+
 Result<bytes::Bytes> Exchange(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
                               bytes::ByteView payload, const SubaruHitachiM32rKlinePlan& p)
 {
-    auto response = ExchangeOptional(transport, cancellation, payload, p);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    if (!response->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no response from ECU");
-    }
-    return std::move(**response);
+    return ExchangeM32rSsmRequired(transport, cancellation, payload, EndpointOf(p),
+                                   std::chrono::milliseconds{kTimeoutMs});
 }
 
 Status ExpectPrefix(bytes::ByteView response, std::initializer_list<bytes::Byte> prefix)
 {
-    if (response.size() < 4 + prefix.size())
-    {
-        return Fail(ErrorKind::kBadResponse, "response is too short");
-    }
-    if (!M32rSsmPayloadHasPrefix(response, bytes::ByteView(prefix.begin(), prefix.size())))
-    {
-        return Fail(ErrorKind::kBadResponse, "wrong response from ECU");
-    }
-    return {};
+    return ExpectM32rSsmPrefix(response, prefix, M32rSsmPeer::kEcu);
 }
 
 Result<std::string> ParseRomId(bytes::ByteView response)
@@ -96,12 +85,8 @@ bytes::Bytes Encrypt(bytes::ByteView image)
 Status RequestPrefix(IKlineFlashTransport& transport, const ICancellationToken& cancellation, bytes::Bytes request,
                      std::initializer_list<bytes::Byte> expected, const SubaruHitachiM32rKlinePlan& p)
 {
-    auto response = Exchange(transport, cancellation, request, p);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    return ExpectPrefix(*response, expected);
+    return RequestM32rSsmPrefix(transport, cancellation, request, EndpointOf(p), expected,
+                                std::chrono::milliseconds{kTimeoutMs});
 }
 
 Status AuthenticatedSession(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
