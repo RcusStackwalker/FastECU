@@ -1,4 +1,5 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
+#include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.h"
 
 #include <algorithm>
@@ -54,6 +55,7 @@ using fastecu::testing::IsOk;
 using ::testing::Each;
 using ::testing::Eq;
 using ::testing::IsEmpty;
+using ::testing::IsSupersetOf;
 using ::testing::Not;
 using ::testing::Optional;
 using ::testing::Pair;
@@ -947,6 +949,15 @@ TEST(SubaruDensoSh7058CanDieselExecutor, IdentityQueriesAndSessionThreeToFortyTh
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     EXPECT_TRUE(HasLog(events, LogLevel::kError, "No valid response from ECU"));
     EXPECT_TRUE(HasExactLog(events, LogLevel::kInfo, "Sending seed key"));
+    // Each tolerated identity failure is logged in the diesel wording: the
+    // reply rendered by uds::Describe.
+    EXPECT_THAT(events.logs, IsSupersetOf({Pair(LogLevel::kInfo, std::string{"Requesting ECU ID"}),
+                                           Pair(LogLevel::kError, std::string{"No valid response from ECU"}),
+                                           Pair(LogLevel::kError, std::string{"Wrong response from ECU: "} +
+                                                                      uds::Describe(bytes::Bytes{0x7F, 0x09, 0x12})),
+                                           Pair(LogLevel::kError, std::string{"Wrong response from ECU: "} +
+                                                                      uds::Describe(bytes::Bytes{0x49})),
+                                           Pair(LogLevel::kInfo, std::string{"Requesting CVN"})}));
     EXPECT_NE(std::find(transport.writes.begin(), transport.writes.end(),
                         bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF}),
               transport.writes.end());

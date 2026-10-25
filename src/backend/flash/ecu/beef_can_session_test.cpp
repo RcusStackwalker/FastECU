@@ -8,6 +8,7 @@
 #include <format>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include <gmock/gmock.h>
@@ -16,7 +17,9 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/backend/flash/ecu/denso_beef_can_profile.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -477,6 +480,24 @@ TEST_F(BeefCanSessionFlashTest, WriteMemoryFailsWithTheExchangeErrorWhenTheVolta
     EXPECT_THAT(Session(kBare).WriteMemory(plan, phases, compare),
                 IsErrWith(ErrorKind::kTimeout, "no CAN response within the read timeout"));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Block 0 reflash failed.")));
+}
+
+// The family suites script no channel-level bad reply and no out-of-image
+// compare, so the wording a profile selects for those is pinned here.
+TEST(DensoBeefCanProfileTest, FamilyProfilesKeepTheirLogWording)
+{
+    const auto expect_profile = [](const DensoBeefCanProfile& profile, std::string_view device, std::string_view family,
+                                   BeefWrongReply wrong_reply, BeefPduFormat pdu_format)
+    {
+        EXPECT_EQ(profile.device, device);
+        EXPECT_EQ(profile.family, family);
+        EXPECT_EQ(profile.wrong_reply, wrong_reply);
+        EXPECT_EQ(profile.pdu_format, pdu_format);
+    };
+
+    expect_profile(kSubaruDensoSh7058CanBeefProfile, "ECU", "petrol", BeefWrongReply::kBare, BeefPduFormat::kHex);
+    expect_profile(kSubaruDensoSh7058CanDieselBeefProfile, "ECU", "diesel", BeefWrongReply::kNotValidAnswer,
+                   BeefPduFormat::kDescribe);
 }
 
 } // namespace
