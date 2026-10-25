@@ -30,12 +30,17 @@ class CancellationBlindCanTransport final : public ScriptedCanFlashTransport
         {
             on_read(**result);
         }
+        if (!result.has_value() && on_failed_read)
+        {
+            on_failed_read();
+        }
         return result;
     }
     int write_attempts = 0;
     int read_attempts = 0;
     std::function<void(bytes::ByteView)> on_write;
     std::function<void(bytes::ByteView)> on_read;
+    std::function<void()> on_failed_read;
 
   private:
     ManualCancellationToken never_cancelled_;

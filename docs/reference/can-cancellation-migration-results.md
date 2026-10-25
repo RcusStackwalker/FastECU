@@ -716,3 +716,50 @@ formats to one fewer NLOC than the intermediate measurement. Task 12 final is
 153841 / 68479 / 85362, for production **+2**, test **+86**. The three-task batch
 therefore grows production **+7**, test **+176** from `5b5dd5e8`; this is support
 and regression coverage growth, not savings.
+
+## Hitachi SH7058 CAN
+
+Task 14, 2026-10-25; source revision `24265031`. The public alias explicitly
+selects `GuardedCanFlashTransport`; all direct suite Execute calls use the
+existing adapter. Production `.cpp` and helper bodies and every poll remain
+unchanged. Workflow callers use `KernelFreeCanWorkflow` and BoundAttempt.
+
+| Boundary | Retained owner and guard effect |
+| --- | --- |
+| Admission/setup | Family validation and write-only admission precede precancel; configuration, Open, Close and unblock stay runner-owned. |
+| Exchange/connect | Session checkpoint before Write, after optional cancellable delay and after successful Read remains. Timeout-to-empty mapping and delegated transport error handling precede the last checkpoint. Read failure therefore still wins over concurrent cancellation; a successful Read still returns `SH7058 write cancelled`. Bench/in-car identity, security and session validation remain. |
+| Erase | Initial exchange and all 20 follow-up Read entry checks remain; positive reply, transport failure and retry exhaustion decisions are unchanged. |
+| Program/final | Payload encryption, full 4096-frame loop, required F6 replies, six transfer-setup attempts, twenty close/checksum attempts, progress and 100 ms finalization delay remain. No final sweep added. |
+
+The real-family BoundAttempt successful-Read case observes one accepted probe
+Write and one Read, then cancellation at the retained post-read checkpoint,
+no erase/data commands and one Close. It passes unguarded and guarded: this
+is preservation evidence, not bypass detection. The simultaneous failed-Read
+case uses the package-owned blind transport's narrow optional failure hook;
+`QueueError(kDisconnected, "read failed")` cancels before returning that error.
+Its accepted-Read hook behavior remains unchanged; no duplicate fixture added.
+The actual-alias synthetic selection probe independently detects bypass on one
+extra delegated Read. No unmasked deterministic real-family boundary was found:
+the retained entry/after-call checks already protect its Read paths. Guard entry
+still closes the concurrent interval after the last poll. No observed family
+error/log/progress metadata changes are claimed.
+
+Verification: baseline XML **9**, candidate **12**, no predecessor classname/name
+pair lost. Both preservation cases pass before opt-in, including rerun with the
+final shared failure hook and absent alias (selection case temporarily omitted).
+Missing-alias selection RED and declaration removal fail compilation; runner
+bypass fails the family selection case and shared probes on the extra inner Read.
+After restoration, `bazel test --config=release` passes the family and
+`guarded_attempt_expectations_test`, `bound_flash_attempt_test` and
+`guarded_can_flash_transport_test` (**4/4**). Gazelle regeneration, scoped
+clang-format and diff review pass. Logs/XML: `/private/tmp/postop14-*` and
+`/private/tmp/postop-subaru_hitachi_sh7058_can-baseline.xml`.
+
+`python3 scripts/nloc_loop.py measure --json`: baseline
+153888 / 68482 production / 85406 test; candidate 153948 / 68485 / 85463.
+Growth is production **+3**, test **+57**, including **5** shared hook NLOC.
+No compression or savings claimed. Qualification matrix and connection checklist
+consulted; no dedicated SH7058 CAN checklist exists. Hardware remains
+experimental: named ECU/adapter traces, read/write verification, recovery and
+cancellation at exchange/erase/program/finalization boundaries remain bench gaps.
+Full repository/static/coverage/platform gates remain controller-owned.

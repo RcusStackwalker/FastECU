@@ -56,6 +56,12 @@ remain with their current owners. A completed N83M dump can succeed after
 cancellation at its best-effort stop; an SH final-page pacing cancellation
 still returns its clock failure.
 
+Hitachi SH7058 CAN explicitly selects the guard while retaining all Session
+checkpoints. Delegated Read errors still precede its after-read cancellation
+check; successful reads retain `SH7058 write cancelled`. The
+[SH7058 evidence](can-cancellation-migration-results.md#hitachi-sh7058-can)
+distinguishes preserved family behavior from the synthetic selection proof.
+
 ## Plan admission
 
 Every flash executor derives from
