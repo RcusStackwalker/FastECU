@@ -259,3 +259,73 @@ ported erase-retry correction remain qualification gaps. Physical identity,
 boot-region preservation, write/readback from the programmed upper block and
 cancellation-boundary bench evidence remain outstanding; the matrix row links
 no dedicated family checklist.
+
+## Subaru TCU CVT Mitsubishi MH8104 CAN
+
+Task 6, 2026-10-25; source revision `0e582641`, family source unchanged from
+`0e5ac306`. The concrete header selects the guard and suite direct calls use
+the adapter. Audit covered the local raw exchange/retry helpers, CAN envelope
+channel, shared pure CVT crypto and callers (family/conformance suites and
+KernelFreeCanWorkflow in `flash_workflow.cpp`). This family does not use
+UdsClient or the shared CVT B6 exchange.
+
+| Boundary | Retained owner and guard effect |
+| --- | --- |
+| Admission/preparation | Validation-before-precancel order and runner-owned setup/Open/Close remain. |
+| Connect | Raw alive shortcut, six-attempt identity queries and logged-but-tolerated session/security/jump content remain. Local Exchange now reaches the guard for every Send/Read; malformed envelope and transport failures still propagate. |
+| Read | Content-blind setup and B7 reply handling, read-loop poll, decrypt/0xFF padding/progress and six-attempt tolerant stop remain. Guard may refuse the raw reply Read after an accepted Write cancels. |
+| Erase | Single raw send, 8000 ms delay, 200 ms Read, then 5000 ms delay and tolerated wrong-content reply remain. Clocks retain cancellation ownership at both waits. |
+| Write | Original 0x8000/0x78000 addressed window and 128-byte chunks remain; write-loop poll retained. First B6 Write is accepted, then cancellation newly refuses the blind-inner reply Read at guard entry. This local receive stays 500 ms, distinct from the shared CVT exchange's 2000 ms. |
+| Close/checksum/results | Six-attempt content-blind setup/close/checksum and tolerated exhaustion remain, including the 100 ms close/checksum delay. Existing errors/logs/progress stay; no final sweep or post-call remapping. Runner closes once with existing error precedence. |
+
+Both loop polls remain. Real-family BoundAttempt proof scripts the existing
+full connect/erase helpers, family-specific window and exact first encrypted B6
+chunk, then cancels from its accepted Write. It requires `kCancelled`, zero
+inner chunk-reply Reads and the queued acknowledgement still unconsumed. The
+synthetic actual-alias probe separately proves guard selection/wiring.
+
+`bazel test --config=release
+//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8104_can_executor_test`: 17 baseline
+XML cases passed. New real B6 guard regression failed before opt-in on 1 Read
+instead of 0 and consumed acknowledgement. Selection RED and declaration
+mutation fail compilation for missing alias. Runner bypass fails the real B6
+and selection cases plus shared bound probe on extra Reads. Restored family:
+19 cases pass, retaining malformed-but-tolerated replies, addressed writes,
+transport failures, invalid plans and precancellation. Family plus Task 2's
+three shared verification targets passed 4/4, including after restoration.
+Gazelle, scoped formatting, commit hooks and diff checks passed.
+
+`python3 scripts/nloc_loop.py measure --json`: 153429 / 68446 / 84983 before;
+153474 / 68449 / 85025 after. Delta production **+3**, test **+42**. No savings
+or compression claimed. Matrix `experimental` status remains unchanged; no
+hardware used. Tolerant content handling and kernel-alive recheck quirks remain
+qualification concerns, not reasons to change protocol policy here. Physical
+identity, erase scope, read/write/readback, timing and cancellation-boundary
+bench evidence remain outstanding; no dedicated family checklist is linked
+from this matrix row.
+
+## Tasks 2–6 aggregate
+
+The five executor `.cpp` files, all eleven explicit executor polls, UdsClient,
+clocks and protocol helpers are unchanged. All direct Execute calls in these
+five suites use the selected-guard adapter. The production diff is five public
+aliases/includes; generated dependencies preserve existing visibility layers.
+All 129 predecessor family XML cases remain; candidates total 140 (17, 60, 22,
+22 and 19 respectively). Each alias has an independent selection proof and
+missing-declaration compile mutation. Each family also has a real unmasked
+boundary regression killed by runner bypass; the TCU accepted-erase case is
+separately identified as preservation evidence.
+
+Final combined `bazel test --config=release` over these five family targets and
+`guarded_attempt_expectations_test`, `bound_flash_attempt_test`,
+`guarded_can_flash_transport_test` passed **8/8** targets. Final
+`python3 scripts/gazelle_check.py --fix` and its buildifier checks passed.
+Self-review confirmed no direct-call bypass, no production body/poll changes,
+no removed predecessor assertions and no unrelated files staged.
+
+Relative to `0e5ac306`, measured production growth is **+15 NLOC** and test
+growth **+279 NLOC**. The test support fixture accounts for **36 NLOC**; family
+suite changes account for **243 NLOC**. This is explicit support growth, with
+no claimed savings or compression. Full repository delivery gates remain
+controller-owned and run once for the completed PR; per-family software proof
+does not change any hardware qualification status.
