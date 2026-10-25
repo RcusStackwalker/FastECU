@@ -52,7 +52,9 @@ using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::Eq;
 using ::testing::IsEmpty;
+using ::testing::IsSupersetOf;
 using ::testing::Optional;
+using ::testing::Pair;
 using ::testing::StrEq;
 
 constexpr std::uint32_t kRomSize = 0x00100000;
@@ -949,6 +951,12 @@ TEST(SubaruDensoSh7058CanExecutor, IdentityAndVendorFailuresRemainTolerantUntilS
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_TRUE(HasLog(events, LogLevel::kError, "No valid response from ECU"));
     EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "Sending seed key"));
+    // Each tolerated identity failure is logged in the petrol wording.
+    EXPECT_THAT(events.logs,
+                IsSupersetOf(
+                    {Pair(LogLevel::kInfo, "Requesting ECU ID"), Pair(LogLevel::kError, "No valid response from ECU"),
+                     Pair(LogLevel::kError, "Wrong response from ECU: 7f 09 12 "),
+                     Pair(LogLevel::kError, "Wrong response from ECU: 49 "), Pair(LogLevel::kInfo, "Requesting CVN")}));
 }
 
 TEST(SubaruDensoSh7058CanExecutor, ShortAndWrongIdInitialKernelProbesFallBackToBootloaderNegotiation)

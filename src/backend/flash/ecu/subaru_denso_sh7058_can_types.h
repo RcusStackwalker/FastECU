@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "src/backend/flash/ecu/denso_beef_can_profile.h"
+
 namespace fastecu::flash
 {
 
@@ -22,5 +24,8 @@ struct SubaruDensoSh7058CanPlan
     bool extended_id{false};
     SubaruDensoSh7058CanSecurity security{SubaruDensoSh7058CanSecurity::kStock};
 };
+
+inline constexpr DensoBeefCanProfile kSubaruDensoSh7058CanBeefProfile{
+    .device = "ECU", .family = "petrol", .wrong_reply = BeefWrongReply::kBare, .pdu_format = BeefPduFormat::kHex};
 
 } // namespace fastecu::flash
