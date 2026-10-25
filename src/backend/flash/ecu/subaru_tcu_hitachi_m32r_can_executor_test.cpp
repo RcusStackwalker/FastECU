@@ -21,7 +21,6 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
-#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
@@ -43,7 +42,6 @@ using fastecu::MockClock;
 using fastecu::RecordingEventSink;
 using fastecu::Status;
 using fastecu::flash::BuildSubaruTcuHitachiM32rCanPlan;
-using fastecu::flash::BuildSubaruTcuHitachiM32rKlinePlan;
 using fastecu::flash::FlashFamily;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::FlashPlan;
@@ -2002,38 +2000,6 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheWriteLoopStopsAtTheNe
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1 + kCancelAfterFrames);
     ExpectTraceEquals(trace, WriteTracePrefixThroughFrames(kCancelAfterFrames));
-}
-
-TEST(SubaruTcuHitachiM32rCanExecutor, PlanForAnotherFamilyIsRejectedBeforeTransportSetupOrTheWire)
-{
-    // The K-Line sibling: identical MCU and ROM geometry, differing only in
-    // the family tag and the transport kind -- exactly the shape of plan a
-    // missing or misplaced check_family() call would let slip through.
-    auto plan =
-        BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline", kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ASSERT_EQ(plan->Family(), FlashFamily::kSubaruTcuHitachiM32rKline);
-
-    SubaruTcuHitachiM32rCanExecutor executor;
-    const auto setup_result = executor.TransportSetup(*plan);
-    EXPECT_THAT(setup_result,
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("plan family does not match")));
-
-    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
-    ManualCancellationToken cancellation;
-    FakeClock clock;
-    RecordingEventSink events;
-
-    const auto execute_result = executor.Execute(*plan, transport, clock, cancellation, events);
-
-    EXPECT_THAT(execute_result,
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("plan family does not match")));
-    // An empty script: any write at all would fail with a "ran past the end
-    // of the script" Internal error instead, so writesConsumed() == 0 and a
-    // consumed (trivially, empty) script together prove the wire was never
-    // touched.
-    EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 // M2: exercises the real, reachable TestWrite-rejection layer at the

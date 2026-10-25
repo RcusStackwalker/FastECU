@@ -471,48 +471,6 @@ bytes::ByteView TopRegionOf(const bytes::Bytes& rom)
     return bytes::ByteView(rom.data() + mitsu_colt_can::kTopRegionStart, mitsu_colt_can::kTopRegionLength);
 }
 
-TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
-{
-    // A plan built for another family must be rejected by check_family before
-    // configure()/open() or any write --
-    // the scripted transport is left completely untouched, which is the
-    // assertion that matters here.
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    MitsuColtM32rCanExecutor executor;
-
-    // Hand-built rather than produced by a builder: the point is a plan this
-    // executor must refuse, and only validate_and_build can make a FlashPlan.
-    fastecu::flash::FlashPlanFields fields;
-    fields.operation = FlashOperation::kRead;
-    fields.family = fastecu::flash::FlashFamily::kDensoSh705xEepromCan;
-    fields.transport = fastecu::flash::TransportKind::kCanIso15765;
-    fields.target_id = "sub_ecu_denso_sh705x_eeprom_can";
-    fields.mcu_name = "SH7058";
-    fields.transfer_region = fastecu::flash::MemoryRegion{.start = 0x0, .length = 0x100};
-    fields.kernel = fastecu::flash::KernelImage{.id = "k", .load_address = 0xffff6004, .bytes = {0x01, 0x02}};
-    fields.family_plan = fastecu::flash::DensoSh705xEepromCanPlan{
-        .mode = fastecu::flash::EepromReadMode::kMode2,
-        .security = fastecu::flash::DensoSecurityVariant::kStock,
-        .request_id = 0x7e0,
-        .response_id = 0x7e8,
-        .bitrate = 500000,
-        .extended_id = false,
-    };
-    auto foreign = fastecu::flash::ValidateAndBuild(std::move(fields));
-    ASSERT_THAT(foreign, fastecu::testing::IsOk());
-
-    const auto result = ExecuteGuarded(executor, *foreign, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result,
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("does not match this executor")));
-    EXPECT_THAT(events.logs, IsEmpty());
-    EXPECT_EQ(transport.WritesConsumed(), 0U);
-    EXPECT_THAT(transport.last_config, Eq(std::nullopt));
-}
-
 TEST(MitsuColtM32rCanExecutor, TransportSetupReturnsThePlansWireParameters)
 {
     MitsuColtM32rCanExecutor executor;

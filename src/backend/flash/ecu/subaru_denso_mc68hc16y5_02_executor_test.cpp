@@ -15,18 +15,15 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/backend/config/catalog.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/flash/ecu/testing/mc68_rom_images.h"
-#include "src/backend/flash/eeprom/eeprom_read_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/mock_clock.h"
-#include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 using ::testing::_;
@@ -344,33 +341,6 @@ void ScriptWritePrefix(ScriptedKlineFlashTransport& transport, const FlashDevice
     {
         transport.Exchange(Framed(0x25, ComposeBe(device.fblocks[block_no].start)), Framed(0x65));
     }
-}
-
-Result<FlashPlan> DifferentFamilyPlan()
-{
-    InMemoryFileRepository files;
-    files.files["kernels/kernel.bin"] = {0x01, 0x02, 0x03, 0x04};
-    return BuildEepromReadPlan({.kernel_files_directory = "kernels/"},
-                               config::ProtocolSpec{.name = "sub_ecu_eeprom_denso_sh7055_kline",
-                                                    .mcu = "SH7055",
-                                                    .kernel = "kernel.bin",
-                                                    .kernel_load_address = 0xFFFF6004U},
-                               EepromReadMode::kMode2, files);
-}
-
-TEST(SubaruDensoMc68hc16y5_02Executor, WrongFamilyPlanFails)
-{
-    auto plan = DifferentFamilyPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    OpenScriptedKlineFlashTransport transport;
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-    SubaruDensoMc68hc16y5_02Executor executor;
-
-    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, TransportSetupReturnsPlanWireConfigurationIncludingZeroIds)

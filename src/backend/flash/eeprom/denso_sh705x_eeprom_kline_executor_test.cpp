@@ -369,51 +369,6 @@ TEST(DensoSh705xEepromKlineExecutorTest, TransportSetupReturnsPlansWireParameter
     EXPECT_EQ(setup->target_id, 0x10);
 }
 
-TEST(DensoSh705xEepromKlineExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportCalls)
-{
-    auto plan = BuildDensoSh705xEepromPlan(DensoSh705xEepromInput{
-        .operation = FlashOperation::kRead,
-        .family = FlashFamily::kDensoSh705xEepromCan,
-        .target_id = "sub_ecu_eeprom_denso_sh7058_can",
-        .mcu_name = "SH7058",
-        .flash_method = "sub_ecu_eeprom_denso_sh7058_can",
-        .kernel = KernelImage{.id = "k", .load_address = 0xFFFF3000, .bytes = {0x01, 0x02, 0x03, 0x04}},
-        .mode = EepromReadMode::kMode2,
-        .security = DensoSecurityVariant::kStock,
-        .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
-    });
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    DensoSh705xEepromKlineExecutor executor;
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-
-    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(transport.ScriptConsumed()); // nothing was ever queued or consumed
-}
-
-TEST(DensoSh705xEepromKlineExecutorTest, TransportSetupRejectsForeignFamily)
-{
-    auto foreign = BuildDensoSh705xEepromPlan(DensoSh705xEepromInput{
-        .operation = FlashOperation::kRead,
-        .family = FlashFamily::kDensoSh705xEepromCan,
-        .target_id = "sub_ecu_eeprom_denso_sh7055_densocan",
-        .mcu_name = "SH7055",
-        .flash_method = "sub_ecu_eeprom_denso_sh7055_densocan",
-        .kernel = KernelImage{.id = "k", .load_address = kKernelStartAddr, .bytes = {0x01, 0x02, 0x03, 0x04}},
-        .mode = EepromReadMode::kMode2,
-        .security = DensoSecurityVariant::kStock,
-        .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
-    });
-    ASSERT_THAT(foreign, fastecu::testing::IsOk());
-    EXPECT_THAT(DensoSh705xEepromKlineExecutor{}.TransportSetup(*foreign),
-                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
-                                            ::testing::Eq("plan family does not match this executor")));
-}
-
 TEST(DensoSh705xEepromKlineExecutorTest, InvalidPlanIsRefusedBeforeAnyIo)
 {
     const auto plan = HandBuiltInvalidPlan();

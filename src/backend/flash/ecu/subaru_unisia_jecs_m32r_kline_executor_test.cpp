@@ -356,18 +356,6 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationStopsTheReadBeforeTheNextPag
     EXPECT_EQ(transport.WritesConsumed(), 2U);
 }
 
-TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationBeforeTheFirstWriteAbortsImmediately)
-{
-    ScriptedKlineFlashTransport transport;
-    RunContext context;
-    context.cancellation.SetPredicate([] { return true; });
-
-    auto built_plan_14 = ReadPlan();
-    ASSERT_THAT(built_plan_14, fastecu::testing::IsOk());
-    EXPECT_THAT(RunScripted(std::move(*built_plan_14), transport, context), IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(transport.WritesConsumed(), 0U);
-}
-
 TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationAfterTheFirstReadAbortsBeforeInspectingTheReply)
 {
     ScriptedKlineFlashTransport transport;

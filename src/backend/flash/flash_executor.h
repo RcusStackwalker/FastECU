@@ -175,9 +175,10 @@ class ICanFlashExecutor
                                                  const ICancellationToken& cancellation, IEventSink& events) = 0;
 };
 
-// A constructed FlashPlan already has a transport kind and variant consistent
-// with its family (validated in flash_validation.cpp). Once this succeeds,
-// std::get<PlanT>(plan.family_plan()) cannot throw.
+// A constructed FlashPlan already has a transport kind consistent with its
+// family (validated in flash_validation.cpp). That alone does not fix the
+// variant for a family that maps to two plan types (Hitachi SH7058), so such a
+// family's PlanValidator must reject the wrong variant before std::get.
 Status CheckFamily(const FlashPlan& plan, FlashFamily expected_family);
 
 // Adds only configure/open/close/request_unblock to the already Result-based,

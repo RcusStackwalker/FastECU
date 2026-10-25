@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
-#include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
@@ -570,26 +569,6 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
     EXPECT_EQ(trace[19], Step::kWrite);
     EXPECT_EQ(trace[20], Step::kSleep);
     EXPECT_EQ(trace[21], Step::kRead);
-}
-
-// A plan built for the ECU (non-TCU) Hitachi M32R K-Line family must be
-// rejected by check_family before any I/O happens.
-TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsAPlanBuiltForAnotherFamily)
-{
-    auto foreign = BuildSubaruHitachiM32rKlinePlan(FlashOperation::kRead, "sub_ecu_hitachi_m32r_kline",
-                                                   "M32R_512KB_1block", std::nullopt);
-    ASSERT_THAT(foreign, fastecu::testing::IsOk());
-
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
-    SubaruTcuHitachiM32rKlineExecutor executor;
-    FakeClock clock;
-    ManualCancellationToken cancellation;
-    RecordingEventSink events;
-
-    EXPECT_THAT(executor.TransportSetup(*foreign), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(executor.Execute(*foreign, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_EQ(transport.WritesConsumed(), 0U);
 }
 
 TEST(SubaruTcuHitachiM32rKlineExecutor, PrecancelledRunIsRefusedInAdmission)

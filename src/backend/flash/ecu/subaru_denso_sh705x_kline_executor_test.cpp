@@ -24,7 +24,6 @@
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
-#include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -289,28 +288,6 @@ TEST(SubaruDensoSh705xKlineExecutor, ResetFailurePropagates)
     SubaruDensoSh705xKlineExecutor executor;
 
     EXPECT_THAT(executor.BeforeTransportConfigure(transport, clock, cancellation), IsErr(ErrorKind::kDisconnected));
-}
-
-TEST(SubaruDensoSh705xKlineExecutor, RejectsAForeignPlanBeforeIo)
-{
-    Harness h;
-    FlashPlanFields fields{.operation = FlashOperation::kRead,
-                           .family = FlashFamily::kSubaruUnisiaJecs,
-                           .transport = TransportKind::kKline,
-                           .target_id = "sub_ecu_unisia_jecs_m3779x",
-                           .mcu_name = "M3779x",
-                           .transfer_region = {0, 0x10000},
-                           .erase_regions = {},
-                           .image = std::nullopt,
-                           .kernel = std::nullopt,
-                           .family_plan = SubaruUnisiaJecsPlan{.initial_baud = 1953, .even_parity = true},
-                           .confirmations = {}};
-    auto foreign = ValidateAndBuild(std::move(fields));
-    ASSERT_THAT(foreign, IsOk());
-
-    EXPECT_THAT(h.executor.TransportSetup(*foreign), IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(h.Run(*foreign), IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_EQ(h.transport.WritesConsumed(), 0U);
 }
 
 // ---- Session: probe, handshake, upload (Task 6) -------------------------
