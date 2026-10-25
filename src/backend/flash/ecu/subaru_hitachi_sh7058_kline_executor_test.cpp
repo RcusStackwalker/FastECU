@@ -4,7 +4,6 @@
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"

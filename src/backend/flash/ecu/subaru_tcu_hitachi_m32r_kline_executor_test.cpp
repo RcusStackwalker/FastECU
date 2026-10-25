@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
-#include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
@@ -572,8 +571,6 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
     EXPECT_EQ(trace[21], Step::kRead);
 }
 
-// A plan built for the ECU (non-TCU) Hitachi M32R K-Line family must be
-// rejected by check_family before any I/O happens.
 TEST(SubaruTcuHitachiM32rKlineExecutor, PrecancelledRunIsRefusedInAdmission)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};

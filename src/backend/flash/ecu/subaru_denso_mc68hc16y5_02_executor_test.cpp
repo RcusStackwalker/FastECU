@@ -15,18 +15,15 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/backend/config/catalog.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/flash/ecu/testing/mc68_rom_images.h"
-#include "src/backend/flash/eeprom/eeprom_read_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/mock_clock.h"
-#include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 using ::testing::_;

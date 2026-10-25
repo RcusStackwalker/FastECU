@@ -1,7 +1,6 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_executor.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
-#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/manual_cancellation_token.h"

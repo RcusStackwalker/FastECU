@@ -52,7 +52,6 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_hitachi_sh7058_kline_executor",
         ":subaru_hitachi_sh7058_plan",
-        ":subaru_hitachi_sh72543r_can_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -84,7 +83,6 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_hitachi_sh7058_can_executor",
         ":subaru_hitachi_sh7058_plan",
-        ":subaru_hitachi_sh72543r_can_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -573,16 +571,13 @@ fastecu_portable_gtest(
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
-        "//src/backend/config:catalog",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:mc68_rom_images",
-        "//src/backend/flash/eeprom:eeprom_read_plan",
         "//src/backend/flash/kernel:memory_models",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
-        "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:mock_clock",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/backend/ports/testing:result_matchers",
@@ -874,7 +869,6 @@ fastecu_portable_gtest(
     name = "subaru_unisia_jecs_executor_test",
     srcs = ["subaru_unisia_jecs_executor_test.cpp"],
     deps = [
-        ":subaru_denso_mc68hc16y5_02_bdm_plan",
         ":subaru_unisia_jecs_executor",
         ":subaru_unisia_jecs_plan",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -1150,7 +1144,6 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_device_lookup",
-        "//src/backend/flash:flash_validation",
         "//src/backend/flash/kernel:memory_models",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
@@ -1209,7 +1202,6 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_tcu_hitachi_m32r_can_executor",
         ":subaru_tcu_hitachi_m32r_can_plan",
-        ":subaru_tcu_hitachi_m32r_kline_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_device_lookup",
@@ -1244,7 +1236,6 @@ fastecu_portable_gtest(
     name = "subaru_tcu_hitachi_m32r_kline_executor_test",
     srcs = ["subaru_tcu_hitachi_m32r_kline_executor_test.cpp"],
     deps = [
-        ":subaru_hitachi_m32r_kline_plan",
         ":subaru_tcu_hitachi_m32r_kline_executor",
         ":subaru_tcu_hitachi_m32r_kline_plan",
         "//src/algorithms/protocol/ssm",
@@ -1850,7 +1841,6 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_hitachi_sh72543r_can_executor",
         ":subaru_hitachi_sh72543r_can_plan",
-        ":subaru_tcu_hitachi_m32r_can_plan",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/testing:scripted_flash_transports",

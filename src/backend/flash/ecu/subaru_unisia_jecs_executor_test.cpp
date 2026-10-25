@@ -4,7 +4,6 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
-#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_plan.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"

@@ -21,7 +21,6 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
-#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
@@ -43,7 +42,6 @@ using fastecu::MockClock;
 using fastecu::RecordingEventSink;
 using fastecu::Status;
 using fastecu::flash::BuildSubaruTcuHitachiM32rCanPlan;
-using fastecu::flash::BuildSubaruTcuHitachiM32rKlinePlan;
 using fastecu::flash::FlashFamily;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::FlashPlan;
