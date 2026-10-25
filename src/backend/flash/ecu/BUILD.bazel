@@ -2064,3 +2064,41 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "beef_can_session",
+    srcs = ["beef_can_session.cpp"],
+    hdrs = ["beef_can_session.h"],
+    implementation_deps = [
+        ":denso_beef_can_common",
+        ":uds_client_exchange_common",
+    ],
+    deps = [
+        ":denso_beef_can_profile",
+        "//src/algorithms/protocol",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+        "//src/backend/protocol/uds:uds_client",
+    ],
+)
+
+cc_library(
+    name = "denso_beef_can_profile",
+    hdrs = ["denso_beef_can_profile.h"],
+)
+
+fastecu_portable_gtest(
+    name = "beef_can_session_test",
+    srcs = ["beef_can_session_test.cpp"],
+    deps = [
+        ":beef_can_session",
+        ":denso_beef_can_profile",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/protocol/uds/testing:scripted_uds_channel",
+        "@googletest//:gtest",
+    ],
+)
