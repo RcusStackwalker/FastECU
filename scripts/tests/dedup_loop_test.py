@@ -3,8 +3,10 @@
 import json
 import tempfile
 import unittest
+from collections.abc import Mapping, Sequence
 from io import StringIO
 from pathlib import Path
+from urllib.error import URLError
 
 import dedup_loop as dl
 
@@ -97,6 +99,138 @@ class MeasureTest(unittest.TestCase):
 
         self.assertEqual(dl.measure(Path("/repo"), run_hook), dl.Measurement(10, 0))
         self.assertEqual(calls, [Path("/repo")])
+
+
+def _component_tree(paths: Sequence[str], page: int, size: int, total: int) -> dict:
+    return {
+        "paging": {"pageIndex": page, "pageSize": size, "total": total},
+        "components": [{"path": p} for p in paths],
+    }
+
+
+def _duplications(*groups: Sequence[tuple[str, int, int]]) -> dict:
+    """A `api/duplications/show` response; each group is (path, from, size) blocks."""
+    refs: dict[str, str] = {}
+    out = []
+    for group in groups:
+        blocks = []
+        for path, start, size in group:
+            ref = refs.setdefault(path, str(len(refs) + 1))
+            blocks.append({"from": start, "size": size, "_ref": ref})
+        out.append({"blocks": blocks})
+    files = {ref: {"key": f"{dl.PROJECT}:{path}", "name": path} for path, ref in refs.items()}
+    return {"duplications": out, "files": files}
+
+
+class FakeSonar:
+    """Serves canned responses keyed on the API path and the file key or page."""
+
+    def __init__(self, files: Sequence[str], groups: dict[str, dict], page_size: int = 500):
+        self.files = list(files)
+        self.groups = groups
+        self.page_size = page_size
+        self.calls: list[tuple[str, dict]] = []
+
+    def __call__(self, path: str, params: Mapping[str, str]) -> Mapping:
+        self.calls.append((path, dict(params)))
+        if path == "api/measures/component_tree":
+            page = int(params.get("p", "1"))
+            size = self.page_size
+            chunk = self.files[(page - 1) * size : page * size]
+            return _component_tree(chunk, page, size, len(self.files))
+        if path == "api/duplications/show":
+            return self.groups[params["key"].removeprefix(f"{dl.PROJECT}:")]
+        raise AssertionError(path)
+
+
+def _ranges(*rows: tuple[str, str, int, int]) -> list:
+    return [dl.FunctionRange(path, name, start, end) for path, name, start, end in rows]
+
+
+class SonarGroupsTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.err = StringIO()
+
+    def build(self, sonar: FakeSonar, ranges: list, lines: int | None = 1000) -> list:
+        return dl.build_groups(sonar, ranges, lambda _path: lines, err=self.err)
+
+    def test_reads_every_page_of_duplicated_files(self) -> None:
+        sonar = FakeSonar(["src/a.cpp", "src/b.cpp", "src/c.cpp"], {}, page_size=2)
+        self.assertEqual(dl.duplicated_files(sonar), ["src/a.cpp", "src/b.cpp", "src/c.cpp"])
+        self.assertEqual(len(sonar.calls), 2)
+        self.assertEqual(sonar.calls[0][1]["metricKeys"], "duplicated_lines")
+
+    def test_group_reported_from_both_files_is_one_group(self) -> None:
+        pair = [("src/a.cpp", 10, 20), ("src/b.cpp", 30, 20)]
+        sonar = FakeSonar(
+            ["src/a.cpp", "src/b.cpp"],
+            {"src/a.cpp": _duplications(pair), "src/b.cpp": _duplications(pair[::-1])},
+        )
+        ranges = _ranges(("src/a.cpp", "f", 5, 40), ("src/b.cpp", "g", 25, 60))
+        (group,) = self.build(sonar, ranges)
+        self.assertEqual(group.members, (("src/a.cpp", "f"), ("src/b.cpp", "g")))
+        self.assertEqual(group.lines, 40)
+        self.assertEqual(
+            group.blocks, (dl.Block("src/a.cpp", 10, 29), dl.Block("src/b.cpp", 30, 49))
+        )
+
+    def test_block_outside_functions_keys_to_file(self) -> None:
+        block = dl.Block("src/a.cpp", 1, 5)
+        self.assertEqual(dl.key_block(block, []), [("src/a.cpp", "<file>")])
+
+    def test_block_spanning_two_functions_keys_both(self) -> None:
+        ranges = _ranges(("src/a.cpp", "f", 1, 10), ("src/a.cpp", "g", 11, 20))
+        ranges += _ranges(("src/b.cpp", "h", 1, 20))
+        self.assertEqual(
+            dl.key_block(dl.Block("src/a.cpp", 8, 14), ranges),
+            [("src/a.cpp", "f"), ("src/a.cpp", "g")],
+        )
+
+    def test_stale_block_is_dropped_with_a_note(self) -> None:
+        pair = [("src/a.cpp", 30, 11), ("src/b.cpp", 1, 11)]
+        sonar = FakeSonar(["src/a.cpp"], {"src/a.cpp": _duplications(pair)})
+        self.assertEqual(self.build(sonar, [], lines=10), [])
+        self.assertIn("dropped stale block src/a.cpp:30-40", self.err.getvalue())
+
+    def test_missing_file_is_stale(self) -> None:
+        pair = [("src/a.cpp", 1, 5), ("src/gone.cpp", 1, 5)]
+        sonar = FakeSonar(["src/a.cpp"], {"src/a.cpp": _duplications(pair)})
+        self.assertEqual(self.build(sonar, [], lines=None), [])
+        self.assertIn("dropped stale block src/gone.cpp:1-5", self.err.getvalue())
+
+    def test_test_files_never_join_a_group(self) -> None:
+        trio = [("src/a.cpp", 1, 5), ("src/b.cpp", 1, 5), ("src/a_test.cpp", 1, 5)]
+        sonar = FakeSonar(["src/a.cpp"], {"src/a.cpp": _duplications(trio)})
+        (group,) = self.build(sonar, [])
+        self.assertEqual([b.path for b in group.blocks], ["src/a.cpp", "src/b.cpp"])
+
+    def test_id_is_stable_across_line_shifts(self) -> None:
+        members = (("src/a.cpp", "f"), ("src/b.cpp", "g"))
+        one = dl.Group(members, (dl.Block("src/a.cpp", 1, 5),), 5)
+        two = dl.Group(members, (dl.Block("src/a.cpp", 9, 13),), 5)
+        self.assertEqual(one.id, two.id)
+        self.assertRegex(one.id, r"^[0-9a-f]{12}$")
+
+    def test_sonar_failure_is_actionable(self) -> None:
+        def opener(*_args, **_kwargs):
+            raise URLError("timed out")
+
+        with self.assertRaisesRegex(dl.DedupLoopError, r"^SonarCloud api/x: .*timed out"):
+            dl.sonar_get("api/x", {}, opener=opener)
+
+
+class FunctionRangeTest(unittest.TestCase):
+    def test_parses_lizard_csv_and_skips_banner(self) -> None:
+        output = (
+            "C/C++ function ranges....................................Passed\n"
+            "- hook id: nloc-functions\n"
+            "- duration: 1.91s\n\n"
+            '  8,3,37,1,9,"Foo::run@9-17@./src/a.cpp","./src/a.cpp","Foo::run",'
+            '"Foo::run( int x)",9,17\n'
+        )
+        self.assertEqual(
+            dl.parse_function_ranges(output), [dl.FunctionRange("src/a.cpp", "Foo::run", 9, 17)]
+        )
 
 
 class MainTest(unittest.TestCase):

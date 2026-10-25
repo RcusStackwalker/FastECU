@@ -62,6 +62,24 @@ repos:
           - --exclude=*/vendor/*
           - --exclude=*/generated/*
           - .
+      # Function line ranges for keying Sonar duplication groups; run by
+      # scripts/dedup_loop.py candidates.
+      - id: nloc-functions
+        name: C/C++ function ranges
+        language: python
+        additional_dependencies: *lizard_dependencies
+        entry: lizard
+        pass_filenames: false
+        always_run: true
+        verbose: true
+        stages: [manual]
+        args:
+          - --languages=cpp
+          - --csv
+          - --exclude=*/third_party/*
+          - --exclude=*/vendor/*
+          - --exclude=*/generated/*
+          - .
       - id: pragma-once
         name: require pragma once in headers
         language: system
