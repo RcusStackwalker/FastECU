@@ -1,6 +1,6 @@
 # Logging run preparation
 
-Status: proposed design; scope and module shape agreed, awaiting document approval.
+Status: approved for implementation.
 
 ## Intent and scope
 
