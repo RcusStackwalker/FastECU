@@ -15,7 +15,7 @@ namespace fastecu::desktop::logging
 void RegisterDesktopLoggingProtocols(LoggingEngine& engine, SerialPortActions& serial, fastecu::IClock& clock)
 {
     engine.RegisterProtocol("MUT_DMA",
-                            [&serial](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+                            [&serial](const fastecu::logging::LoggingRunSnapshot& snapshot)
                             {
                                 auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(&serial);
                                 auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
@@ -25,7 +25,7 @@ void RegisterDesktopLoggingProtocols(LoggingEngine& engine, SerialPortActions& s
 
     engine.RegisterProtocol(
         "CDBG",
-        [&serial](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+        [&serial](const fastecu::logging::LoggingRunSnapshot& snapshot)
             -> fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>
         {
             const auto configured = fastecu::desktop::logging::ConfigureCdbgSerial({
@@ -54,7 +54,7 @@ void RegisterDesktopLoggingProtocols(LoggingEngine& engine, SerialPortActions& s
         });
 
     engine.RegisterProtocol("SSM",
-                            [&serial, &clock](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+                            [&serial, &clock](const fastecu::logging::LoggingRunSnapshot& snapshot)
                             {
                                 auto transport = std::make_unique<FastEcuSsmTransport>(&serial);
                                 bool target_is_ecu = snapshot.Target() == fastecu::logging::LoggingTarget::kEcu;

@@ -21,14 +21,8 @@ cc_library(
 
 cc_library(
     name = "logging_adapters",
-    srcs = [
-        "logging_snapshot_adapter.cpp",
-        "logging_value_adapter.cpp",
-    ],
-    hdrs = [
-        "logging_snapshot_adapter.h",
-        "logging_value_adapter.h",
-    ],
+    srcs = ["logging_value_adapter.cpp"],
+    hdrs = ["logging_value_adapter.h"],
     copts = COMMON_COPTS,
     implementation_deps = ["//src/backend/logging:logging_sample_resolution"],
     visibility = UI_FACING_VISIBILITY,
@@ -46,6 +40,7 @@ fastecu_gtest(
     srcs = ["logging_adapters_test.cpp"],
     deps = [
         ":logging_adapters",
+        "//src/backend/logging:logging_run_snapshot",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],

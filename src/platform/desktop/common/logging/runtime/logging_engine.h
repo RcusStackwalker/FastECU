@@ -12,7 +12,7 @@
 #include <optional>
 
 #include "src/backend/logging/logging_protocol.h"
-#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
+#include "src/backend/logging/logging_run_snapshot.h"
 #include "src/platform/desktop/common/logging/runtime/logging_worker.h"
 #include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 
@@ -38,8 +38,8 @@ struct LogSessionConfig
     QString protocol_id;
 };
 
-using LoggingProtocolFactory =
-    std::function<fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>(const DesktopLoggingSnapshot&)>;
+using LoggingProtocolFactory = std::function<fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>(
+    const fastecu::logging::LoggingRunSnapshot&)>;
 
 class LoggingEngine final : public QObject
 {
@@ -49,7 +49,7 @@ class LoggingEngine final : public QObject
     ~LoggingEngine() override;
 
     void RegisterProtocol(const QString& protocol_id, const LoggingProtocolFactory& factory);
-    fastecu::Status Start(const LogSessionConfig& config, DesktopLoggingSnapshot snapshot);
+    fastecu::Status Start(const LogSessionConfig& config, fastecu::logging::LoggingRunSnapshot snapshot);
     void Stop();
     bool IsRunning() const;
 
@@ -82,7 +82,7 @@ class LoggingEngine final : public QObject
     // public`, where clang-tidy would see these as public members.
     // NOLINTBEGIN(readability-identifier-naming)
     QMap<QString, LoggingProtocolFactory> registrations_;
-    std::optional<DesktopLoggingSnapshot> active_snapshot_;
+    std::optional<fastecu::logging::LoggingRunSnapshot> active_snapshot_;
     std::unique_ptr<fastecu::logging::LoggingProtocol> active_protocol_;
     LoggingWorker *active_worker_ = nullptr;
     QtEventSink diagnostics_;

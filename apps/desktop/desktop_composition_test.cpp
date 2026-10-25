@@ -9,7 +9,6 @@
 #include <QMap>
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/logging/runtime/logging_worker.h"
-#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #define private public
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #undef private

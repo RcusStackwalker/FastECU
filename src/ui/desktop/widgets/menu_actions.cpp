@@ -5,6 +5,7 @@
 #include "src/backend/calibration/session/map_operations.h"
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
+#include "src/ui/desktop/logging/logging_run_preparation.h"
 #include "ui_mainwindow.h"
 
 #include "src/backend/definition/mappack_converter.h"
@@ -494,69 +495,41 @@ void MainWindow::toggleRealtime()
 
 void MainWindow::continueStartLogging()
 {
-    using namespace std::chrono_literals;
-
     logging_state_ = true;
-
-    fastecu::desktop::logging::LogSessionConfig config;
-    fastecu::logging::LoggingProtocolId protocolId;
-    fastecu::logging::LoggingPolicy loggingPolicy{};
-    if (config_session_->Settings().selected_log_protocol == "MUT_DMA")
-    {
-        config.protocol_id = "MUT_DMA";
-        active_log_value_protocol_filter_ = "MUT_DMA";
-        protocolId = fastecu::logging::LoggingProtocolId::kMutDma;
-        loggingPolicy = {.poll_timeout = 50ms,
-                         .car_silence_miss_threshold = 20,
-                         .reconnect_attempt_threshold = 100,
-                         .reconnect_retry_period = 20};
-    }
-    else if (config_session_->Settings().selected_log_protocol == "CDBG")
-    {
-        config.protocol_id = "CDBG";
-        active_log_value_protocol_filter_ = "CDBG";
-        protocolId = fastecu::logging::LoggingProtocolId::kCdbg;
-        loggingPolicy = {.poll_timeout = 50ms,
-                         .car_silence_miss_threshold = 20,
-                         .reconnect_attempt_threshold = 100,
-                         .reconnect_retry_period = 20};
-    }
-    else
-    {
-        config.protocol_id = "SSM";
-        active_log_value_protocol_filter_ = protocol_;
-        protocolId = fastecu::logging::LoggingProtocolId::kSsm;
-        loggingPolicy = {.poll_timeout = 300ms,
-                         .car_silence_miss_threshold = 10,
-                         .reconnect_attempt_threshold = 30,
-                         .reconnect_retry_period = 10};
-    }
 
     const auto target =
         ecu_radio_button_->isChecked() ? fastecu::logging::LoggingTarget::kEcu : fastecu::logging::LoggingTarget::kTcu;
-    auto snapshot = fastecu::desktop::logging::MakeDesktopLoggingSnapshot(
-        *logger_model_, protocolId, active_log_value_protocol_filter_, loggingPolicy, target);
-    if (!snapshot.has_value())
+    auto prepared = fastecu::ui::prepareLoggingRun(*logger_model_,
+                                                   {.saved_protocol = config_session_->Settings().selected_log_protocol,
+                                                    .ssm_definition_filter = protocol_.toStdString(),
+                                                    .target = target});
+    if (!prepared.has_value())
     {
-        emit logE("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true, true);
+        emit logE("Logging session failed to start: " + QString::fromStdString(prepared.error().detail), true, true);
         restoreLoggingUiState();
         QMessageBox notice(this);
         notice.setIcon(QMessageBox::Information);
         notice.setWindowTitle(tr("Logging"));
         notice.setTextFormat(Qt::PlainText);
-        notice.setText(tr("Unable to start logging:\n") + QString::fromStdString(snapshot.error().detail));
+        notice.setText(tr("Unable to start logging:\n") + QString::fromStdString(prepared.error().detail));
         notice.setStandardButtons(QMessageBox::Ok);
         notice.exec();
         return;
     }
 
     const auto stem = "fastecu_" + QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
+    const fastecu::desktop::logging::LogSessionConfig config{.protocol_id =
+                                                                 fastecu::ui::qs(prepared->registration_key)};
     const auto started =
-        logging_run_->start({config, std::move(*snapshot),
+        logging_run_->start({config, std::move(prepared->snapshot),
                              fastecu::ui::qs(config_session_->EffectivePaths().datalog_files_directory), stem});
-    if (started.has_value() && logging_run_->view().active_snapshot.has_value())
+    if (started.has_value())
     {
-        updateLogboxes(active_log_value_protocol_filter_);
+        const auto view = logging_run_->view();
+        if (view.active_snapshot.has_value())
+        {
+            updateLogboxes(fastecu::ui::qs(view.active_snapshot->ProtocolKey()));
+        }
     }
 
     if (!started.has_value())
