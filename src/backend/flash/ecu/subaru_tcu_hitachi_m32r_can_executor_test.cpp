@@ -1410,7 +1410,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, DataFramesCarryTheEncryptedImageNotThePlai
     ASSERT_THAT(built_plan_25, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_25), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected response to SID 0xb6")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1 + 2);
 }
@@ -1433,7 +1434,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseRequestMatchesLegacyBytes)
 
     // The run got past the erase and stopped at the first block window, so the
     // erase bytes and its positive answer are both pinned.
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected response to SID 0x34")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1);
 }
@@ -1524,13 +1526,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseTransportErrorDoesNotLogTheDoNotPanic
 }
 
 // Cancels a shared ManualCancellationToken the instant a chosen write
-// completes -- used to reach exchange_optional's own "cancelled after write"
-// checkpoint precisely, before any read is ever attempted. (Tripping instead
-// on the pre-read sleep, as trace_sleeps_then_trip does elsewhere in this
-// file, does not isolate this checkpoint here: the scripted transport's own
-// read() observes the now-cancelled token and fails first with its own
-// "scripted CAN read cancelled" message, never reaching exchange_optional's
-// "cancelled after read" check.)
+// completes, so the very next cancellable step (the pre-read sleep) observes it.
 class TripAfterWriteCountTransport final : public ScriptedCanFlashTransport
 {
   public:
@@ -1557,10 +1553,9 @@ class TripAfterWriteCountTransport final : public ScriptedCanFlashTransport
 };
 
 // T4a: cancellation is not a content-mismatch. Trips right after the erase's
-// own write (the 9th write overall) completes, so exchange_optional's
-// generic "cancelled after write" checkpoint fires before any read is ever
-// attempted -- not expect_prefix's content compare -- exactly the case
-// legacy has no equivalent of.
+// own write (the 9th write overall) completes; the pre-read sleep reports it,
+// so the "Do not panic" warning must not fire. (The old after-write checkpoint
+// is gone: the raw erase checks the token before the request and in the sleep.)
 TEST(SubaruTcuHitachiM32rCanExecutor, EraseCancellationDoesNotLogTheDoNotPanicWarning)
 {
     ManualCancellationToken cancellation;
@@ -1575,9 +1570,60 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseCancellationDoesNotLogTheDoNotPanicWa
     ASSERT_THAT(built_plan_31, fastecu::testing::IsOk());
     const auto result = executor.Execute(std::move(*built_plan_31), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, HasSubstr("cancelled after write")));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
     EXPECT_THAT(events.logs, Not(Contains(Pair(fastecu::LogLevel::kError, HasSubstr("Do not panic")))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ResponsePendingOnEraseStaysAWrongAnswer)
+{
+    // The erase goes through the raw channel: 7F 31 78 is not absorbed, it is
+    // a reply that does not start 31 02 01.
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptFullConnect(transport);
+    ScriptErase(transport, Response({0x7F, 0x31, 0x78}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = WritePlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::kError, HasSubstr("Do not panic"))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ResponsePendingOnADataFrameIsReadAgain)
+{
+    const BlockSpec& block = kFlashedBlocks[0];
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptFullConnect(transport);
+    ScriptErase(transport);
+    ScriptBlockWindow(transport, block);
+    {
+        const auto section = transport.Section("block data frames");
+        transport.Exchange(DataRequest(block.start), Response({0x7F, 0xB6, 0x78}));
+        transport.QueueRead(Response({0xF6}));
+        transport.ExpectWrite(DataRequest(block.start + kWriteFrameSize));
+        transport.QueueError(ErrorKind::kDisconnected, "stop here");
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto built_plan = WritePlan();
+    ASSERT_THAT(built_plan, fastecu::testing::IsOk());
+    const auto result = Execute(executor, std::move(*built_plan), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, HasSubstr("stop here")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    // Frame 0 is written once; frame 1's write follows the re-read.
+    EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1 + 2);
+    ASSERT_EQ(transport.ReadTimeouts().size(), kConnectFrames + 1 + 1 + 3);
+    EXPECT_EQ(transport.ReadTimeouts()[kConnectFrames + 3], 3000ms);
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, WriteFlashesBlocksThreeThroughTenAndNothingElse)
@@ -1671,7 +1717,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, BlockWindowMismatchIsFatal)
     ASSERT_THAT(built_plan_34, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_34), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected response to SID 0x34")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1);
     EXPECT_EQ(BlockWindowRequest(kFlashedBlocks[0]),
@@ -1700,7 +1747,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalCloseAnswerIsRetriedAndTheBlockSti
     ASSERT_THAT(built_plan_35, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_35), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected response to SID 0x34")));
     EXPECT_TRUE(transport.ScriptConsumed());
     const std::size_t block3_frames = kFlashedBlocks[0].len / kWriteFrameSize;
     // connect + erase + window + data + two closes + checksum + block 4 window.
@@ -1838,7 +1886,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, DataFrameMismatchIsFatal)
     ASSERT_THAT(built_plan_40, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_40), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, HasSubstr("expected response to SID 0xb6")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1 + 2);
 }
@@ -1862,7 +1911,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, DataFrameSilenceIsFatal)
     ASSERT_THAT(built_plan_41, fastecu::testing::IsOk());
     const auto result = Execute(executor, std::move(*built_plan_41), transport, clock, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response from TCU")));
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, HasSubstr("no response within the read timeout")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1 + 1);
 }
