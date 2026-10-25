@@ -38,6 +38,10 @@ than copying its inventory.
 
 ## Active work
 
+The [logging run preparation design](superpowers/specs/2026-10-25-logging-run-preparation-design.md)
+proposes concentrating desktop protocol choices and snapshot preparation in a
+pure UI-owned module while preserving engine dispatch and the SSM fallback.
+
 The [size-reduction strategy](superpowers/specs/2026-10-18-size-reduction-strategy.md)
 phases the reduction toward 100k NLOC: remote-mode deletion, tooling audit,
 transport-level cancellation, separately assessed test compression, and a later
