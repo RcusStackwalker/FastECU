@@ -66,8 +66,10 @@ Colt's in-flight cancellation stays with the guarded transport described above.
 fixed device shape, operation/image shape and transfer start/length equality.
 Callers keep catalog identity, capabilities, diagnostics and validation order,
 including unsupported TCU TestWrite and SH7055 Write rejection before invalid
-image/kernel errors. Kernel upload arithmetic and erase-region construction keep
-their existing owners; family upload padding still differs (six versus 128 bytes).
+image/kernel errors. The four Denso SH705x kernel-loaded builders share their
+whole-ROM plan fields (kernel fit, image rules, transfer, erase-all) through
+`WholeRomKernelPlanFields`; family upload padding still differs (six versus 128
+bytes) and is the builder's template argument.
 
 ## Denso BEEF CAN kernel download framing
 
