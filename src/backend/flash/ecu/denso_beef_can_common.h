@@ -18,6 +18,7 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/backend/flash/ecu/beef_compare_result.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
@@ -323,13 +324,6 @@ Result<std::uint32_t> QueryBeefCrc(C& ctx, const MemoryRegion& block, Exchange e
     }
     return crc;
 }
-
-// Which erase regions the ECU's CRC disagrees with the image on.
-struct CompareResult
-{
-    std::vector<bool> modified;
-    std::size_t changed_count{};
-};
 
 // write_mem()/get_changed_blocks(): asks the ECU for the CRC of every erase
 // region and flags those that differ from the image. `query_crc` fetches one

@@ -9,12 +9,10 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/backend/flash/ecu/denso_beef_can_profile.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
@@ -239,9 +237,8 @@ TEST_F(BeefCanSessionTest, WrongRepliesRenderInTheProfilePduFormat)
     channel_.QueueReceive(negative);
     EXPECT_THAT(Session(kDescribeEcu).RequestSession(0x03), IsOkAnd(false));
 
-    EXPECT_THAT(events_.logs,
-                ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 7f 10 22 "),
-                            Pair(LogLevel::kError, "Wrong response from ECU: " + uds::Describe(negative))));
+    EXPECT_THAT(events_.logs, ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 7f 10 22 "),
+                                          Pair(LogLevel::kError, "Wrong response from ECU: Conditions not correct")));
 }
 
 TEST_F(BeefCanSessionTest, RequestEcuIdParsesFiveBytesAndNamesAReadImage)

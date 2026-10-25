@@ -44,18 +44,18 @@ BeefCanSession::View BeefCanSession::MakeView() const
     return View{cancellation_, events_, clock_, transport_, channel_};
 }
 
-void BeefCanSession::LogWrongReply(const Error& failure)
+void BeefCanSession::LogWrongReply(const Error& failure) const
 {
     LogError(MakeView(), std::format("Wrong response from {}: {}", profile_.device, failure.detail));
 }
 
-void BeefCanSession::LogWrongPdu(bytes::ByteView pdu)
+void BeefCanSession::LogWrongPdu(bytes::ByteView pdu) const
 {
     const std::string rendered = profile_.pdu_format == BeefPduFormat::kHex ? bytes::ToHex(pdu) : uds::Describe(pdu);
     LogError(MakeView(), std::format("Wrong response from {}: {}", profile_.device, rendered));
 }
 
-void BeefCanSession::LogFailure(const Error& failure)
+void BeefCanSession::LogFailure(const Error& failure) const
 {
     if (failure.kind == ErrorKind::kTimeout)
     {
