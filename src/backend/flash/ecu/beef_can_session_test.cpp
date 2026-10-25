@@ -115,7 +115,7 @@ INSTANTIATE_TEST_SUITE_P(Profiles, BeefCanSessionWrongReplyTest,
                                            WrongReplyCase{"NotValid", kNotValid,
                                                           "Wrong response from ECU: Not a valid answer"},
                                            WrongReplyCase{"Detail", kDetail, "Wrong response from TCU: boom"}),
-                         [](const auto& info) { return std::string(info.param.name); });
+                         [](const auto& test_param) { return std::string(test_param.param.name); });
 
 TEST_F(BeefCanSessionTest, NonfatalQueryPassesCancelAndDisconnectThrough)
 {
@@ -421,7 +421,7 @@ TEST_P(BeefCanSessionFamilyLabelTest, CompareBlocksNamesTheFamilyWhenABlockLeave
 }
 
 INSTANTIATE_TEST_SUITE_P(Profiles, BeefCanSessionFamilyLabelTest, ::testing::Values(&kBare, &kNotValid, &kDetail),
-                         [](const auto& info) { return std::string(info.param->family); });
+                         [](const auto& test_param) { return std::string(test_param.param->family); });
 
 TEST_F(BeefCanSessionFlashTest, CompareBlocksFlagsOnlyDifferingBlocks)
 {
