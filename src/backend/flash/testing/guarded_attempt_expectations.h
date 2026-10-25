@@ -50,15 +50,9 @@ class BlindCanTransport final : public ScriptedCanFlashTransport
     ManualCancellationToken never_cancelled_;
 };
 
-template <typename Executor> class CanProbe final : public ICanFlashExecutor
+class CanProbeExecutor : public ICanFlashExecutor
 {
   public:
-    using CancellationGuard = typename Executor::CancellationGuard;
-
-    Result<Iso15765Config> TransportSetup(const FlashPlan& plan) const override
-    {
-        return Executor{}.TransportSetup(plan);
-    }
     Result<FlashExecutionResult> Execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock&,
                                          const ICancellationToken& cancellation, IEventSink&) override
     {
@@ -71,6 +65,17 @@ template <typename Executor> class CanProbe final : public ICanFlashExecutor
             return std::unexpected(read.error());
         }
         return FlashExecutionResult{.operation = plan.Operation()};
+    }
+};
+
+template <typename Executor> class CanProbe final : public CanProbeExecutor
+{
+  public:
+    using CancellationGuard = typename Executor::CancellationGuard;
+
+    Result<Iso15765Config> TransportSetup(const FlashPlan& plan) const override
+    {
+        return Executor{}.TransportSetup(plan);
     }
 };
 

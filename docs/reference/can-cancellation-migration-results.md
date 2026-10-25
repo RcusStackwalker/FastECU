@@ -53,11 +53,23 @@ captured for this task.
 ### Measured cost and qualification
 
 `python3 scripts/nloc_loop.py measure --json` before any source edit reported
-152,811 total / 68,434 production / 84,377 test NLOC. Candidate: 153,216 total /
-68,434 production / 84,782 test. Delta: production **0**, test **+405**. Of the
-added test cost, 280 NLOC is support (19 adapter, 253 bounded expectations,
-8 shared-runner growth) and 125 is the new regression suite. No savings or test
-compression are claimed.
+152,811 total / 68,434 production / 84,377 test NLOC. After fixture review:
+153,180 total / 68,434 production / 84,746 test. Delta from the source baseline:
+production **0**, test **+369**. Of the added test cost, 284 NLOC is support
+(19 adapter, 257 bounded expectations, 8 shared-runner growth) and 85 is the new
+regression suite. The initial implementation at `0331d650` had added 405 test
+NLOC; consolidating its duplicated CAN exchange and blind transport removed
+36 NLOC. The direct and bound proofs now share those fixtures while retaining
+all three cases and assertions. Overall support growth remains; no family test
+compression or production savings are claimed.
+
+Review round 1 repeated the focused shared target before and after consolidation,
+then bypassed runner guarding and adapter guarding independently. Only
+`BoundAttemptUsesSelectedGuard` failed for the runner bypass; only
+`DirectOptInRefusesReadAfterAcceptedWrite` failed for the adapter bypass. Each
+observed an extra inner Read, a consumed queued reply, and success instead of
+`kCancelled`. After restoring both, all three cases passed again. Gazelle removed
+the regression target's now-unused direct scripted-transport dependency.
 
 The [qualification matrix](../flash-qualification-matrix.md) and its family
 checklists remain authoritative. No hardware was used, no family is newly opted
