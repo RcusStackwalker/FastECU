@@ -10,6 +10,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+using ::testing::Eq;
+using ::testing::IsEmpty;
+
 namespace fastecu::definition
 {
 namespace
@@ -51,7 +54,7 @@ TEST(RomRaiderParserTest, IndexesMultipleDefinitionsAndRecordsParentReferences)
     EXPECT_EQ(result->at(0).internal_id, "BASE-ID");
     EXPECT_EQ(result->at(0).internal_id_encoding, IdEncoding::kAsciiOrHex);
     EXPECT_EQ(result->at(0).source, "rr.xml");
-    EXPECT_TRUE(result->at(0).parents.empty());
+    EXPECT_THAT(result->at(0).parents, IsEmpty());
     EXPECT_EQ(result->at(1).definition_id, "CHILD");
     EXPECT_EQ(result->at(1).internal_id_address, memory::DefinitionAddress{0x1A0});
     EXPECT_EQ(result->at(1).internal_id, "CHILD-ID");
@@ -270,7 +273,7 @@ TEST(RomRaiderParserTest, NormalizesLegacyTwoDimensionalYAxisDimensions)
     EXPECT_EQ(result->maps.front().x_axis.size, 4U);
     EXPECT_EQ(result->maps.front().x_size, 4U);
     EXPECT_EQ(result->maps.front().y_size, 1U);
-    EXPECT_TRUE(result->maps.front().y_axis.type.empty());
+    EXPECT_THAT(result->maps.front().y_axis.type, IsEmpty());
 }
 
 TEST(RomRaiderParserTest, NormalizesLegacyStaticYAxisDimensions)
@@ -290,7 +293,7 @@ TEST(RomRaiderParserTest, NormalizesLegacyStaticYAxisDimensions)
     EXPECT_EQ(result->maps.front().x_axis.size, 5U);
     EXPECT_EQ(result->maps.front().x_size, 5U);
     EXPECT_EQ(result->maps.front().y_size, 1U);
-    EXPECT_TRUE(result->maps.front().y_axis.type.empty());
+    EXPECT_THAT(result->maps.front().y_axis.type, IsEmpty());
 }
 
 TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndPreservesAbsentOptionalFields)
@@ -303,16 +306,16 @@ TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndPreservesAbsentOptio
     auto result = ParseRomraiderDefinition(xml, "minimal.xml", "MINIMAL");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_TRUE(result->parents.empty());
+    EXPECT_THAT(result->parents, IsEmpty());
     EXPECT_EQ(result->metadata, RomMetadata{});
     ASSERT_EQ(result->maps.size(), 1U);
-    EXPECT_FALSE(result->maps.front().id);
+    EXPECT_THAT(result->maps.front().id, Eq(std::nullopt));
     EXPECT_EQ(result->maps.front().address, memory::DefinitionAddress{0x20});
-    EXPECT_FALSE(result->maps.front().x_size);
-    EXPECT_FALSE(result->maps.front().y_size);
-    EXPECT_FALSE(result->maps.front().swap_xy);
-    EXPECT_FALSE(result->maps.front().flip_x);
-    EXPECT_FALSE(result->maps.front().flip_y);
+    EXPECT_THAT(result->maps.front().x_size, Eq(std::nullopt));
+    EXPECT_THAT(result->maps.front().y_size, Eq(std::nullopt));
+    EXPECT_THAT(result->maps.front().swap_xy, Eq(std::nullopt));
+    EXPECT_THAT(result->maps.front().flip_x, Eq(std::nullopt));
+    EXPECT_THAT(result->maps.front().flip_y, Eq(std::nullopt));
 }
 
 TEST(RomRaiderParserTest, MalformedXmlIsInvalidConfigWithSourceAndDocumentContext)

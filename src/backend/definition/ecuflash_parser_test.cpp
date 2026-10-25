@@ -10,6 +10,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+using ::testing::Eq;
+
 namespace fastecu::definition
 {
 namespace
@@ -265,16 +267,16 @@ TEST(EcuFlashParserTest, PreservesAbsentOptionalFields)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
-    EXPECT_FALSE(result->maps.front().id);
-    EXPECT_FALSE(result->maps.front().x_size);
-    EXPECT_FALSE(result->maps.front().y_size);
-    EXPECT_FALSE(result->maps.front().swap_xy);
-    EXPECT_FALSE(result->maps.front().flip_x);
-    EXPECT_FALSE(result->maps.front().flip_y);
+    EXPECT_THAT(result->maps.front().id, Eq(std::nullopt));
+    EXPECT_THAT(result->maps.front().x_size, Eq(std::nullopt));
+    EXPECT_THAT(result->maps.front().y_size, Eq(std::nullopt));
+    EXPECT_THAT(result->maps.front().swap_xy, Eq(std::nullopt));
+    EXPECT_THAT(result->maps.front().flip_x, Eq(std::nullopt));
+    EXPECT_THAT(result->maps.front().flip_y, Eq(std::nullopt));
     ASSERT_EQ(result->scalings.size(), 1U);
-    EXPECT_FALSE(result->scalings.front().from_byte);
-    EXPECT_FALSE(result->scalings.front().to_byte);
-    EXPECT_FALSE(result->scalings.front().format);
+    EXPECT_THAT(result->scalings.front().from_byte, Eq(std::nullopt));
+    EXPECT_THAT(result->scalings.front().to_byte, Eq(std::nullopt));
+    EXPECT_THAT(result->scalings.front().format, Eq(std::nullopt));
 }
 
 TEST(EcuFlashParserTest, ConvertsAnyPositivePrintfPrecision)

@@ -25,6 +25,7 @@ namespace
 {
 
 using ::testing::Field;
+using ::testing::IsEmpty;
 
 std::vector<std::uint8_t> Bytes(std::string_view text)
 {
@@ -274,7 +275,7 @@ TEST_F(DefinitionServiceTest, PropagatesDiscoveryFailureWithoutReadingFiles)
 
     ASSERT_THAT(result,
                 fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("catalog directory unavailable")));
-    EXPECT_TRUE(repository_.read_handles.empty());
+    EXPECT_THAT(repository_.read_handles, IsEmpty());
 }
 
 TEST_F(DefinitionServiceTest, SkipsHandleThatFailsToReadAndKeepsRemainingEntries)
@@ -318,7 +319,7 @@ TEST_F(DefinitionServiceTest, SkipsEveryUnusableHandleAndSucceedsWithAnEmptyCata
     auto result = service_.BuildRomraiderCatalog(handles);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_TRUE(result->Entries().empty());
+    EXPECT_THAT(result->Entries(), IsEmpty());
 }
 
 TEST_F(DefinitionServiceTest, MatchesAsciiIdentifierEndingExactlyAtRomEnd)
@@ -559,7 +560,7 @@ TEST_F(DefinitionServiceTest, LoadRejectsMissingCatalogIdWithoutReading)
 
     ASSERT_THAT(service_.Load(*catalog, DefinitionFormat::kEcuFlash, "UNKNOWN"),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(repository_.read_handles.empty());
+    EXPECT_THAT(repository_.read_handles, IsEmpty());
 }
 
 TEST_F(DefinitionServiceTest, LoadRejectsEcuFlashIdentityThatDoesNotMatchCatalogId)
@@ -622,7 +623,7 @@ TEST_F(DefinitionServiceTest, RejectsCreationWhenDestinationAlreadyExists)
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("existing.xml")));
-    EXPECT_TRUE(writer_.replace_calls.empty());
+    EXPECT_THAT(writer_.replace_calls, IsEmpty());
 }
 
 TEST_F(DefinitionServiceTest, RejectsInvalidCreationInputBeforeAtomicReplacement)
@@ -631,7 +632,7 @@ TEST_F(DefinitionServiceTest, RejectsInvalidCreationInputBeforeAtomicReplacement
     input.internal_id = " \t ";
 
     ASSERT_THAT(service_.CreateDefinition("untouched.xml", input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(writer_.replace_calls.empty());
+    EXPECT_THAT(writer_.replace_calls, IsEmpty());
 }
 
 TEST_F(DefinitionServiceTest, ImportsDefinitionWithOneExactAtomicReplacement)
@@ -661,7 +662,7 @@ TEST_F(DefinitionServiceTest, ImportPropagatesSourceReadFailureBeforeAtomicRepla
     auto result = service_.ImportDefinition("source.xml", "untouched.xml", ValidHeaderInput());
 
     ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("source vanished")));
-    EXPECT_TRUE(writer_.replace_calls.empty());
+    EXPECT_THAT(writer_.replace_calls, IsEmpty());
 }
 
 TEST_F(DefinitionServiceTest, ImportRejectsMalformedSourceBeforeAtomicReplacement)
@@ -670,7 +671,7 @@ TEST_F(DefinitionServiceTest, ImportRejectsMalformedSourceBeforeAtomicReplacemen
 
     ASSERT_THAT(service_.ImportDefinition("source.xml", "untouched.xml", ValidHeaderInput()),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(writer_.replace_calls.empty());
+    EXPECT_THAT(writer_.replace_calls, IsEmpty());
 }
 
 TEST_F(DefinitionServiceTest, ImportRejectsInvalidTransformedTreeBeforeAtomicReplacement)
@@ -685,7 +686,7 @@ TEST_F(DefinitionServiceTest, ImportRejectsInvalidTransformedTreeBeforeAtomicRep
 
     ASSERT_THAT(service_.ImportDefinition("source.xml", "untouched.xml", ValidHeaderInput()),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_TRUE(writer_.replace_calls.empty());
+    EXPECT_THAT(writer_.replace_calls, IsEmpty());
 }
 
 TEST_F(DefinitionServiceTest, ImportRejectsDuplicateRomIdBeforeAtomicReplacement)
@@ -700,7 +701,7 @@ TEST_F(DefinitionServiceTest, ImportRejectsDuplicateRomIdBeforeAtomicReplacement
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("<romid>")));
-    EXPECT_TRUE(writer_.replace_calls.empty());
+    EXPECT_THAT(writer_.replace_calls, IsEmpty());
 }
 
 TEST_F(DefinitionServiceTest, PropagatesAtomicReplacementFailureUnchanged)
