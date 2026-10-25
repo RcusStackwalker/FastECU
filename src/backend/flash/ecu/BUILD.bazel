@@ -2104,6 +2104,7 @@ fastecu_portable_gtest(
         ":subaru_denso_sh7058_can_diesel_types",
         ":subaru_denso_sh7058_can_plan",
         ":subaru_denso_sh7058_can_types",
+        ":subaru_tcu_denso_sh705x_can_types",
         "//src/algorithms/protocol/uds",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
