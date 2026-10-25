@@ -98,6 +98,13 @@ pre-drain checkpoint remains. The
 [diesel evidence](can-cancellation-migration-results.md#denso-sh7058-beef-diesel)
 records the exact delegated timeout prefix and unchanged pending timeout policy.
 
+Denso SH705x BEEF TCU explicitly selects the CAN guard. Its B6 raw discard
+refuses delegation after cancellation from an accepted Write. Kernel-ID drain
+bounds/polls, exact session validation, UI preflight and the executor-owned
+inner restart keep their existing owners. The
+[TCU migration evidence](can-cancellation-migration-results.md#denso-sh705x-beef-tcu)
+records the real boundary proof and retained restart integration.
+
 ## Denso BEEF CAN kernel download framing
 
 The [BEEF CAN helpers](../../src/backend/flash/ecu/denso_beef_can_common.h) own
