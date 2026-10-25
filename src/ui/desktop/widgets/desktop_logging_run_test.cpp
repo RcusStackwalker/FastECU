@@ -61,14 +61,13 @@ Result<DesktopLoggingRunStart> makeRequest(const QString& directory, LoggingTarg
     }
     EXPECT_TRUE(model.InstallDefinition(std::move(definition)));
     model.SetSelection({.protocol = protocol, .gauge_ids = {"rpm"}, .lower_panel_ids = {"rpm", "coolant"}});
-    auto snapshot =
-        MakeDesktopLoggingSnapshot(model, protocol == "CDBG" ? LoggingProtocolId::kCdbg : LoggingProtocolId::kSsm,
-                                   QString::fromStdString(protocol),
-                                   {.poll_timeout = 50ms,
-                                    .car_silence_miss_threshold = 100000,
-                                    .reconnect_attempt_threshold = 100001,
-                                    .reconnect_retry_period = 0},
-                                   target);
+    auto snapshot = fastecu::logging::PrepareLoggingRun(
+        model, protocol == "CDBG" ? LoggingProtocolId::kCdbg : LoggingProtocolId::kSsm, protocol,
+        {.poll_timeout = 50ms,
+         .car_silence_miss_threshold = 100000,
+         .reconnect_attempt_threshold = 100001,
+         .reconnect_retry_period = 0},
+        target);
     if (!snapshot.has_value())
     {
         return std::unexpected(snapshot.error());

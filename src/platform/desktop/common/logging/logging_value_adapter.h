@@ -6,7 +6,7 @@
 #include "src/backend/logging/logger_model.h"
 #include "src/backend/logging/logging_types.h"
 #include "src/backend/ports/result.h"
-#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
+#include "src/backend/logging/logging_run_snapshot.h"
 
 namespace fastecu::desktop::logging
 {
@@ -26,6 +26,6 @@ class DesktopLoggerValues
     std::map<fastecu::logging::LoggerIdentity, QString> switches_;
 };
 QString FormatLoggingValue(double value, int precision);
-fastecu::Status ApplyLogSample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
-                               DesktopLoggerValues& values);
+fastecu::Status ApplyLogSample(const fastecu::logging::LoggingRunSnapshot& snapshot,
+                               const fastecu::logging::LogSample& sample, DesktopLoggerValues& values);
 } // namespace fastecu::desktop::logging

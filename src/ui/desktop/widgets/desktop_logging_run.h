@@ -13,14 +13,14 @@ namespace fastecu::desktop::logging
 struct DesktopLoggingRunStart
 {
     LogSessionConfig session;
-    DesktopLoggingSnapshot snapshot;
+    fastecu::logging::LoggingRunSnapshot snapshot;
     QString csv_directory;
     QString csv_name_stem;
 };
 
 struct DesktopLoggingRunView
 {
-    std::optional<DesktopLoggingSnapshot> active_snapshot;
+    std::optional<fastecu::logging::LoggingRunSnapshot> active_snapshot;
     DesktopLoggerValues values;
     bool acquisition_running = false;
     bool csv_enabled = false;
@@ -58,7 +58,7 @@ class DesktopLoggingRun final : public QObject
 
     LoggingEngine& engine_;
     LoggingCsvFile csv_file_;
-    std::optional<DesktopLoggingSnapshot> active_snapshot_;
+    std::optional<fastecu::logging::LoggingRunSnapshot> active_snapshot_;
     DesktopLoggerValues values_;
     QElapsedTimer elapsed_;
     QString csv_path_;

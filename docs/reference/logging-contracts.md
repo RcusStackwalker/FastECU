@@ -35,6 +35,41 @@ parameter or switch definitions. Failed saves retain edits, and definition failu
 remain nonfatal. Unresolved and known-unsupported selections remain visible and
 replaceable; they prevent startup with an actionable protocol/identity error.
 
+## Desktop run preparation
+
+The UI-owned, Qt-free
+[preparation module](../../src/ui/desktop/logging/logging_run_preparation.h)
+borrows the model and captured choices for one synchronous call. It returns an
+owned engine registration key and validated logging run snapshot together, without
+I/O or retained references. The saved protocol selects acquisition behavior;
+the separate SSM filter selects logging definitions. Exact, case-sensitive
+resolution supplies these desktop defaults:
+
+| Saved protocol | Registration key / acquisition | Definition filter | Poll timeout | Silence threshold | Reconnect threshold | Retry period |
+| --- | --- | --- | --- | --- | --- | --- |
+| `MUT_DMA` | `MUT_DMA` / MUT/DMA | `MUT_DMA` | 50 ms | 20 | 100 | 20 |
+| `CDBG` | `CDBG` / CDBG | `CDBG` | 50 ms | 20 | 100 | 20 |
+| Every other string | `SSM` / SSM | Supplied SSM filter | 300 ms | 10 | 30 | 10 |
+
+There is no trimming or case normalization. Empty or unknown saved strings keep
+the SSM fallback; an empty SSM filter retains its existing validation error.
+MUT/DMA and CDBG ignore the supplied SSM filter. Backend validation order,
+error kind/detail and capture semantics are unchanged. The captured selection's
+protocol is not normalized to the effective definition filter.
+
+The returned registration key and acquisition protocol agree when produced.
+Engine registration remains independent: generic callers can supply an explicitly
+registered key and an already prepared snapshot, including custom protocols and
+polling policies. Engine dispatch is not inferred from the snapshot's definition
+filter or acquisition protocol.
+
+The window captures ECU/TCU choice before preparation and performs Qt string
+conversion. It handles detailed preparation failures before starting the run;
+no protocol factory or CSV file is opened on those failures. Run startup keeps
+its existing generic failure notice. Active display refresh uses the captured
+snapshot's definition filter, and the run owner retains lifecycle and reentrancy
+ownership below.
+
 ## Per-run snapshots
 
 [Run preparation](../../src/backend/logging/logging_run_snapshot.h) returns an

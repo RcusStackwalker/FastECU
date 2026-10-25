@@ -8,7 +8,7 @@
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
-#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
+#include "src/backend/logging/logging_run_snapshot.h"
 #include "src/platform/desktop/common/logging/runtime/logging_worker.h"
 #include <QMap>
 #include <array>
@@ -35,8 +35,9 @@ using ::testing::Return;
 
 namespace
 {
-fastecu::Result<DesktopLoggingSnapshot> Snapshot(LoggingProtocolId id, std::uint32_t address = 0x804000,
-                                                 std::size_t length = 1, LoggingTarget target = LoggingTarget::kEcu)
+fastecu::Result<fastecu::logging::LoggingRunSnapshot> Snapshot(LoggingProtocolId id, std::uint32_t address = 0x804000,
+                                                               std::size_t length = 1,
+                                                               LoggingTarget target = LoggingTarget::kEcu)
 {
     const auto key = id == LoggingProtocolId::kSsm ? "SSM" : id == LoggingProtocolId::kMutDma ? "MUT_DMA" : "CDBG";
     LoggerModel model;

@@ -1,5 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
-#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
+#include "src/backend/logging/logging_run_snapshot.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 
 #include <chrono>
@@ -34,13 +34,13 @@ logging::LoggerModel BuildModel(logging::LoggerDefinition def, std::vector<std::
     result.SetSelection({.protocol = "SSM", .lower_panel_ids = std::move(ids)});
     return result;
 }
-TEST(DesktopLoggingSnapshotAdapterTest, StableIdentitySurvivesSelectionEditsAndDefinitionReordering)
+TEST(DesktopLoggingValueAdapter, StableIdentitySurvivesSelectionEditsAndDefinitionReordering)
 {
     auto values =
         BuildModel({.parameters = {BuildParameter("coolant"), BuildParameter("rpm"), BuildParameter("rpm", "CDBG")}},
                    {"rpm", "coolant"});
-    auto snapshot = desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kSsm, "SSM", Policy(),
-                                                        logging::LoggingTarget::kEcu);
+    auto snapshot = logging::PrepareLoggingRun(values, logging::LoggingProtocolId::kSsm, "SSM", Policy(),
+                                               logging::LoggingTarget::kEcu);
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     EXPECT_EQ(snapshot->ProtocolKey(), "SSM");
     values.SetSelection({.protocol = "CDBG", .lower_panel_ids = {"rpm"}});
@@ -58,8 +58,8 @@ TEST(DesktopLoggingSnapshotAdapterTest, StableIdentitySurvivesSelectionEditsAndD
 TEST(DesktopLoggingValueAdapterTest, UnknownSamplesAndMissingCacheEntriesDoNotUpdateOtherIdentities)
 {
     const auto values = BuildModel({.parameters = {BuildParameter("rpm")}}, {"rpm"});
-    const auto snapshot = desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kSsm, "SSM", Policy(),
-                                                              logging::LoggingTarget::kEcu);
+    const auto snapshot = logging::PrepareLoggingRun(values, logging::LoggingProtocolId::kSsm, "SSM", Policy(),
+                                                     logging::LoggingTarget::kEcu);
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     desktop::DesktopLoggerValues cache;
     cache.Initialize(values);
@@ -84,13 +84,13 @@ TEST(DesktopLoggingValueAdapterTest, CacheNamespacesAndFixedDecimalFormatting)
     EXPECT_EQ(desktop::FormatLoggingValue(-1.25, 2), "-1.25");
     EXPECT_EQ(desktop::FormatLoggingValue(1.2, 3), "1.200");
 }
-TEST(DesktopLoggingSnapshotAdapter, EmptyUnitsAndDisabledSamplesReachDisplayAdapter)
+TEST(DesktopLoggingValueAdapter, EmptyUnitsAndDisabledSamplesReachDisplayAdapter)
 {
     auto p = BuildParameter("rpm");
     p.conversions.front().units.clear();
     auto values = BuildModel({.parameters = {p, BuildParameter("off", "SSM", false)}}, {"rpm", "off"});
-    const auto snapshot = desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kSsm, "SSM", Policy(),
-                                                              logging::LoggingTarget::kTcu);
+    const auto snapshot = logging::PrepareLoggingRun(values, logging::LoggingProtocolId::kSsm, "SSM", Policy(),
+                                                     logging::LoggingTarget::kTcu);
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     EXPECT_EQ(snapshot->Target(), logging::LoggingTarget::kTcu);
     desktop::DesktopLoggerValues cache;
@@ -108,8 +108,8 @@ TEST(DesktopLoggingValueAdapterTest, NewRunClearsOldValuesAndUpdatesSeparateSwit
                               .switches = {{.protocol = "SSM", .id = "rpm", .address = "20", .sample_bit = "7"}}},
                              {"rpm"});
     values.SetSelection({.protocol = "SSM", .lower_panel_ids = {"rpm"}, .switch_ids = {"rpm"}});
-    const auto run = desktop::MakeDesktopLoggingSnapshot(values, logging::LoggingProtocolId::kSsm, "SSM", Policy(),
-                                                         logging::LoggingTarget::kEcu);
+    const auto run = logging::PrepareLoggingRun(values, logging::LoggingProtocolId::kSsm, "SSM", Policy(),
+                                                logging::LoggingTarget::kEcu);
     ASSERT_THAT(run, fastecu::testing::IsOk());
     desktop::DesktopLoggerValues cache;
     cache.Initialize(values);

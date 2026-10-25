@@ -126,6 +126,15 @@ interface tested without constructing widgets. The
 [desktop run contract](reference/logging-contracts.md#desktop-run-ownership)
 owns the lifecycle and reentrancy details.
 
+### Desktop preparation owns startup defaults
+
+A pure UI-owned preparation module selects the acquisition protocol, definition
+filter and polling defaults and returns the matching registration key and backend
+snapshot together. The window supplies captured choices and presents failures;
+the engine retains independent factory dispatch. The
+[desktop preparation contract](reference/logging-contracts.md#desktop-run-preparation)
+owns resolution, fallback and error ordering.
+
 ### Separate definitions, selection, support, and samples
 
 Logger definitions are immutable, selection belongs to the operator, support
@@ -137,7 +146,7 @@ identity avoids ambiguity from duplicate labels or IDs shared across protocols.
 Owned per-run snapshots insulate workers from later widget/selection changes.
 Backend preparation owns channel parsing, support/selection rules, and sample
 identity resolution. One validated, immutable run value prevents independently
-mutable identity maps and channel metadata from disagreeing. Desktop adapters
+mutable identity maps and channel metadata from disagreeing. Desktop code
 retain input conversion, fixed formatting, display caches, and transport binding.
 
 Definition fields follow an explicit portable grammar, so authoring mistakes fail

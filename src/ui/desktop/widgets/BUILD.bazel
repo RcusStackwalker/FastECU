@@ -124,6 +124,7 @@ qt_cc_library(
         "//src/ui/desktop/calibration:rom_info",
         "//src/ui/desktop/connection:connection_coordinator",
         "//src/ui/desktop/flash/operation:flash_operation_controller",
+        "//src/ui/desktop/logging:logging_run_preparation",
     ],
     linkopts = select({
         "@platforms//os:windows": [

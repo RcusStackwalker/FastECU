@@ -2334,15 +2334,14 @@ void MainWindowTest::checkWindowPreservesInjectedLoggingFactory()
     ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
     ASSERT_TRUE(services.fake != nullptr);
     bool called = false;
-    services.logging_engine.RegisterProtocol(
-        "SSM",
-        [&called](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
-        {
-            called = snapshot.Target() == fastecu::logging::LoggingTarget::kTcu;
-            auto protocol = std::make_unique<ScriptedLoggingProtocol>();
-            protocol->BlockPollUntilCancelled();
-            return protocol;
-        });
+    services.logging_engine.RegisterProtocol("SSM",
+                                             [&called](const fastecu::logging::LoggingRunSnapshot& snapshot)
+                                             {
+                                                 called = snapshot.Target() == fastecu::logging::LoggingTarget::kTcu;
+                                                 auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                                                 protocol->BlockPollUntilCancelled();
+                                                 return protocol;
+                                             });
     MainWindow window{services.services()};
     constructorDriver.stop();
     // This test checks ownership, not UI error dialogs. The next test
@@ -2382,15 +2381,15 @@ void MainWindowTest::checkLoggingCapturesTargetForEachRun()
     window.config_session_->Settings().selected_log_protocol = "SSM";
     QAction *action = prepareLogging(window, "SSM");
     std::vector<bool> targets;
-    services.logging_engine.RegisterProtocol(
-        "SSM",
-        [&targets](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
-        {
-            targets.push_back(snapshot.Target() == fastecu::logging::LoggingTarget::kEcu);
-            auto protocol = std::make_unique<ScriptedLoggingProtocol>();
-            protocol->BlockPollUntilCancelled();
-            return protocol;
-        });
+    services.logging_engine.RegisterProtocol("SSM",
+                                             [&targets](const fastecu::logging::LoggingRunSnapshot& snapshot)
+                                             {
+                                                 targets.push_back(snapshot.Target() ==
+                                                                   fastecu::logging::LoggingTarget::kEcu);
+                                                 auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                                                 protocol->BlockPollUntilCancelled();
+                                                 return protocol;
+                                             });
     for (bool target : {true, false})
     {
         SCOPED_TRACE(::testing::PrintToString(target));
@@ -2437,7 +2436,7 @@ void MainWindowTest::checkLoggingDefinitionErrorShowsDetailAndLeavesStopped()
                           {.protocol = "SSM", .lower_panel_ids = {"rpm"}});
     int factoryCalls = 0;
     services.logging_engine.RegisterProtocol("SSM",
-                                             [&factoryCalls](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+                                             [&factoryCalls](const fastecu::logging::LoggingRunSnapshot&)
                                              {
                                                  ++factoryCalls;
                                                  return std::make_unique<ScriptedLoggingProtocol>();
@@ -3110,7 +3109,7 @@ void MainWindowTest::checkLoggingDefinitionErrorShowsContextAndLeavesStopped()
     installLoggingFixture(window, std::move(definition), {.protocol = "SSM", .lower_panel_ids = {"rpm"}});
     int factoryCalls = 0;
     services.logging_engine.RegisterProtocol("SSM",
-                                             [&factoryCalls](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+                                             [&factoryCalls](const fastecu::logging::LoggingRunSnapshot&)
                                              {
                                                  ++factoryCalls;
                                                  auto protocol = std::make_unique<ScriptedLoggingProtocol>();
@@ -3476,7 +3475,7 @@ void MainWindowTest::checkLoggingDisplayErrorContinuesOtherSamples()
     prepareLogging(window, "SSM");
     window.config_session_->Settings().selected_log_protocol = "SSM";
     services.logging_engine.RegisterProtocol("SSM",
-                                             [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+                                             [](const fastecu::logging::LoggingRunSnapshot&)
                                              {
                                                  auto protocol = std::make_unique<ScriptedLoggingProtocol>();
                                                  protocol->BlockPollUntilCancelled();
@@ -3584,21 +3583,24 @@ void MainWindowTest::checkLoggingUsesTheSessionLogProtocol()
     MainWindow& window = *under.window;
     prepareLogging(window, "CDBG");
     services.logging_engine.RegisterProtocol("CDBG",
-                                             [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+                                             [](const fastecu::logging::LoggingRunSnapshot&)
                                              {
                                                  auto protocol = std::make_unique<ScriptedLoggingProtocol>();
                                                  protocol->BlockPollUntilCancelled();
                                                  return protocol;
                                              });
     window.config_session_->Settings().selected_log_protocol = "CDBG";
+    window.protocol_ = "STALE_SSM_FILTER";
 
     ModalDriver driver{QString()};
     driver.start();
     window.continueStartLogging();
     driver.stop();
+    const auto view = window.logging_run_->view();
+    ASSERT_THAT(view.active_snapshot, Optional(_));
+    EXPECT_EQ(view.active_snapshot->ProtocolKey(), "CDBG");
+    EXPECT_EQ(view.active_snapshot->Session().Protocol(), fastecu::logging::LoggingProtocolId::kCdbg);
     services.logging_engine.Stop();
-
-    ASSERT_EQ(window.active_log_value_protocol_filter_, QString("CDBG"));
 }
 
 TEST_F(MainWindowTest, loggingUsesTheSessionLogProtocol)
@@ -4273,7 +4275,7 @@ void MainWindowTest::checkLoggingStartWaitsForIdentification(bool targetIsEcu)
     bool targetFrozenInContinuation = false;
     services.logging_engine.RegisterProtocol(
         "SSM",
-        [&window, &targetFrozenInContinuation](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+        [&window, &targetFrozenInContinuation](const fastecu::logging::LoggingRunSnapshot&)
         {
             targetFrozenInContinuation =
                 !window.ecu_radio_button_->isEnabled() && !window.tcu_radio_button_->isEnabled();
@@ -4496,7 +4498,7 @@ void MainWindowTest::checkConnectStopsAnActiveLoggingWorkerBeforeIdentification(
     constructorDriver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     services.logging_engine.RegisterProtocol("SSM",
-                                             [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+                                             [](const fastecu::logging::LoggingRunSnapshot&)
                                              {
                                                  auto protocol = std::make_unique<ScriptedLoggingProtocol>();
                                                  protocol->BlockPollUntilCancelled();
