@@ -187,6 +187,15 @@ Result<bytes::Bytes> ResolveKernelBytes(const FlashWorkflowRequest& request, IFi
     return bytes::Bytes(kernel_bytes->begin(), kernel_bytes->end());
 }
 
+// The workflow's only way to bind an attempt: an executor that does not run
+// plan admission through FamilyExecutor cannot reach the worker.
+template <AdmittingExecutor Executor, typename Transport>
+std::unique_ptr<BoundFlashAttempt> BindAdmittedAttempt(FlashPlan plan, std::unique_ptr<Executor> executor,
+                                                       std::unique_ptr<Transport> transport)
+{
+    return BindFlashAttempt(std::move(plan), std::move(executor), std::move(transport));
+}
+
 // A new transport of `Transport`, one of the three flash transport
 // interfaces, from the workflow's source.
 template <typename Transport> std::unique_ptr<Transport> MakeTransport(IFlashTransportSource& source)
@@ -256,9 +265,9 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
         {
             stage_ = Stage::kDone;
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     BindFlashAttempt(std::move(*plan_),
-                                                      std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>(),
-                                                      ports_.transports->MakeKline())};
+                                     BindAdmittedAttempt(std::move(*plan_),
+                                                         std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>(),
+                                                         ports_.transports->MakeKline())};
         }
         return outcome_.CompletedStep();
     }
@@ -536,7 +545,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
     {
         return FlashWorkflowStep{
             std::in_place_type<FlashAttempt>,
-            BindFlashAttempt(std::move(plan), std::move(executor), ports_.transports->MakeKline())};
+            BindAdmittedAttempt(std::move(plan), std::move(executor), ports_.transports->MakeKline())};
     }
 
     FlashWorkflowRequest request_;
@@ -757,8 +766,8 @@ class SingleAttemptFlashWorkflow final : public FlashWorkflow
         {
             attempted_ = true;
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     BindFlashAttempt(std::move(*plan), std::make_unique<Executor>(),
-                                                      MakeTransport<Transport>(*ports_.transports))};
+                                     BindAdmittedAttempt(std::move(*plan), std::make_unique<Executor>(),
+                                                         MakeTransport<Transport>(*ports_.transports))};
         }
         return outcome_.CompletedStep();
     }
@@ -910,13 +919,13 @@ class EepromWorkflow final : public FlashWorkflow
         if (plan->Transport() == TransportKind::kKline)
         {
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     BindFlashAttempt(std::move(*plan),
-                                                      std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                                                      ports_.transports->MakeKline())};
+                                     BindAdmittedAttempt(std::move(*plan),
+                                                         std::make_unique<DensoSh705xEepromKlineExecutor>(),
+                                                         ports_.transports->MakeKline())};
         }
         return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                 BindFlashAttempt(std::move(*plan), std::make_unique<DensoSh705xEepromCanExecutor>(),
-                                                  ports_.transports->MakeCan())};
+                                 BindAdmittedAttempt(std::move(*plan), std::make_unique<DensoSh705xEepromCanExecutor>(),
+                                                     ports_.transports->MakeCan())};
     }
 
     void Submit(FlashPromptResponse response) override
