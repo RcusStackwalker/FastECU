@@ -329,3 +329,66 @@ suite changes account for **243 NLOC**. This is explicit support growth, with
 no claimed savings or compression. Full repository delivery gates remain
 controller-owned and run once for the completed PR; per-family software proof
 does not change any hardware qualification status.
+
+## Denso ISO-15765 N83M 1.5M
+
+Task 7, 2026-10-25; source revision `00d4125d`. Production executor bodies,
+profiles, both shared loop polls, UdsClient and clocks remain unchanged.
+
+The shared definition header has an empty default cancellation policy and an
+explicit specialization per migrated plan. Inheritance exposes the selected
+alias to both explicit instantiation and alias-header users; the shared
+executor itself has no blanket guard alias. Direct suite Execute calls use the
+conditional adapter. Shared bootloader tests already use ExecutorRun and need
+no direct-call replacement. Caller search also covered family conformance and
+KernelFreeCanWorkflow bindings in flash_workflow.cpp.
+
+| Boundary | Retained owner and guard effect |
+| --- | --- |
+| Admission/preparation | Family validation precedes precancel; setup/Open/Close/unblock remain on runner-owned port. No new lifecycle gate. |
+| Connect | OBK raw Send/Receive, tolerant branch/access probes, nonfatal identity queries, fatal security and in-car confirmations retain response checks/events. Ten fire-and-forget exchanges directly Read the guarded port, retaining unchecked response ids. |
+| Jump/retries | Raw jump Send/Receive and bounded 100 ms sleep/re-read loop retain tolerated exhaustion. N83M 4M/SH72531 retain first-reply discard and 50 ms wait. |
+| Read | Both setup exchanges retain fatal/tolerant profile policy. B7 loop retains its poll, decrypt/padding, fixed-page advancement, progress and short-page behavior. SH pacing remains clock-owned; N83M remains unpaced. |
+| Write/erase | Shared write-loop poll, absolute image/window offsets, 256-byte chunks, raw erase trigger and 500 ms wait/poll remain. All response validation and abort decisions retained. |
+| Stop/close/results | Six best-effort stop/close requests retain ignored cancellation/errors. Checksum remains fatal after its 100 ms wait with profile timeouts. No post-call mapping or final sweep; BoundAttempt closes once with existing precedence. |
+
+Guard entry newly refuses blind-inner Reads at raw OBK/setup/jump/probe,
+fire-and-forget and UDS pending continuations. This changes refusal boundaries,
+not accepted-operation results. No existing poll is removed.
+
+The existing `CancellationAtTheReadStopIsSwallowed` implements the planned
+late-stop characterization (strengthened rather than duplicated). It passed
+before opt-in with a cancellation-blind port, exact decrypted/padded image,
+zero stop Write attempts and no extra inner Read. UdsClient already refuses all
+six stop attempts at entry; full data still returns success. The real-family
+BoundAttempt OBK regression instead fails baseline on one extra inner Read and
+consumed reply; it is a new guard boundary, separate from preservation evidence.
+
+Focused command: `bazel test --config=release
+//src/backend/flash/ecu:subaru_denso_1n83m_1_5m_can_executor_test`, plus
+`//src/backend/flash/ecu:denso_iso15765_bootloader_executor_test`,
+`//src/backend/flash/ecu:denso_iso15765_can_common_test`,
+`//src/backend/flash/testing:guarded_attempt_expectations_test`,
+`//src/backend/flash:bound_flash_attempt_test` and
+`//src/backend/flash:guarded_can_flash_transport_test`. Restored candidate passed
+**6/6** targets. Baseline XML **29** cases; candidate **31**, with every
+predecessor case retained (XML classname/name set comparison), including invalid
+plans before precancel and existing family abort cases. Behavior-baseline tests
+fail only on the newly refused blind Read. The actual-alias bounded selection
+proof fails compilation before the declaration, independently of family polls.
+Removing only this specialization's alias again fails compilation. Temporarily
+bypassing BoundAttempt guard construction fails both selection and real-family
+boundary cases plus the shared bound probe on extra Reads. Both mutations were
+restored and the six targets passed again. Gazelle regenerated only named ecu
+BUILD dependencies; scoped formatting and diff review passed.
+
+`python3 scripts/nloc_loop.py measure --json`: 153474 / 68449 /
+85025 before; 153532 / 68460 / 85072 after
+(total / production / test). Production **+11 NLOC**;
+test **+47 NLOC**. No compression or savings claimed.
+The [qualification matrix](../flash-qualification-matrix.md) still marks this
+family experimental; no hardware was used and no dedicated family checklist
+is linked from its row. Physical identity, erase/window safety, full-size read,
+write/readback, timing and cancellation-boundary bench evidence remain open.
+N83M 1.5M additionally retains its recorded stock-read checksum-table gate.
+Full repository delivery gates remain controller-owned.

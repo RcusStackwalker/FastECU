@@ -47,6 +47,15 @@ sets the requirements for explicit opt-in by additional CAN and mixed-CAN
 executors; it does not opt them in. Test compression needs separate assessment,
 and hardware status remains unchanged.
 
+The Denso ISO-15765 bootloader template selects cancellation through an empty
+default policy with explicit plan specializations in its shared definition
+header. Migrated instantiations and per-family evidence are recorded in the
+[Denso migration results](can-cancellation-migration-results.md#denso-iso-15765-n83m-15m).
+Shared polls, profile values, best-effort stop/close policy and SH page pacing
+remain with their current owners. A completed N83M dump can succeed after
+cancellation at its best-effort stop; an SH final-page pacing cancellation
+still returns its clock failure.
+
 ## Plan admission
 
 Every flash executor derives from

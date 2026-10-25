@@ -1791,6 +1791,9 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
+        "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
+        "//src/backend/flash/testing:execute_with_cancellation_guard",
+        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:recording_clock",
@@ -2057,7 +2060,6 @@ cc_library(
     implementation_deps = [
         ":denso_iso15765_can_common",
         ":flash_phase_progress",
-        ":subaru_denso_1n83m_1_5m_can_plan",
         ":subaru_denso_1n83m_4m_can_plan",
         ":subaru_denso_sh72531_can_plan",
         ":subaru_denso_sh72543_can_diesel_plan",
@@ -2068,7 +2070,11 @@ cc_library(
         "//src/backend/flash:can_flash_uds_channel",
         "//src/backend/protocol/uds:uds_client",
     ],
-    deps = ["//src/backend/flash:flash_executor"],
+    deps = [
+        ":subaru_denso_1n83m_1_5m_can_plan",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:guarded_can_flash_transport",
+    ],
 )
 
 cc_library(
