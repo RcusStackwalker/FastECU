@@ -47,6 +47,7 @@ using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
 using ::testing::Eq;
 using ::testing::Optional;
+using ::testing::Pair;
 
 constexpr std::uint32_t kRequestId = 0x7E1;
 constexpr std::uint32_t kResponseId = 0x7E9;
@@ -624,9 +625,9 @@ void ScriptSh7058A5BlockCompare(ScriptedCanFlashTransport& transport, bool block
 void ScriptFlashInit(ScriptedCanFlashTransport& transport)
 {
     transport.ExpectWrite(BeefRequest(0x05));
-    transport.QueueRead(BeefResponse(0x45, ComposeBe(std::uint32_t{0x00000200})));
+    transport.QueueRead(BeefResponse(0x45, ComposeBe(std::uint32_t{0x000002AF})));
     transport.ExpectWrite(BeefRequest(0x06));
-    transport.QueueRead(BeefResponse(0x46, ComposeBe(std::uint32_t{0x00001000})));
+    transport.QueueRead(BeefResponse(0x46, ComposeBe(std::uint32_t{0x000010BC})));
     transport.ExpectWrite(BeefRequest(0x20));
     transport.QueueRead(BeefResponse(0x60));
 }
@@ -784,9 +785,9 @@ std::vector<LogRecord> ExpectedWriteLogs(std::span<const BlockFixture> blocks)
     AppendCompareLogs(logs, blocks, true, false);
     logs.emplace_back(LogLevel::kInfo, "--- Start writing ROM file to ECU flash memory ---");
     logs.emplace_back(LogLevel::kInfo, "Check max message length");
-    logs.emplace_back(LogLevel::kInfo, ": 0x0200");
+    logs.emplace_back(LogLevel::kInfo, ": 0x02AF");
     logs.emplace_back(LogLevel::kInfo, "Check flashblock size");
-    logs.emplace_back(LogLevel::kInfo, ": 0x1000");
+    logs.emplace_back(LogLevel::kInfo, ": 0x10BC");
     logs.emplace_back(LogLevel::kInfo, "Test write mode off, perform actual flash write");
     logs.emplace_back(LogLevel::kError, "Flash mode succesfully set");
     logs.emplace_back(LogLevel::kInfo, "Flash block addr: 0x00000000 len: 0x00001000");
@@ -1314,6 +1315,32 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartRejectsWrongSidShortTimeoutCanc
         EXPECT_THAT(result, IsErr(start.expected));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, ToleratedIdentityFailuresAreLoggedInTcuWording)
+{
+    auto plan = ReadPlan(kCases[1]);
+    ASSERT_THAT(plan, IsOk());
+    SubaruTcuDensoSh705xCanExecutor executor;
+    ScriptedCanFlashTransport transport;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport);
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xAA});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0x09, 0x12});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x09, 0x04});
+    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x49});
+    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+    transport.QueueNoFrame();
+    FakeCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, IsErr(ErrorKind::kTimeout));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, std::string{"Wrong response from TCU: 7f 09 12 "})));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, std::string{"Wrong response from TCU: 49 "})));
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAndPostUploadBeefRead)
