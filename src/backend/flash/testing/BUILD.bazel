@@ -94,7 +94,6 @@ fastecu_portable_gtest(
     deps = [
         ":execute_with_cancellation_guard",
         ":guarded_attempt_expectations",
-        ":scripted_flash_transports",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash:guarded_can_flash_transport",
         "//src/backend/ports",

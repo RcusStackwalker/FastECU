@@ -6,7 +6,6 @@
 
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/guarded_can_flash_transport.h"
-#include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -38,53 +37,12 @@ Result<FlashPlan> ProbePlan()
     return ValidateAndBuild(std::move(fields));
 }
 
-class BlindTransport final : public ScriptedCanFlashTransport
-{
-  public:
-    explicit BlindTransport(ManualCancellationToken& cancellation) : cancellation_(cancellation)
-    {
-        Exchange(bytes::Bytes{0x01}, bytes::Bytes{0x02});
-    }
-    Status Write(bytes::ByteView data, const ICancellationToken&) override
-    {
-        const auto result = ScriptedCanFlashTransport::Write(data, never_cancelled_);
-        if (result.has_value())
-        {
-            cancellation_.Cancel();
-        }
-        return result;
-    }
-    Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout, const ICancellationToken&) override
-    {
-        ++read_attempts;
-        return ScriptedCanFlashTransport::Read(timeout, never_cancelled_);
-    }
-    int read_attempts = 0;
-
-  private:
-    ManualCancellationToken& cancellation_;
-    ManualCancellationToken never_cancelled_;
-};
-
-class ProbeExecutor : public ICanFlashExecutor
+class ProbeExecutor : public guarded_attempt_detail::CanProbeExecutor
 {
   public:
     Result<Iso15765Config> TransportSetup(const FlashPlan&) const override
     {
         return Iso15765Config{.bitrate = 500000, .request_id = 0x7e0, .response_id = 0x7e8, .extended_id = false};
-    }
-    Result<FlashExecutionResult> Execute(const FlashPlan& plan, ICanFlashTransport& transport, IClock&,
-                                         const ICancellationToken& cancellation, IEventSink&) override
-    {
-        if (const auto written = transport.Write(bytes::Bytes{0x01}, cancellation); !written.has_value())
-        {
-            return std::unexpected(written.error());
-        }
-        if (const auto read = transport.Read(std::chrono::milliseconds(10), cancellation); !read.has_value())
-        {
-            return std::unexpected(read.error());
-        }
-        return FlashExecutionResult{.operation = plan.Operation()};
     }
 };
 
@@ -99,7 +57,7 @@ TEST(GuardedAttemptExpectations, DirectOptInRefusesReadAfterAcceptedWrite)
     const auto plan = ProbePlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     ManualCancellationToken cancellation;
-    BlindTransport transport(cancellation);
+    guarded_attempt_detail::BlindCanTransport transport(cancellation);
     FakeClock clock;
     RecordingEventSink events;
     GuardedProbeExecutor executor;
@@ -116,7 +74,7 @@ TEST(GuardedAttemptExpectations, DirectNonOptInKeepsItsPath)
     const auto plan = ProbePlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     ManualCancellationToken cancellation;
-    BlindTransport transport(cancellation);
+    guarded_attempt_detail::BlindCanTransport transport(cancellation);
     FakeClock clock;
     RecordingEventSink events;
     ProbeExecutor executor;
