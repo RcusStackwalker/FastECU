@@ -535,35 +535,16 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::ReadBlockCrc(IKlineFlashTran
 {
     // Legacy check_romcrc(), lines 645-749: request the ECU CRC for the
     // physical [start, start + length) block.
-    const bytes::Bytes request =
-        DensoBeefKlineFrame(kDensoKlineOpCrc, ComposeBe(block.start, 0x00_b, U24{block.length}));
-    if (Status written = DensoBeefKlineGuarded(cancellation, "CRC write",
-                                               [&] { return DensoBeefKlineWriteAll(transport, request); });
-        !written.has_value())
+    Result<bytes::Bytes> response = DensoBeefKlineRequestBlockCrc(transport, cancellation, block);
+    if (!response.has_value())
     {
-        return std::unexpected(written.error());
+        return std::unexpected(response.error());
     }
-    bytes::Bytes response;
-    if (Status read = DensoBeefKlineGuarded(cancellation, "initial CRC read",
-                                            [&]() -> Status
-                                            {
-                                                auto initial = transport.Read(3000ms, cancellation);
-                                                if (!initial.has_value())
-                                                {
-                                                    return std::unexpected(initial.error());
-                                                }
-                                                response = initial->value_or(bytes::Bytes{});
-                                                return {};
-                                            });
-        !read.has_value())
-    {
-        return std::unexpected(read.error());
-    }
-    if (Status more = ReadCrcContinuation(transport, clock, cancellation, response); !more.has_value())
+    if (Status more = ReadCrcContinuation(transport, clock, cancellation, *response); !more.has_value())
     {
         return std::unexpected(more.error());
     }
-    const Result<std::uint32_t> crc = UnwrapCrc(response);
+    const Result<std::uint32_t> crc = UnwrapCrc(*response);
     if (!crc.has_value())
     {
         return crc;

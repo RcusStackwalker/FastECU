@@ -138,4 +138,12 @@ Result<bytes::Bytes> DensoBeefKlineExchangeAck(IKlineFlashTransport& transport, 
     return std::move(**received);
 }
 
+Result<bytes::Bytes> DensoBeefKlineRequestBlockCrc(IKlineFlashTransport& transport,
+                                                   const ICancellationToken& cancellation, const MemoryRegion& block)
+{
+    const bytes::Bytes request = DensoBeefKlineFrame(
+        kDensoKlineOpCrc, bytes::ComposeBe(block.start, bytes::Byte{0x00}, bytes::U24{block.length}));
+    return DensoBeefKlineExchangeOptional(transport, nullptr, cancellation, request, 0ms, 3000ms)
+        .transform([](IKlineFlashTransport::OptionalBytes reply) { return std::move(reply).value_or(bytes::Bytes{}); });
+}
 } // namespace fastecu::flash
