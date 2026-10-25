@@ -35,13 +35,14 @@
 // wording from a DensoBeefCanProfile and calls the templates below, so callers
 // of those flows use the session, not these functions.
 //
-// Executors still call this header directly for what stays family-local:
+// Executors still call this header directly for what stays family-local: the
+// channel request helpers (SendChannelRequest, ChannelRequest,
+// ChannelRequestOptional), CancelledIfRequested and ElapsedMilliseconds,
 // ParseBeef and BeefRequest for kernel-ID probing, the 0xB6 kernel-upload
 // helpers (BeefKernelPayload, UploadBeefKernelBlocks, DiscardB6Reply), and
-// ReadBeefMemory for the petrol and diesel reads. connect_bootloader, flash
-// the TCU's read and flash-block loops, security and kernel upload
-// differ per family in timeouts, retry counts, geometry and log wording, and
-// stay in each executor.
+// ReadBeefMemory for the petrol and diesel reads. Connect, the TCU's read and
+// flash-block loops, security and kernel upload differ per family in
+// timeouts, retry counts, geometry and log wording, and stay in each executor.
 //
 // The executor suites do NOT read these helpers back: each carries wire
 // expectations transcribed independently from its legacy oracle, so a wrong
