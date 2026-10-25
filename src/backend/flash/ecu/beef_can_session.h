@@ -2,13 +2,17 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
+#include "src/backend/flash/ecu/denso_beef_can_common.h"
 #include "src/backend/flash/ecu/denso_beef_can_profile.h"
+#include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/flash_plan.h"
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/clock.h"
 #include "src/backend/ports/error.h"
@@ -50,6 +54,21 @@ class BeefCanSession
     // `second`, logged under `label`. Empty when the reply is wrong or absent.
     Result<std::optional<std::string>> IdentityString(bytes::ByteView request, bytes::Byte first, bytes::Byte second,
                                                       std::string_view label);
+
+    // The CRC of `block` as the ECU's kernel computes it.
+    Result<std::uint32_t> QueryCrc(const MemoryRegion& block);
+
+    // Which erase regions of `plan` the ECU's CRC disagrees with `image` on.
+    Result<CompareResult> CompareBlocks(const FlashPlan& plan, bytes::ByteView image, PhaseReporter *progress,
+                                        bool after_reflash = false);
+
+    // Reads the kernel's message and block sizes, then selects test or real
+    // write mode.
+    Status InitializeFlash(bool test_write);
+
+    // Compares the ECU with the plan's image, then reflashes every differing
+    // erase region and compares again.
+    Status WriteMemory(const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress);
 
   private:
     // The shape denso_beef_can_common.h's templates read their context from.

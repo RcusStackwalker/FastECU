@@ -18,6 +18,10 @@ namespace
 constexpr std::chrono::milliseconds kNonfatalReadTimeout{2000};
 constexpr std::chrono::milliseconds kNonfatalSendDelay{50};
 
+constexpr bytes::Byte kKernelCrc = 0x02;
+constexpr std::chrono::milliseconds kCrcTimeout{3000};
+constexpr std::chrono::milliseconds kInitializeTimeout{500};
+
 } // namespace
 
 struct BeefCanSession::View
@@ -193,6 +197,41 @@ Result<std::optional<std::string>> BeefCanSession::IdentityString(bytes::ByteVie
     const std::string value(pdu.begin() + 3, pdu.end());
     LogInfo(MakeView(), std::format("{}: {}", label, value));
     return std::optional<std::string>{value};
+}
+
+Result<std::uint32_t> BeefCanSession::QueryCrc(const MemoryRegion& block)
+{
+    View view = MakeView();
+    return QueryBeefCrc(view, block, [&](bytes::ByteView payload)
+                        { return BeefExchange(view, kKernelCrc, payload, 4, kCrcTimeout); });
+}
+
+Result<CompareResult> BeefCanSession::CompareBlocks(const FlashPlan& plan, bytes::ByteView image,
+                                                    PhaseReporter *progress, bool after_reflash)
+{
+    View view = MakeView();
+    return CompareBeefBlocks(view, plan.EraseRegions(), plan.TransferRegion().start, image, progress, after_reflash,
+                             profile_.family, [&](const MemoryRegion& block) { return QueryCrc(block); });
+}
+
+Status BeefCanSession::InitializeFlash(bool test_write)
+{
+    View view = MakeView();
+    return InitializeBeefFlash(view, test_write, false, [&](bytes::Byte opcode, std::size_t minimum_payload)
+                               { return BeefExchange(view, opcode, {}, minimum_payload, kInitializeTimeout); });
+}
+
+Status BeefCanSession::WriteMemory(const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress)
+{
+    View view = MakeView();
+    return WriteBeefMemory(
+        view, plan.ImageOrEmpty(), plan.TransferRegion().start, plan.EraseRegions(),
+        plan.Operation() == FlashOperation::kTestWrite, phases, compare_progress, profile_.family,
+        [&](bytes::Byte opcode, bytes::ByteView payload, std::size_t minimum_payload, std::chrono::milliseconds timeout)
+        { return BeefExchange(view, opcode, payload, minimum_payload, timeout); },
+        [&](PhaseReporter *progress, bool after_reflash)
+        { return CompareBlocks(plan, plan.ImageOrEmpty(), progress, after_reflash); },
+        [&](bool test_write) { return InitializeFlash(test_write); });
 }
 
 } // namespace fastecu::flash
