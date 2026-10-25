@@ -24,7 +24,7 @@ a new gate. BoundAttempt constructs the executor's nested CancellationGuard
 only around Execute, after Open. Preparation, configuration, Open, Close and
 unblock remain on the owned transport. Execution failure wins over Close
 failure; a Close-only failure is returned. Non-opted-in families retain their
-existing path. Direct Colt Execute callers must supply the guard. Shared CAN
+existing path. Direct Execute callers of opted-in executors must supply the guard. Shared CAN
 test runners use the executor-selected
 [direct-call adapter](../../src/backend/flash/testing/execute_with_cancellation_guard.h).
 The [migration results](can-cancellation-migration-results.md#shared-test-support)
@@ -40,18 +40,20 @@ Complete ROM data and verification failures retain their meaning after late
 cancellation. Family abort returns and confirmations remain separate owners.
 
 The [pilot results](colt-cancellation-centralization-results.md) own measurements,
-preserved cases and mutation evidence. This is a Colt-only ownership change;
-test compression and expansion require separately reviewed preservation
-evidence. Hardware status remains unchanged; qualification requires the
-applicable recorded bench checklist.
+preserved cases and mutation evidence. Additional conservative rollout opt-ins
+and their retained checkpoints are recorded in the
+[CAN migration results](can-cancellation-migration-results.md). Polls and
+predecessor tests remain; test compression and poll deletion require separately
+reviewed preservation evidence. Hardware status remains unchanged;
+qualification requires the applicable recorded bench checklist.
 
 ## Proposed durable CAN cancellation ownership
 
 [ADR 0025's durable completion contract](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
 owns the proposed interface-selected execution guard, test ownership and
-migration completion gates. The Colt binding above describes the implemented
-pilot; the proposed broader contract does not establish rollout completion or
-hardware qualification.
+migration completion gates. The binding above describes the implemented pilot
+and conservative rollout; the proposed broader contract does not establish
+rollout completion or hardware qualification.
 
 The proposed `Error::cancellation_io_exposure` field uses
 `CancellationIoExposure::kMayHaveStarted` by default, preserving conservative
