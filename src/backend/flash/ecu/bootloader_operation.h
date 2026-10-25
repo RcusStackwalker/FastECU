@@ -13,10 +13,10 @@ namespace fastecu::flash
 
 // The operation a single-image CAN bootloader family runs once its transport
 // is up: connect to the bootloader, then either read the plan's transfer
-// region or write the plan's image. The family owns every exchange; this owns
-// the phase plan ("Connect", then "Read ROM" or the two phases `write`
-// starts), the operator notices and log lines, the TestWrite refusal and the
-// result's shape. `unit` names the bootloader in those texts, e.g.
+// region or write the plan's image. The family owns every exchange and the two
+// phases `write` starts; this owns the "Connect" and "Read ROM" phases, the
+// operator notices and log lines, the TestWrite refusal and the result's
+// shape. `unit` names the bootloader in those texts, e.g.
 // "Subaru Hitachi M32R".
 //
 //   connect() -> Status

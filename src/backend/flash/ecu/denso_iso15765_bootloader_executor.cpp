@@ -253,7 +253,7 @@ Result<FlashExecutionResult>
 DensoIso15765BootloaderExecutor<Plan>::Run(const Plan& family, const FlashPlan& plan, ICanFlashTransport& transport,
                                            IClock& clock, const ICancellationToken& cancellation, IEventSink& events)
 {
-    constexpr const Profile& kProfile = DensoIso15765BootloaderProfileOf<Plan>::kValue;
+    static constexpr const Profile& kProfile = DensoIso15765BootloaderProfileOf<Plan>::kValue;
 
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
