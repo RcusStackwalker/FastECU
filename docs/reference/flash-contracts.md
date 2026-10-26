@@ -203,6 +203,13 @@ kernel jump (`27 01`, `27 02`, `10 42`) through `UnlockAndKernelJump` in the
 each keeps its exchange policy, rejection wording, seed-key table, session
 entry and kernel alive check.
 
+The Subaru Hitachi M32R CAN ECU, Hitachi M32R CVT and MH8111 share the encrypted
+B7 page loop (`ReadEncryptedB7Pages` in the
+[UDS exchange module](../../src/backend/flash/ecu/uds_client_exchange_common.h):
+0x100-byte pages, a cancellation check before each, fatal reads); each keeps its
+exchange policy, rejection wording, region, decrypt table, dump setup, stop
+command and padding.
+
 The [CVT B6 chunk exchange](../../src/backend/flash/ecu/cvt_b6_chunk_exchange.h)
 is the only operation of the CVT B6 chunk dialect. It adds no range guard,
 cancellation checkpoint or SID validation. Hitachi closes each block with one

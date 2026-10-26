@@ -242,7 +242,6 @@ Status ConnectBootloader(Ctx& ctx)
 // below is written as the fixed full-ROM sweep legacy actually performs.
 Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 {
-    constexpr std::uint32_t kPageSize = 0x100;
     constexpr std::uint32_t kLength = 0x80000;
 
     // "Settting dump start & length..." (lines 788-819): non-fatal on
@@ -261,29 +260,11 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
         LogError(ctx, "Wrong response from ECU: unexpected dump setup response");
     }
 
-    LogInfo(ctx, "Start reading ROM, please wait...");
-    bytes::Bytes rom;
-    rom.reserve(kLength);
-    for (std::uint32_t addr = 0; addr < kLength; addr += kPageSize)
+    Result<bytes::Bytes> rom =
+        ReadEncryptedB7Pages(ExchangeContext(ctx), kRejectionPrefix, {0, kLength}, DecryptPage, progress);
+    if (!rom.has_value())
     {
-        // Legacy stopRequested() at line 840, top of loop.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "read cancelled");
-        }
-
-        // Lines 823-832/855-858: SID 0xB7 + 3-byte big-endian address.
-        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24{addr}),
-                                                  std::format("the flash read at 0x{:x}", addr));
-        if (!chunk.has_value())
-        {
-            return std::unexpected(chunk.error());
-        }
-        // Lines 877-881: the 256-byte encrypted page is everything after the
-        // SID, decrypted in place.
-        const bytes::Bytes decrypted = DecryptPage(uds::Payload(*chunk));
-        rom.insert(rom.end(), decrypted.begin(), decrypted.end());
-        progress.Update(static_cast<int>(addr + kPageSize));
+        return rom;
     }
 
     LogInfo(ctx, "ROM read complete");
