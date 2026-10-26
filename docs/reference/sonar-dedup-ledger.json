@@ -176,6 +176,107 @@
       "outcome": "open",
       "pr": 912,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "b91e1d66ec88",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "8a2addc0a04d",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::BuildSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "e7372ecfc55b",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::BuildSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "5f645d48b737",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::BuildSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "f4f8c740cb3a",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 912,
+      "reason": ""
     }
   ]
 }
