@@ -187,7 +187,7 @@ Result<std::optional<std::string>> BeefCanSession::RunningKernelId()
     return *id;
 }
 
-Result<std::string> BeefCanSession::StartedKernelId()
+Status BeefCanSession::StartedKernelId()
 {
     View view = MakeView();
     Result<std::optional<bytes::Bytes>> reply =
@@ -206,10 +206,10 @@ Result<std::string> BeefCanSession::StartedKernelId()
     if (!id.has_value())
     {
         LogFailure(id.error());
-        return id;
+        return std::unexpected(id.error());
     }
     LogInfo(view, std::format("Kernel ID: {}", *id));
-    return id;
+    return {};
 }
 
 Status BeefCanSession::RequestEcuId(bool read_operation, std::optional<std::string>& rom_id)

@@ -272,7 +272,7 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     }
 
     LogInfo(context, "Requesting kernel ID...");
-    return context.session.StartedKernelId().transform([](const std::string&) {});
+    return context.session.StartedKernelId();
 }
 
 // The family's BEEF exchange as a callable for the shared read and write paths.
