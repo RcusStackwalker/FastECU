@@ -1,7 +1,6 @@
 # Denso BEEF CAN deepening design
 
-Date: 2026-10-26. Status: proposed; implementation requires approval of this
-design. Governing decisions:
+Date: 2026-10-26. Status: approved for implementation. Governing decisions:
 [ADR 0029](../../adr/0029-lower-nloc-with-sonar-nominated-right-sized-abstractions.md),
 [ADR 0024](../../adr/0024-wire-transcripts-and-goldens-are-the-test-contract.md),
 and [ADR 0015](../../adr/0015-caller-owns-flash-transport-lifetime.md).
