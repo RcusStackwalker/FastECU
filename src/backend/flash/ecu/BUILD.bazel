@@ -1115,6 +1115,7 @@ cc_library(
         "subaru_denso_sh705x_kline_plan_detail.h",
     ],
     implementation_deps = [
+        ":plan_primitives",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],

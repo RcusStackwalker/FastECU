@@ -35,21 +35,6 @@ constexpr auto kCatalog =
                                  {"sub_ecu_denso_sh7058s_diesel_densocan", "SH7058", 0x00100000, 0xFFFF3000},
                                  {"sub_ecu_denso_sh7059_diesel_densocan", "SH7059d", 0x00180000, 0xFFFEE000}});
 
-Result<CatalogEntry> GetCatalogEntry(std::string_view protocol, std::string_view mcu)
-{
-    const auto it = std::ranges::find(kCatalog, protocol, &CatalogEntry::protocol);
-    if (it == kCatalog.end())
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("Unsupported DensoCAN protocol: {}", protocol));
-    }
-    if (mcu != it->mcu)
-    {
-        return Fail(ErrorKind::kInvalidConfig,
-                    std::format("DensoCAN protocol {} requires MCU {}, not {}", protocol, it->mcu, mcu));
-    }
-    return *it;
-}
-
 const FlashDevice *CheckedDevice(const CatalogEntry& entry)
 {
     const FlashDevice *device = FindFlashDevice(entry.mcu);
@@ -80,7 +65,7 @@ Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN wire parameters are invalid");
     }
-    const auto entry = GetCatalogEntry(plan.TargetId(), plan.McuName());
+    const auto entry = detail::FindCatalogEntry(kCatalog, "DensoCAN", plan.TargetId(), plan.McuName());
     if (!entry.has_value())
     {
         return std::unexpected(entry.error());
@@ -101,7 +86,7 @@ Result<FlashPlan> BuildSubaruDensoSh705xDensocanPlan(FlashOperation operation, s
                                                      std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                      KernelImage kernel)
 {
-    const auto entry = GetCatalogEntry(protocol_name, mcu_type);
+    const auto entry = detail::FindCatalogEntry(kCatalog, "DensoCAN", protocol_name, mcu_type);
     if (!entry.has_value())
     {
         return std::unexpected(entry.error());

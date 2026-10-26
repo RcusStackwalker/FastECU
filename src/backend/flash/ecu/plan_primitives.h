@@ -1,5 +1,8 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <limits>
@@ -19,6 +22,26 @@ namespace fastecu::flash::detail
 {
 bool FixedShapeDeviceMatches(const FlashDevice *device, std::uint32_t rom_size, unsigned block_count);
 bool OperationImageShapeMatches(const FlashPlan& plan, std::uint32_t rom_size);
+// Looks `protocol` up in a family's catalog of exact protocol ids, whose rows
+// carry `protocol` and `mcu`: an unknown protocol or another MCU is
+// kInvalidConfig, worded with the family's `name`.
+template <typename Entry, std::size_t N>
+Result<Entry> FindCatalogEntry(const std::array<Entry, N>& catalog, std::string_view name, std::string_view protocol,
+                               std::string_view mcu)
+{
+    const auto it = std::ranges::find(catalog, protocol, &Entry::protocol);
+    if (it == catalog.end())
+    {
+        return Fail(ErrorKind::kInvalidConfig, std::format("Unsupported {} protocol: {}", name, protocol));
+    }
+    if (mcu != it->mcu)
+    {
+        return Fail(ErrorKind::kInvalidConfig,
+                    std::format("{} protocol {} requires MCU {}, not {}", name, protocol, it->mcu, mcu));
+    }
+    return *it;
+}
+
 // Callers validate the flash table before comparing transfer geometry.
 bool TransferMatchesDevice(const MemoryRegion& transfer, const FlashDevice& device);
 // True when the plan declares exactly the confirmation `id`, without arguments.
