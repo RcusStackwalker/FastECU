@@ -396,6 +396,125 @@
       "outcome": "open",
       "pr": 915,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "24bb309eb4e6",
+      "members": [
+        [
+          "src/backend/logging/protocols/portable_cdbg_logging_protocol.cpp",
+          "fastecu::logging::CdbgLoggingProtocol::Poll"
+        ],
+        [
+          "src/backend/logging/protocols/portable_mut_dma_logging_protocol.cpp",
+          "fastecu::logging::MutDmaLoggingProtocol::Poll"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 915,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "9c1aa2f984d6",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::RequestIdentity"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::RequestIdentity"
+        ]
+      ],
+      "outcome": "unsuitable",
+      "pr": null,
+      "reason": "identity requests already compose BeefCanSession steps; a shared RequestCalId saves only 6 NLOC; the VIN and CVN differences are per family"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "80729a331f16",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::RequestIdentity"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.cpp",
+          "fastecu::flash::RequestIdentity"
+        ]
+      ],
+      "outcome": "unsuitable",
+      "pr": null,
+      "reason": "identity requests already compose BeefCanSession steps; a shared RequestCalId saves only 6 NLOC; the VIN and CVN differences are per family"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "6d5d643b1138",
+      "members": [
+        [
+          "src/ui/desktop/definition/dialog/definition_authoring_dialog.cpp",
+          "fastecu::ui::DefinitionAuthoringDialog::createNewDefinition"
+        ],
+        [
+          "src/ui/desktop/definition/dialog/definition_authoring_dialog.cpp",
+          "fastecu::ui::DefinitionAuthoringDialog::useExistingDefinition"
+        ]
+      ],
+      "outcome": "deferred",
+      "pr": null,
+      "reason": "no wire evidence: DefinitionAuthoringDialog create and import flows are Qt dialog code with no tests"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "73562443c34a",
+      "members": [
+        [
+          "src/platform/desktop/common/serial/direct/serial_port_actions_direct.h",
+          "<file>"
+        ],
+        [
+          "src/platform/desktop/unix/j2534/driver/J2534_unix.h",
+          "<file>"
+        ]
+      ],
+      "outcome": "deferred",
+      "pr": null,
+      "reason": "no wire evidence: the shared surface is the standard J2534 PassThru declaration list in two untested transport classes"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "f3f859904c81",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::FatalRequest"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::FatalRequest"
+        ]
+      ],
+      "outcome": "unsuitable",
+      "pr": null,
+      "reason": "both judges: the wrappers are one-line partial applications of the shared FatalRequest/FatalQuery binding each family's exchange policy (500 ms vs 2000 ms, wire behaviour) and rejection wording; any further cut is a pass-through binder or a config bundle (point 2), and tcu_cvt_hitachi's two-client overloads fail point 3"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "b9a5cb08ddd5",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.cpp",
+          "fastecu::flash::ValidateRegions"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.cpp",
+          "fastecu::flash::ValidateRegions"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 916,
+      "reason": ""
     }
   ]
 }

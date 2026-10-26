@@ -1189,6 +1189,7 @@ cc_library(
     srcs = ["subaru_tcu_hitachi_m32r_can_plan.cpp"],
     hdrs = ["subaru_tcu_hitachi_m32r_can_plan.h"],
     implementation_deps = [
+        ":single_window_plan",
         ":subaru_tcu_hitachi_m32r_can_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
@@ -1857,6 +1858,7 @@ cc_library(
     srcs = ["subaru_hitachi_sh72543r_can_plan.cpp"],
     hdrs = ["subaru_hitachi_sh72543r_can_plan.h"],
     implementation_deps = [
+        ":single_window_plan",
         ":subaru_hitachi_sh72543r_can_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",

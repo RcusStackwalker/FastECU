@@ -6,6 +6,7 @@
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_types.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/ecu/single_window_plan.h"
 
 namespace fastecu::flash
 {
@@ -58,41 +59,6 @@ bool WireParametersMatch(const SubaruTcuHitachiM32rCanPlan& wire)
            !wire.extended_id && wire.page_size == kPageSize && wire.write_frame_size == kWriteFrameSize;
 }
 
-Status ValidateRegions(const FlashPlan& plan)
-{
-    if (plan.TransferRegion().start != kWindow.start || plan.TransferRegion().length != kWindow.length)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN transfer region is invalid");
-    }
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        return plan.EraseRegions().empty()
-                   ? Status{}
-                   : Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN read plans must not erase memory");
-    }
-    if (plan.EraseRegions().size() != 1 || plan.EraseRegions()[0].start != kWindow.start ||
-        plan.EraseRegions()[0].length != kWindow.length)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN erase region is invalid");
-    }
-    return {};
-}
-
-Status ValidateImage(const FlashPlan& plan)
-{
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        return plan.Image().has_value()
-                   ? Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN read plan carries a ROM image")
-                   : Status{};
-    }
-    if (!plan.Image().has_value() || plan.Image()->size() != kRomSize)
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", kRomSize));
-    }
-    return {};
-}
-
 } // namespace
 
 Status ValidateSubaruTcuHitachiM32rCanPlan(const FlashPlan& plan)
@@ -124,11 +90,7 @@ Status ValidateSubaruTcuHitachiM32rCanPlan(const FlashPlan& plan)
         return Fail(ErrorKind::kInvalidConfig,
                     "Subaru TCU Hitachi M32R CAN plans must not declare extra confirmations");
     }
-    if (Status regions = ValidateRegions(plan); !regions.has_value())
-    {
-        return regions;
-    }
-    return ValidateImage(plan);
+    return ValidatePlanWindows(plan, "Subaru TCU Hitachi M32R CAN", kWindow, kWindow, kRomSize);
 }
 
 Result<FlashPlan> BuildSubaruTcuHitachiM32rCanPlan(FlashOperation operation, std::string_view protocol_name,
