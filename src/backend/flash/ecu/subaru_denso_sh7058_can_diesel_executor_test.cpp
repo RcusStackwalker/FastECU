@@ -803,6 +803,29 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProbeFallbackUploadsExactKernelAddressA
     }
 }
 
+TEST(SubaruDensoSh7058CanDieselExecutor, KernelSilentAfterUploadTimesOut)
+{
+    bytes::Bytes kernel_data(129, bytes::Byte{0});
+    kernel_data.back() = 0x01;
+    auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
+    ASSERT_THAT(plan, IsOk());
+    SubaruDensoSh7058CanDieselExecutor executor;
+    ScriptedCanFlashTransport transport;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptBootloaderConnection(transport);
+    Script129ByteKernelUpload(transport, kVariants.front().kernel_address, KernelIdResponse(), UploadB6Reply::kNoFrame,
+                              Response(bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02}), false);
+    transport.ExpectWrite(KernelIdRequest());
+    transport.QueueNoFrame();
+    FakeCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                IsErrWith(ErrorKind::kTimeout, "kernel did not answer after upload"));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
 TEST(SubaruDensoSh7058CanDieselExecutor, InitialProbeToleratesShortMalformedNegativeAndWrongIdFrames)
 {
     const std::array<bytes::Bytes, 4> probe_replies{{
