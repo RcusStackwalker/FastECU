@@ -277,6 +277,23 @@
       "outcome": "merged",
       "pr": 912,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "e8bbf4877554",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.cpp",
+          "fastecu::flash::SubaruDensoMc68hc16y5_02Executor::ReadBlockCrc"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7055_02Executor::ReadBlockCrc"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 913,
+      "reason": ""
     }
   ]
 }
