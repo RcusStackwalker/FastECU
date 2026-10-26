@@ -320,8 +320,6 @@ Status ConnectBootloader(Ctx& ctx)
 // literal address -- see the plan's kReadRegion comment).
 Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 {
-    constexpr std::uint32_t kPageSize = 0x100;
-
     // "Settting dump start & length..." (lines 526-562): fatal on mismatch
     // or empty reply -- unlike subaru_hitachi_m32r_can_executor.cpp's
     // analogous step, this one IS fatal in this family's legacy source
@@ -335,27 +333,12 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
         return std::unexpected(setup.error());
     }
 
-    LogInfo(ctx, "Start reading ROM, please wait...");
-    bytes::Bytes rom;
-    rom.reserve(kWindow.length);
-    for (std::uint32_t addr = kWindow.start; addr < kWindow.start + kWindow.length; addr += kPageSize)
+    Result<bytes::Bytes> rom =
+        ReadEncryptedB7Pages(UdsExchangeContext{ctx.uds, kExchangePolicy, ctx.cancellation, ctx.events},
+                             kRejectionPrefix, kWindow, DecryptPage, progress);
+    if (!rom.has_value())
     {
-        // Legacy stopRequested() at line 584, top of loop.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "read cancelled");
-        }
-
-        // Lines 567-576/601-623: SID 0xB7 + 3-byte big-endian address.
-        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24{addr}),
-                                                  std::format("the flash read at 0x{:x}", addr));
-        if (!chunk.has_value())
-        {
-            return std::unexpected(chunk.error());
-        }
-        const bytes::Bytes decrypted = DecryptPage(uds::Payload(*chunk));
-        rom.insert(rom.end(), decrypted.begin(), decrypted.end());
-        progress.Update(static_cast<int>(addr + kPageSize - kWindow.start));
+        return rom;
     }
 
     LogInfo(ctx, "ROM read complete");
@@ -382,7 +365,7 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
     // Legacy pads the unread low 0x8000 region with 0x00 (lines 705-712),
     // unlike MH8111/MH8104, which pad with 0xFF; see the plan's kReadRegion
     // comment.
-    rom.insert(rom.begin(), kWindow.start, 0x00);
+    rom->insert(rom->begin(), kWindow.start, 0x00);
     return rom;
 }
 

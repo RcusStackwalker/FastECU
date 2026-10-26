@@ -5,6 +5,8 @@
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
+#include "src/backend/flash/ecu/flash_phase_progress.h"
+#include "src/backend/flash/flash_types.h"
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/clock.h"
 #include "src/backend/ports/error.h"
@@ -148,5 +150,12 @@ Result<bytes::Bytes> FatalQuery(const UdsExchangeContext& ctx, bytes::ByteView p
 // (reply opening 42). Any failure aborts.
 Status UnlockAndKernelJump(const UdsExchangeContext& ctx, std::string_view rejection_prefix,
                            bytes::Bytes (*seed_key)(bytes::ByteView seed));
+
+// Reads `region` as 0x100-byte encrypted B7 pages (B7 plus a 24-bit address,
+// each a FatalRequest), checking cancellation before every page, and returns
+// the pages decrypted with the family's `decrypt_page`.
+Result<bytes::Bytes> ReadEncryptedB7Pages(const UdsExchangeContext& ctx, std::string_view rejection_prefix,
+                                          const MemoryRegion& region, bytes::Bytes (*decrypt_page)(bytes::ByteView),
+                                          PhaseReporter& progress);
 
 } // namespace fastecu::flash

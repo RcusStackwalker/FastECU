@@ -680,7 +680,9 @@ cc_library(
         "//src/algorithms/protocol/uds:uds_service_ids",
     ],
     deps = [
+        ":flash_phase_progress",
         "//src/algorithms/protocol",
+        "//src/backend/flash:flash_types",
         "//src/backend/ports",
         "//src/backend/protocol/uds:uds_client",
     ],

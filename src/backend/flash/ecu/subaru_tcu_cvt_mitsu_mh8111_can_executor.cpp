@@ -75,14 +75,6 @@ Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rej
     return ::fastecu::flash::ReportExchangeFailure(ctx.events, failure, rejection_prefix, operation);
 }
 
-// Sends `pdu` through ctx.uds and, on failure, logs and returns the error.
-// Used for every exchange whose expected reply follows the standard
-// SID+0x40 positive-response convention that UdsClient itself enforces.
-Result<bytes::Bytes> FatalRequest(Ctx& ctx, bytes::ByteView pdu, std::string_view operation)
-{
-    return ::fastecu::flash::FatalRequest(ExchangeContext(ctx), pdu, kRejectionPrefix, operation);
-}
-
 // Legacy's two non-fatal identity queries (TCU ID/CAL ID, lines 94-168) and
 // the non-fatal session request (lines 173-197): logged on mismatch or
 // absence but never halt connect_bootloader -- even a genuine exchange
@@ -192,36 +184,6 @@ Status ConnectBootloader(Ctx& ctx)
     return {};
 }
 
-// 0x100-byte pages over kReadRegion, decrypted.
-Result<bytes::Bytes> ReadPages(Ctx& ctx, PhaseReporter& progress)
-{
-    constexpr std::uint32_t kPageSize = 0x100;
-    LogInfo(ctx, "Start reading ROM, please wait...");
-    bytes::Bytes rom;
-    rom.reserve(kReadRegion.length);
-    for (std::uint32_t addr = kReadRegion.start; addr < kReadRegion.start + kReadRegion.length; addr += kPageSize)
-    {
-        // Legacy stopRequested() at line 421, top of loop.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "read cancelled");
-        }
-
-        // Lines 406-454: SID 0xB7 + 3-byte big-endian address, standard
-        // SID+0x40 convention (0xB7 -> 0xF7).
-        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24{addr}),
-                                                  std::format("the flash read at 0x{:x}", addr));
-        if (!chunk.has_value())
-        {
-            return std::unexpected(chunk.error());
-        }
-        const bytes::Bytes decrypted = TcuCvtMitsuDecryptPage(uds::Payload(*chunk));
-        rom.insert(rom.end(), decrypted.begin(), decrypted.end());
-        progress.Update(static_cast<int>(addr + kPageSize - kReadRegion.start));
-    }
-    return rom;
-}
-
 // "Sending stop command..." (lines 504-526): resent up to 6 times,
 // content-blind (legacy checks only `received != ""`, never an SID or
 // content match) -- and OUTCOME-blind too: legacy has no
@@ -275,7 +237,8 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
     {
         return std::unexpected(setup.error());
     }
-    Result<bytes::Bytes> rom = ReadPages(ctx, progress);
+    Result<bytes::Bytes> rom =
+        ReadEncryptedB7Pages(ExchangeContext(ctx), kRejectionPrefix, kReadRegion, TcuCvtMitsuDecryptPage, progress);
     if (!rom.has_value())
     {
         return rom;

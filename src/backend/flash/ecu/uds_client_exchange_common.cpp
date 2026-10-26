@@ -102,4 +102,30 @@ Status UnlockAndKernelJump(const UdsExchangeContext& ctx, std::string_view rejec
         .transform([&](const bytes::Bytes&) { log("Jump to kernel ok"); });
 }
 
+Result<bytes::Bytes> ReadEncryptedB7Pages(const UdsExchangeContext& ctx, std::string_view rejection_prefix,
+                                          const MemoryRegion& region, bytes::Bytes (*decrypt_page)(bytes::ByteView),
+                                          PhaseReporter& progress)
+{
+    constexpr std::uint32_t kPageSize = 0x100;
+    ctx.events.Log(LogLevel::kInfo, "Start reading ROM, please wait...");
+    bytes::Bytes rom;
+    rom.reserve(region.length);
+    for (std::uint32_t addr = region.start; addr < region.start + region.length; addr += kPageSize)
+    {
+        if (ctx.cancellation.Cancelled())
+        {
+            return Fail(ErrorKind::kCancelled, "read cancelled");
+        }
+        Result<bytes::Bytes> chunk = FatalRequest(ctx, bytes::ComposeBe(uds::kSidReadMemoryChunk, bytes::U24{addr}),
+                                                  rejection_prefix, std::format("the flash read at 0x{:x}", addr));
+        if (!chunk.has_value())
+        {
+            return std::unexpected(chunk.error());
+        }
+        rom.append_range(decrypt_page(uds::Payload(*chunk)));
+        progress.Update(static_cast<int>(addr + kPageSize - region.start));
+    }
+    return rom;
+}
+
 } // namespace fastecu::flash
