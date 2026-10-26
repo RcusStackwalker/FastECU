@@ -536,11 +536,9 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::ReadBlockCrc(IKlineFlashTran
     // Legacy check_romcrc(), lines 645-749: request the ECU CRC for the
     // physical [start, start + length) block.
     Result<bytes::Bytes> response = DensoBeefKlineRequestBlockCrc(transport, cancellation, block);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    if (Status more = ReadCrcContinuation(transport, clock, cancellation, *response); !more.has_value())
+    if (Status more = response.and_then([&](bytes::Bytes& first)
+                                        { return ReadCrcContinuation(transport, clock, cancellation, first); });
+        !more.has_value())
     {
         return std::unexpected(more.error());
     }

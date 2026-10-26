@@ -1070,26 +1070,38 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsNegativeBlockCrcResponse)
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
-TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcDrainError)
+TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcRequestAndDrainErrors)
 {
     const FlashDevice *device = FindFlashDevice("SH7055");
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = WritePlan(FlashOperation::kWrite, image);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-    ScriptWriteConnectAndUpload(transport);
-    const std::uint32_t crc = fastecu::checksum::Crc32(bytes::ByteView(image).first(device->fblocks[0].len));
-    transport.Exchange(Framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00}), CrcResponse(crc));
-    transport.QueueError(ErrorKind::kDisconnected, "CRC drain failed");
+    for (const bool request_fails : {true, false})
+    {
+        SCOPED_TRACE(request_fails);
+        ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+        ScriptWriteConnectAndUpload(transport);
+        const bytes::Bytes request = Framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00});
+        if (request_fails)
+        {
+            transport.ExpectWrite(request);
+        }
+        else
+        {
+            transport.Exchange(
+                request, CrcResponse(fastecu::checksum::Crc32(bytes::ByteView(image).first(device->fblocks[0].len))));
+        }
+        transport.QueueError(ErrorKind::kDisconnected, "CRC exchange failed");
 
-    FakeClock clock;
-    FakeCancellationToken cancellation;
-    RecordingEventSink events;
-    SubaruDensoSh7055_02Executor executor;
-    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, "CRC drain failed"));
-    EXPECT_TRUE(transport.ScriptConsumed());
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        RecordingEventSink events;
+        SubaruDensoSh7055_02Executor executor;
+        ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErrWith(ErrorKind::kDisconnected, "CRC exchange failed"));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedFlashInitResponse)

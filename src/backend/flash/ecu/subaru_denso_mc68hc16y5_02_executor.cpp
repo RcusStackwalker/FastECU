@@ -449,11 +449,9 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::ReadBlockCrc(IKlineFlash
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:626-715:
     // request the ECU's CRC over [start, start + length).
     Result<bytes::Bytes> response = DensoBeefKlineRequestBlockCrc(transport, cancellation, block);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    if (Status more = ReadCrcContinuation(transport, clock, cancellation, *response); !more.has_value())
+    if (Status more = response.and_then([&](bytes::Bytes& first)
+                                        { return ReadCrcContinuation(transport, clock, cancellation, first); });
+        !more.has_value())
     {
         return std::unexpected(more.error());
     }
