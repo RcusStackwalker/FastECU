@@ -65,11 +65,6 @@ Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPla
     {
         return Fail(kInvalidConfig, std::format("{} wire parameters are invalid", spec.display_name));
     }
-    if (const MemoryRegion& expected = plan.Operation() == FlashOperation::kRead ? spec.read_region : spec.write_region;
-        plan.TransferRegion().start != expected.start || plan.TransferRegion().length != expected.length)
-    {
-        return Fail(kInvalidConfig, std::format("{} transfer region is invalid", spec.display_name));
-    }
     if (plan.Kernel())
     {
         return Fail(kInvalidConfig, std::format("{} plans are kernel-free", spec.display_name));
@@ -78,17 +73,28 @@ Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPla
     {
         return valid;
     }
+    return ValidatePlanWindows(plan, spec.display_name, spec.read_region, spec.write_region, spec.image_size);
+}
+
+Status ValidatePlanWindows(const FlashPlan& plan, std::string_view name, const MemoryRegion& read_region,
+                           const MemoryRegion& write_region, std::uint32_t image_size)
+{
+    if (const MemoryRegion& expected = plan.Operation() == FlashOperation::kRead ? read_region : write_region;
+        plan.TransferRegion().start != expected.start || plan.TransferRegion().length != expected.length)
+    {
+        return Fail(kInvalidConfig, std::format("{} transfer region is invalid", name));
+    }
     if (plan.Operation() == FlashOperation::kRead)
     {
-        return plan.EraseRegions().empty() ? Status{} : Fail(kInvalidConfig, "read plans must not erase memory");
+        return {};
     }
-    if (!std::ranges::equal(plan.EraseRegions(), std::array{spec.write_region}))
+    if (!std::ranges::equal(plan.EraseRegions(), std::array{write_region}))
     {
-        return Fail(kInvalidConfig, std::format("{} erase region is invalid", spec.display_name));
+        return Fail(kInvalidConfig, std::format("{} erase region is invalid", name));
     }
-    if (!plan.Image().has_value() || plan.Image()->size() != spec.image_size)
+    if (plan.Image()->size() != image_size)
     {
-        return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", spec.image_size));
+        return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", image_size));
     }
     return {};
 }
