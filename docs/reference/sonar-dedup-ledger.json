@@ -328,6 +328,57 @@
       "outcome": "open",
       "pr": 914,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "fceafff90903",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::ValidateSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::ValidateSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 914,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "f6ac7376dfa7",
+      "members": [
+        [
+          "apps/bench/bench_session.cpp",
+          "fastecu::bench::BenchSession::RequestOnce"
+        ],
+        [
+          "apps/bench/bench_session.cpp",
+          "fastecu::bench::BenchSession::ExchangeRaw"
+        ]
+      ],
+      "outcome": "deferred",
+      "pr": null,
+      "reason": "no wire evidence: BenchSession::Exchange and ExchangeRaw are not covered by any test"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "05d57143e924",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_m32r_kline_executor.cpp",
+          "fastecu::flash::ParseRomId"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_executor.cpp",
+          "fastecu::flash::ParseRomId"
+        ]
+      ],
+      "outcome": "unsuitable",
+      "pr": null,
+      "reason": "shared ROM-ID parse saves under 10 NLOC once its uncovered too-short branch is tested; SeedKey and prefix wrappers differ only by family tables and endpoints"
     }
   ]
 }
