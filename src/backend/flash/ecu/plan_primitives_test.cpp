@@ -110,7 +110,11 @@ TEST(PlanPrimitives, WholeRomKernelValidationRequiresKernelAndOperationImageShap
                                                 ::testing::StrEq(operation == FlashOperation::kRead
                                                                      ? "read plan carries an image"
                                                                      : "ROM file must be exactly 0x4 bytes")));
-        const_cast<std::optional<KernelImage>&>(plan->Kernel()).reset();
+        auto& kernel = const_cast<std::optional<KernelImage>&>(plan->Kernel());
+        ++kernel->load_address;
+        EXPECT_THAT(ValidateWholeRomKernelPlan<128>(*plan, kRegion.start, device),
+                    fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+        kernel.reset();
         EXPECT_THAT(
             ValidateWholeRomKernelPlan<128>(*plan, kRegion.start, device),
             fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::StrEq("plan requires a kernel image")));
