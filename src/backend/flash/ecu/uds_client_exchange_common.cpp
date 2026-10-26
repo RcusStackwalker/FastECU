@@ -123,7 +123,7 @@ Result<bytes::Bytes> ReadEncryptedB7Pages(const UdsExchangeContext& ctx, std::st
             return std::unexpected(chunk.error());
         }
         rom.append_range(decrypt_page(uds::Payload(*chunk)));
-        progress.Update(static_cast<int>(addr + kPageSize - region.start));
+        progress.Update(static_cast<int>(rom.size()));
     }
     return rom;
 }
