@@ -16,6 +16,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/beef_can_kernel.h"
 #include "src/backend/flash/ecu/beef_can_session.h"
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
@@ -56,7 +57,6 @@ constexpr std::chrono::milliseconds kExtraLongTimeout{3000};
 constexpr std::chrono::milliseconds kPostUploadDelay{500}; // upload_kernel(), lines 595-595
 
 constexpr int kKernelPageSize = 0x400;
-constexpr std::size_t kKernelUploadBlockSize = 128;
 constexpr int kFlashBufferSize = 0x200;
 constexpr int kFlashCommitSize = 0x1000;
 
@@ -85,6 +85,7 @@ struct Context
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
     BeefCanSession session;
+    BeefCanKernel kernel;
 };
 
 bytes::Bytes SeedKey(bytes::ByteView seed)
@@ -338,33 +339,11 @@ Status ConnectBootloader(Context& context, bool read_operation, std::optional<st
 
 Status UploadKernel(Context& context, const KernelImage& kernel)
 {
-    // upload_kernel(), revision 59f4e442 lines 369-627. The source pads to
-    // 128-byte transfer blocks, removes the final four bytes, computes the
-    // 0x5AA5A55A complement over 32-bit words, appends it, and encrypts.
-    const std::optional<bytes::Bytes> encrypted = BeefKernelPayload(kernel.bytes, kKernelUploadBlockSize);
-    if (!encrypted.has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, "TCU kernel upload size is invalid");
-    }
-
-    LogDebug(context, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address));
-    LogInfo(context, "Initialize kernel upload");
-    if (const Status request_download = StrictPayload(
-            context, BeefKernelDownloadRequest(kernel.load_address, *encrypted), bytes::Bytes{0x20}, "kernel download");
-        !request_download.has_value())
-    {
-        return request_download;
-    }
-
-    LogInfo(context, "Uploading kernel, please wait...");
-    if (const Status uploaded = UploadBeefKernelBlocks(context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
-                                                       [&context](bytes::ByteView request)
-                                                       { return DiscardB6Reply(context, request, kReadTimeout); });
+    if (const Status uploaded = context.kernel.TransferPayload(kernel, {kStrictPolicy, kReadTimeout});
         !uploaded.has_value())
     {
         return uploaded;
     }
-
     LogInfo(context, "Kernel uploaded, starting...");
     if (const Status transfer_exit =
             StrictPayload(context, bytes::Bytes{uds::kSidRequestTransferExit}, {}, "kernel transfer exit");
@@ -658,7 +637,8 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::Run(const SubaruTc
         family.response_id,
         uds_client,
         channel,
-        BeefCanSession(transport, clock, cancellation, events, channel, kSubaruTcuDensoSh705xCanBeefProfile)};
+        BeefCanSession(transport, clock, cancellation, events, channel, kSubaruTcuDensoSh705xCanBeefProfile),
+        BeefCanKernel(transport, clock, cancellation, events, channel, kSubaruTcuDensoSh705xCanBeefProfile)};
 
     return RunBeefKernelOperation(
         plan, "Subaru Denso SH705x TCU", context, [](Context& c) { return RequestKernelId(c, true); },

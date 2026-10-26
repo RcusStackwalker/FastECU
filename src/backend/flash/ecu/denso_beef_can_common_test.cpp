@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
-#include <concepts>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -28,9 +27,6 @@ using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
-using ::testing::_;
-using ::testing::Eq;
-using ::testing::Optional;
 using ::testing::StrEq;
 
 TEST(DensoBeefCanCommonTest, BeefRequestFramesOpcodeAndPayloadLength)
@@ -47,13 +43,6 @@ TEST(DensoBeefCanCommonTest, BeefRequestFramesOpcodeAndPayloadLength)
     EXPECT_EQ(framed[5], 0x01);
     EXPECT_EQ(framed[6], 0x02);
     EXPECT_EQ(framed[7], 0x03);
-}
-
-TEST(DensoBeefCanCommonTest, KernelDownloadRequestEncodesItsTwo24BitFields)
-{
-    const auto request = BeefKernelDownloadRequest(0xFFFF4000U, bytes::Bytes(0x100, 0xAA));
-    static_assert(std::same_as<decltype(request), const std::array<bytes::Byte, 9>>);
-    EXPECT_THAT(request, test_bytes::BytesEq(bytes::Bytes{0x34, 0x04, 0x33, 0xFF, 0x40, 0x00, 0x00, 0x01, 0x00}));
 }
 
 TEST(DensoBeefCanCommonTest, BeefRequestWithNoPayloadStillCountsTheOpcode)
@@ -181,8 +170,8 @@ TEST(DensoBeefCanCommonTest, CompareBeefBlocksStopsOnQueryFailureAndOnCancellati
                 IsErr(ErrorKind::kCancelled));
 }
 
-// A scripted channel and raw transport behind the context shape the shared
-// exchange helpers expect.
+// A scripted channel behind the context shape the shared exchange helpers
+// expect.
 struct ExchangeFixture
 {
     struct Channel
@@ -198,17 +187,7 @@ struct ExchangeFixture
         Status send_result;
         Result<std::optional<bytes::Bytes>> reply{std::nullopt};
     };
-    struct Transport
-    {
-        Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds, const ICancellationToken&)
-        {
-            return stale;
-        }
-        Result<std::optional<bytes::Bytes>> stale{std::nullopt};
-    };
-
     Channel channel;
-    Transport transport;
     FakeClock clock;
     FakeCancellationToken cancellation;
 };
@@ -234,23 +213,6 @@ TEST(DensoBeefCanCommonTest, BeefExchangeReturnsThePayloadOfAnOpcodeOrSizeChecke
                 IsErrWith(ErrorKind::kTimeout, StrEq("no CAN response within the read timeout")));
     fixture.channel.reply = Fail(ErrorKind::kDisconnected, "gone");
     EXPECT_THAT(BeefExchange(fixture, 0x05, {}, 0, 10ms), IsErr(ErrorKind::kDisconnected));
-}
-
-TEST(DensoBeefCanCommonTest, DiscardB6ReplyIgnoresStaleContentButNotCancellationOrDisconnection)
-{
-    ExchangeFixture fixture;
-    const bytes::Bytes pdu{0xB6};
-
-    EXPECT_THAT(DiscardB6Reply(fixture, pdu, 10ms), IsOk());
-    fixture.transport.stale = Fail(ErrorKind::kBadResponse, "noise");
-    EXPECT_THAT(DiscardB6Reply(fixture, pdu, 10ms), IsOk());
-    fixture.transport.stale = Fail(ErrorKind::kDisconnected, "gone");
-    EXPECT_THAT(DiscardB6Reply(fixture, pdu, 10ms), IsErr(ErrorKind::kDisconnected));
-    fixture.transport.stale = std::nullopt;
-    fixture.channel.send_result = Fail(ErrorKind::kTimeout, "no ack");
-    EXPECT_THAT(DiscardB6Reply(fixture, pdu, 10ms), IsErr(ErrorKind::kTimeout));
-    fixture.cancellation.SetCancelled(true);
-    EXPECT_THAT(DiscardB6Reply(fixture, pdu, 10ms), IsErr(ErrorKind::kCancelled));
 }
 
 TEST(DensoBeefCanCommonTest, InitializeBeefFlashSelectsTheModeAndStopsAtTheFirstFailingExchange)
@@ -284,17 +246,6 @@ TEST(DensoBeefCanCommonTest, InitializeBeefFlashSelectsTheModeAndStopsAtTheFirst
                     IsErrWith(ErrorKind::kTimeout, StrEq("no reply")));
         EXPECT_EQ(calls, failing + 1);
     }
-}
-
-TEST(DensoBeefCanCommonTest, BeefKernelUploadPayloadNamesTheFamilyInBothSizeErrors)
-{
-    EXPECT_THAT(BeefKernelUploadPayload({}, 128, "petrol"),
-                IsErrWith(ErrorKind::kInvalidConfig, StrEq("petrol kernel upload size is invalid")));
-    EXPECT_THAT(BeefKernelUploadPayload(bytes::Bytes(0x1000000), 128, "diesel"),
-                IsErrWith(ErrorKind::kInvalidConfig, StrEq("diesel kernel upload exceeds the 24-bit wire length")));
-    const auto small = BeefKernelUploadPayload(bytes::Bytes(5), 8, "petrol");
-    ASSERT_THAT(small, IsOk());
-    EXPECT_EQ(small->size(), 8U);
 }
 
 // A BEEF exchange that records every opcode and fails on the `failing`-th call
@@ -470,40 +421,6 @@ TEST(DensoBeefCanCommonTest, SendChannelRequestSleepsOnlyForAPositiveDelay)
 TEST(DensoBeefCanCommonTest, UppercaseHexCompactHasNoSeparators)
 {
     EXPECT_EQ(UppercaseHexCompact(bytes::Bytes{0x0A, 0xFF, 0x00}), "0AFF00");
-}
-
-TEST(DensoBeefCanCommonTest, BeefKernelPayloadReplacesThePaddedLastWordWithTheChecksum)
-{
-    // Five bytes pad to one eight-byte block, whose last word (holding the
-    // kernel's fifth byte) becomes 0x5AA5A55A minus the sum of the others.
-    const auto payload = BeefKernelPayload(bytes::Bytes{0x00, 0x00, 0x00, 0x01, 0xAA}, 8);
-
-    ASSERT_THAT(payload, Optional(_));
-    EXPECT_EQ(*payload, EncryptPayload(bytes::Bytes{0x00, 0x00, 0x00, 0x01, 0x5A, 0xA5, 0xA5, 0x59}));
-    EXPECT_THAT(BeefKernelPayload({}, 8), Eq(std::nullopt));
-}
-
-TEST(DensoBeefCanCommonTest, UploadBeefKernelBlocksEndsWithAnAddressOnlyBlock)
-{
-    struct Ctx
-    {
-        const ICancellationToken& cancellation;
-    };
-    FakeCancellationToken token;
-    const Ctx ctx{token};
-    std::vector<bytes::Bytes> requests;
-
-    const Status uploaded = UploadBeefKernelBlocks(ctx, bytes::Bytes{0x01, 0x02, 0x03, 0x04}, 0x1000, 2,
-                                                   [&requests](bytes::ByteView request) -> Status
-                                                   {
-                                                       requests.emplace_back(request.begin(), request.end());
-                                                       return {};
-                                                   });
-
-    EXPECT_THAT(uploaded, IsOk());
-    EXPECT_EQ(requests, (std::vector<bytes::Bytes>{{0xB6, 0x00, 0x10, 0x00, 0x01, 0x02},
-                                                   {0xB6, 0x00, 0x10, 0x02, 0x03, 0x04},
-                                                   {0xB6, 0x00, 0x10, 0x04}}));
 }
 
 } // namespace

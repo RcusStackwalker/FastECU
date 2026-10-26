@@ -13,6 +13,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/beef_can_kernel.h"
 #include "src/backend/flash/ecu/beef_can_session.h"
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
@@ -48,8 +49,6 @@ constexpr std::chrono::milliseconds kKernelStartDelay{100};
 constexpr std::chrono::milliseconds kKernelStartReadTimeout{10};
 constexpr std::chrono::milliseconds kKernelTransferTimeout = kMediumTimeout;
 
-constexpr std::size_t kKernelUploadBlockSize = 128;
-
 constexpr uds::ExchangePolicy kStrictPolicy{
     .pre_read_delay = kExtraShortTimeout,
     .read_timeout = kReadTimeout,
@@ -72,6 +71,7 @@ struct Context
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
     BeefCanSession session;
+    BeefCanKernel kernel;
 };
 
 Result<bytes::Bytes> StrictRequest(Context& context, bytes::ByteView pdu, const uds::ExchangePolicy& policy)
@@ -179,33 +179,13 @@ Status ConnectBootloader(Context& context, bool read_operation, std::optional<st
 
 Status UploadKernel(Context& context, const KernelImage& kernel)
 {
-    // upload_kernel(), revision 59f4e442:517-782. The unusual <= loop is
-    // intentional: after every 128-byte payload block the oracle emits one
-    // final address-only 0xB6 request.
-    const Result<bytes::Bytes> encrypted = BeefKernelUploadPayload(kernel.bytes, kKernelUploadBlockSize, "diesel");
-    if (!encrypted.has_value())
-    {
-        return std::unexpected(encrypted.error());
-    }
-
-    LogDebug(context, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address));
-    LogInfo(context, "Initialize kernel upload");
-    if (const Status initialized = StrictPayload(context, BeefKernelDownloadRequest(kernel.load_address, *encrypted),
-                                                 bytes::Bytes{0x20}, "kernel download", kKernelStartPolicy);
-        !initialized.has_value())
-    {
-        return initialized;
-    }
-
-    LogInfo(context, "Uploading kernel, please wait...");
-    if (const Status uploaded = UploadBeefKernelBlocks(
-            context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
-            [&context](bytes::ByteView request) { return DiscardB6Reply(context, request, kKernelTransferTimeout); });
+    if (const Status uploaded = context.kernel.TransferPayload(kernel, {kKernelStartPolicy, kKernelTransferTimeout});
         !uploaded.has_value())
     {
         return uploaded;
     }
-    LogDebug(context, std::format("Data bytes sent: 0x{}", encrypted->size()));
+    const std::size_t padded_size = ((kernel.bytes.size() + 127U) / 128U) * 128U;
+    LogDebug(context, std::format("Data bytes sent: 0x{}", padded_size));
 
     LogInfo(context, "Kernel uploaded, starting...");
     if (const Status exited = StrictPayload(context, bytes::Bytes{uds::kSidRequestTransferExit}, {},
@@ -278,7 +258,8 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::Run(const Subar
         transport,
         uds_client,
         channel,
-        BeefCanSession(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanDieselBeefProfile)};
+        BeefCanSession(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanDieselBeefProfile),
+        BeefCanKernel(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanDieselBeefProfile)};
 
     return RunBeefKernelOperation(
         plan, "Subaru 07+ Diesel 32-bit", context, [](Context& c) { return c.session.RunningKernelId(); },

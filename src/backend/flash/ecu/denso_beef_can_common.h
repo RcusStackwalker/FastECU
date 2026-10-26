@@ -1,14 +1,12 @@
 #pragma once
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <format>
 #include <iterator>
-#include <limits>
 #include <optional>
 #include <span>
 #include <string>
@@ -21,7 +19,6 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/ecu/beef_compare_result.h"
-#include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
@@ -42,11 +39,10 @@
 // Executors still call this header directly for what stays family-local: the
 // channel request helpers (SendChannelRequest, ChannelRequest,
 // ChannelRequestOptional), CancelledIfRequested and ElapsedMilliseconds,
-// ParseBeef and BeefRequest for kernel-ID probing, the 0xB6 kernel-upload
-// helpers (BeefKernelPayload, UploadBeefKernelBlocks, DiscardB6Reply), and
-// ReadBeefMemory for the petrol and diesel reads. Connect, the TCU's read and
-// flash-block loops, security and kernel upload differ per family in
-// timeouts, retry counts, geometry and log wording, and stay in each executor.
+// ParseBeef and BeefRequest for kernel-ID probing, and ReadBeefMemory for
+// the petrol and diesel reads. BeefCanKernel owns payload transfer. Connect,
+// kernel start/handoff, the TCU's read and flash-block loops, and security
+// retain family-specific timing, geometry and wording in each executor.
 //
 // The executor suites do NOT read these helpers back: each carries wire
 // expectations transcribed independently from its legacy oracle, so a wrong
@@ -65,62 +61,6 @@ inline bytes::Bytes BeefRequest(bytes::Byte opcode, bytes::ByteView payload = {}
 {
     return bytes::ComposeBe(std::uint16_t{kKernelStartComm}, static_cast<std::uint16_t>(payload.size() + 1), opcode,
                             payload);
-}
-
-// The padded kernel-upload payload transform. A one-line adapter onto the
-// shared table in denso_iso15765_can_common.h.
-inline bytes::Bytes EncryptPayload(bytes::ByteView payload)
-{
-    return DensoEncryptRom(payload);
-}
-
-// The initial upload request describes the encrypted payload without embedding
-// it. Callers retain their existing kernel-size validation.
-inline std::array<bytes::Byte, 9> BeefKernelDownloadRequest(std::uint32_t load_address,
-                                                            bytes::ByteView encrypted_payload)
-{
-    return bytes::ComposeBe(bytes::Byte{0x34}, bytes::Byte{0x04}, bytes::Byte{0x33}, bytes::U24{load_address},
-                            bytes::U24{static_cast<std::uint32_t>(encrypted_payload.size())});
-}
-
-// The kernel zero-padded to whole `block_size` transfer blocks, its last word
-// replaced by the 0x5AA5A55A complement of the other words' 32-bit sum, then
-// encrypted. Empty when the kernel is empty or its padding overflows.
-// `block_size` is a nonzero multiple of four.
-inline std::optional<bytes::Bytes> BeefKernelPayload(bytes::ByteView kernel, std::size_t block_size)
-{
-    const std::size_t padded_to_word = (kernel.size() + 3U) & ~std::size_t{3U};
-    const std::size_t block_count = (padded_to_word + block_size - 1U) / block_size;
-    if (block_count == 0 || block_count > std::numeric_limits<std::size_t>::max() / block_size)
-    {
-        return std::nullopt;
-    }
-    bytes::Bytes plain(kernel.begin(), kernel.end());
-    plain.resize(block_count * block_size - 4U, bytes::Byte{0});
-    std::uint32_t sum = 0;
-    for (std::size_t offset = 0; offset < plain.size(); offset += 4)
-    {
-        sum += bytes::ReadU32Be(plain, offset);
-    }
-    bytes::AppendU32Be(plain, 0x5AA5A55AU - sum);
-    return EncryptPayload(plain);
-}
-
-// BeefKernelPayload for a family that sends the length in a 24-bit wire field;
-// `family` names the executor in the errors.
-inline Result<bytes::Bytes> BeefKernelUploadPayload(bytes::ByteView kernel, std::size_t block_size,
-                                                    std::string_view family)
-{
-    std::optional<bytes::Bytes> encrypted = BeefKernelPayload(kernel, block_size);
-    if (!encrypted.has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("{} kernel upload size is invalid", family));
-    }
-    if (encrypted->size() >= 0x1000000U)
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("{} kernel upload exceeds the 24-bit wire length", family));
-    }
-    return std::move(*encrypted);
 }
 
 // A parsed BEEF reply: its opcode and the payload the declared length covers.
@@ -369,29 +309,6 @@ Status ConnectBeefProgrammingSession(C& ctx, Unlock unlock, const uds::ExchangeP
         return unlocked;
     }
     return EnterBeefProgrammingSession(ctx, sessions->mode_03, sessions->mode_43, policy);
-}
-
-// Every 0xB6 kernel-upload block is followed by a raw read whose content is
-// ignored. Send through the channel for the request CAN envelope, but read the
-// reply directly so short, malformed and wrong-ID frames and adapter stale
-// errors stay non-fatal; only cancellation and disconnection are typed.
-template <typename C> Status DiscardB6Reply(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds read_timeout)
-{
-    if (const Status checkpoint = CancelledIfRequested(ctx, "kernel upload cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    const Result<std::optional<bytes::Bytes>> ignored = ctx.transport.Read(read_timeout, ctx.cancellation);
-    if (!ignored.has_value() &&
-        (ignored.error().kind == ErrorKind::kCancelled || ignored.error().kind == ErrorKind::kDisconnected))
-    {
-        return std::unexpected(ignored.error());
-    }
-    return CancelledIfRequested(ctx, "kernel upload cancelled");
 }
 
 // The short raw read that follows a CRC reply. The legacy operation does not
@@ -844,30 +761,6 @@ Status WriteBeefMemory(C& ctx, bytes::ByteView image, std::uint32_t image_base, 
     {
         LogError(ctx, "*** ERROR IN FLASH PROCESS ***");
         LogError(ctx, "Don't power off your ECU, kernel is still running and you can try flashing again!");
-    }
-    return {};
-}
-
-// Sends `payload` to `load_address` in `block_size` 0xB6 blocks, then one
-// final address-only block, as every BEEF oracle does. `upload` sends one
-// request and handles its reply the family's way.
-template <WithCancellation C, typename Upload>
-Status UploadBeefKernelBlocks(const C& ctx, bytes::ByteView payload, std::uint32_t load_address, std::size_t block_size,
-                              Upload upload)
-{
-    for (std::size_t offset = 0; offset <= payload.size(); offset += block_size)
-    {
-        if (const Status checkpoint = CancelledIfRequested(ctx, "kernel upload cancelled"); !checkpoint.has_value())
-        {
-            return checkpoint;
-        }
-        const bytes::ByteView chunk = payload.subspan(offset, std::min(block_size, payload.size() - offset));
-        if (const Status sent = upload(bytes::ComposeBe(
-                bytes::Byte{0xB6}, bytes::U24{load_address + static_cast<std::uint32_t>(offset)}, chunk));
-            !sent.has_value())
-        {
-            return sent;
-        }
     }
     return {};
 }
