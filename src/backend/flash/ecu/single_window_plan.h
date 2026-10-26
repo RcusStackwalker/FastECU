@@ -57,8 +57,8 @@ struct SingleWindowPlanSpec
 // `write_region` otherwise, and a write erases exactly `write_region` with an
 // image of `image_size` bytes. ValidateAndBuild already keeps erase regions
 // and images off reads. Failures are worded with the family's `name`. Shared by
-// the single-window families and the kernel-loaded Hitachi SH72543R and TCU
-// M32R CAN families, whose plans have the same windows.
+// the single-window families and the Hitachi SH72543R and TCU M32R CAN
+// families, whose plans have the same windows.
 Status ValidatePlanWindows(const FlashPlan& plan, std::string_view name, const MemoryRegion& read_region,
                            const MemoryRegion& write_region, std::uint32_t image_size);
 
