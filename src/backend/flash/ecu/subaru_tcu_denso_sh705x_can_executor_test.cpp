@@ -1456,7 +1456,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
         {LogLevel::kInfo, "Seed request ok"},
         {LogLevel::kInfo, "Sending seed key"},
         {LogLevel::kInfo, "Seed key ok"},
-        {LogLevel::kInfo, "Requesting programming session"},
+        {LogLevel::kInfo, "Set session mode"},
         {LogLevel::kInfo, "Succesfully set to programming session"},
         {LogLevel::kDebug, "Start address to upload kernel: 0xffff9000"},
         {LogLevel::kInfo, "Initialize kernel upload"},

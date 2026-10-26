@@ -18,6 +18,8 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/algorithms/protocol/uds/uds_response.h"
+#include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/ecu/beef_compare_result.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
@@ -262,6 +264,55 @@ Result<bytes::Bytes> BeefExchange(C& ctx, bytes::Byte opcode, bytes::ByteView pa
         return Fail(ErrorKind::kBadResponse, "short BEEF response payload");
     }
     return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
+}
+
+// Requests a programming session in mode 0x02 for an accepted session 0x03
+// and mode 0x42 for an accepted session 0x43, and accepts a reply echoing
+// either mode.
+template <typename C>
+Status EnterBeefProgrammingSession(C& ctx, bool session_03_accepted, bool session_43_accepted,
+                                   const uds::ExchangePolicy& policy)
+{
+    LogInfo(ctx, "Set session mode");
+    bytes::Bytes request{uds::kSidDiagnosticSessionControl};
+    if (session_03_accepted)
+    {
+        request.push_back(0x02);
+    }
+    if (session_43_accepted)
+    {
+        request.push_back(0x42);
+    }
+    Result<bytes::Bytes> reply = ctx.uds.Request(request, policy, ctx.cancellation);
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    const bytes::ByteView payload = uds::Payload(*reply);
+    if (payload.empty() || (payload[0] != 0x02 && payload[0] != 0x42))
+    {
+        return Fail(ErrorKind::kBadResponse, "unexpected programming session response");
+    }
+    LogInfo(ctx, "Succesfully set to programming session");
+    return {};
+}
+
+// The petrol and diesel connect tail: asks the session which bootloader
+// sessions the ECU accepts, unlocks with the family's `unlock(ctx)`, then
+// enters the programming session those sessions select.
+template <typename C, typename Unlock>
+Status ConnectBeefProgrammingSession(C& ctx, Unlock unlock, const uds::ExchangePolicy& policy)
+{
+    auto sessions = ctx.session.RequestBootloaderSessions();
+    if (!sessions.has_value())
+    {
+        return std::unexpected(sessions.error());
+    }
+    if (Status unlocked = unlock(ctx); !unlocked.has_value())
+    {
+        return unlocked;
+    }
+    return EnterBeefProgrammingSession(ctx, sessions->mode_03, sessions->mode_43, policy);
 }
 
 // Every 0xB6 kernel-upload block is followed by a raw read whose content is

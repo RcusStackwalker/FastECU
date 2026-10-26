@@ -103,6 +103,17 @@ Result<bytes::Bytes> BeefCanSession::Exchange(bytes::Byte opcode, bytes::ByteVie
     return BeefExchange(view, opcode, payload, minimum_payload, timeout);
 }
 
+Result<AcceptedSessionModes> BeefCanSession::RequestBootloaderSessions()
+{
+    LogInfo(MakeView(), "Requesting session mode");
+    return RequestSession(0x03).and_then(
+        [this](bool mode_03)
+        {
+            return RequestSession(0x43).transform([mode_03](bool mode_43)
+                                                  { return AcceptedSessionModes{mode_03, mode_43}; });
+        });
+}
+
 Result<bool> BeefCanSession::RequestSession(bytes::Byte subfunction)
 {
     Result<std::optional<bytes::Bytes>> reply =

@@ -583,6 +583,57 @@
       "outcome": "open",
       "pr": 918,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "df4a0c15577c",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.cpp",
+          "fastecu::flash::SubaruDensoMc68hc16y5_02Executor::WriteMem"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7055_02Executor::WriteMem"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 918,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "d221bf7018e1",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 919,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "a792e6c47fca",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 919,
+      "reason": ""
     }
   ]
 }
