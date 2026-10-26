@@ -532,6 +532,23 @@
       "outcome": "merged",
       "pr": 916,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "121458fcbf98",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::GetCatalogEntry"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::GetCatalogEntry"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 917,
+      "reason": ""
     }
   ]
 }
