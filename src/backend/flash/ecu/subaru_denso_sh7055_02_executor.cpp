@@ -637,74 +637,13 @@ Status SubaruDensoSh7055_02Executor::WriteMem(IKlineFlashTransport& transport, I
         return Fail(ErrorKind::kInvalidConfig, "ROM image does not match the flash device");
     }
 
-    // Legacy write_mem()/get_changed_blocks(), lines 484-637.
-    events.Log(LogLevel::kInfo, "Comparing ECU flash memory pages to image file");
-    const auto compare_blocks = [&](std::vector<bool>& modified) -> Result<unsigned>
-    {
-        return DensoBeefKlineCompareBlocks(blocks, image, modified, cancellation, [&](const MemoryRegion& block)
-                                           { return ReadBlockCrc(transport, clock, cancellation, block); });
-    };
-    std::vector<bool> modified(blocks.size(), false);
-    Result<unsigned> modified_count = compare_blocks(modified);
-    if (!modified_count.has_value())
-    {
-        return std::unexpected(modified_count.error());
-    }
-    // Legacy line 528 transitions the serial control lines after compare,
-    // including the no-difference path.
-    if (Status line = DensoBeefKlineEnableProgrammingVoltage(transport, cancellation); !line.has_value())
-    {
-        return line;
-    }
-    if (*modified_count == 0)
-    {
-        events.Log(LogLevel::kInfo, "No difference between ROM and ECU data, no flashing needed");
-        return {};
-    }
-    if (Status initialized = InitFlashWrite(transport, clock, cancellation, events, test_write);
-        !initialized.has_value())
-    {
-        return initialized;
-    }
-    for (std::size_t block_no = 0; block_no < blocks.size(); ++block_no)
-    {
-        if (!modified[block_no])
-        {
-            continue;
-        }
-        // Legacy reflash_block(), lines 914-944: no settle before the 200ms
-        // programming-voltage reply, whose two-byte voltage requires >7 bytes.
-        if (Result<bytes::Bytes> voltage =
-                DensoBeefKlineExchangeAck(transport, nullptr, cancellation, DensoBeefKlineFrame(kDensoKlineOpProgVolt),
-                                          0ms, 200ms, kDensoKlineOpProgVolt, "prog-volt query", 7);
-            !voltage.has_value())
-        {
-            return std::unexpected(voltage.error());
-        }
-        if (Status flashed = FlashBlock(transport, clock, cancellation, events, image, blocks[block_no], test_write);
-            !flashed.has_value())
-        {
-            return flashed;
-        }
-        events.Log(LogLevel::kInfo, "Block reflash complete");
-    }
-    // Legacy lines 562-593 repeat the per-block CRC comparison after all
-    // selected blocks have been transferred.
-    events.Log(LogLevel::kInfo, "Comparing ECU flash memory pages to image file after reflash");
-    Result<unsigned> remaining_modified = compare_blocks(modified);
-    if (!remaining_modified.has_value())
-    {
-        return std::unexpected(remaining_modified.error());
-    }
-    if (test_write)
-    {
-        events.Log(LogLevel::kInfo, "Test write PASS, it is safe to perform the actual write");
-    }
-    else if (*remaining_modified != 0)
-    {
-        events.Log(LogLevel::kError, "Flash verification differs; do not power off, the kernel is still running");
-    }
-    return {};
+    // Legacy write_mem()/get_changed_blocks(), lines 484-637, with
+    // reflash_block()'s programming-voltage query at lines 914-944.
+    return DensoBeefKlineWriteChangedBlocks(
+        transport, cancellation, events, blocks, image, test_write,
+        [&](const MemoryRegion& block) { return ReadBlockCrc(transport, clock, cancellation, block); }, [&]
+        { return InitFlashWrite(transport, clock, cancellation, events, test_write); }, [&](const MemoryRegion& block)
+        { return FlashBlock(transport, clock, cancellation, events, image, block, test_write); });
 }
 
 Result<KlineConfig> SubaruDensoSh7055_02Executor::Setup(const SubaruDensoSh7055_02Plan& family_plan) const

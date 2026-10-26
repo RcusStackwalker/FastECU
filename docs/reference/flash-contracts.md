@@ -85,7 +85,9 @@ precedes serialization; each family retains its reply policy and upload ordering
 The [BEEF K-Line primitives](../../src/backend/flash/ecu/denso_beef_kline_common.h)
 share opcodes, framing, ACK checks, the optional exchange, write-address
 encoding, the block CRC request (frame, guarded write, 3000 ms first read),
-block comparison and programming-voltage enable. The dialect is
+block comparison, programming-voltage enable and the write sequence
+(`DensoBeefKlineWriteChangedBlocks`: compare, voltage enable, flash init, a
+200 ms programming-voltage query and reflash per changed block, re-compare). The dialect is
 separate from BEEF CAN.
 
 - Framing keeps the modulo-65536 length conversion; ACK acceptance is
