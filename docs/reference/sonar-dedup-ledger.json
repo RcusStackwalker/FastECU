@@ -804,6 +804,23 @@
       "outcome": "open",
       "pr": 922,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "a01e20afc259",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp",
+          "fastecu::flash::WriteMem"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::WriteMem"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 922,
+      "reason": ""
     }
   ]
 }
