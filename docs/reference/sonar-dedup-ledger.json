@@ -838,6 +838,23 @@
       "outcome": "open",
       "pr": 923,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "28c814540dc3",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::UnlockAndJump"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::ConnectBootloader"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 923,
+      "reason": ""
     }
   ]
 }
