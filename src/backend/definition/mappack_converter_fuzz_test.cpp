@@ -39,7 +39,9 @@ FUZZ_TEST(MappackConverterFuzz, ConvertsAnyCsvSafely)
             std::vector<std::tuple<std::string, std::string>> seeds;
             for (auto& [csv] : fuzztest::ReadFilesFromDirectory("src/backend/definition/testdata/fuzz/mappack"))
             {
-                seeds.emplace_back(std::move(csv), "ECU123");
+                seeds.emplace_back(csv, "ECU123");
+                // CSV-only corpus files also exercise the empty ECU-ID boundary.
+                seeds.emplace_back(std::move(csv), "");
             }
             return seeds;
         });
