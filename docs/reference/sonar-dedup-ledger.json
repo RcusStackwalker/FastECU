@@ -736,6 +736,74 @@
       "outcome": "open",
       "pr": 921,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "724d9ea65e01",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::UploadKernel"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::UploadKernel"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 921,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "3e4db0742425",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::ConnectBootloader"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::ConnectBootloader"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 921,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "0f30cfd5d6c4",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::UnlockSecurity"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::UnlockSecurity"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 921,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "a01e20afc259",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp",
+          "fastecu::flash::WriteMem"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::WriteMem"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 922,
+      "reason": ""
     }
   ]
 }

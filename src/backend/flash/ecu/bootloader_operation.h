@@ -13,20 +13,22 @@ namespace fastecu::flash
 
 // The operation a single-image CAN bootloader family runs once its transport
 // is up: connect to the bootloader, then either read the plan's transfer
-// region or write the plan's image. The family owns every exchange and the two
-// phases `write` starts; this owns the "Connect" and "Read ROM" phases, the
-// operator notices and log lines, the TestWrite refusal and the result's
-// shape. `unit` names the bootloader in those texts, e.g.
+// region or erase the flash and write the plan's image over that region. The
+// family owns every exchange; this owns the phases ("Connect", then "Read ROM"
+// or "Erase" and "Write ROM"), the operator notices and log lines, the
+// TestWrite refusal and the result's shape. `unit` names the bootloader in those texts, e.g.
 // "Subaru Hitachi M32R".
 //
 // Each step takes the family's executor context, whose event sink carries
 // the phases, notices and log lines:
 //   connect(ctx) -> Status
 //   read(ctx, PhaseReporter&) -> Result<bytes::Bytes>, the complete read image
-//   write(ctx, bytes::ByteView image, PhaseSequence&) -> Status
-template <typename Ctx, typename Connect, typename Read, typename Write>
+//   erase(ctx) -> Status
+//   write(ctx, bytes::ByteView image, PhaseReporter&) -> Status, given the
+//   whole plan image and reporting progress over the transfer region
+template <typename Ctx, typename Connect, typename Read, typename Erase, typename Write>
 Result<FlashExecutionResult> RunBootloaderOperation(const FlashPlan& plan, std::string_view unit, Ctx& ctx,
-                                                    Connect connect, Read read, Write write)
+                                                    Connect connect, Read read, Erase erase, Write write)
 {
     IEventSink& events = ctx.events;
     const bool reading = plan.Operation() == FlashOperation::kRead;
@@ -69,10 +71,18 @@ Result<FlashExecutionResult> RunBootloaderOperation(const FlashPlan& plan, std::
 
     events.Notice("Writing ROM, please wait...");
     events.Log(LogLevel::kInfo, std::format("Writing ROM to {} using CAN", unit));
-    if (const Status written = write(ctx, plan.ImageOrEmpty(), phases); !written.has_value())
+    PhaseReporter erasing = phases.Start("Erase", 1);
+    if (const Status erased = erase(ctx); !erased.has_value())
+    {
+        return std::unexpected(erased.error());
+    }
+    erasing.Complete();
+    PhaseReporter writing = phases.Start("Write ROM", static_cast<int>(plan.TransferRegion().length));
+    if (const Status written = write(ctx, plan.ImageOrEmpty(), writing); !written.has_value())
     {
         return std::unexpected(written.error());
     }
+    writing.Complete();
     return FlashExecutionResult{
         .operation = FlashOperation::kWrite,
         .read_bytes = std::nullopt,

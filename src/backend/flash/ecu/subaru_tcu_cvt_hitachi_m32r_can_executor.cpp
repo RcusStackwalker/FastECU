@@ -505,16 +505,8 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
 // Legacy write_mem, lines 727-804: erase_mem() is a separate, explicit call
 // here (unlike Task 1's ECU family, which has no standalone erase), followed
 // by one reflash_block() call per modified block.
-Status WriteMem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
+Status WriteBlocks(Ctx& ctx, bytes::ByteView image, PhaseReporter& write)
 {
-    PhaseReporter erase = phases.Start("Erase", 1);
-    if (const Status erased = EraseMemory(ctx); !erased.has_value())
-    {
-        return erased;
-    }
-    erase.Complete();
-
-    PhaseReporter write = phases.Start("Write ROM", static_cast<int>(kWindow.length));
     std::uint32_t done = 0;
     for (const MemoryRegion& block : kWriteBlocks)
     {
@@ -526,7 +518,6 @@ Status WriteMem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
         }
         done += block.length;
     }
-    write.Complete();
     return {};
 }
 
@@ -556,7 +547,7 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::Run(const Subar
 
     Ctx ctx{cancellation, events, clock, uds_client, other_uds_client, channel};
     return RunBootloaderOperation(plan, "Subaru TCU CVT Hitachi M32R", ctx, ConnectBootloader, DumpFlashRange,
-                                  WriteMem);
+                                  EraseMemory, WriteBlocks);
 }
 
 } // namespace fastecu::flash

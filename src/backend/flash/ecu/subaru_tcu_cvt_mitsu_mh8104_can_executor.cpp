@@ -501,8 +501,9 @@ Status EraseMemory(Ctx& ctx)
 
 // Legacy reflash_block, lines 643-840, called once (this family flashes
 // exactly one block, kWriteRegion / kFlashBlocksMH8104[3]).
-Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporter& progress)
+Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& progress)
 {
+    const bytes::ByteView block_plain = image.subspan(kWriteRegion.start, kWriteRegion.length);
     constexpr std::uint32_t kChunkSize = 128;
 
     // "Settting flash start & length..." (lines 677-716): retried up to 6
@@ -605,27 +606,6 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporte
     return {};
 }
 
-// Legacy write_mem, lines 559-636: erase_mem() first, then exactly one
-// reflash_block() call for the sole modified block (index 3).
-Status WriteMem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
-{
-    PhaseReporter erase = phases.Start("Erase", 1);
-    if (const Status erased = EraseMemory(ctx); !erased.has_value())
-    {
-        return erased;
-    }
-    erase.Complete();
-
-    PhaseReporter write = phases.Start("Write ROM", static_cast<int>(kWriteRegion.length));
-    const bytes::ByteView block_plain = image.subspan(kWriteRegion.start, kWriteRegion.length);
-    if (const Status written = UnlockAndReflashBlock(ctx, block_plain, write); !written.has_value())
-    {
-        return written;
-    }
-    write.Complete();
-    return {};
-}
-
 } // namespace
 
 Result<Iso15765Config> SubaruTcuCvtMitsuMh8104CanExecutor::Setup(const SubaruTcuCvtMitsuMh8104CanPlan& family) const
@@ -642,7 +622,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::Run(const Subar
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     Ctx ctx{cancellation, events, clock, channel};
     return RunBootloaderOperation(plan, "Subaru TCU CVT Mitsu MH8104", ctx, ConnectBootloader, DumpFlashRange,
-                                  WriteMem);
+                                  EraseMemory, UnlockAndReflashBlock);
 }
 
 } // namespace fastecu::flash
