@@ -36,7 +36,6 @@ constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout = 500ms};
 // (subaru_tcu_cvt_hitachi_m32r_can_executor.cpp uses those standard
 // values), this family's legacy source uses its own bench-only ids here.
 constexpr bytes::Byte kSessionBench = 0x43;
-constexpr bytes::Byte kSessionKernelJump = 0x42;
 
 constexpr auto kSeedKeyTable =
     std::to_array<std::uint16_t>({0x90A1, 0x2F92, 0xDE3C, 0xCDC0, 0x1A99, 0x437C, 0xF91B, 0xDB57, 0x96BA, 0xDE10,
@@ -199,50 +198,16 @@ Status UnlockAndJump(Ctx& ctx)
         return std::unexpected(session.error());
     }
 
-    LogInfo(ctx, "Starting seed request...");
-    Result<bytes::Bytes> seed_reply =
-        FatalQuery(ctx, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
-                   bytes::Bytes{uds::kSecurityAccessRequestSeed}, "seed request", 5);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    LogInfo(ctx, "Seed request ok");
-    const bytes::ByteView seed_payload = uds::Payload(*seed_reply);
-    const bytes::ByteView seed = seed_payload.subspan(1, 4);
-    LogInfo(ctx, std::format("Received seed: {}", bytes::ToHex(seed)));
-    const bytes::Bytes key = SeedKey(seed);
-    LogInfo(ctx, std::format("Calculated seed key: {}", bytes::ToHex(key)));
-
-    LogInfo(ctx, "Sending seed key to ECU...");
-    if (Result<bytes::Bytes> key_reply =
-            FatalQuery(ctx, ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
-                       bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
-        !key_reply.has_value())
-    {
-        return std::unexpected(key_reply.error());
-    }
-    LogInfo(ctx, "Seed key ok");
-
-    LogInfo(ctx, "Jumping to onboard kernel...");
-    if (Result<bytes::Bytes> jump_reply =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
-                       bytes::Bytes{kSessionKernelJump}, "kernel jump");
-        !jump_reply.has_value())
-    {
-        return std::unexpected(jump_reply.error());
-    }
-    LogInfo(ctx, "Jump to kernel ok");
-
-    LogInfo(ctx, "Checking if jump successful and kernel alive...");
-    if (Result<bytes::Bytes> alive_reply =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidRequestDownload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
-                       bytes::Bytes{0x20, 0x01, 0x04}, "kernel alive check");
-        !alive_reply.has_value())
-    {
-        return std::unexpected(alive_reply.error());
-    }
-    return {};
+    return UnlockAndKernelJump(ExchangeContext(ctx), kRejectionPrefix, SeedKey)
+        .and_then(
+            [&]
+            {
+                LogInfo(ctx, "Checking if jump successful and kernel alive...");
+                return FatalQuery(
+                    ctx, bytes::Bytes{uds::kSidRequestDownload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
+                    bytes::Bytes{0x20, 0x01, 0x04}, "kernel alive check");
+            })
+        .transform([](const bytes::Bytes&) {});
 }
 
 Status ConnectBootloader(Ctx& ctx)

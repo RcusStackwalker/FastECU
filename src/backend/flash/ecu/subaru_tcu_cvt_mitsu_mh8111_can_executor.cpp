@@ -39,7 +39,6 @@ constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout = 2000ms};
 // band -- no standard meaning, unlike uds::kSessionProgramming/
 // kSessionExtendedDiagnostic.
 constexpr bytes::Byte kSessionBootload = 0x43;
-constexpr bytes::Byte kSessionKernelJump = 0x42;
 
 // Seed key (legacy generate_seed_key, lines 908-914). Byte-identical to the
 // sibling MH8104 family's table (Task 6 comparison); factored into the
@@ -82,16 +81,6 @@ Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rej
 Result<bytes::Bytes> FatalRequest(Ctx& ctx, bytes::ByteView pdu, std::string_view operation)
 {
     return ::fastecu::flash::FatalRequest(ExchangeContext(ctx), pdu, kRejectionPrefix, operation);
-}
-
-// Binds this family's context and rejection prefix to the shared FatalQuery,
-// which connect_bootloader calls for each of its exchanges. The shared
-// header documents expected_prefix, subject and min_payload_size.
-Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
-                                std::string_view subject, std::optional<std::size_t> min_payload_size = std::nullopt)
-{
-    return ::fastecu::flash::FatalQuery(ExchangeContext(ctx), pdu, expected_prefix, kRejectionPrefix, subject,
-                                        min_payload_size);
 }
 
 // Legacy's two non-fatal identity queries (TCU ID/CAL ID, lines 94-168) and
@@ -167,41 +156,12 @@ Status ConnectBootloader(Ctx& ctx)
     NonFatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBootload}, kSessionBootload,
                   "session mode (bootloader)");
 
-    // Seed 0x27/0x01 (lines 199-225), fatal.
-    LogInfo(ctx, "Requesting seed");
-    Result<bytes::Bytes> seed_reply =
-        FatalQuery(ctx, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
-                   bytes::Bytes{uds::kSecurityAccessRequestSeed}, "seed request", 5);
-    if (!seed_reply.has_value())
+    // Seed 0x27/0x01, key 0x27/0x02 and jump 0x10/0x42 (lines 199-295), fatal.
+    if (const Status unlocked = UnlockAndKernelJump(ExchangeContext(ctx), kRejectionPrefix, TcuCvtMitsuSeedKey);
+        !unlocked.has_value())
     {
-        return std::unexpected(seed_reply.error());
+        return unlocked;
     }
-    LogInfo(ctx, "Seed request ok");
-    const bytes::ByteView seed = uds::Payload(*seed_reply).subspan(1, 4);
-    const bytes::Bytes key = TcuCvtMitsuSeedKey(seed);
-
-    // Seed key 0x27/0x02 (lines 236-263), fatal.
-    LogInfo(ctx, "Sending seed key");
-    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
-    key_request.insert(key_request.end(), key.begin(), key.end());
-    if (Result<bytes::Bytes> key_reply =
-            FatalQuery(ctx, key_request, bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
-        !key_reply.has_value())
-    {
-        return std::unexpected(key_reply.error());
-    }
-    LogInfo(ctx, "Seed key ok");
-
-    // Jump 0x10/0x42 (lines 267-295), fatal.
-    LogInfo(ctx, "Jumping to onboad kernel...");
-    if (Result<bytes::Bytes> jump_reply =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
-                       bytes::Bytes{kSessionKernelJump}, "kernel jump");
-        !jump_reply.has_value())
-    {
-        return std::unexpected(jump_reply.error());
-    }
-    LogInfo(ctx, "Jump to kernel ok");
 
     // Alive check (lines 298-331). The SENT PDU is
     // 0x34/0x04/0x33/0x00/0x00/0x00/0x08/0x00/0x00 -- the SAME literal

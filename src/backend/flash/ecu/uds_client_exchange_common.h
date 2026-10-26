@@ -142,4 +142,11 @@ Result<bytes::Bytes> FatalQuery(const UdsExchangeContext& ctx, bytes::ByteView p
                                 std::string_view rejection_prefix, std::string_view subject,
                                 std::optional<std::size_t> min_payload_size = std::nullopt);
 
+// The seed/key unlock and kernel jump: a fatal seed request (27 01, a reply of
+// at least five payload bytes opening 01), the family's `seed_key` of its four
+// seed bytes sent as 27 02 (reply opening 02), then the kernel jump 10 42
+// (reply opening 42). Any failure aborts.
+Status UnlockAndKernelJump(const UdsExchangeContext& ctx, std::string_view rejection_prefix,
+                           bytes::Bytes (*seed_key)(bytes::ByteView seed));
+
 } // namespace fastecu::flash
