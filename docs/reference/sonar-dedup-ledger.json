@@ -685,6 +685,23 @@
       "outcome": "open",
       "pr": 920,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "3aedf29fe2f6",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7058CanDieselExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7058CanExecutor::Run"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 920,
+      "reason": ""
     }
   ]
 }
