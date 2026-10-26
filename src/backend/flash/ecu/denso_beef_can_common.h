@@ -298,6 +298,61 @@ Status EnterBeefProgrammingSession(C& ctx, bool session_03_accepted, bool sessio
     return {};
 }
 
+// The petrol and diesel security unlock: a strict seed request (27 01, whose
+// reply carries at least five payload bytes opening 01), the family's
+// `seed_key(ctx, seed)` of the four seed bytes, then the strict key (27 02,
+// whose reply opens 02). A security-access reply without a payload is refused,
+// and every failure is logged through the session.
+template <typename C, typename SeedKey>
+Status UnlockBeefSecurity(C& ctx, SeedKey seed_key, const uds::ExchangePolicy& policy)
+{
+    const auto strict = [&](const bytes::Bytes& pdu)
+    {
+        Result<bytes::Bytes> reply = ctx.uds.Request(pdu, policy, ctx.cancellation);
+        if (reply.has_value() && reply->size() <= 1)
+        {
+            reply = std::unexpected(Error{ErrorKind::kBadResponse, "security access reply is too short"});
+        }
+        if (!reply.has_value())
+        {
+            ctx.session.LogFailure(reply.error());
+        }
+        return reply;
+    };
+    LogInfo(ctx, "Requesting seed");
+    return strict(bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed})
+        .and_then(
+            [&](const bytes::Bytes& reply) -> Result<bytes::Bytes>
+            {
+                const bytes::ByteView payload = uds::Payload(reply);
+                if (payload.size() < 5 || payload[0] != uds::kSecurityAccessRequestSeed)
+                {
+                    LogError(ctx, "Wrong response from ECU: Not a valid answer");
+                    return Fail(ErrorKind::kBadResponse, "invalid seed response");
+                }
+                LogInfo(ctx, "Seed request ok");
+                return seed_key(ctx, payload.subspan(1, 4));
+            })
+        .and_then(
+            [&](const bytes::Bytes& key)
+            {
+                LogInfo(ctx, "Sending seed key");
+                return strict(bytes::ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key));
+            })
+        .and_then(
+            [&](const bytes::Bytes& reply) -> Status
+            {
+                if (uds::Payload(reply)[0] != uds::kSecurityAccessSendKey)
+                {
+                    const Error mismatch{ErrorKind::kBadResponse, "unexpected response during seed key"};
+                    ctx.session.LogFailure(mismatch);
+                    return std::unexpected(mismatch);
+                }
+                LogInfo(ctx, "Seed key ok");
+                return {};
+            });
+}
+
 // The petrol and diesel connect tail: asks the session which bootloader
 // sessions the ECU accepts, unlocks with the family's `unlock(ctx)`, then
 // enters the programming session those sessions select.

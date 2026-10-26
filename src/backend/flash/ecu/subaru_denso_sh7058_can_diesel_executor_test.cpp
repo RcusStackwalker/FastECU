@@ -1035,32 +1035,38 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecuritySeedReplyIsRefused)
         (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: security access reply is too short"}}));
 }
 
-TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyReplyIsRefused)
+TEST(SubaruDensoSh7058CanDieselExecutor, ShortOrWrongSecurityKeyReplyIsRefused)
 {
-    auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
-    ASSERT_THAT(plan, IsOk());
-    SubaruDensoSh7058CanDieselExecutor executor;
-    ScriptedCanFlashTransport transport;
-    ConfigureAndOpen(executor, *plan, transport);
-    ScriptKernelProbeTimeout(transport);
-    ScriptIdentityQueries(transport);
-    ScriptSessionSelection(transport);
-    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
-    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44});
-    transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
-    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67});
-    FakeCancellationToken cancellation;
-    FakeClock clock;
-    RecordingEventSink events;
+    const std::array<std::pair<bytes::Bytes, std::string_view>, 2> replies{{
+        {{0x00, 0x00, 0x07, 0xE8, 0x67}, "Wrong response from ECU: security access reply is too short"},
+        {{0x00, 0x00, 0x07, 0xE8, 0x67, 0x03}, "Wrong response from ECU: unexpected response during seed key"},
+    }};
+    for (const auto& [reply, log] : replies)
+    {
+        SCOPED_TRACE(log);
+        auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
+        ASSERT_THAT(plan, IsOk());
+        SubaruDensoSh7058CanDieselExecutor executor;
+        ScriptedCanFlashTransport transport;
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport);
+        ScriptIdentityQueries(transport);
+        ScriptSessionSelection(transport);
+        transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44});
+        transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
+        transport.QueueRead(reply);
+        FakeCancellationToken cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
 
-    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
-    EXPECT_TRUE(transport.ScriptConsumed());
-    ASSERT_THAT(events.logs, Not(IsEmpty()));
-    EXPECT_EQ(
-        events.logs.back(),
-        (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: security access reply is too short"}}));
+        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        ASSERT_THAT(events.logs, Not(IsEmpty()));
+        EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string(log)}));
+    }
 }
 
 // A negative RequestDownload reply is logged with its NRC description.
@@ -1272,7 +1278,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSeedResponseIsRejected)
     const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result,
-                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::StrEq("invalid diesel seed response")));
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::StrEq("invalid seed response")));
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, TestWriteDisablesFlashAndValidatesWithoutCommitForBothGenerations)

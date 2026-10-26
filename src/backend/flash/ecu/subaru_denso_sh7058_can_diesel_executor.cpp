@@ -164,39 +164,6 @@ Status RequestIdentity(Context& context, bool read_operation, std::optional<std:
     return context.session.RequestCvn();
 }
 
-Status UnlockSecurity(Context& context)
-{
-    LogInfo(context, "Requesting seed");
-    Result<bytes::Bytes> seed_reply =
-        StrictRequest(context, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, kStrictPolicy);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    const bytes::ByteView seed_payload = uds::Payload(*seed_reply);
-    if (seed_payload.size() < 5 || seed_payload[0] != uds::kSecurityAccessRequestSeed)
-    {
-        LogError(context, "Wrong response from ECU: Not a valid answer");
-        return Fail(ErrorKind::kBadResponse, "invalid diesel seed response");
-    }
-    LogInfo(context, "Seed request ok");
-    Result<bytes::Bytes> key = SecurityKey(context, seed_payload.subspan(1, 4));
-    if (!key.has_value())
-    {
-        return std::unexpected(key.error());
-    }
-    LogInfo(context, "Sending seed key");
-    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
-    key_request.insert(key_request.end(), key->begin(), key->end());
-    if (const Status accepted = StrictPayload(context, key_request, bytes::Bytes{0x02}, "seed key");
-        !accepted.has_value())
-    {
-        return accepted;
-    }
-    LogInfo(context, "Seed key ok");
-    return {};
-}
-
 Status ConnectBootloader(Context& context, bool read_operation, std::optional<std::string>& rom_id)
 {
     // connect_bootloader(), revision 59f4e442:113-510.
@@ -206,7 +173,8 @@ Status ConnectBootloader(Context& context, bool read_operation, std::optional<st
         return identity;
     }
 
-    return ConnectBeefProgrammingSession(context, UnlockSecurity, kStrictPolicy);
+    return ConnectBeefProgrammingSession(
+        context, [](Context& c) { return UnlockBeefSecurity(c, SecurityKey, kStrictPolicy); }, kStrictPolicy);
 }
 
 Status UploadKernel(Context& context, const KernelImage& kernel)

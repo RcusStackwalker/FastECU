@@ -270,38 +270,6 @@ Result<RaceRomAltValues> ReadRaceRomAltValues(Context& context, const std::optio
     return values;
 }
 
-Status UnlockSecurity(Context& context, const std::optional<RaceRomAltValues>& race_rom_alt)
-{
-    LogInfo(context, "Requesting seed");
-    Result<bytes::Bytes> seed_reply = context.uds.Request(
-        bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, kStrictPolicy, context.cancellation);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    const bytes::ByteView seed_payload = uds::Payload(*seed_reply);
-    if (seed_payload.size() < 5 || seed_payload[0] != uds::kSecurityAccessRequestSeed)
-    {
-        return Fail(ErrorKind::kBadResponse, "invalid petrol seed response");
-    }
-    LogInfo(context, "Seed request ok");
-    Result<bytes::Bytes> key = SecurityKey(context, seed_payload.subspan(1, 4), race_rom_alt);
-    if (!key.has_value())
-    {
-        return std::unexpected(key.error());
-    }
-    LogInfo(context, "Sending seed key");
-    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
-    key_request.insert(key_request.end(), key->begin(), key->end());
-    if (const Status accepted = StrictPayload(context, key_request, bytes::Bytes{0x02}, "seed key");
-        !accepted.has_value())
-    {
-        return accepted;
-    }
-    LogInfo(context, "Seed key ok");
-    return {};
-}
-
 Status ConnectBootloader(Context& context, bool read_operation, std::optional<std::string>& rom_id)
 {
     // connect_bootloader(), revision 59f4e442:112-621.
@@ -322,8 +290,10 @@ Status ConnectBootloader(Context& context, bool read_operation, std::optional<st
         race_rom_alt = *values;
     }
 
+    const auto seed_key = [&race_rom_alt](Context& c, bytes::ByteView seed)
+    { return SecurityKey(c, seed, race_rom_alt); };
     return ConnectBeefProgrammingSession(
-        context, [&race_rom_alt](Context& c) { return UnlockSecurity(c, race_rom_alt); }, kStrictPolicy);
+        context, [&](Context& c) { return UnlockBeefSecurity(c, seed_key, kStrictPolicy); }, kStrictPolicy);
 }
 
 Status UploadKernel(Context& context, const KernelImage& kernel)
