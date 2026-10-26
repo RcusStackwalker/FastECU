@@ -59,6 +59,38 @@ Status ValidateRegions(const FlashPlan& plan, const FlashDevice& device);
 bool EraseGeometryMatches(std::span<const MemoryRegion> regions, const FlashDevice& device);
 std::vector<MemoryRegion> MakeEraseRegions(const FlashDevice& device);
 
+// Checks the parts of a kernel-loaded whole-ROM family's plan that
+// BuildWholeRomKernelPlan derives, on a device the caller has already
+// validated: a kernel that fits the device's kernel region from
+// `kernel_load_address`, the device's erase regions, and the operation's
+// image shape.
+template <std::uint64_t KernelBlockSize>
+Status ValidateWholeRomKernelPlan(const FlashPlan& plan, std::uint32_t kernel_load_address, const FlashDevice& device)
+{
+    if (!plan.Kernel().has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, "plan requires a kernel image");
+    }
+    if (Status kernel = ValidateKernelUpload<KernelBlockSize>(plan.Kernel()->bytes.size(), plan.Kernel()->load_address,
+                                                              kernel_load_address, device.kblocks[0]);
+        !kernel.has_value())
+    {
+        return kernel;
+    }
+    if (Status regions = ValidateRegions(plan, device); !regions.has_value())
+    {
+        return regions;
+    }
+    if (!OperationImageShapeMatches(plan, device.romsize))
+    {
+        return Fail(ErrorKind::kInvalidConfig,
+                    plan.Operation() == FlashOperation::kRead
+                        ? std::string("read plan carries an image")
+                        : std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
+    }
+    return {};
+}
+
 // Builds a kernel-loaded whole-ROM family's plan on a device the caller has
 // already validated. The caller's `fields` carry the family's identity:
 // operation, family, transport, target, MCU, wire parameters and

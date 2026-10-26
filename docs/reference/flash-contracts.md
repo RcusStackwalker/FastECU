@@ -68,8 +68,9 @@ Callers keep catalog identity, capabilities, diagnostics and validation order,
 including unsupported TCU TestWrite and SH7055 Write rejection before invalid
 image/kernel errors. The four Denso SH705x kernel-loaded builders share the rest
 of their plan (kernel fit, image rules, transfer, erase-all, build and family
-validation) through `BuildWholeRomKernelPlan`; family upload padding still
-differs (six versus 128 bytes) and is its template argument.
+validation) through `BuildWholeRomKernelPlan`, and their validators re-check the
+derived parts through `ValidateWholeRomKernelPlan`; family upload padding still
+differs (six versus 128 bytes) and is the template argument of both.
 
 ## Denso BEEF CAN kernel download framing
 

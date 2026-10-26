@@ -68,21 +68,6 @@ bool WireParametersMatch(const SubaruTcuDensoSh705xCanPlan& wire)
     return wire.request_id == 0x7E1 && wire.response_id == 0x7E9 && wire.bitrate == 500000 && !wire.extended_id;
 }
 
-Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
-{
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        return !detail::OperationImageShapeMatches(plan, device.romsize)
-                   ? Fail(ErrorKind::kInvalidConfig, "TCU read plan carries an image")
-                   : Status{};
-    }
-    if (!detail::OperationImageShapeMatches(plan, device.romsize))
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
-    }
-    return {};
-}
-
 Status ValidateCapability(const FlashPlan& plan, const CatalogEntry& entry)
 {
     if (plan.Operation() == FlashOperation::kTestWrite ||
@@ -116,25 +101,11 @@ Status ValidateSubaruTcuDensoSh705xCanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "TCU catalog does not match the flash device table");
     }
-    if (!plan.Kernel().has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, "TCU requires a kernel image");
-    }
-    if (Status kernel = detail::ValidateKernelUpload<128>(plan.Kernel()->bytes.size(), plan.Kernel()->load_address,
-                                                          entry->kernel_load_address, device->kblocks[0]);
-        !kernel.has_value())
-    {
-        return kernel;
-    }
     if (!plan.Confirmations().empty())
     {
         return Fail(ErrorKind::kInvalidConfig, "TCU plans must not declare extra confirmations");
     }
-    if (Status regions = detail::ValidateRegions(plan, *device); !regions.has_value())
-    {
-        return regions;
-    }
-    return ValidateImage(plan, *device);
+    return detail::ValidateWholeRomKernelPlan<128>(plan, entry->kernel_load_address, *device);
 }
 
 Result<FlashPlan> BuildSubaruTcuDensoSh705xCanPlan(FlashOperation operation, std::string_view protocol_name,

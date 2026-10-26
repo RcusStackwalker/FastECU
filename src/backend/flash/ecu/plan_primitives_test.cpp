@@ -2,6 +2,7 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/flash_validation.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <array>
@@ -79,6 +80,40 @@ TEST(PlanPrimitives, OperationImageShapeRequiresNoReadImageAndExactWriteSize)
         EXPECT_EQ(OperationImageShapeMatches(*plan, 4), operation != FlashOperation::kRead);
         image.reset();
         EXPECT_EQ(OperationImageShapeMatches(*plan, 4), operation == FlashOperation::kRead);
+    }
+}
+
+TEST(PlanPrimitives, WholeRomKernelValidationRequiresKernelAndOperationImageShape)
+{
+    const FlashBlock block{0, 4};
+    const FlashDevice device{"test", kSH7058, 4, 1, &block, nullptr, &kRegion, nullptr};
+    for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kWrite})
+    {
+        SCOPED_TRACE(::testing::PrintToString(operation));
+        auto plan = BuildWholeRomKernelPlan<128>(
+            {.operation = operation,
+             .family = FlashFamily::kSubaruDensoSh7058CanDiesel,
+             .transport = TransportKind::kCanIso15765,
+             .target_id = "test",
+             .mcu_name = "test",
+             .family_plan = SubaruDensoSh7058CanDieselPlan{}},
+            operation == FlashOperation::kRead ? std::nullopt : std::optional<bytes::Bytes>{{1, 2, 3, 4}},
+            KernelImage{.id = "kernel", .load_address = kRegion.start, .bytes = {1}}, kRegion.start, device,
+            [](const FlashPlan&) { return Status{}; });
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_THAT(ValidateWholeRomKernelPlan<128>(*plan, kRegion.start, device), fastecu::testing::IsOk());
+        // Mutate the built plan solely to reach checks ValidateAndBuild and the
+        // builder normally keep callers from reaching.
+        const_cast<std::optional<bytes::Bytes>&>(plan->Image()) = bytes::Bytes{1, 2, 3};
+        EXPECT_THAT(ValidateWholeRomKernelPlan<128>(*plan, kRegion.start, device),
+                    fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                ::testing::StrEq(operation == FlashOperation::kRead
+                                                                     ? "read plan carries an image"
+                                                                     : "ROM file must be exactly 0x4 bytes")));
+        const_cast<std::optional<KernelImage>&>(plan->Kernel()).reset();
+        EXPECT_THAT(
+            ValidateWholeRomKernelPlan<128>(*plan, kRegion.start, device),
+            fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::StrEq("plan requires a kernel image")));
     }
 }
 

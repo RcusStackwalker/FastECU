@@ -66,21 +66,6 @@ bool WireParametersMatch(const SubaruDensoSh7058CanDieselPlan& wire)
     return wire.request_id == 0x7E0 && wire.response_id == 0x7E8 && wire.bitrate == 500000 && !wire.extended_id;
 }
 
-Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
-{
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        return !detail::OperationImageShapeMatches(plan, device.romsize)
-                   ? Fail(ErrorKind::kInvalidConfig, "diesel read plans must not carry an image")
-                   : Status{};
-    }
-    if (!detail::OperationImageShapeMatches(plan, device.romsize))
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
-    }
-    return {};
-}
-
 } // namespace
 
 Status ValidateSubaruDensoSh7058CanDieselPlan(const FlashPlan& plan)
@@ -100,25 +85,11 @@ Status ValidateSubaruDensoSh7058CanDieselPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "diesel catalog does not match the flash device table");
     }
-    if (!plan.Kernel().has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, "diesel family requires a kernel image");
-    }
-    if (Status kernel = detail::ValidateKernelUpload<128>(plan.Kernel()->bytes.size(), plan.Kernel()->load_address,
-                                                          entry->kernel_load_address, device->kblocks[0]);
-        !kernel.has_value())
-    {
-        return kernel;
-    }
     if (!plan.Confirmations().empty())
     {
         return Fail(ErrorKind::kInvalidConfig, "diesel plans must not declare extra confirmations");
     }
-    if (Status regions = detail::ValidateRegions(plan, *device); !regions.has_value())
-    {
-        return regions;
-    }
-    return ValidateImage(plan, *device);
+    return detail::ValidateWholeRomKernelPlan<128>(plan, entry->kernel_load_address, *device);
 }
 
 Result<FlashPlan> BuildSubaruDensoSh7058CanDieselPlan(FlashOperation operation, std::string_view protocol_name,
