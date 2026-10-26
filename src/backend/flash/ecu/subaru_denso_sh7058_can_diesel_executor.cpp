@@ -441,53 +441,12 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::Run(const Subar
         channel,
         BeefCanSession(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanDieselBeefProfile)};
 
-    const bool read_operation = plan.Operation() == FlashOperation::kRead;
-    PhaseSequence phases(events, read_operation ? 2 : 4);
-    PhaseReporter kernel_phase = phases.Start("Kernel", 1);
-    bool kernel_alive = false;
-    std::optional<std::string> rom_id;
-    LogInfo(context, "Connecting to Subaru 07+ Diesel 32-bit CAN bootloader, please wait...");
-    if (const Status connected = ConnectBootloader(context, read_operation, kernel_alive, rom_id);
-        !connected.has_value())
-    {
-        return std::unexpected(connected.error());
-    }
-    if (!kernel_alive)
-    {
-        events.Notice("Preparing, please wait...");
-        LogInfo(context, "Initializing Subaru 07+ Diesel 32-bit CAN kernel upload, please wait...");
-        if (const Status uploaded = UploadKernel(context, plan.KernelOrEmpty()); !uploaded.has_value())
-        {
-            return std::unexpected(uploaded.error());
-        }
-    }
-    kernel_phase.Complete();
-
-    if (read_operation)
-    {
-        events.Notice("Reading ROM, please wait...");
-        LogInfo(context, "Reading ROM from Subaru 07+ Diesel 32-bit using CAN");
-        PhaseReporter read_phase = phases.Start("Read", static_cast<int>(plan.TransferRegion().length));
-        Result<bytes::Bytes> rom = ReadBeefMemory(context, plan.TransferRegion(), read_phase, Exchanger(context));
-        if (!rom.has_value())
-        {
-            return std::unexpected(rom.error());
-        }
-        read_phase.Complete();
-        return FlashExecutionResult{
-            .operation = FlashOperation::kRead, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
-    }
-
-    events.Notice("Writing ROM, please wait...");
-    LogInfo(context, "Writing ROM to Subaru 07+ Diesel 32-bit using CAN");
-    PhaseReporter compare_phase = phases.Start("Compare", static_cast<int>(plan.EraseRegions().size()));
-    if (const Status written = context.session.WriteMemory(plan, phases, compare_phase); !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    PhaseReporter complete = phases.Start("Complete", 1);
-    complete.Complete();
-    return FlashExecutionResult{.operation = plan.Operation()};
+    return RunBeefKernelOperation(
+        plan, "Subaru 07+ Diesel 32-bit", context, ConnectBootloader, UploadKernel,
+        [](Context& c, const FlashPlan& p, PhaseReporter& progress)
+        { return ReadBeefMemory(c, p.TransferRegion(), progress, Exchanger(c)); },
+        [](Context& c, const FlashPlan& p, PhaseSequence& phases, PhaseReporter& compare)
+        { return c.session.WriteMemory(p, phases, compare); });
 }
 
 } // namespace fastecu::flash

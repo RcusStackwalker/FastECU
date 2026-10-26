@@ -675,51 +675,8 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::Run(const SubaruTc
         channel,
         BeefCanSession(transport, clock, cancellation, events, channel, kSubaruTcuDensoSh705xCanBeefProfile)};
 
-    const bool read_operation = plan.Operation() == FlashOperation::kRead;
-    PhaseSequence phases(events, read_operation ? 2 : 4);
-    PhaseReporter kernel_phase = phases.Start("Kernel", 1);
-    bool kernel_alive = false;
-    std::optional<std::string> rom_id;
-    if (const Status connected = ConnectBootloader(context, read_operation, kernel_alive, rom_id);
-        !connected.has_value())
-    {
-        return std::unexpected(connected.error());
-    }
-    if (!kernel_alive && plan.Kernel().has_value())
-    {
-        // Stock ECU path: connect_bootloader already ran strict session and
-        // security exchanges, so upload the caller-owned kernel now.
-        events.Notice("Preparing, please wait...");
-        if (const Status uploaded = UploadKernel(context, *plan.Kernel()); !uploaded.has_value())
-        {
-            return std::unexpected(uploaded.error());
-        }
-    }
-    kernel_phase.Complete();
-
-    if (read_operation)
-    {
-        events.Notice("Reading ROM, please wait...");
-        PhaseReporter read_phase = phases.Start("Read", static_cast<int>(plan.TransferRegion().length));
-        Result<bytes::Bytes> rom = ReadMemory(context, plan, read_phase);
-        if (!rom.has_value())
-        {
-            return std::unexpected(rom.error());
-        }
-        read_phase.Complete();
-        return FlashExecutionResult{
-            .operation = FlashOperation::kRead, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
-    }
-
-    events.Notice("Writing ROM, please wait...");
-    PhaseReporter compare_phase = phases.Start("Compare", static_cast<int>(plan.EraseRegions().size()));
-    if (const Status written = WriteMemory(context, plan, phases, compare_phase); !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    PhaseReporter complete = phases.Start("Complete", 1);
-    complete.Complete();
-    return FlashExecutionResult{.operation = FlashOperation::kWrite};
+    return RunBeefKernelOperation(plan, "Subaru Denso SH705x TCU", context, ConnectBootloader, UploadKernel, ReadMemory,
+                                  WriteMemory);
 }
 
 } // namespace fastecu::flash
