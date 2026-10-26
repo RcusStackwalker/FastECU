@@ -140,53 +140,18 @@ Result<FlashPlan> BuildSubaruDensoSh705xDensocanPlan(FlashOperation operation, s
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN catalog does not match the flash device table");
     }
-    if (Status upload = detail::ValidateKernelUpload<6>(kernel.bytes.size(), kernel.load_address,
-                                                        entry->kernel_load_address, device->kblocks[0]);
-        !upload.has_value())
-    {
-        return std::unexpected(upload.error());
-    }
-    if (operation == FlashOperation::kRead)
-    {
-        if (image.has_value())
+    return detail::BuildWholeRomKernelPlan<6>(
         {
-            return Fail(ErrorKind::kInvalidConfig, "DensoCAN read plans must not carry an image");
-        }
-    }
-    else if (!image.has_value() || image->size() != device->romsize)
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device->romsize));
-    }
-
-    std::vector<MemoryRegion> erase_regions;
-    if (operation != FlashOperation::kRead)
-    {
-        erase_regions = detail::MakeEraseRegions(*device);
-    }
-
-    FlashPlanFields fields{
-        .operation = operation,
-        .family = FlashFamily::kSubaruDensoSh705xDensoCan,
-        .transport = TransportKind::kCanRawIso15765,
-        .target_id = std::string(protocol_name),
-        .mcu_name = std::string(mcu_type),
-        .transfer_region = {device->fblocks[0].start, device->romsize},
-        .erase_regions = std::move(erase_regions),
-        .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
-        .kernel = std::move(kernel),
-        .family_plan = WireParameters(),
-        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}},
-    };
-    Result<FlashPlan> plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705xDensocanPlan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+            .operation = operation,
+            .family = FlashFamily::kSubaruDensoSh705xDensoCan,
+            .transport = TransportKind::kCanRawIso15765,
+            .target_id = std::string(protocol_name),
+            .mcu_name = std::string(mcu_type),
+            .family_plan = WireParameters(),
+            .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}},
+        },
+        std::move(image), std::move(kernel), entry->kernel_load_address, *device,
+        ValidateSubaruDensoSh705xDensocanPlan);
 }
 
 } // namespace fastecu::flash

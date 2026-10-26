@@ -135,53 +135,17 @@ Result<FlashPlan> BuildSubaruDensoSh7058CanDieselPlan(FlashOperation operation, 
     {
         return Fail(ErrorKind::kInvalidConfig, "diesel catalog does not match the flash device table");
     }
-    if (Status upload = detail::ValidateKernelUpload<128>(kernel.bytes.size(), kernel.load_address,
-                                                          entry->kernel_load_address, device->kblocks[0]);
-        !upload.has_value())
-    {
-        return std::unexpected(upload.error());
-    }
-    if (operation == FlashOperation::kRead)
-    {
-        if (image.has_value())
+    return detail::BuildWholeRomKernelPlan<128>(
         {
-            return Fail(ErrorKind::kInvalidConfig, "diesel read plans must not carry an image");
-        }
-    }
-    else if (!image.has_value() || image->size() != device->romsize)
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device->romsize));
-    }
-
-    std::vector<MemoryRegion> erase_regions;
-    if (operation != FlashOperation::kRead)
-    {
-        erase_regions = detail::MakeEraseRegions(*device);
-    }
-
-    FlashPlanFields fields{
-        .operation = operation,
-        .family = FlashFamily::kSubaruDensoSh7058CanDiesel,
-        .transport = TransportKind::kCanIso15765,
-        .target_id = std::string(protocol_name),
-        .mcu_name = std::string(mcu_type),
-        .transfer_region = {device->fblocks[0].start, device->romsize},
-        .erase_regions = std::move(erase_regions),
-        .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
-        .kernel = std::move(kernel),
-        .family_plan = SubaruDensoSh7058CanDieselPlan{},
-        .confirmations = {},
-    };
-    Result<FlashPlan> plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh7058CanDieselPlan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+            .operation = operation,
+            .family = FlashFamily::kSubaruDensoSh7058CanDiesel,
+            .transport = TransportKind::kCanIso15765,
+            .target_id = std::string(protocol_name),
+            .mcu_name = std::string(mcu_type),
+            .family_plan = SubaruDensoSh7058CanDieselPlan{},
+        },
+        std::move(image), std::move(kernel), entry->kernel_load_address, *device,
+        ValidateSubaruDensoSh7058CanDieselPlan);
 }
 
 } // namespace fastecu::flash

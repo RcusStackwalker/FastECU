@@ -1,11 +1,17 @@
 #pragma once
 
 #include <cstdint>
+#include <format>
 #include <limits>
+#include <optional>
 #include <span>
+#include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "src/backend/flash/flash_plan.h"
+#include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/ports/result.h"
 
@@ -52,4 +58,43 @@ Status ValidateKernelUpload(std::uint64_t size, std::uint32_t load_address, std:
 Status ValidateRegions(const FlashPlan& plan, const FlashDevice& device);
 bool EraseGeometryMatches(std::span<const MemoryRegion> regions, const FlashDevice& device);
 std::vector<MemoryRegion> MakeEraseRegions(const FlashDevice& device);
+
+// Builds a kernel-loaded whole-ROM family's plan on a device the caller has
+// already validated. The caller's `fields` carry the family's identity:
+// operation, family, transport, target, MCU, wire parameters and
+// confirmations. This adds the rest: the kernel must fit the device's kernel
+// region from `kernel_load_address`, a read carries no image, any other
+// operation carries exactly one whole-ROM image and erases every flash block,
+// and the transfer covers the whole ROM. The built plan must then pass the
+// family's own `validate`.
+template <std::uint64_t KernelBlockSize>
+Result<FlashPlan> BuildWholeRomKernelPlan(FlashPlanFields fields, std::optional<bytes::Bytes> image, KernelImage kernel,
+                                          std::uint32_t kernel_load_address, const FlashDevice& device,
+                                          Status (*validate)(const FlashPlan&))
+{
+    if (Status upload = ValidateKernelUpload<KernelBlockSize>(kernel.bytes.size(), kernel.load_address,
+                                                              kernel_load_address, device.kblocks[0]);
+        !upload.has_value())
+    {
+        return std::unexpected(upload.error());
+    }
+    const bool reading = fields.operation == FlashOperation::kRead;
+    if (reading && image.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, "read plans must not carry an image");
+    }
+    if (!reading && (!image.has_value() || image->size() != device.romsize))
+    {
+        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
+    }
+    fields.transfer_region = {device.fblocks[0].start, device.romsize};
+    if (!reading)
+    {
+        fields.erase_regions = MakeEraseRegions(device);
+        fields.image = std::move(image);
+    }
+    fields.kernel = std::move(kernel);
+    return ValidateAndBuild(std::move(fields))
+        .and_then([validate](FlashPlan plan) { return validate(plan).transform([&plan] { return std::move(plan); }); });
+}
 } // namespace fastecu::flash::detail
