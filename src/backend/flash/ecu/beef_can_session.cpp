@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/beef_can_session.h"
 
+#include <array>
 #include <chrono>
 #include <optional>
 #include <format>
@@ -20,6 +21,26 @@ constexpr std::chrono::milliseconds kNonfatalSendDelay{50};
 
 constexpr bytes::Byte kKernelCrc = 0x02;
 constexpr std::chrono::milliseconds kCrcTimeout{3000};
+
+// request_kernel_id(): the three trailing zero bytes are outside the declared
+// BEEF body but are present on the legacy wire, so they stay literal.
+constexpr bytes::Byte kKernelId = 0x01;
+constexpr std::array<bytes::Byte, 8> kKernelIdRequest{0xBE, 0xEF, 0x00, 0x01, kKernelId, 0x00, 0x00, 0x00};
+constexpr std::chrono::milliseconds kKernelIdTimeout{800};
+constexpr std::chrono::milliseconds kKernelIdDelay{200};
+
+Result<std::string> ParseKernelId(bytes::ByteView pdu)
+{
+    return ParseBeef(pdu).and_then(
+        [](const BeefMessage& parsed) -> Result<std::string>
+        {
+            if (parsed.opcode != static_cast<bytes::Byte>(kKernelId | 0x40U))
+            {
+                return Fail(ErrorKind::kBadResponse, "unexpected kernel ID response opcode");
+            }
+            return std::string(parsed.payload.begin(), parsed.payload.end());
+        });
+}
 
 } // namespace
 
@@ -133,6 +154,59 @@ Result<bool> BeefCanSession::RequestSession(bytes::Byte subfunction)
     }
     LogWrongPdu(pdu);
     return false;
+}
+
+Result<std::optional<std::string>> BeefCanSession::RunningKernelId()
+{
+    View view = MakeView();
+    Result<std::optional<bytes::Bytes>> reply =
+        ChannelRequestOptional(view, kKernelIdRequest, kKernelIdTimeout, kKernelIdDelay);
+    if (!reply.has_value() && reply.error().kind == ErrorKind::kDisconnected)
+    {
+        return std::unexpected(reply.error());
+    }
+    if (reply.has_value() && !reply->has_value())
+    {
+        return std::nullopt;
+    }
+    return CancelledIfRequested(view, "kernel ID probe cancelled")
+        .transform(
+            [&]() -> std::optional<std::string>
+            {
+                Result<std::string> id =
+                    reply.and_then([](const std::optional<bytes::Bytes>& pdu) { return ParseKernelId(*pdu); });
+                if (!id.has_value())
+                {
+                    LogFailure(id.error());
+                    return std::nullopt;
+                }
+                return *id;
+            });
+}
+
+Status BeefCanSession::StartedKernelId()
+{
+    View view = MakeView();
+    Result<std::optional<bytes::Bytes>> reply =
+        ChannelRequestOptional(view, kKernelIdRequest, kKernelIdTimeout, kKernelIdDelay);
+    if (!reply.has_value() && reply.error().kind != ErrorKind::kTimeout)
+    {
+        LogFailure(reply.error());
+        return std::unexpected(reply.error());
+    }
+    if (!reply.has_value() || !reply->has_value())
+    {
+        LogError(view, "No valid response from ECU");
+        return Fail(ErrorKind::kTimeout, "kernel did not answer after upload");
+    }
+    Result<std::string> id = ParseKernelId(**reply);
+    if (!id.has_value())
+    {
+        LogFailure(id.error());
+        return std::unexpected(id.error());
+    }
+    LogInfo(view, std::format("Kernel ID: {}", *id));
+    return {};
 }
 
 Status BeefCanSession::RequestEcuId(bool read_operation, std::optional<std::string>& rom_id)

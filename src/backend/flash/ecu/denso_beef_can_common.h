@@ -298,6 +298,61 @@ Status EnterBeefProgrammingSession(C& ctx, bool session_03_accepted, bool sessio
     return {};
 }
 
+// The petrol and diesel security unlock: a strict seed request (27 01, whose
+// reply carries at least five payload bytes opening 01), the family's
+// `seed_key(ctx, seed)` of the four seed bytes, then the strict key (27 02,
+// whose reply opens 02). A security-access reply without a payload is refused,
+// and every failure is logged through the session.
+template <typename C, typename SeedKey>
+Status UnlockBeefSecurity(C& ctx, SeedKey seed_key, const uds::ExchangePolicy& policy)
+{
+    const auto strict = [&](const bytes::Bytes& pdu)
+    {
+        Result<bytes::Bytes> reply = ctx.uds.Request(pdu, policy, ctx.cancellation);
+        if (reply.has_value() && reply->size() <= 1)
+        {
+            reply = std::unexpected(Error{ErrorKind::kBadResponse, "security access reply is too short"});
+        }
+        if (!reply.has_value())
+        {
+            ctx.session.LogFailure(reply.error());
+        }
+        return reply;
+    };
+    LogInfo(ctx, "Requesting seed");
+    return strict(bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed})
+        .and_then(
+            [&](const bytes::Bytes& reply) -> Result<bytes::Bytes>
+            {
+                const bytes::ByteView payload = uds::Payload(reply);
+                if (payload.size() < 5 || payload[0] != uds::kSecurityAccessRequestSeed)
+                {
+                    LogError(ctx, "Wrong response from ECU: Not a valid answer");
+                    return Fail(ErrorKind::kBadResponse, "invalid seed response");
+                }
+                LogInfo(ctx, "Seed request ok");
+                return seed_key(ctx, payload.subspan(1, 4));
+            })
+        .and_then(
+            [&](const bytes::Bytes& key)
+            {
+                LogInfo(ctx, "Sending seed key");
+                return strict(bytes::ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key));
+            })
+        .and_then(
+            [&](const bytes::Bytes& reply) -> Status
+            {
+                if (uds::Payload(reply)[0] != uds::kSecurityAccessSendKey)
+                {
+                    const Error mismatch{ErrorKind::kBadResponse, "unexpected response during seed key"};
+                    ctx.session.LogFailure(mismatch);
+                    return std::unexpected(mismatch);
+                }
+                LogInfo(ctx, "Seed key ok");
+                return {};
+            });
+}
+
 // The petrol and diesel connect tail: asks the session which bootloader
 // sessions the ECU accepts, unlocks with the family's `unlock(ctx)`, then
 // enters the programming session those sessions select.
@@ -480,35 +535,52 @@ Status InitializeBeefFlash(const C& ctx, bool test_write, bool upper_hex, Exchan
     return {};
 }
 
-// The Denso BEEF CAN operation: a "Kernel" phase that connects to `unit`'s
-// bootloader and uploads the plan's kernel unless one already answers, then a
-// "Read" of the transfer region, or a "Compare" over the erase regions that
-// the family's write continues before a closing "Complete" phase.
-//   connect(ctx, read_operation, kernel_alive&, rom_id&) -> Status
+// The Denso BEEF CAN operation: a "Kernel" phase that asks whether a kernel
+// already answers and, when none does, connects to `unit`'s bootloader and
+// uploads the plan's kernel; then a "Read" of the transfer region, or a
+// "Compare" over the erase regions that the family's write continues before a
+// closing "Complete" phase.
+//   probe(ctx) -> Result<std::optional<std::string>>, the running kernel's ID
+//   connect(ctx, read_operation, rom_id&) -> Status
 //   upload(ctx, const KernelImage&) -> Status
 //   read(ctx, const FlashPlan&, PhaseReporter&) -> Result<bytes::Bytes>
 //   write(ctx, const FlashPlan&, PhaseSequence&, PhaseReporter& compare) -> Status
-template <typename C, typename Connect, typename Upload, typename Read, typename Write>
-Result<FlashExecutionResult> RunBeefKernelOperation(const FlashPlan& plan, std::string_view unit, C& ctx,
+template <typename C, typename Probe, typename Connect, typename Upload, typename Read, typename Write>
+Result<FlashExecutionResult> RunBeefKernelOperation(const FlashPlan& plan, std::string_view unit, C& ctx, Probe probe,
                                                     Connect connect, Upload upload, Read read, Write write)
 {
     const bool read_operation = plan.Operation() == FlashOperation::kRead;
     PhaseSequence phases(ctx.events, read_operation ? 2 : 4);
     PhaseReporter kernel_phase = phases.Start("Kernel", 1);
-    bool kernel_alive = false;
     std::optional<std::string> rom_id;
     LogInfo(ctx, std::format("Connecting to {} CAN bootloader, please wait...", unit));
-    if (const Status connected = connect(ctx, read_operation, kernel_alive, rom_id); !connected.has_value())
+    LogInfo(ctx, "Checking if kernel is already running...");
+    LogInfo(ctx, "Requesting kernel ID");
+    Result<std::optional<std::string>> kernel_id = probe(ctx);
+    if (!kernel_id.has_value())
     {
-        return std::unexpected(connected.error());
+        return std::unexpected(kernel_id.error());
     }
-    if (!kernel_alive && plan.Kernel().has_value())
+    if (kernel_id->has_value())
     {
-        ctx.events.Notice("Preparing, please wait...");
-        LogInfo(ctx, std::format("Initializing {} CAN kernel upload, please wait...", unit));
-        if (const Status uploaded = upload(ctx, *plan.Kernel()); !uploaded.has_value())
+        LogInfo(ctx, std::format("Kernel ID: {}", **kernel_id));
+    }
+    else
+    {
+        LogError(ctx, "No valid response from ECU");
+        LogInfo(ctx, "No response from kernel, initialising ECU...");
+        if (const Status connected = connect(ctx, read_operation, rom_id); !connected.has_value())
         {
-            return std::unexpected(uploaded.error());
+            return std::unexpected(connected.error());
+        }
+        if (plan.Kernel().has_value())
+        {
+            ctx.events.Notice("Preparing, please wait...");
+            LogInfo(ctx, std::format("Initializing {} CAN kernel upload, please wait...", unit));
+            if (const Status uploaded = upload(ctx, *plan.Kernel()); !uploaded.has_value())
+            {
+                return std::unexpected(uploaded.error());
+            }
         }
     }
     kernel_phase.Complete();

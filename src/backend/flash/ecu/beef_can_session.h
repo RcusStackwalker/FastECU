@@ -62,6 +62,15 @@ class BeefCanSession
     // query, and reports which the ECU accepted.
     Result<AcceptedSessionModes> RequestBootloaderSessions();
 
+    // The ID a running kernel answers the kernel-ID request with. Silence, a
+    // transport error, or a short, malformed or wrong-id frame means no kernel;
+    // only cancellation (checked once a reply or a failure is in) and
+    // disconnection abort.
+    Result<std::optional<std::string>> RunningKernelId();
+    // Requires the just-started kernel's ID, as a Required reply: silence is
+    // kTimeout "kernel did not answer after upload", a wrong reply kBadResponse.
+    Status StartedKernelId();
+
     // Logs the ECU ID; a read names its image after it.
     Status RequestEcuId(bool read_operation, std::optional<std::string>& rom_id);
     Status RequestCvn();

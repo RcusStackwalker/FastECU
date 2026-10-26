@@ -43,16 +43,12 @@ using namespace bytes::literals;
 using namespace std::chrono_literals;
 
 constexpr std::chrono::milliseconds kExtraShortTimeout{50};
-constexpr std::chrono::milliseconds kLongTimeout{800};
 constexpr std::chrono::milliseconds kReadTimeout{2000};
 constexpr std::chrono::milliseconds kExtraLongTimeout{3000};
-constexpr std::chrono::milliseconds kKernelProbeDelay{200};
 constexpr std::chrono::milliseconds kKernelStartDelay{100};
 constexpr std::chrono::milliseconds kKernelStartReadTimeout{10};
 
 constexpr std::size_t kKernelUploadBlockSize = 128;
-
-constexpr bytes::Byte kKernelId = 0x01;
 
 constexpr std::array<std::uint16_t, 16> kCobbSeedTable{
     0x9DDB, 0x9CFB, 0x9B9A, 0x6136, 0x59E1, 0xBA03, 0xD683, 0x7092,
@@ -169,78 +165,6 @@ Result<bytes::Bytes> SecurityKey(Context& context, bytes::ByteView seed, const s
     return Fail(ErrorKind::kInternal, "unknown petrol security variant");
 }
 
-// The initial legacy probe continues when the frame is short, malformed, or
-// addressed to another CAN id: those return no PDU. The strict post-upload
-// probe fails on them.
-Result<std::optional<bytes::Bytes>> ProbeKernelIdTolerantly(Context& context, bytes::ByteView request)
-{
-    Result<std::optional<bytes::Bytes>> reply =
-        ChannelRequestOptional(context, request, kLongTimeout, kKernelProbeDelay);
-    if (!reply.has_value())
-    {
-        if (reply.error().kind == ErrorKind::kCancelled || reply.error().kind == ErrorKind::kDisconnected)
-        {
-            return std::unexpected(reply.error());
-        }
-        LogError(context, "Wrong response from ECU while requesting kernel ID");
-        return std::nullopt;
-    }
-    if (!reply->has_value())
-    {
-        return std::nullopt;
-    }
-    if (const Status checkpoint = CancelledIfRequested(context, "kernel ID probe cancelled"); !checkpoint.has_value())
-    {
-        return std::unexpected(checkpoint.error());
-    }
-    return reply;
-}
-
-// A timeout means no kernel is running.
-Result<std::optional<bytes::Bytes>> ProbeKernelIdStrictly(Context& context, bytes::ByteView request)
-{
-    Result<std::optional<bytes::Bytes>> reply =
-        ChannelRequestOptional(context, request, kLongTimeout, kKernelProbeDelay);
-    if (!reply.has_value() && reply.error().kind == ErrorKind::kTimeout)
-    {
-        return std::nullopt;
-    }
-    return reply;
-}
-
-Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolerate_malformed)
-{
-    // request_kernel_id(), revision 59f4e442:1946-1980. The three trailing
-    // zero bytes are outside the declared BEEF body but are present on the
-    // legacy wire and therefore remain literal here.
-    const bytes::Bytes request{0xBE, 0xEF, 0x00, 0x01, kKernelId, 0x00, 0x00, 0x00};
-    Result<std::optional<bytes::Bytes>> pdu =
-        tolerate_malformed ? ProbeKernelIdTolerantly(context, request) : ProbeKernelIdStrictly(context, request);
-    if (!pdu.has_value())
-    {
-        return std::unexpected(pdu.error());
-    }
-    if (!pdu->has_value())
-    {
-        return std::optional<std::string>{};
-    }
-    Result<BeefMessage> parsed = ParseBeef(**pdu);
-    if (parsed.has_value() && parsed->opcode == static_cast<bytes::Byte>(kKernelId | 0x40U))
-    {
-        return std::optional<std::string>{std::string(parsed->payload.begin(), parsed->payload.end())};
-    }
-    if (tolerate_malformed)
-    {
-        LogError(context, "Wrong response from ECU while requesting kernel ID");
-        return std::optional<std::string>{};
-    }
-    if (!parsed.has_value())
-    {
-        return std::unexpected(parsed.error());
-    }
-    return Fail(ErrorKind::kBadResponse, "unexpected kernel ID response opcode");
-}
-
 Result<std::uint32_t> ReadRamLocation(Context& context, std::uint32_t address)
 {
     // connect_bootloader(), revision 59f4e442:558-618. The vendor request
@@ -346,57 +270,9 @@ Result<RaceRomAltValues> ReadRaceRomAltValues(Context& context, const std::optio
     return values;
 }
 
-Status UnlockSecurity(Context& context, const std::optional<RaceRomAltValues>& race_rom_alt)
-{
-    LogInfo(context, "Requesting seed");
-    Result<bytes::Bytes> seed_reply = context.uds.Request(
-        bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, kStrictPolicy, context.cancellation);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    const bytes::ByteView seed_payload = uds::Payload(*seed_reply);
-    if (seed_payload.size() < 5 || seed_payload[0] != uds::kSecurityAccessRequestSeed)
-    {
-        return Fail(ErrorKind::kBadResponse, "invalid petrol seed response");
-    }
-    LogInfo(context, "Seed request ok");
-    Result<bytes::Bytes> key = SecurityKey(context, seed_payload.subspan(1, 4), race_rom_alt);
-    if (!key.has_value())
-    {
-        return std::unexpected(key.error());
-    }
-    LogInfo(context, "Sending seed key");
-    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
-    key_request.insert(key_request.end(), key->begin(), key->end());
-    if (const Status accepted = StrictPayload(context, key_request, bytes::Bytes{0x02}, "seed key");
-        !accepted.has_value())
-    {
-        return accepted;
-    }
-    LogInfo(context, "Seed key ok");
-    return {};
-}
-
-Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_alive, std::optional<std::string>& rom_id)
+Status ConnectBootloader(Context& context, bool read_operation, std::optional<std::string>& rom_id)
 {
     // connect_bootloader(), revision 59f4e442:112-621.
-    LogInfo(context, "Checking if kernel is already running...");
-    LogInfo(context, "Requesting kernel ID");
-    Result<std::optional<std::string>> kernel_id = RequestKernelId(context, true);
-    if (!kernel_id.has_value())
-    {
-        return std::unexpected(kernel_id.error());
-    }
-    if (kernel_id->has_value())
-    {
-        LogInfo(context, std::format("Kernel ID: {}", **kernel_id));
-        kernel_alive = true;
-        return {};
-    }
-
-    LogError(context, "No valid response from ECU");
-    LogInfo(context, "No response from kernel, initialising ECU...");
     LogInfo(context, "Initialising connection...");
     Result<std::optional<std::string>> cal_id = RequestIdentity(context, read_operation, rom_id);
     if (!cal_id.has_value())
@@ -414,8 +290,10 @@ Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_ali
         race_rom_alt = *values;
     }
 
+    const auto seed_key = [&race_rom_alt](Context& c, bytes::ByteView seed)
+    { return SecurityKey(c, seed, race_rom_alt); };
     return ConnectBeefProgrammingSession(
-        context, [&race_rom_alt](Context& c) { return UnlockSecurity(c, race_rom_alt); }, kStrictPolicy);
+        context, [&](Context& c) { return UnlockBeefSecurity(c, seed_key, kStrictPolicy); }, kStrictPolicy);
 }
 
 Status UploadKernel(Context& context, const KernelImage& kernel)
@@ -468,18 +346,7 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     }
 
     LogInfo(context, "Kernel requesting kernel ID...");
-    Result<std::optional<std::string>> kernel_id = RequestKernelId(context, false);
-    if (!kernel_id.has_value())
-    {
-        return std::unexpected(kernel_id.error());
-    }
-    if (!kernel_id->has_value())
-    {
-        LogError(context, "No valid response from ECU");
-        return Fail(ErrorKind::kTimeout, "kernel did not answer after upload");
-    }
-    LogInfo(context, std::format("Kernel ID: {}", **kernel_id));
-    return {};
+    return context.session.StartedKernelId();
 }
 
 // The family's BEEF exchange as a callable for the shared read and write paths.
@@ -541,8 +408,8 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::Run(const SubaruDenso
                     BeefCanSession(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanBeefProfile)};
 
     return RunBeefKernelOperation(
-        plan, "Subaru Denso SH7058 petrol", context, ConnectBootloader, UploadKernel,
-        [](Context& c, const FlashPlan& p, PhaseReporter& progress)
+        plan, "Subaru Denso SH7058 petrol", context, [](Context& c) { return c.session.RunningKernelId(); },
+        ConnectBootloader, UploadKernel, [](Context& c, const FlashPlan& p, PhaseReporter& progress)
         { return ReadBeefMemory(c, p.TransferRegion(), progress, Exchanger(c)); },
         [](Context& c, const FlashPlan& p, PhaseSequence& phases, PhaseReporter& compare)
         { return c.session.WriteMemory(p, phases, compare); });

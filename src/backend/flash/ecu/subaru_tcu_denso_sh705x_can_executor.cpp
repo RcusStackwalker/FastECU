@@ -324,26 +324,11 @@ Status EnterProgrammingSession(Context& context)
     return EnterBeefProgrammingSession(context, true, false, kStrictPolicy);
 }
 
-Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_alive, std::optional<std::string>& rom_id)
+Status ConnectBootloader(Context& context, bool read_operation, std::optional<std::string>& rom_id)
 {
     // connect_bootloader(), revision 59f4e442 lines 107-135. The oracle
     // continues initialization after any nonterminal invalid probe reply;
     // post-upload callers select the strict path instead.
-    LogInfo(context, "Checking if kernel is already running...");
-    LogInfo(context, "Requesting kernel ID");
-    Result<std::optional<std::string>> kernel_id = RequestKernelId(context, true);
-    if (!kernel_id.has_value())
-    {
-        return std::unexpected(kernel_id.error());
-    }
-    if (kernel_id->has_value())
-    {
-        LogInfo(context, std::format("Kernel ID: {}", **kernel_id));
-        kernel_alive = true;
-        return {};
-    }
-    LogError(context, "No valid response from ECU");
-    LogInfo(context, "No response from kernel, initialising ECU...");
     if (Status identity = RequestIdentity(context, read_operation, rom_id); !identity.has_value())
     {
         return identity;
@@ -675,8 +660,9 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::Run(const SubaruTc
         channel,
         BeefCanSession(transport, clock, cancellation, events, channel, kSubaruTcuDensoSh705xCanBeefProfile)};
 
-    return RunBeefKernelOperation(plan, "Subaru Denso SH705x TCU", context, ConnectBootloader, UploadKernel, ReadMemory,
-                                  WriteMemory);
+    return RunBeefKernelOperation(
+        plan, "Subaru Denso SH705x TCU", context, [](Context& c) { return RequestKernelId(c, true); },
+        ConnectBootloader, UploadKernel, ReadMemory, WriteMemory);
 }
 
 } // namespace fastecu::flash
