@@ -25,14 +25,6 @@ std::vector<mutdma::Channel> MakeWireChannels(const std::vector<LoggingChannel>&
            std::ranges::to<std::vector<mutdma::Channel>>();
 }
 
-fastecu::Status CheckCancellation(const fastecu::ICancellationToken& cancellation)
-{
-    if (cancellation.Cancelled())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kCancelled, "MUT/DMA logging cancelled");
-    }
-    return {};
-}
 } // namespace
 
 MutDmaLoggingProtocol::MutDmaLoggingProtocol(std::unique_ptr<mutdma::IKlineTransport> transport,
@@ -45,13 +37,9 @@ MutDmaLoggingProtocol::MutDmaLoggingProtocol(std::unique_ptr<mutdma::IKlineTrans
 
 fastecu::Status MutDmaLoggingProtocol::Start(const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status.has_value())
+    if (auto ready = CheckLoggingRunCanContinue(*transport_, cancellation); !ready.has_value())
     {
-        return status;
-    }
-    if (!transport_->IsOpen())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
+        return ready;
     }
     return driver_.StartFreeFormLog(wire_channels_, 0xA0, 0xA1, cancellation);
 }
@@ -59,13 +47,9 @@ fastecu::Status MutDmaLoggingProtocol::Start(const fastecu::ICancellationToken& 
 fastecu::Result<PollData> MutDmaLoggingProtocol::Poll(std::chrono::milliseconds timeout,
                                                       const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status.has_value())
+    if (auto ready = CheckLoggingRunCanContinue(*transport_, cancellation); !ready.has_value())
     {
-        return std::unexpected(status.error());
-    }
-    if (!transport_->IsOpen())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
+        return std::unexpected(ready.error());
     }
     if (!driver_.IsStreaming())
     {
