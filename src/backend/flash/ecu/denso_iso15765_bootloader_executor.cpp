@@ -218,29 +218,6 @@ Status ReflashBlock(const Ctx& ctx, const Profile& profile, bytes::ByteView imag
 // -- the plan's transfer region -- so one block is erased and reflashed. The
 // log lines carry the profile's block index: 1 of a three-block table on the
 // N83M and SH72531 families, 0 of SH72543 diesel's one-block table.
-Status WriteMemory(const Ctx& ctx, const Profile& profile, bytes::ByteView image, const MemoryRegion& block,
-                   PhaseSequence& phases)
-{
-    LogInfo(ctx, std::format("Blocks to flash: {},  (total: 1)", profile.write_block_index));
-    LogInfo(ctx, "--- Erasing ECU flash memory ---");
-    PhaseReporter erase = phases.Start("Erase", 1);
-    if (const Status erased = DensoIso15765Erase(ctx, block); !erased.has_value())
-    {
-        return erased;
-    }
-    erase.Complete();
-
-    LogInfo(ctx, "--- Start writing ROM file to ECU flash memory ---");
-    PhaseReporter write = phases.Start("Write ROM", static_cast<int>(block.length));
-    if (const Status written = ReflashBlock(ctx, profile, image, block, write); !written.has_value())
-    {
-        return written;
-    }
-    write.Complete();
-    LogInfo(ctx, std::format("Block {} reflash complete.", profile.write_block_index));
-    return {};
-}
-
 } // namespace
 
 template <typename Plan> Result<Iso15765Config> DensoIso15765BootloaderExecutor<Plan>::Setup(const Plan& family) const
@@ -262,8 +239,18 @@ DensoIso15765BootloaderExecutor<Plan>::Run(const Plan& family, const FlashPlan& 
         plan, kProfile.unit, ctx, [&](const Ctx& c) { return ConnectBootloader(c, transport, kProfile); },
         [&](const Ctx& c, PhaseReporter& progress)
         { return ReadMemory(c, kProfile, family, plan.TransferRegion(), progress); },
-        [&](const Ctx& c, bytes::ByteView image, PhaseSequence& phases)
-        { return WriteMemory(c, kProfile, image, plan.TransferRegion(), phases); });
+        [&](const Ctx& c)
+        {
+            LogInfo(c, std::format("Blocks to flash: {},  (total: 1)", kProfile.write_block_index));
+            LogInfo(c, "--- Erasing ECU flash memory ---");
+            return DensoIso15765Erase(c, plan.TransferRegion());
+        },
+        [&](const Ctx& c, bytes::ByteView image, PhaseReporter& progress)
+        {
+            LogInfo(c, "--- Start writing ROM file to ECU flash memory ---");
+            return ReflashBlock(c, kProfile, image, plan.TransferRegion(), progress)
+                .transform([&] { LogInfo(c, std::format("Block {} reflash complete.", kProfile.write_block_index)); });
+        });
 }
 
 template class DensoIso15765BootloaderExecutor<SubaruDenso1n83m_1_5mCanPlan>;

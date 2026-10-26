@@ -459,27 +459,6 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
     return {};
 }
 
-// Legacy write_mem, lines 971-1049. numblocks == 1 for this family, so this
-// is one erase_memory() call followed by exactly one unlock_and_reflash_block
-// call over the full ROM -- no per-block loop.
-Status WriteMem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
-{
-    PhaseReporter erase = phases.Start("Erase", 1);
-    if (const Status erased = EraseMemory(ctx); !erased.has_value())
-    {
-        return erased;
-    }
-    erase.Complete();
-
-    PhaseReporter write = phases.Start("Write ROM", static_cast<int>(image.size()));
-    if (const Status written = UnlockAndReflashBlock(ctx, image, write); !written.has_value())
-    {
-        return written;
-    }
-    write.Complete();
-    return {};
-}
-
 } // namespace
 
 Result<Iso15765Config> SubaruHitachiM32rCanExecutor::Setup(const SubaruHitachiM32rCanPlan& family) const
@@ -495,7 +474,8 @@ Result<FlashExecutionResult> SubaruHitachiM32rCanExecutor::Run(const SubaruHitac
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
     Ctx ctx{cancellation, events, clock, uds_client, channel};
-    return RunBootloaderOperation(plan, "Subaru Hitachi M32R", ctx, ConnectBootloader, DumpFlashRange, WriteMem);
+    return RunBootloaderOperation(plan, "Subaru Hitachi M32R", ctx, ConnectBootloader, DumpFlashRange, EraseMemory,
+                                  UnlockAndReflashBlock);
 }
 
 } // namespace fastecu::flash

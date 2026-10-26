@@ -22,7 +22,7 @@ struct Ctx
 
 // Plan validation keeps TestWrite from reaching any family's Run, so only a
 // direct call shows the operation's own last-line refusal.
-TEST(RunBootloaderOperation, RefusesTestWriteAfterConnectingWithoutWriting)
+TEST(RunBootloaderOperation, RefusesTestWriteAfterConnectingWithoutErasingOrWriting)
 {
     FlashPlanFields fields;
     fields.operation = FlashOperation::kTestWrite;
@@ -43,7 +43,12 @@ TEST(RunBootloaderOperation, RefusesTestWriteAfterConnectingWithoutWriting)
     const auto result = RunBootloaderOperation(
         *plan, "Unit X", ctx, [](Ctx&) { return Status{}; },
         [](Ctx&, PhaseReporter&) { return Result<bytes::Bytes>{}; },
-        [&](Ctx&, bytes::ByteView, PhaseSequence&)
+        [&](Ctx&)
+        {
+            ++writes;
+            return Status{};
+        },
+        [&](Ctx&, bytes::ByteView, PhaseReporter&)
         {
             ++writes;
             return Status{};
