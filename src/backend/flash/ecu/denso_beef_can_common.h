@@ -39,10 +39,10 @@
 // Executors still call this header directly for what stays family-local: the
 // channel request helpers (SendChannelRequest, ChannelRequest,
 // ChannelRequestOptional), CancelledIfRequested and ElapsedMilliseconds,
-// ParseBeef and BeefRequest for kernel-ID probing, and ReadBeefMemory for
-// the petrol and diesel reads. BeefCanKernel owns payload transfer. Connect,
-// kernel start/handoff, the TCU's read and flash-block loops, and security
-// retain family-specific timing, geometry and wording in each executor.
+// ParseBeef and BeefRequest for kernel-ID probing. BeefCanKernel owns payload
+// transfer and reads. Connect, kernel start/handoff, the TCU's flash-block
+// loop, and security retain family-specific timing, geometry and wording in
+// each executor.
 //
 // The executor suites do NOT read these helpers back: each carries wire
 // expectations transcribed independently from its legacy oracle, so a wrong
@@ -527,44 +527,6 @@ Result<FlashExecutionResult> RunBeefKernelOperation(const FlashPlan& plan, std::
     PhaseReporter complete = phases.Start("Complete", 1);
     complete.Complete();
     return FlashExecutionResult{.operation = plan.Operation()};
-}
-
-// read_mem(): reads `region` in 0x400-byte pages of proprietary BEEF replies,
-// appended as received (the legacy read path performs no payload decryption).
-// The legacy samples an unstarted timer for the first page's rate; a
-// monotonic sample floored to 1 ms stands in for it.
-inline constexpr std::size_t kBeefReadPageSize = 0x400;
-inline constexpr std::chrono::milliseconds kBeefReadTimeout{2000};
-
-template <typename C, typename Exchange>
-Result<bytes::Bytes> ReadBeefMemory(C& ctx, const MemoryRegion& region, PhaseReporter& progress, Exchange exchange)
-{
-    bytes::Bytes rom;
-    rom.reserve(region.length);
-    LogInfo(ctx, "Start reading ROM, please wait...");
-    for (std::uint32_t offset = 0; offset < region.length; offset += kBeefReadPageSize)
-    {
-        const auto started = ctx.clock.Now();
-        if (const Status checkpoint = CancelledIfRequested(ctx, "read cancelled"); !checkpoint.has_value())
-        {
-            return std::unexpected(checkpoint.error());
-        }
-        const std::uint32_t address = region.start + offset;
-        const auto request = bytes::ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kBeefReadPageSize});
-        Result<bytes::Bytes> reply = exchange(bytes::Byte{0x03}, request, kBeefReadPageSize, kBeefReadTimeout);
-        if (!reply.has_value())
-        {
-            return std::unexpected(reply.error());
-        }
-        const std::size_t length = std::min<std::size_t>(kBeefReadPageSize, region.length - offset);
-        const std::uint64_t elapsed_ms = ElapsedMilliseconds(started, ctx.clock.Now());
-        const TransferRate rate = ComputeTransferRate(kBeefReadPageSize, elapsed_ms, region.length - offset);
-        LogInfo(ctx, FormatReadProgress(address, kBeefReadPageSize, rate));
-        rom.insert(rom.end(), reply->begin(), reply->begin() + static_cast<std::ptrdiff_t>(length));
-        progress.Update(static_cast<int>(std::min<std::uint64_t>(region.length, offset + kBeefReadPageSize)));
-    }
-    LogInfo(ctx, "ROM read ready");
-    return rom;
 }
 
 // The write path shared by the petrol and diesel SH7058 executors, whose

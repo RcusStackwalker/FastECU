@@ -1717,7 +1717,6 @@ fastecu_portable_gtest(
     srcs = ["denso_beef_can_common_test.cpp"],
     deps = [
         ":denso_beef_can_common",
-        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
@@ -2172,9 +2171,11 @@ cc_library(
     srcs = ["beef_can_kernel.cpp"],
     hdrs = ["beef_can_kernel.h"],
     implementation_deps = [
+        ":denso_beef_can_common",
         ":denso_iso15765_crypto",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/uds",
+        "//src/backend/flash:transfer_progress",
     ],
     deps = [
         ":denso_beef_can_profile",
@@ -2191,6 +2192,7 @@ fastecu_portable_gtest(
     srcs = ["beef_can_kernel_test.cpp"],
     deps = [
         ":beef_can_kernel",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",

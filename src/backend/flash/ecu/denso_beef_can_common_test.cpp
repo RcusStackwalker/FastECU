@@ -1,4 +1,3 @@
-#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 
 #include <algorithm>
@@ -270,25 +269,6 @@ struct ScriptedExchange
     std::function<void(std::size_t)> on_call;
     std::vector<bytes::Byte> opcodes;
 };
-
-TEST(DensoBeefCanCommonTest, ReadBeefMemoryTruncatesTheLastPageAndStopsOnFailureOrCancellation)
-{
-    const MemoryRegion region{0x1000, 0x500};
-    CompareFixture fixture;
-    PhaseReporter progress(fixture.events, "Read", 1, 1, 0x500);
-    ScriptedExchange exchange;
-
-    const auto rom = ReadBeefMemory(fixture, region, progress, std::ref(exchange));
-
-    ASSERT_THAT(rom, IsOk());
-    EXPECT_THAT(*rom, ::testing::AllOf(::testing::SizeIs(0x500), test_bytes::BytesFilledWith(bytes::Byte{0xAB})));
-    EXPECT_EQ(exchange.opcodes, (std::vector<bytes::Byte>{0x03, 0x03}));
-
-    ScriptedExchange failing{.failing = 1};
-    EXPECT_THAT(ReadBeefMemory(fixture, region, progress, std::ref(failing)), IsErr(ErrorKind::kTimeout));
-    fixture.cancellation.SetCancelled(true);
-    EXPECT_THAT(ReadBeefMemory(fixture, region, progress, std::ref(exchange)), IsErr(ErrorKind::kCancelled));
-}
 
 TEST(DensoBeefCanCommonTest, FlashBeefBlockRejectsBlocksThatDoNotFitTheImageAndNamesTheFamily)
 {

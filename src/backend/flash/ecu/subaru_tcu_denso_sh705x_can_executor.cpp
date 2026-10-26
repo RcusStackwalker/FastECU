@@ -56,12 +56,10 @@ constexpr std::chrono::milliseconds kReadTimeout{2000};
 constexpr std::chrono::milliseconds kExtraLongTimeout{3000};
 constexpr std::chrono::milliseconds kPostUploadDelay{500}; // upload_kernel(), lines 595-595
 
-constexpr int kKernelPageSize = 0x400;
 constexpr int kFlashBufferSize = 0x200;
 constexpr int kFlashCommitSize = 0x1000;
 
 constexpr bytes::Byte kKernelId = 0x41;
-constexpr bytes::Byte kKernelReadArea = 0x03;
 constexpr bytes::Byte kKernelProgVolt = 0x04;
 constexpr bytes::Byte kKernelWriteBuffer = 0x22;
 constexpr bytes::Byte kKernelCommitBuffer = 0x24;
@@ -397,44 +395,6 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     return {};
 }
 
-Result<bytes::Bytes> ReadMemory(Context& context, const FlashPlan& plan, PhaseReporter& progress)
-{
-    // read_mem(), revision 59f4e442 lines 632-779. The kernel reads fixed
-    // 0x400-byte pages and appends each raw BEEF payload for the caller.
-    const MemoryRegion region = plan.TransferRegion();
-    bytes::Bytes rom;
-    rom.reserve(region.length);
-    LogInfo(context, "Start reading ROM, please wait...");
-    for (std::uint32_t offset = 0; offset < region.length; offset += kKernelPageSize)
-    {
-        const auto loop_started = context.clock.Now();
-        if (const Status checkpoint = CancelledIfRequested(context, "read cancelled"); !checkpoint.has_value())
-        {
-            return std::unexpected(checkpoint.error());
-        }
-        const std::uint32_t address = region.start + offset;
-        const auto payload = ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kKernelPageSize});
-        Result<bytes::Bytes> reply = context.session.Exchange(kKernelReadArea, payload, kKernelPageSize, kReadTimeout);
-        if (!reply.has_value())
-        {
-            return std::unexpected(reply.error());
-        }
-        const bytes::ByteView raw_page = bytes::ByteView(*reply).first(kKernelPageSize);
-        bytes::Bytes page(raw_page.begin(), raw_page.end());
-        if (page.size() > region.length - offset)
-        {
-            page.resize(region.length - offset);
-        }
-        const std::uint64_t elapsed_ms = ElapsedMilliseconds(loop_started, context.clock.Now());
-        const TransferRate rate = ComputeTransferRate(kKernelPageSize, elapsed_ms, region.length - offset);
-        LogInfo(context, FormatReadProgress(address, kKernelPageSize, rate));
-        rom.insert(rom.end(), page.begin(), page.end());
-        progress.Update(static_cast<int>(std::min<std::uint64_t>(region.length, offset + kKernelPageSize)));
-    }
-    LogInfo(context, "ROM read ready");
-    return rom;
-}
-
 Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan, const MemoryRegion& block,
                   std::size_t& flash_bytes_index, std::size_t flash_bytes_count, PhaseReporter& progress)
 {
@@ -642,7 +602,8 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::Run(const SubaruTc
 
     return RunBeefKernelOperation(
         plan, "Subaru Denso SH705x TCU", context, [](Context& c) { return RequestKernelId(c, true); },
-        ConnectBootloader, UploadKernel, ReadMemory, WriteMemory);
+        ConnectBootloader, UploadKernel, [](Context& c, const FlashPlan& p, PhaseReporter& progress)
+        { return c.kernel.Read(p.TransferRegion(), progress); }, WriteMemory);
 }
 
 } // namespace fastecu::flash

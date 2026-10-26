@@ -11,6 +11,8 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
+#include "src/backend/flash/ecu/denso_beef_can_common.h"
+#include "src/backend/flash/transfer_progress.h"
 
 namespace fastecu::flash
 {
@@ -18,6 +20,8 @@ namespace
 {
 
 constexpr std::size_t kUploadBlockSize = 128;
+constexpr std::uint32_t kReadPageSize = 0x400;
+constexpr std::chrono::milliseconds kReadTimeout{2000};
 
 Result<bytes::Bytes> PreparePayload(bytes::ByteView kernel, std::string_view family)
 {
@@ -59,8 +63,8 @@ void LogDescribedFailure(IEventSink& events, const DensoBeefCanProfile& profile,
 
 BeefCanKernel::BeefCanKernel(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                              IEventSink& events, uds::IUdsChannel& channel, const DensoBeefCanProfile& profile)
-    : transport_(transport), cancellation_(cancellation), events_(events), channel_(channel), profile_(profile),
-      uds_(channel, clock, events)
+    : transport_(transport), clock_(clock), cancellation_(cancellation), events_(events), channel_(channel),
+      profile_(profile), uds_(channel, clock, events)
 {
 }
 
@@ -132,6 +136,46 @@ Status BeefCanKernel::TransferPayload(const KernelImage& kernel, const BeefKerne
         }
     }
     return {};
+}
+
+Result<bytes::Bytes> BeefCanKernel::Read(const MemoryRegion& region, PhaseReporter& progress)
+{
+    struct View
+    {
+        const ICancellationToken& cancellation;
+        IClock& clock;
+        uds::IUdsChannel& channel;
+    };
+    View view{cancellation_, clock_, channel_};
+    bytes::Bytes rom;
+    rom.reserve(region.length);
+    events_.Log(LogLevel::kInfo, "Start reading ROM, please wait...");
+    // Fixed 0x400-byte requests return raw payloads; only the requested tail is
+    // appended. Sampling each page and flooring elapsed time preserves the
+    // portable replacement for the legacy first page's unstarted timer.
+    for (std::uint32_t offset = 0; offset < region.length; offset += kReadPageSize)
+    {
+        const auto started = clock_.Now();
+        if (const Status checkpoint = CancelledIfRequested(view, "read cancelled"); !checkpoint.has_value())
+        {
+            return std::unexpected(checkpoint.error());
+        }
+        const std::uint32_t address = region.start + offset;
+        const auto request = bytes::ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kReadPageSize});
+        Result<bytes::Bytes> reply = BeefExchange(view, bytes::Byte{0x03}, request, kReadPageSize, kReadTimeout);
+        if (!reply.has_value())
+        {
+            return std::unexpected(reply.error());
+        }
+        const std::size_t length = std::min<std::size_t>(kReadPageSize, region.length - offset);
+        const std::uint64_t elapsed_ms = ElapsedMilliseconds(started, clock_.Now());
+        const TransferRate rate = ComputeTransferRate(kReadPageSize, elapsed_ms, region.length - offset);
+        events_.Log(LogLevel::kInfo, FormatReadProgress(address, kReadPageSize, rate));
+        rom.insert(rom.end(), reply->begin(), reply->begin() + static_cast<std::ptrdiff_t>(length));
+        progress.Update(static_cast<int>(std::min<std::uint64_t>(region.length, offset + kReadPageSize)));
+    }
+    events_.Log(LogLevel::kInfo, "ROM read ready");
+    return rom;
 }
 
 } // namespace fastecu::flash

@@ -33,6 +33,7 @@ class BeefCanKernel
 
   private:
     ICanFlashTransport& transport_;
+    IClock& clock_;
     const ICancellationToken& cancellation_;
     IEventSink& events_;
     uds::IUdsChannel& channel_;

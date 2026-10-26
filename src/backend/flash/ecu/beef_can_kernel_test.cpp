@@ -7,6 +7,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -83,6 +84,64 @@ class BeefCanKernelTest : public ::testing::Test
     RecordingEventSink events_;
     uds::ScriptedUdsChannel channel_;
 };
+
+TEST_F(BeefCanKernelTest, ReadBeefMemoryTruncatesTheLastPageAndStopsOnFailureOrCancellation)
+{
+    const MemoryRegion region{0x1000, 0x500};
+    PhaseReporter progress(events_, "Read", 1, 1, 0x500);
+    const bytes::Bytes first_request{0xBE, 0xEF, 0x00, 0x07, 0x03, 0x00, 0x00, 0x10, 0x00, 0x04, 0x00};
+    const bytes::Bytes second_request{0xBE, 0xEF, 0x00, 0x07, 0x03, 0x00, 0x00, 0x14, 0x00, 0x04, 0x00};
+    bytes::Bytes reply{0xBE, 0xEF, 0x04, 0x01, 0x43};
+    reply.resize(0x405, 0xAB);
+    channel_.ExpectSend(first_request);
+    channel_.QueueReceive(reply);
+    channel_.ExpectSend(second_request);
+    channel_.QueueReceive(reply);
+
+    const auto rom = Kernel().Read(region, progress);
+
+    ASSERT_THAT(rom, IsOk());
+    EXPECT_THAT(*rom, ::testing::AllOf(::testing::SizeIs(0x500), test_bytes::BytesFilledWith(bytes::Byte{0xAB})));
+    EXPECT_EQ(channel_.SendsConsumed(), 2U);
+    EXPECT_TRUE(channel_.ScriptConsumed());
+
+    channel_.ExpectSend(first_request);
+    channel_.QueueReceive(reply);
+    channel_.ExpectSend(second_request);
+    channel_.QueueError(ErrorKind::kTimeout, "no reply");
+    EXPECT_THAT(Kernel().Read(region, progress), IsErr(ErrorKind::kTimeout));
+    cancellation_.SetCancelled(true);
+    EXPECT_THAT(Kernel().Read(region, progress), IsErr(ErrorKind::kCancelled));
+    EXPECT_TRUE(channel_.ScriptConsumed());
+}
+
+TEST_F(BeefCanKernelTest, ReadKeepsTheFixedPageLengthAndBoundsTailAndProgressToTheRequestedRegion)
+{
+    const MemoryRegion region{0x1000, 0x401};
+    // A larger reporter total exposes the operation's own progress cap.
+    PhaseReporter progress(events_, "Read", 1, 1, 0x800);
+    channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x07, 0x03, 0x00, 0x00, 0x10, 0x00, 0x04, 0x00});
+    bytes::Bytes first_reply{0xBE, 0xEF, 0x04, 0x01, 0x43};
+    first_reply.resize(0x405, 0xAB);
+    channel_.QueueReceive(first_reply);
+    channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x07, 0x03, 0x00, 0x00, 0x14, 0x00, 0x04, 0x00});
+    bytes::Bytes last_reply{0xBE, 0xEF, 0x04, 0x01, 0x43};
+    last_reply.resize(0x405, 0xCD);
+    channel_.QueueReceive(last_reply);
+
+    const auto rom = Kernel().Read(region, progress);
+
+    ASSERT_THAT(rom, IsOk());
+    ASSERT_EQ(rom->size(), 0x400U + 1U);
+    EXPECT_THAT(bytes::ByteView(*rom).first(0x400), test_bytes::BytesFilledWith(bytes::Byte{0xAB}));
+    EXPECT_EQ(rom->back(), 0xCD);
+    EXPECT_TRUE(channel_.ScriptConsumed());
+    EXPECT_THAT(channel_.timeouts, ElementsAre(2000ms, 2000ms));
+    ASSERT_EQ(events_.phase_progress_calls.size(), 3U);
+    EXPECT_EQ(events_.phase_progress_calls[0].done, 0);
+    EXPECT_EQ(events_.phase_progress_calls[1].done, 0x400);
+    EXPECT_EQ(events_.phase_progress_calls[2].done, 0x401);
+}
 
 TEST_F(BeefCanKernelTest, KernelDownloadRequestEncodesItsTwo24BitFields)
 {

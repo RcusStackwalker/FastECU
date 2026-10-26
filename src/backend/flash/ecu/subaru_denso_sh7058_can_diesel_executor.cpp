@@ -209,14 +209,6 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     return context.session.StartedKernelId();
 }
 
-// The family's BEEF exchange as a callable for the shared read and write paths.
-auto Exchanger(Context& context)
-{
-    return [&context](bytes::Byte opcode, bytes::ByteView payload, std::size_t minimum_payload,
-                      std::chrono::milliseconds timeout)
-    { return context.session.Exchange(opcode, payload, minimum_payload, timeout); };
-}
-
 } // namespace
 
 Result<Iso15765Config> SubaruDensoSh7058CanDieselExecutor::Setup(const SubaruDensoSh7058CanDieselPlan& family) const
@@ -264,7 +256,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::Run(const Subar
     return RunBeefKernelOperation(
         plan, "Subaru 07+ Diesel 32-bit", context, [](Context& c) { return c.session.RunningKernelId(); },
         ConnectBootloader, UploadKernel, [](Context& c, const FlashPlan& p, PhaseReporter& progress)
-        { return ReadBeefMemory(c, p.TransferRegion(), progress, Exchanger(c)); },
+        { return c.kernel.Read(p.TransferRegion(), progress); },
         [](Context& c, const FlashPlan& p, PhaseSequence& phases, PhaseReporter& compare)
         { return c.session.WriteMemory(p, phases, compare); });
 }
