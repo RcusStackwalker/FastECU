@@ -302,23 +302,9 @@ Status UnlockSecurity(Context& context, const std::optional<RaceRomAltValues>& r
     return {};
 }
 
-Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_alive, std::optional<std::string>& rom_id)
+Status ConnectBootloader(Context& context, bool read_operation, std::optional<std::string>& rom_id)
 {
     // connect_bootloader(), revision 59f4e442:112-621.
-    LogInfo(context, "Checking if kernel is already running...");
-    LogInfo(context, "Requesting kernel ID");
-    Result<std::optional<std::string>> kernel_id = context.session.RunningKernelId();
-    if (!kernel_id.has_value())
-    {
-        return std::unexpected(kernel_id.error());
-    }
-    if (kernel_id->has_value())
-    {
-        kernel_alive = true;
-        return {};
-    }
-    LogError(context, "No valid response from ECU");
-    LogInfo(context, "No response from kernel, initialising ECU...");
     LogInfo(context, "Initialising connection...");
     Result<std::optional<std::string>> cal_id = RequestIdentity(context, read_operation, rom_id);
     if (!cal_id.has_value())
@@ -452,8 +438,8 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::Run(const SubaruDenso
                     BeefCanSession(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanBeefProfile)};
 
     return RunBeefKernelOperation(
-        plan, "Subaru Denso SH7058 petrol", context, ConnectBootloader, UploadKernel,
-        [](Context& c, const FlashPlan& p, PhaseReporter& progress)
+        plan, "Subaru Denso SH7058 petrol", context, [](Context& c) { return c.session.RunningKernelId(); },
+        ConnectBootloader, UploadKernel, [](Context& c, const FlashPlan& p, PhaseReporter& progress)
         { return ReadBeefMemory(c, p.TransferRegion(), progress, Exchanger(c)); },
         [](Context& c, const FlashPlan& p, PhaseSequence& phases, PhaseReporter& compare)
         { return c.session.WriteMemory(p, phases, compare); });

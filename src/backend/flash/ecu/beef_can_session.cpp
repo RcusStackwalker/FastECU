@@ -161,30 +161,27 @@ Result<std::optional<std::string>> BeefCanSession::RunningKernelId()
     View view = MakeView();
     Result<std::optional<bytes::Bytes>> reply =
         ChannelRequestOptional(view, kKernelIdRequest, kKernelIdTimeout, kKernelIdDelay);
-    if (!reply.has_value() && reply.error().kind != ErrorKind::kBadResponse)
+    if (!reply.has_value() && reply.error().kind == ErrorKind::kDisconnected)
     {
-        if (reply.error().kind == ErrorKind::kCancelled || reply.error().kind == ErrorKind::kDisconnected)
-        {
-            return std::unexpected(reply.error());
-        }
-        return std::nullopt;
+        return std::unexpected(reply.error());
     }
     if (reply.has_value() && !reply->has_value())
     {
         return std::nullopt;
     }
-    if (const Status checkpoint = CancelledIfRequested(view, "kernel ID probe cancelled"); !checkpoint.has_value())
-    {
-        return std::unexpected(checkpoint.error());
-    }
-    Result<std::string> id = reply.and_then([](const std::optional<bytes::Bytes>& pdu) { return ParseKernelId(*pdu); });
-    if (!id.has_value())
-    {
-        LogFailure(id.error());
-        return std::nullopt;
-    }
-    LogInfo(view, std::format("Kernel ID: {}", *id));
-    return *id;
+    return CancelledIfRequested(view, "kernel ID probe cancelled")
+        .transform(
+            [&]() -> std::optional<std::string>
+            {
+                Result<std::string> id =
+                    reply.and_then([](const std::optional<bytes::Bytes>& pdu) { return ParseKernelId(*pdu); });
+                if (!id.has_value())
+                {
+                    LogFailure(id.error());
+                    return std::nullopt;
+                }
+                return *id;
+            });
 }
 
 Status BeefCanSession::StartedKernelId()

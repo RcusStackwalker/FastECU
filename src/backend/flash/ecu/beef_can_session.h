@@ -64,7 +64,8 @@ class BeefCanSession
 
     // The ID a running kernel answers the kernel-ID request with. Silence, a
     // transport error, or a short, malformed or wrong-id frame means no kernel;
-    // only cancellation and disconnection abort.
+    // only cancellation (checked once a reply or a failure is in) and
+    // disconnection abort.
     Result<std::optional<std::string>> RunningKernelId();
     // Requires the just-started kernel's ID, as a Required reply: silence is
     // kTimeout "kernel did not answer after upload", a wrong reply kBadResponse.
