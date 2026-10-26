@@ -50,6 +50,12 @@ Result<bytes::Bytes> DensoBeefKlineExchangeAck(IKlineFlashTransport& transport, 
                                                std::chrono::milliseconds settle, std::chrono::milliseconds timeout,
                                                bytes::Byte opcode, std::string_view phase, std::size_t more_than = 0);
 
+// Requests the ECU's CRC over `block` and returns the first chunk of its reply
+// (empty when none arrives within 3 s); each family reads the rest and
+// decodes it under its own acceptance rules.
+Result<bytes::Bytes> DensoBeefKlineRequestBlockCrc(IKlineFlashTransport& transport,
+                                                   const ICancellationToken& cancellation, const MemoryRegion& block);
+
 // Runs `action` between cancellation checks reading "cancelled before <what>"
 // and "cancelled after <what>".
 template <typename Action>

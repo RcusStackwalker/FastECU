@@ -448,39 +448,18 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::ReadBlockCrc(IKlineFlash
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:626-715:
     // request the ECU's CRC over [start, start + length).
-    const bytes::Bytes request =
-        DensoBeefKlineFrame(kDensoKlineOpCrc, ComposeBe(block.start, 0x00_b, U24{block.length}));
-    if (Status written = DensoBeefKlineGuarded(cancellation, "CRC write",
-                                               [&] { return DensoBeefKlineWriteAll(transport, request); });
-        !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    bytes::Bytes response;
-    if (Status read = DensoBeefKlineGuarded(cancellation, "initial CRC read",
-                                            [&]() -> Status
-                                            {
-                                                auto initial = transport.Read(3000ms, cancellation);
-                                                if (!initial.has_value())
-                                                {
-                                                    return std::unexpected(initial.error());
-                                                }
-                                                response = initial->value_or(bytes::Bytes{});
-                                                return {};
-                                            });
-        !read.has_value())
-    {
-        return std::unexpected(read.error());
-    }
-    if (Status more = ReadCrcContinuation(transport, clock, cancellation, response); !more.has_value())
+    Result<bytes::Bytes> response = DensoBeefKlineRequestBlockCrc(transport, cancellation, block);
+    if (Status more = response.and_then([&](bytes::Bytes& first)
+                                        { return ReadCrcContinuation(transport, clock, cancellation, first); });
+        !more.has_value())
     {
         return std::unexpected(more.error());
     }
-    if (Status ack = DensoBeefKlineCheckAck(response, kDensoKlineOpCrc, "CRC check", 9); !ack.has_value())
+    if (Status ack = DensoBeefKlineCheckAck(*response, kDensoKlineOpCrc, "CRC check", 9); !ack.has_value())
     {
         return std::unexpected(ack.error());
     }
-    const std::uint32_t crc = bytes::ReadU32Be(response, 5);
+    const std::uint32_t crc = bytes::ReadU32Be(*response, 5);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:702-714.
     if (Status drained = DrainResponse(transport, cancellation, 200ms, "CRC response drain"); !drained.has_value())
     {
