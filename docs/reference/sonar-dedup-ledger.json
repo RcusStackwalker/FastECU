@@ -872,6 +872,23 @@
       "outcome": "open",
       "pr": 924,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "93e1401cdeaa",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::DumpFlashRange"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::DumpFlashRange"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 924,
+      "reason": ""
     }
   ]
 }
