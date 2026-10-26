@@ -71,21 +71,6 @@ bool WireParametersMatch(const SubaruDensoSh705xDensoCanPlan& wire)
            wire.raw_receive_id == 0x21 && wire.bitrate == 500000 && !wire.iso_extended_id && wire.raw_extended_id;
 }
 
-Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
-{
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        return !detail::OperationImageShapeMatches(plan, device.romsize)
-                   ? Fail(ErrorKind::kInvalidConfig, "DensoCAN read plan carries an image")
-                   : Status{};
-    }
-    if (!detail::OperationImageShapeMatches(plan, device.romsize))
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
-    }
-    return {};
-}
-
 } // namespace
 
 Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan)
@@ -105,25 +90,11 @@ Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN catalog does not match the flash device table");
     }
-    if (!plan.Kernel().has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, "DensoCAN requires a kernel image");
-    }
-    if (Status kernel = detail::ValidateKernelUpload<6>(plan.Kernel()->bytes.size(), plan.Kernel()->load_address,
-                                                        entry->kernel_load_address, device->kblocks[0]);
-        !kernel.has_value())
-    {
-        return kernel;
-    }
     if (!detail::RequiresOnly(plan.Confirmations(), ConfirmationSpec::Id::kCycleIgnition))
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN requires exactly the CycleIgnition confirmation");
     }
-    if (Status regions = detail::ValidateRegions(plan, *device); !regions.has_value())
-    {
-        return regions;
-    }
-    return ValidateImage(plan, *device);
+    return detail::ValidateWholeRomKernelPlan<6>(plan, entry->kernel_load_address, *device);
 }
 
 Result<FlashPlan> BuildSubaruDensoSh705xDensocanPlan(FlashOperation operation, std::string_view protocol_name,

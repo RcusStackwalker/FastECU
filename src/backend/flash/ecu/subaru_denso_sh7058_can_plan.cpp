@@ -70,21 +70,6 @@ bool WireParametersMatch(const SubaruDensoSh7058CanPlan& wire, const CatalogEntr
            wire.security == entry.security;
 }
 
-Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
-{
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        return !detail::OperationImageShapeMatches(plan, device.romsize)
-                   ? Fail(ErrorKind::kInvalidConfig, "petrol SH7058 read plan carries a ROM image")
-                   : Status{};
-    }
-    if (!detail::OperationImageShapeMatches(plan, device.romsize))
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
-    }
-    return {};
-}
-
 } // namespace
 
 Status ValidateSubaruDensoSh7058CanPlan(const FlashPlan& plan)
@@ -104,25 +89,11 @@ Status ValidateSubaruDensoSh7058CanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 catalog does not match the flash device table");
     }
-    if (!plan.Kernel().has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 requires a kernel image");
-    }
-    if (Status kernel = detail::ValidateKernelUpload<128>(plan.Kernel()->bytes.size(), plan.Kernel()->load_address,
-                                                          kKernelLoadAddress, device->kblocks[0]);
-        !kernel.has_value())
-    {
-        return kernel;
-    }
     if (!plan.Confirmations().empty())
     {
         return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 plans must not declare extra confirmations");
     }
-    if (Status regions = detail::ValidateRegions(plan, *device); !regions.has_value())
-    {
-        return regions;
-    }
-    return ValidateImage(plan, *device);
+    return detail::ValidateWholeRomKernelPlan<128>(plan, kKernelLoadAddress, *device);
 }
 
 Result<FlashPlan> BuildSubaruDensoSh7058CanPlan(FlashOperation operation, std::string_view protocol_name,
