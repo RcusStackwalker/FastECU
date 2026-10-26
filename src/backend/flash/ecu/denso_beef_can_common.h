@@ -18,6 +18,8 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/algorithms/protocol/uds/uds_response.h"
+#include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/ecu/beef_compare_result.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
@@ -268,6 +270,37 @@ Result<bytes::Bytes> BeefExchange(C& ctx, bytes::Byte opcode, bytes::ByteView pa
 // ignored. Send through the channel for the request CAN envelope, but read the
 // reply directly so short, malformed and wrong-ID frames and adapter stale
 // errors stay non-fatal; only cancellation and disconnection are typed.
+// Requests a programming session in mode 0x02 for an accepted session 0x03
+// and mode 0x42 for an accepted session 0x43, and accepts a reply echoing
+// either mode.
+template <typename C>
+Status EnterBeefProgrammingSession(C& ctx, bool session_03_accepted, bool session_43_accepted,
+                                   const uds::ExchangePolicy& policy)
+{
+    LogInfo(ctx, "Set session mode");
+    bytes::Bytes request{uds::kSidDiagnosticSessionControl};
+    if (session_03_accepted)
+    {
+        request.push_back(0x02);
+    }
+    if (session_43_accepted)
+    {
+        request.push_back(0x42);
+    }
+    Result<bytes::Bytes> reply = ctx.uds.Request(request, policy, ctx.cancellation);
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    const bytes::ByteView payload = uds::Payload(*reply);
+    if (payload.empty() || (payload[0] != 0x02 && payload[0] != 0x42))
+    {
+        return Fail(ErrorKind::kBadResponse, "unexpected programming session response");
+    }
+    LogInfo(ctx, "Succesfully set to programming session");
+    return {};
+}
+
 template <typename C> Status DiscardB6Reply(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds read_timeout)
 {
     if (const Status checkpoint = CancelledIfRequested(ctx, "kernel upload cancelled"); !checkpoint.has_value())

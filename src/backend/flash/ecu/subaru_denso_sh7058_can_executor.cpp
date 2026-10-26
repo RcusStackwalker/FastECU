@@ -378,33 +378,6 @@ Status UnlockSecurity(Context& context, const std::optional<RaceRomAltValues>& r
     return {};
 }
 
-// Requests programming in each session mode the ECU accepted earlier.
-Status EnterProgrammingSession(Context& context, bool connected_03, bool connected_43)
-{
-    LogInfo(context, "Set session mode");
-    bytes::Bytes programming{uds::kSidDiagnosticSessionControl};
-    if (connected_03)
-    {
-        programming.push_back(0x02);
-    }
-    if (connected_43)
-    {
-        programming.push_back(0x42);
-    }
-    Result<bytes::Bytes> programming_reply = context.uds.Request(programming, kStrictPolicy, context.cancellation);
-    if (!programming_reply.has_value())
-    {
-        return std::unexpected(programming_reply.error());
-    }
-    const bytes::ByteView programming_payload = uds::Payload(*programming_reply);
-    if (programming_payload.empty() || (programming_payload[0] != 0x02 && programming_payload[0] != 0x42))
-    {
-        return Fail(ErrorKind::kBadResponse, "unexpected programming session response");
-    }
-    LogInfo(context, "Succesfully set to programming session");
-    return {};
-}
-
 Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_alive, std::optional<std::string>& rom_id)
 {
     // connect_bootloader(), revision 59f4e442:112-621.
@@ -456,7 +429,7 @@ Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_ali
     {
         return unlocked;
     }
-    return EnterProgrammingSession(context, *connected_03, *connected_43);
+    return EnterBeefProgrammingSession(context, *connected_03, *connected_43, kStrictPolicy);
 }
 
 Status UploadKernel(Context& context, const KernelImage& kernel)

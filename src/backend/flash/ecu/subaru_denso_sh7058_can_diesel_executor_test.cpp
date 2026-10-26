@@ -298,7 +298,7 @@ void ScriptSessionSelection(ScriptedCanFlashTransport& transport, bool fallback_
 }
 
 void ScriptStockSecurityAndProgramming(ScriptedCanFlashTransport& transport, bool fallback_to_43 = false,
-                                       bool accept_key = true)
+                                       bool accept_key = true, std::optional<bytes::Byte> echoed_mode = std::nullopt)
 {
     transport.ExpectWrite(Request(bytes::Bytes{0x27, 0x01}));
     transport.QueueRead(Response(bytes::Bytes{0x67, 0x01, 0x11, 0x22, 0x33, 0x44}));
@@ -310,7 +310,7 @@ void ScriptStockSecurityAndProgramming(ScriptedCanFlashTransport& transport, boo
     }
     transport.QueueRead(Response(bytes::Bytes{0x67, 0x02}));
     transport.ExpectWrite(Request(fallback_to_43 ? bytes::Bytes{0x10, 0x42} : bytes::Bytes{0x10, 0x02}));
-    transport.QueueRead(Response(fallback_to_43 ? bytes::Bytes{0x50, 0x42} : bytes::Bytes{0x50, 0x02}));
+    transport.QueueRead(Response(bytes::Bytes{0x50, echoed_mode.value_or(fallback_to_43 ? 0x42 : 0x02)}));
 }
 
 void ScriptBootloaderConnection(ScriptedCanFlashTransport& transport, bool fallback_to_43 = false,
@@ -961,6 +961,26 @@ TEST(SubaruDensoSh7058CanDieselExecutor, IdentityQueriesAndSessionThreeToFortyTh
     EXPECT_NE(std::find(transport.writes.begin(), transport.writes.end(),
                         bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF}),
               transport.writes.end());
+}
+
+TEST(SubaruDensoSh7058CanDieselExecutor, ProgrammingSessionReplyEchoingAnotherModeIsRefused)
+{
+    auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    SubaruDensoSh7058CanDieselExecutor executor;
+    ScriptedCanFlashTransport transport;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport);
+    ScriptIdentityQueries(transport);
+    ScriptSessionSelection(transport);
+    ScriptStockSecurityAndProgramming(transport, false, true, 0x03);
+    FakeCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                IsErrWith(ErrorKind::kBadResponse, "unexpected programming session response"));
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 // A service-only 0x67 reply carries no seed or key, so it is refused before

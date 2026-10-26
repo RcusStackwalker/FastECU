@@ -1696,6 +1696,8 @@ cc_library(
         ":uds_client_exchange_common",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
+        "//src/algorithms/protocol/uds",
+        "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:flash_types",
         "//src/backend/flash:transfer_progress",
         "//src/backend/ports",

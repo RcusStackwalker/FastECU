@@ -321,20 +321,7 @@ Status EnterProgrammingSession(Context& context)
         return key_status;
     }
     LogInfo(context, "Seed key ok");
-    LogInfo(context, "Requesting programming session");
-    Result<bytes::Bytes> programming =
-        context.uds.Request(bytes::Bytes{uds::kSidDiagnosticSessionControl, 0x02}, kStrictPolicy, context.cancellation);
-    if (!programming.has_value())
-    {
-        return std::unexpected(programming.error());
-    }
-    const bytes::ByteView programming_payload = uds::Payload(*programming);
-    if (programming_payload.empty() || (programming_payload[0] != 0x02 && programming_payload[0] != 0x42))
-    {
-        return Fail(ErrorKind::kBadResponse, "unexpected programming session response");
-    }
-    LogInfo(context, "Succesfully set to programming session");
-    return {};
+    return EnterBeefProgrammingSession(context, true, false, kStrictPolicy);
 }
 
 Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_alive, std::optional<std::string>& rom_id)
