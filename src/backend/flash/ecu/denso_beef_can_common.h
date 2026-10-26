@@ -266,10 +266,6 @@ Result<bytes::Bytes> BeefExchange(C& ctx, bytes::Byte opcode, bytes::ByteView pa
     return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
 }
 
-// Every 0xB6 kernel-upload block is followed by a raw read whose content is
-// ignored. Send through the channel for the request CAN envelope, but read the
-// reply directly so short, malformed and wrong-ID frames and adapter stale
-// errors stay non-fatal; only cancellation and disconnection are typed.
 // Requests a programming session in mode 0x02 for an accepted session 0x03
 // and mode 0x42 for an accepted session 0x43, and accepts a reply echoing
 // either mode.
@@ -301,6 +297,10 @@ Status EnterBeefProgrammingSession(C& ctx, bool session_03_accepted, bool sessio
     return {};
 }
 
+// Every 0xB6 kernel-upload block is followed by a raw read whose content is
+// ignored. Send through the channel for the request CAN envelope, but read the
+// reply directly so short, malformed and wrong-ID frames and adapter stale
+// errors stay non-fatal; only cancellation and disconnection are typed.
 template <typename C> Status DiscardB6Reply(C& ctx, bytes::ByteView pdu, std::chrono::milliseconds read_timeout)
 {
     if (const Status checkpoint = CancelledIfRequested(ctx, "kernel upload cancelled"); !checkpoint.has_value())
