@@ -258,7 +258,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::Run(const Subar
         ConnectBootloader, UploadKernel, [](Context& c, const FlashPlan& p, PhaseReporter& progress)
         { return c.kernel.Read(p.TransferRegion(), progress); },
         [](Context& c, const FlashPlan& p, PhaseSequence& phases, PhaseReporter& compare)
-        { return c.session.WriteMemory(p, phases, compare); });
+        { return c.kernel.Write(p, phases, compare); });
 }
 
 } // namespace fastecu::flash

@@ -4,13 +4,10 @@
 #include <chrono>
 #include <cstdint>
 #include <format>
-#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
-#include <vector>
 
-#include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
@@ -23,7 +20,6 @@
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
-#include "src/backend/flash/transfer_progress.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
 // Every protocol exchange below is transcribed from
@@ -44,26 +40,17 @@ namespace
 {
 
 using bytes::ComposeBe;
-using namespace bytes::literals;
 using namespace std::chrono_literals;
 
 constexpr std::chrono::milliseconds kProbeDelay{100}; // request_kernel_id(), lines 1608-1609
 constexpr std::chrono::milliseconds kExtraShortTimeout{50};
 constexpr std::chrono::milliseconds kShortTimeout{200};
-constexpr std::chrono::milliseconds kMediumTimeout{500};
 constexpr std::chrono::milliseconds kLongTimeout{800};
 constexpr std::chrono::milliseconds kReadTimeout{2000};
 constexpr std::chrono::milliseconds kExtraLongTimeout{3000};
 constexpr std::chrono::milliseconds kPostUploadDelay{500}; // upload_kernel(), lines 595-595
 
-constexpr int kFlashBufferSize = 0x200;
-constexpr int kFlashCommitSize = 0x1000;
-
 constexpr bytes::Byte kKernelId = 0x41;
-constexpr bytes::Byte kKernelProgVolt = 0x04;
-constexpr bytes::Byte kKernelWriteBuffer = 0x22;
-constexpr bytes::Byte kKernelCommitBuffer = 0x24;
-constexpr bytes::Byte kKernelBlankPage = 0x25;
 
 constexpr uds::ExchangePolicy kStrictPolicy{
     .pre_read_delay = kExtraShortTimeout,
@@ -395,185 +382,6 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
     return {};
 }
 
-Status FlashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan, const MemoryRegion& block,
-                  std::size_t& flash_bytes_index, std::size_t flash_bytes_count, PhaseReporter& progress)
-{
-    // flash_block(), revision 59f4e442 lines 1270-1515. The legacy always
-    // uses 0x200-byte buffer writes and commits each 0x1000-byte page.
-    if (block.length == 0 || block.length % kFlashBufferSize != 0 || block.length % kFlashCommitSize != 0)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "TCU flash block is not aligned to the portable write windows");
-    }
-    const std::size_t image_offset = block.start - plan.TransferRegion().start;
-    std::uint32_t start = block.start;
-    std::uint32_t remaining = block.length;
-    std::uint32_t commit_start = block.start;
-    std::chrono::steady_clock::time_point previous_time;
-
-    LogInfo(context, std::format("Flash page erase addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
-    LogInfo(context, "Erasing flash page...");
-    const auto erase_payload = ComposeBe(block.start);
-    Result<bytes::Bytes> erased = context.session.Exchange(kKernelBlankPage, erase_payload, 0, kExtraLongTimeout);
-    if (!erased.has_value())
-    {
-        return std::unexpected(erased.error());
-    }
-    LogInfo(context, " erased");
-    previous_time = context.clock.Now();
-
-    LogInfo(context, std::format("Start flash write addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
-    while (remaining != 0)
-    {
-        if (const Status checkpoint = CancelledIfRequested(context, "flash write cancelled"); !checkpoint.has_value())
-        {
-            return checkpoint;
-        }
-        const std::size_t chunk_offset = static_cast<std::size_t>(start - block.start);
-        const bytes::ByteView chunk = image.subspan(image_offset + chunk_offset, kFlashBufferSize);
-        const bytes::Bytes write_payload = ComposeBe(start, chunk);
-        Result<bytes::Bytes> written = context.session.Exchange(kKernelWriteBuffer, write_payload, 0, kLongTimeout);
-        if (!written.has_value())
-        {
-            return std::unexpected(written.error());
-        }
-        LogDebug(context, "Data written to flash buffer");
-
-        const std::uint32_t percent =
-            static_cast<std::uint32_t>(100U * (block.length - remaining) / std::max<std::uint32_t>(block.length, 1));
-        const auto now = context.clock.Now();
-        const std::uint64_t elapsed = ElapsedMilliseconds(previous_time, now);
-        previous_time = now;
-        const auto next_index = static_cast<std::uint32_t>(flash_bytes_index + kFlashBufferSize);
-        const TransferRate rate = ComputeTransferRate(kFlashBufferSize, elapsed, flash_bytes_count - next_index);
-        LogInfo(context, FormatWriteProgress(start, percent, rate));
-
-        remaining -= kFlashBufferSize;
-        start += kFlashBufferSize;
-        flash_bytes_index += kFlashBufferSize;
-        progress.Update(static_cast<int>(std::min<std::size_t>(flash_bytes_index, flash_bytes_count)));
-
-        if (start - commit_start == kFlashCommitSize)
-        {
-            if (const Status checkpoint = CancelledIfRequested(context, "flash commit cancelled");
-                !checkpoint.has_value())
-            {
-                return checkpoint;
-            }
-            LogInfo(context, "Flash buffer write complete... ");
-            const std::size_t crc_offset = image_offset + static_cast<std::size_t>(commit_start - block.start);
-            const std::uint32_t image_crc = fastecu::checksum::Crc32(image.subspan(crc_offset, kFlashCommitSize));
-            LogDebug(context, std::format("Image CRC32: 0x{:08x}", image_crc));
-            LogInfo(context, std::format("Committ flash addr: 0x{:x}", commit_start));
-            LogInfo(context, std::format(" len: 0x{:x}", kFlashCommitSize));
-            LogInfo(context, std::format(" crc32: 0x{:08x}", image_crc));
-            const auto commit_payload = ComposeBe(commit_start, std::uint16_t{kFlashCommitSize}, image_crc);
-            Result<bytes::Bytes> committed =
-                context.session.Exchange(kKernelCommitBuffer, commit_payload, 0, kExtraLongTimeout);
-            if (!committed.has_value())
-            {
-                return std::unexpected(committed.error());
-            }
-            commit_start += kFlashCommitSize;
-        }
-    }
-    return {};
-}
-
-Status ReflashBlock(Context& context, bytes::ByteView image, const FlashPlan& plan, const MemoryRegion& block,
-                    std::size_t& flash_bytes_index, std::size_t flash_bytes_count, PhaseReporter& progress)
-{
-    // reflash_block(), revision 59f4e442 lines 1183-1267. The voltage query
-    // precedes flash_block and a failure after erase receives the exact
-    // operator recovery warning from the legacy worker.
-    LogInfo(context, std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
-    LogInfo(context, "Check flash voltage");
-    Result<bytes::Bytes> voltage = context.session.Exchange(kKernelProgVolt, {}, 2, kMediumTimeout);
-    if (!voltage.has_value())
-    {
-        return std::unexpected(voltage.error());
-    }
-    const double volts = static_cast<double>(bytes::ReadU16Be(*voltage)) / 50.0;
-    LogInfo(context, std::format(": {}V", volts));
-
-    Status flashed = FlashBlock(context, image, plan, block, flash_bytes_index, flash_bytes_count, progress);
-    if (!flashed.has_value())
-    {
-        LogError(context,
-                 "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most likely still "
-                 "running and receiving commands!");
-        return flashed;
-    }
-    LogInfo(context, "Flash block ok");
-    return {};
-}
-
-Status WriteMemory(Context& context, const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress)
-{
-    // write_mem(), revision 59f4e442 lines 784-900.
-    const bytes::ByteView image = plan.ImageOrEmpty();
-    Result<CompareResult> before = context.session.CompareBlocks(plan, image, &compare_progress);
-    if (!before.has_value())
-    {
-        return std::unexpected(before.error());
-    }
-    compare_progress.Complete();
-    if (before->changed_count == 0)
-    {
-        LogInfo(context, "*** Compare results no difference between ROM and ECU data, no flashing needed! ***");
-        phases.Start("Write", 0);
-        return {};
-    }
-
-    std::size_t flash_bytes_count = 0;
-    for (std::size_t index = 0; index < before->modified.size(); ++index)
-    {
-        if (before->modified[index])
-        {
-            flash_bytes_count += plan.EraseRegions()[index].length;
-        }
-    }
-    LogInfo(context, "--- Start writing ROM file to ECU flash memory ---");
-    if (const Status initialized = context.session.InitializeFlash(false); !initialized.has_value())
-    {
-        return initialized;
-    }
-    PhaseReporter write_progress = phases.Start("Write", static_cast<int>(flash_bytes_count));
-    std::size_t flash_bytes_index = 0;
-    for (std::size_t index = 0; index < before->modified.size(); ++index)
-    {
-        if (!before->modified[index])
-        {
-            continue;
-        }
-        if (const Status checkpoint = CancelledIfRequested(context, "flash block loop cancelled");
-            !checkpoint.has_value())
-        {
-            return checkpoint;
-        }
-        if (const Status reflashed = ReflashBlock(context, image, plan, plan.EraseRegions()[index], flash_bytes_index,
-                                                  flash_bytes_count, write_progress);
-            !reflashed.has_value())
-        {
-            LogInfo(context, std::format("Block {} reflash failed.", index));
-            return reflashed;
-        }
-        LogInfo(context, std::format("Block {} reflash complete.", index));
-    }
-    write_progress.Complete();
-
-    Result<CompareResult> after = context.session.CompareBlocks(plan, image, nullptr, true);
-    if (!after.has_value())
-    {
-        return std::unexpected(after.error());
-    }
-    if (after->changed_count != 0)
-    {
-        LogError(context, "*** ERROR IN FLASH PROCESS ***");
-        LogError(context, "Don't power off your ECU, kernel is still running and you can try flashing again!");
-    }
-    return {};
-}
-
 } // namespace
 
 Result<Iso15765Config> SubaruTcuDensoSh705xCanExecutor::Setup(const SubaruTcuDensoSh705xCanPlan& family) const
@@ -603,7 +411,9 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::Run(const SubaruTc
     return RunBeefKernelOperation(
         plan, "Subaru Denso SH705x TCU", context, [](Context& c) { return RequestKernelId(c, true); },
         ConnectBootloader, UploadKernel, [](Context& c, const FlashPlan& p, PhaseReporter& progress)
-        { return c.kernel.Read(p.TransferRegion(), progress); }, WriteMemory);
+        { return c.kernel.Read(p.TransferRegion(), progress); },
+        [](Context& c, const FlashPlan& p, PhaseSequence& phases, PhaseReporter& compare)
+        { return c.kernel.Write(p, phases, compare); });
 }
 
 } // namespace fastecu::flash
