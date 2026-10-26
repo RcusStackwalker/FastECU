@@ -197,7 +197,10 @@ cc_library(
     name = "mappack_converter",
     srcs = ["mappack_converter.cpp"],
     hdrs = ["mappack_converter.h"],
-    implementation_deps = ["@pugixml"],
+    implementation_deps = [
+        ":text_format",
+        "@pugixml",
+    ],
     deps = ["//src/backend/ports"],
 )
 
