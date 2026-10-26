@@ -84,15 +84,16 @@ are read and discarded without inspection.
 _Avoid_: Quiet sequence, broadcast
 
 **Denso BEEF CAN dialect**:
-The SH7058 petrol, SH7058 diesel and TCU Denso SH705x flash families. One
-`BeefCanSession` owns their shared conversation with the ECU: the Tolerant
-reply query, identity, CRC compare, flash init and (petrol and diesel) kernel ID
-and write, worded per family by a `DensoBeefCanProfile`. The programming-session
-request of connect is shared too (`EnterBeefProgrammingSession`); the rest of
-connect, security, kernel upload, the TCU's kernel probe and its read and flash
-loops stay in each executor. The
-DensoCAN SH705x family uses the same seed/key and payload tables but none of
-the session, so it is in no dialect.
+The SH7058 petrol, SH7058 diesel and TCU Denso SH705x flash families. They share
+named warm-kernel operations: kernel payload and block transfer, BEEF framing,
+read, CRC compare, flash initialization and real write. The petrol and diesel
+families also share one ECU cold path: BEEF kernel probe, ECU/VIN/CAL-ID/CVN
+identity, tolerant bootloader-session discovery, security and kernel handoff.
+The TCU has a different cold path: its proprietary multi-attempt kernel probe,
+smaller identity set, required session order and post-upload transport restart.
+Dialect membership records the proven shared operations; it does not assert one
+complete cold-path order. DensoCAN SH705x uses the same seed/key and payload
+tables but none of the BEEF CAN conversation, so it is in no dialect.
 _Avoid_: Wave 5
 
 **Bootloader**:
