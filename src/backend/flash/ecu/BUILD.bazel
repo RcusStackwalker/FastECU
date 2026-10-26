@@ -675,7 +675,10 @@ cc_library(
     name = "uds_client_exchange_common",
     srcs = ["uds_client_exchange_common.cpp"],
     hdrs = ["uds_client_exchange_common.h"],
-    implementation_deps = ["//src/algorithms/protocol/uds"],
+    implementation_deps = [
+        "//src/algorithms/protocol/uds",
+        "//src/algorithms/protocol/uds:uds_service_ids",
+    ],
     deps = [
         "//src/algorithms/protocol",
         "//src/backend/ports",

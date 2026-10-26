@@ -197,6 +197,12 @@ security through `other_uds` on `0x7E0` and returns to `0x7E1`, while MH8111
 uses its primary `0x7E1` channel. Their seed-key tables match; payload
 encryption tables differ.
 
+MH8111 and the Subaru Hitachi M32R CAN ECU share the fatal seed/key unlock and
+kernel jump (`27 01`, `27 02`, `10 42`) through `UnlockAndKernelJump` in the
+[UDS exchange module](../../src/backend/flash/ecu/uds_client_exchange_common.h);
+each keeps its exchange policy, rejection wording, seed-key table, session
+entry and kernel alive check.
+
 The [CVT B6 chunk exchange](../../src/backend/flash/ecu/cvt_b6_chunk_exchange.h)
 is the only operation of the CVT B6 chunk dialect. It adds no range guard,
 cancellation checkpoint or SID validation. Hitachi closes each block with one

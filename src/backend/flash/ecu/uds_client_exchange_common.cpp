@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <format>
 
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
+#include "src/algorithms/protocol/uds/uds_service_ids.h"
 
 namespace fastecu::flash
 {
@@ -70,6 +72,34 @@ Result<bytes::Bytes> FatalQuery(const UdsExchangeContext& ctx, bytes::ByteView p
         return Fail(ErrorKind::kBadResponse, std::format("{} rejected", subject));
     }
     return reply;
+}
+
+Status UnlockAndKernelJump(const UdsExchangeContext& ctx, std::string_view rejection_prefix,
+                           bytes::Bytes (*seed_key)(bytes::ByteView seed))
+{
+    constexpr bytes::Byte kSessionKernelJump = 0x42;
+    const auto log = [&](std::string_view message) { ctx.events.Log(LogLevel::kInfo, message); };
+    log("Requesting seed");
+    return FatalQuery(ctx, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
+                      bytes::Bytes{uds::kSecurityAccessRequestSeed}, rejection_prefix, "seed request", 5)
+        .and_then(
+            [&](const bytes::Bytes& seed_reply)
+            {
+                log("Seed request ok");
+                const bytes::Bytes key = seed_key(uds::Payload(seed_reply).subspan(1, 4));
+                log("Sending seed key");
+                return FatalQuery(ctx, bytes::ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
+                                  bytes::Bytes{uds::kSecurityAccessSendKey}, rejection_prefix, "seed key");
+            })
+        .and_then(
+            [&](const bytes::Bytes&)
+            {
+                log("Seed key ok");
+                log("Jumping to onboard kernel...");
+                return FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
+                                  bytes::Bytes{kSessionKernelJump}, rejection_prefix, "kernel jump");
+            })
+        .transform([&](const bytes::Bytes&) { log("Jump to kernel ok"); });
 }
 
 } // namespace fastecu::flash
