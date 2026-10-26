@@ -26,7 +26,7 @@ fastecu::Status CheckCancellation(const fastecu::ICancellationToken& cancellatio
 {
     if (cancellation.Cancelled())
     {
-        return fastecu::Fail(fastecu::ErrorKind::kCancelled, "logging cancelled");
+        return fastecu::Fail(fastecu::ErrorKind::kCancelled, "SSM logging cancelled");
     }
     return {};
 }
