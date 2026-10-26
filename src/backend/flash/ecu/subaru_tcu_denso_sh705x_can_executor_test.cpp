@@ -777,11 +777,13 @@ void AppendCompareLogs(std::vector<LogRecord>& logs, std::span<const BlockFixtur
 std::vector<LogRecord> ExpectedWriteLogs(std::span<const BlockFixture> blocks)
 {
     std::vector<LogRecord> logs;
+    logs.emplace_back(LogLevel::kInfo, "Connecting to Subaru Denso SH705x TCU CAN bootloader, please wait...");
     logs.emplace_back(LogLevel::kInfo, "Checking if kernel is already running...");
     logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
     logs.emplace_back(LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ");
     logs.emplace_back(LogLevel::kInfo, "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 ");
     logs.emplace_back(LogLevel::kInfo, "Kernel ID: KID");
+    logs.emplace_back(LogLevel::kInfo, "Writing ROM to Subaru Denso SH705x TCU using CAN");
     AppendCompareLogs(logs, blocks, true, false);
     logs.emplace_back(LogLevel::kInfo, "--- Start writing ROM file to ECU flash memory ---");
     logs.emplace_back(LogLevel::kInfo, "Check max message length");
@@ -820,6 +822,7 @@ std::vector<LogRecord> ExpectedWriteLogs(std::span<const BlockFixture> blocks)
 std::vector<LogRecord> ExpectedReadLogs(const Case& test_case)
 {
     std::vector<LogRecord> logs;
+    logs.emplace_back(LogLevel::kInfo, "Connecting to Subaru Denso SH705x TCU CAN bootloader, please wait...");
     logs.emplace_back(LogLevel::kInfo, "Checking if kernel is already running...");
     logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
     logs.emplace_back(LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ");
@@ -827,6 +830,7 @@ std::vector<LogRecord> ExpectedReadLogs(const Case& test_case)
                                            ? "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 00 00 "
                                            : "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 ");
     logs.emplace_back(LogLevel::kInfo, "Kernel ID: KID");
+    logs.emplace_back(LogLevel::kInfo, "Reading ROM from Subaru Denso SH705x TCU using CAN");
     logs.emplace_back(LogLevel::kInfo, "Start reading ROM, please wait...");
     constexpr unsigned kFakeClockSpeed = 1'024'000;
     for (std::uint32_t offset = 0; offset < test_case.rom_size; offset += kReadPageSize)
@@ -1434,6 +1438,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
     const std::vector<LogRecord> expected_upload_prefix{
+        {LogLevel::kInfo, "Connecting to Subaru Denso SH705x TCU CAN bootloader, please wait..."},
         {LogLevel::kInfo, "Checking if kernel is already running..."},
         {LogLevel::kInfo, "Requesting kernel ID"},
         {LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
@@ -1458,6 +1463,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
         {LogLevel::kInfo, "Seed key ok"},
         {LogLevel::kInfo, "Set session mode"},
         {LogLevel::kInfo, "Succesfully set to programming session"},
+        {LogLevel::kInfo, "Initializing Subaru Denso SH705x TCU CAN kernel upload, please wait..."},
         {LogLevel::kDebug, "Start address to upload kernel: 0xffff9000"},
         {LogLevel::kInfo, "Initialize kernel upload"},
         {LogLevel::kInfo, "Uploading kernel, please wait..."},
@@ -1467,6 +1473,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
         {LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
         {LogLevel::kInfo, "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 "},
         {LogLevel::kInfo, "Kernel ID: KID"},
+        {LogLevel::kInfo, "Reading ROM from Subaru Denso SH705x TCU using CAN"},
         {LogLevel::kInfo, "Start reading ROM, please wait..."},
     };
     ASSERT_GE(events.logs.size(), expected_upload_prefix.size());

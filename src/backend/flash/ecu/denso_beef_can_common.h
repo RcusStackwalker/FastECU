@@ -23,6 +23,7 @@
 #include "src/backend/flash/ecu/beef_compare_result.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
+#include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/flash/transfer_progress.h"
 #include "src/backend/flash/flash_types.h"
@@ -477,6 +478,66 @@ Status InitializeBeefFlash(const C& ctx, bool test_write, bool upper_hex, Exchan
     }
     LogError(ctx, "Flash mode succesfully set");
     return {};
+}
+
+// The Denso BEEF CAN operation: a "Kernel" phase that connects to `unit`'s
+// bootloader and uploads the plan's kernel unless one already answers, then a
+// "Read" of the transfer region, or a "Compare" over the erase regions that
+// the family's write continues before a closing "Complete" phase.
+//   connect(ctx, read_operation, kernel_alive&, rom_id&) -> Status
+//   upload(ctx, const KernelImage&) -> Status
+//   read(ctx, const FlashPlan&, PhaseReporter&) -> Result<bytes::Bytes>
+//   write(ctx, const FlashPlan&, PhaseSequence&, PhaseReporter& compare) -> Status
+template <typename C, typename Connect, typename Upload, typename Read, typename Write>
+Result<FlashExecutionResult> RunBeefKernelOperation(const FlashPlan& plan, std::string_view unit, C& ctx,
+                                                    Connect connect, Upload upload, Read read, Write write)
+{
+    const bool read_operation = plan.Operation() == FlashOperation::kRead;
+    PhaseSequence phases(ctx.events, read_operation ? 2 : 4);
+    PhaseReporter kernel_phase = phases.Start("Kernel", 1);
+    bool kernel_alive = false;
+    std::optional<std::string> rom_id;
+    LogInfo(ctx, std::format("Connecting to {} CAN bootloader, please wait...", unit));
+    if (const Status connected = connect(ctx, read_operation, kernel_alive, rom_id); !connected.has_value())
+    {
+        return std::unexpected(connected.error());
+    }
+    if (!kernel_alive && plan.Kernel().has_value())
+    {
+        ctx.events.Notice("Preparing, please wait...");
+        LogInfo(ctx, std::format("Initializing {} CAN kernel upload, please wait...", unit));
+        if (const Status uploaded = upload(ctx, *plan.Kernel()); !uploaded.has_value())
+        {
+            return std::unexpected(uploaded.error());
+        }
+    }
+    kernel_phase.Complete();
+
+    if (read_operation)
+    {
+        ctx.events.Notice("Reading ROM, please wait...");
+        LogInfo(ctx, std::format("Reading ROM from {} using CAN", unit));
+        PhaseReporter read_phase = phases.Start("Read", static_cast<int>(plan.TransferRegion().length));
+        Result<bytes::Bytes> rom = read(ctx, plan, read_phase);
+        if (!rom.has_value())
+        {
+            return std::unexpected(rom.error());
+        }
+        read_phase.Complete();
+        return FlashExecutionResult{
+            .operation = FlashOperation::kRead, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
+    }
+
+    ctx.events.Notice("Writing ROM, please wait...");
+    LogInfo(ctx, std::format("Writing ROM to {} using CAN", unit));
+    PhaseReporter compare_phase = phases.Start("Compare", static_cast<int>(plan.EraseRegions().size()));
+    if (const Status written = write(ctx, plan, phases, compare_phase); !written.has_value())
+    {
+        return std::unexpected(written.error());
+    }
+    PhaseReporter complete = phases.Start("Complete", 1);
+    complete.Complete();
+    return FlashExecutionResult{.operation = plan.Operation()};
 }
 
 // read_mem(): reads `region` in 0x400-byte pages of proprietary BEEF replies,
