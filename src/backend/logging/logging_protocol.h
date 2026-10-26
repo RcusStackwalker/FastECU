@@ -16,6 +16,23 @@ struct PollData
     std::vector<ProtocolSample> samples;
 };
 
+// The precondition of every protocol call in a logging run: an operator's
+// cancel wins over a closed adapter, and either stops the call before any
+// wire traffic.
+template <typename Transport>
+fastecu::Status CheckLoggingRunCanContinue(const Transport& transport, const fastecu::ICancellationToken& cancellation)
+{
+    if (cancellation.Cancelled())
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kCancelled, "logging cancelled");
+    }
+    if (!transport.IsOpen())
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
+    }
+    return {};
+}
+
 class LoggingProtocol
 {
   public:

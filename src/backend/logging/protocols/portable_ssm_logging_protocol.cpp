@@ -232,13 +232,9 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::ReadFramedResponse(std::chrono
 
 fastecu::Status SsmLoggingProtocol::Start(const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status.has_value())
+    if (auto ready = CheckLoggingRunCanContinue(*transport_, cancellation); !ready.has_value())
     {
-        return status;
-    }
-    if (!transport_->IsOpen())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
+        return ready;
     }
 
     pending_response_bytes_.clear();
@@ -264,13 +260,9 @@ fastecu::Status SsmLoggingProtocol::Start(const fastecu::ICancellationToken& can
 fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds timeout,
                                                    const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status.has_value())
+    if (auto ready = CheckLoggingRunCanContinue(*transport_, cancellation); !ready.has_value())
     {
-        return std::unexpected(status.error());
-    }
-    if (!transport_->IsOpen())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
+        return std::unexpected(ready.error());
     }
 
     if (auto write_result = transport_->Write(BuildSsmHeader(BuildPollRequest(plan_))); !write_result.has_value())
