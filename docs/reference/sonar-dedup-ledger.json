@@ -515,6 +515,40 @@
       "outcome": "open",
       "pr": 916,
       "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "b9a5cb08ddd5",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.cpp",
+          "fastecu::flash::ValidateRegions"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.cpp",
+          "fastecu::flash::ValidateRegions"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 916,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "121458fcbf98",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::GetCatalogEntry"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::GetCatalogEntry"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 917,
+      "reason": ""
     }
   ]
 }

@@ -33,21 +33,6 @@ constexpr auto kCatalog = std::to_array<CatalogEntry>({
     {"sub_tcu_denso_sh7058_can", "SH7058", 0x00100000, 0xFFFF3000, true},
 });
 
-Result<CatalogEntry> GetCatalogEntry(std::string_view protocol, std::string_view mcu)
-{
-    const auto it = std::ranges::find(kCatalog, protocol, &CatalogEntry::protocol);
-    if (it == kCatalog.end())
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("Unsupported Denso SH705x TCU CAN protocol: {}", protocol));
-    }
-    if (mcu != it->mcu)
-    {
-        return Fail(ErrorKind::kInvalidConfig,
-                    std::format("Denso SH705x TCU CAN protocol {} requires MCU {}, not {}", protocol, it->mcu, mcu));
-    }
-    return *it;
-}
-
 const FlashDevice *CheckedDevice(const CatalogEntry& entry)
 {
     const FlashDevice *device = FindFlashDevice(entry.mcu);
@@ -87,7 +72,7 @@ Status ValidateSubaruTcuDensoSh705xCanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "TCU CAN wire parameters are invalid");
     }
-    const auto entry = GetCatalogEntry(plan.TargetId(), plan.McuName());
+    const auto entry = detail::FindCatalogEntry(kCatalog, "Denso SH705x TCU CAN", plan.TargetId(), plan.McuName());
     if (!entry.has_value())
     {
         return std::unexpected(entry.error());
@@ -112,7 +97,7 @@ Result<FlashPlan> BuildSubaruTcuDensoSh705xCanPlan(FlashOperation operation, std
                                                    std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                    KernelImage kernel)
 {
-    const auto entry = GetCatalogEntry(protocol_name, mcu_type);
+    const auto entry = detail::FindCatalogEntry(kCatalog, "Denso SH705x TCU CAN", protocol_name, mcu_type);
     if (!entry.has_value())
     {
         return std::unexpected(entry.error());

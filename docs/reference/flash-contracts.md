@@ -63,8 +63,9 @@ Colt's in-flight cancellation stays with the guarded transport described above.
 ## Plan predicates
 
 [Plan primitives](../../src/backend/flash/ecu/plan_primitives.h) share only
-fixed device shape, operation/image shape and transfer start/length equality.
-Callers keep catalog identity, capabilities, diagnostics and validation order,
+fixed device shape, operation/image shape, transfer start/length equality and
+the exact protocol-id lookup with its MCU check (`FindCatalogEntry`). Callers
+keep their catalog rows, capabilities, diagnostics and validation order,
 including unsupported TCU TestWrite and SH7055 Write rejection before invalid
 image/kernel errors. The four Denso SH705x kernel-loaded builders share the rest
 of their plan (kernel fit, image rules, transfer, erase-all, build and family
