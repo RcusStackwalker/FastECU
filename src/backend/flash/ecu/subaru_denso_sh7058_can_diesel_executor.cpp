@@ -324,16 +324,7 @@ Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_ali
         return identity;
     }
 
-    Result<AcceptedSessionModes> sessions = context.session.RequestBootloaderSessions();
-    if (!sessions.has_value())
-    {
-        return std::unexpected(sessions.error());
-    }
-    if (Status unlocked = UnlockSecurity(context); !unlocked.has_value())
-    {
-        return unlocked;
-    }
-    return EnterBeefProgrammingSession(context, sessions->mode_03, sessions->mode_43, kStrictPolicy);
+    return ConnectBeefProgrammingSession(context, UnlockSecurity, kStrictPolicy);
 }
 
 Status UploadKernel(Context& context, const KernelImage& kernel)

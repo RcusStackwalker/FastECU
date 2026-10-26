@@ -297,6 +297,24 @@ Status EnterBeefProgrammingSession(C& ctx, bool session_03_accepted, bool sessio
     return {};
 }
 
+// The petrol and diesel connect tail: asks the session which bootloader
+// sessions the ECU accepts, unlocks with the family's `unlock(ctx)`, then
+// enters the programming session those sessions select.
+template <typename C, typename Unlock>
+Status ConnectBeefProgrammingSession(C& ctx, Unlock unlock, const uds::ExchangePolicy& policy)
+{
+    auto sessions = ctx.session.RequestBootloaderSessions();
+    if (!sessions.has_value())
+    {
+        return std::unexpected(sessions.error());
+    }
+    if (Status unlocked = unlock(ctx); !unlocked.has_value())
+    {
+        return unlocked;
+    }
+    return EnterBeefProgrammingSession(ctx, sessions->mode_03, sessions->mode_43, policy);
+}
+
 // Every 0xB6 kernel-upload block is followed by a raw read whose content is
 // ignored. Send through the channel for the request CAN envelope, but read the
 // reply directly so short, malformed and wrong-ID frames and adapter stale
