@@ -553,73 +553,13 @@ Status SubaruDensoMc68hc16y5_02Executor::WriteMem(IKlineFlashTransport& transpor
         return std::unexpected(addressed_image.error());
     }
 
-    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:460-620.
-    events.Log(LogLevel::kInfo, "Comparing ECU flash memory pages to image file");
-    const auto compare_blocks = [&](std::vector<bool>& modified) -> Result<unsigned>
-    {
-        return DensoBeefKlineCompareBlocks(blocks, bytes::ByteView(*addressed_image), modified, cancellation,
-                                           [&](const MemoryRegion& block)
-                                           { return ReadBlockCrc(transport, clock, cancellation, block); });
-    };
-    std::vector<bool> modified(blocks.size(), false);
-    Result<unsigned> modified_count = compare_blocks(modified);
-    if (!modified_count.has_value())
-    {
-        return std::unexpected(modified_count.error());
-    }
-    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:501-515.
-    if (Status line = DensoBeefKlineEnableProgrammingVoltage(transport, cancellation); !line.has_value())
-    {
-        return line;
-    }
-    if (*modified_count == 0)
-    {
-        events.Log(LogLevel::kInfo, "No difference between ROM and ECU data, no flashing needed");
-        return {};
-    }
-    if (Status initialized = InitFlashWrite(transport, clock, cancellation, test_write); !initialized.has_value())
-    {
-        return initialized;
-    }
-    for (std::size_t block_no = 0; block_no < blocks.size(); ++block_no)
-    {
-        if (!modified[block_no])
-        {
-            continue;
-        }
-        // Legacy reflash_block(), full PROG_VOLT exchange at
-        // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:845-921.
-        if (Status voltage =
-                ExchangeAck(Exchange(transport, cancellation, DensoBeefKlineFrame(kDensoKlineOpProgVolt), 200ms),
-                            kDensoKlineOpProgVolt, "prog-volt query", 7);
-            !voltage.has_value())
-        {
-            return voltage;
-        }
-        if (Status flashed =
-                FlashBlock(transport, clock, cancellation, events, *addressed_image, blocks[block_no], test_write);
-            !flashed.has_value())
-        {
-            return flashed;
-        }
-        events.Log(LogLevel::kInfo, "Block reflash complete");
-    }
-    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:545-579.
-    events.Log(LogLevel::kInfo, "Comparing ECU flash memory pages to image file after reflash");
-    Result<unsigned> remaining_modified = compare_blocks(modified);
-    if (!remaining_modified.has_value())
-    {
-        return std::unexpected(remaining_modified.error());
-    }
-    if (test_write)
-    {
-        events.Log(LogLevel::kInfo, "Test write PASS, it is safe to perform the actual write");
-    }
-    else if (*remaining_modified != 0)
-    {
-        events.Log(LogLevel::kError, "Flash verification differs; do not power off, the kernel is still running");
-    }
-    return {};
+    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:460-620,
+    // with reflash_block()'s PROG_VOLT exchange at :845-921.
+    return DensoBeefKlineWriteChangedBlocks(
+        transport, cancellation, events, blocks, *addressed_image, test_write,
+        [&](const MemoryRegion& block) { return ReadBlockCrc(transport, clock, cancellation, block); },
+        [&] { return InitFlashWrite(transport, clock, cancellation, test_write); }, [&](const MemoryRegion& block)
+        { return FlashBlock(transport, clock, cancellation, events, *addressed_image, block, test_write); });
 }
 
 Result<KlineConfig> SubaruDensoMc68hc16y5_02Executor::Setup(const SubaruDensoMc68hc16y5_02Plan& family) const
