@@ -324,22 +324,16 @@ Status ConnectBootloader(Context& context, bool read_operation, bool& kernel_ali
         return identity;
     }
 
-    LogInfo(context, "Requesting session mode");
-    Result<bool> connected_03 = context.session.RequestSession(0x03);
-    if (!connected_03.has_value())
+    Result<AcceptedSessionModes> sessions = context.session.RequestBootloaderSessions();
+    if (!sessions.has_value())
     {
-        return std::unexpected(connected_03.error());
-    }
-    Result<bool> connected_43 = context.session.RequestSession(0x43);
-    if (!connected_43.has_value())
-    {
-        return std::unexpected(connected_43.error());
+        return std::unexpected(sessions.error());
     }
     if (Status unlocked = UnlockSecurity(context); !unlocked.has_value())
     {
         return unlocked;
     }
-    return EnterBeefProgrammingSession(context, *connected_03, *connected_43, kStrictPolicy);
+    return EnterBeefProgrammingSession(context, sessions->mode_03, sessions->mode_43, kStrictPolicy);
 }
 
 Status UploadKernel(Context& context, const KernelImage& kernel)

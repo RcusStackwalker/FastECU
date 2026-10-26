@@ -23,6 +23,14 @@
 namespace fastecu::flash
 {
 
+// The bootloader sessions an ECU accepted, which select the programming
+// session modes requested next.
+struct AcceptedSessionModes
+{
+    bool mode_03;
+    bool mode_43;
+};
+
 // The Denso BEEF CAN dialect's shared conversation with the ECU: tolerant
 // queries, identity, CRC compare, flash init and write over one channel. The
 // family keeps connect, kernel upload and everything its profile cannot say.
@@ -50,6 +58,9 @@ class BeefCanSession
 
     // True when the ECU accepts the diagnostic session `subfunction`.
     Result<bool> RequestSession(bytes::Byte subfunction);
+    // Requests the bootloader sessions 0x03 and then 0x43, each as a nonfatal
+    // query, and reports which the ECU accepted.
+    Result<AcceptedSessionModes> RequestBootloaderSessions();
 
     // Logs the ECU ID; a read names its image after it.
     Status RequestEcuId(bool read_operation, std::optional<std::string>& rom_id);
