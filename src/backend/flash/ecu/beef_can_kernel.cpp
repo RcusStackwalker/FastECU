@@ -9,11 +9,11 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
-#include "src/backend/flash/ecu/beef_compare_result.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 #include "src/backend/flash/transfer_progress.h"
@@ -73,14 +73,6 @@ struct KernelContext
     const DensoBeefCanProfile& profile;
 };
 
-// Frames a kernel-protocol request: marker, big-endian length covering the
-// opcode plus payload, opcode, payload.
-bytes::Bytes BeefRequest(bytes::Byte opcode, bytes::ByteView payload = {})
-{
-    return bytes::ComposeBe(std::uint16_t{kKernelStartComm}, static_cast<std::uint16_t>(payload.size() + 1), opcode,
-                            payload);
-}
-
 // Legacy reported a floor of one millisecond for any completed transfer, so a
 // sub-millisecond phase never renders as "0 ms".
 std::uint64_t ElapsedMilliseconds(std::chrono::steady_clock::time_point start,
@@ -95,7 +87,9 @@ std::uint64_t ElapsedMilliseconds(std::chrono::steady_clock::time_point start,
 Result<bytes::Bytes> Exchange(KernelContext& ctx, bytes::Byte opcode, bytes::ByteView payload,
                               std::size_t minimum_payload, std::chrono::milliseconds timeout)
 {
-    Result<bytes::Bytes> reply = ChannelRequest(ctx, BeefRequest(opcode, payload), timeout);
+    const auto request = bytes::ComposeBe(std::uint16_t{kKernelStartComm},
+                                          static_cast<std::uint16_t>(payload.size() + 1), opcode, payload);
+    Result<bytes::Bytes> reply = ChannelRequest(ctx, request, timeout);
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
@@ -118,25 +112,6 @@ Result<bytes::Bytes> Exchange(KernelContext& ctx, bytes::Byte opcode, bytes::Byt
     return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
 }
 
-// The short raw read that follows a CRC reply. The legacy operation does not
-// validate it, so malformed and wrong-ID frames stay tolerated stale content;
-// only cancellation and disconnection are actionable transport failures.
-// 200 ms is every consumer's kShortTimeout.
-Status DiscardStaleFrame(KernelContext& ctx)
-{
-    if (const Status checkpoint = CancelledIfRequested(ctx, "CRC stale-frame drain cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    Result<std::optional<bytes::Bytes>> stale = ctx.transport.Read(std::chrono::milliseconds{200}, ctx.cancellation);
-    if (!stale.has_value() &&
-        (stale.error().kind == ErrorKind::kCancelled || stale.error().kind == ErrorKind::kDisconnected))
-    {
-        return std::unexpected(stale.error());
-    }
-    return {};
-}
-
 Result<std::uint32_t> QueryCrc(KernelContext& ctx, const MemoryRegion& block)
 {
     Result<bytes::Bytes> reply =
@@ -146,20 +121,26 @@ Result<std::uint32_t> QueryCrc(KernelContext& ctx, const MemoryRegion& block)
     {
         return std::unexpected(reply.error());
     }
-    const std::uint32_t crc = bytes::ReadU32Be(*reply);
-    if (const Status drained = DiscardStaleFrame(ctx); !drained.has_value())
+    // The raw 200 ms read following a CRC reply tolerates stale content and
+    // nonterminal errors. Only cancellation and disconnection are actionable.
+    if (const Status checkpoint = CancelledIfRequested(ctx, "CRC stale-frame drain cancelled"); !checkpoint.has_value())
     {
-        return std::unexpected(drained.error());
+        return std::unexpected(checkpoint.error());
     }
-    return crc;
+    Result<std::optional<bytes::Bytes>> stale = ctx.transport.Read(std::chrono::milliseconds{200}, ctx.cancellation);
+    if (!stale.has_value() &&
+        (stale.error().kind == ErrorKind::kCancelled || stale.error().kind == ErrorKind::kDisconnected))
+    {
+        return std::unexpected(stale.error());
+    }
+    return bytes::ReadU32Be(*reply);
 }
 
-Result<CompareResult> CompareBlocks(KernelContext& ctx, std::span<const MemoryRegion> blocks, std::uint32_t image_base,
-                                    bytes::ByteView image, PhaseReporter *progress, bool after_reflash,
-                                    std::string_view family)
+Result<std::vector<std::size_t>> CompareBlocks(KernelContext& ctx, std::span<const MemoryRegion> blocks,
+                                               std::uint32_t image_base, bytes::ByteView image, PhaseReporter *progress,
+                                               bool after_reflash)
 {
-    CompareResult result;
-    result.modified.assign(blocks.size(), false);
+    std::vector<std::size_t> changed;
     LogInfo(ctx, after_reflash ? "--- Comparing ECU flash memory pages to image file after reflash ---"
                                : "--- Comparing ECU flash memory pages to image file ---");
     LogInfo(ctx, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
@@ -173,7 +154,8 @@ Result<CompareResult> CompareBlocks(KernelContext& ctx, std::span<const MemoryRe
         if (block.start < image_base ||
             static_cast<std::uint64_t>(block.start - image_base) + block.length > image.size())
         {
-            return Fail(ErrorKind::kInvalidConfig, std::format("{} CRC block is outside the image", family));
+            return Fail(ErrorKind::kInvalidConfig,
+                        std::format("{} CRC block is outside the image", ctx.profile.family));
         }
         LogInfo(ctx, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
         Result<std::uint32_t> ecu_crc = QueryCrc(ctx, block);
@@ -185,11 +167,11 @@ Result<CompareResult> CompareBlocks(KernelContext& ctx, std::span<const MemoryRe
         const std::uint32_t image_crc = fastecu::checksum::Crc32(image.subspan(image_offset, block.length));
         LogDebug(ctx, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
         LogInfo(ctx, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));
-        result.modified[index] = *ecu_crc != image_crc;
-        LogInfo(ctx, result.modified[index] ? "\tNO" : "\tYES");
-        if (result.modified[index])
+        const bool different = *ecu_crc != image_crc;
+        LogInfo(ctx, different ? "\tNO" : "\tYES");
+        if (different)
         {
-            ++result.changed_count;
+            changed.push_back(index);
         }
         if (progress != nullptr)
         {
@@ -202,50 +184,33 @@ Result<CompareResult> CompareBlocks(KernelContext& ctx, std::span<const MemoryRe
     }
 
     LogInfo(ctx, "Different blocks : ");
-    for (std::size_t index = 0; index < result.modified.size(); ++index)
+    for (const auto index : changed)
     {
-        if (result.modified[index])
-        {
-            LogInfo(ctx, std::format("{}, ", index));
-        }
+        LogInfo(ctx, std::format("{}, ", index));
     }
-    LogInfo(ctx, std::format(" (total: {})", result.changed_count));
-    return result;
+    LogInfo(ctx, std::format(" (total: {})", changed.size()));
+    return changed;
 }
 
 Status InitializeFlash(KernelContext& ctx, bool test_write)
 {
-    const auto log_size = [&](const bytes::Bytes& reply)
+    for (const auto& [opcode, label] :
+         {std::pair{bytes::Byte{0x05}, "Check max message length"}, {bytes::Byte{0x06}, "Check flashblock size"}})
     {
-        const std::uint32_t size = bytes::ReadU32Be(reply);
+        LogInfo(ctx, label);
+        const auto reply = Exchange(ctx, opcode, {}, 4, ctx.profile.init_timeout);
+        if (!reply.has_value())
+        {
+            return std::unexpected(reply.error());
+        }
+        const std::uint32_t size = bytes::ReadU32Be(*reply);
         LogInfo(ctx, ctx.profile.upper_hex_sizes ? std::format(": 0x{:04X}", size) : std::format(": 0x{:04x}", size));
-    };
-    LogInfo(ctx, "Check max message length");
-    Result<bytes::Bytes> max_message = Exchange(ctx, 0x05, {}, 4, ctx.profile.init_timeout);
-    if (!max_message.has_value())
-    {
-        return std::unexpected(max_message.error());
     }
-    log_size(*max_message);
-
-    LogInfo(ctx, "Check flashblock size");
-    Result<bytes::Bytes> max_block = Exchange(ctx, 0x06, {}, 4, ctx.profile.init_timeout);
-    if (!max_block.has_value())
-    {
-        return std::unexpected(max_block.error());
-    }
-    log_size(*max_block);
 
     LogInfo(ctx, test_write ? "Test write mode on, no actual flash write is performed"
                             : "Test write mode off, perform actual flash write");
-    Result<bytes::Bytes> mode =
-        Exchange(ctx, test_write ? bytes::Byte{0x21} : bytes::Byte{0x20}, {}, 0, ctx.profile.init_timeout);
-    if (!mode.has_value())
-    {
-        return std::unexpected(mode.error());
-    }
-    LogError(ctx, "Flash mode succesfully set");
-    return {};
+    return Exchange(ctx, test_write ? bytes::Byte{0x21} : bytes::Byte{0x20}, {}, 0, ctx.profile.init_timeout)
+        .transform([&](const bytes::Bytes&) { LogError(ctx, "Flash mode succesfully set"); });
 }
 
 constexpr std::size_t kBeefFlashBufferSize = 0x200;
@@ -306,13 +271,8 @@ Status CommitBuffer(KernelContext& ctx, bytes::ByteView window, std::uint32_t ad
     LogInfo(ctx, std::format(" len: 0x{:x}", kBeefFlashCommitSize));
     LogInfo(ctx, std::format(" crc32: 0x{}", crc));
     const auto commit = bytes::ComposeBe(address, std::uint16_t{kBeefFlashCommitSize}, image_crc);
-    const auto committed =
-        Exchange(ctx, test_write ? kBeefValidateBuffer : kBeefCommitBuffer, commit, 0, kBeefEraseTimeout);
-    if (!committed.has_value())
-    {
-        return std::unexpected(committed.error());
-    }
-    return {};
+    return Exchange(ctx, test_write ? kBeefValidateBuffer : kBeefCommitBuffer, commit, 0, kBeefEraseTimeout)
+        .transform([](const bytes::Bytes&) {});
 }
 
 Status FlashBlock(KernelContext& ctx, bytes::ByteView image, std::uint32_t image_base, const MemoryRegion& block,
@@ -334,18 +294,15 @@ Status FlashBlock(KernelContext& ctx, bytes::ByteView image, std::uint32_t image
     LogInfo(ctx, " erased");
 
     auto previous_time = ctx.clock.Now();
-    std::uint32_t address = block.start;
-    std::uint32_t remaining = block.length;
-    std::uint32_t commit_start = block.start;
     LogFlashRegion(ctx, "Start flash write addr", block);
-    while (remaining != 0)
+    for (std::uint32_t offset = 0; offset < block.length; offset += kBeefFlashBufferSize)
     {
         if (const Status checkpoint = CancelledIfRequested(ctx, "flash write cancelled"); !checkpoint.has_value())
         {
             return checkpoint;
         }
-        const std::size_t chunk_offset = static_cast<std::size_t>(address - block.start);
-        const bytes::ByteView chunk = image.subspan(image_offset + chunk_offset, kBeefFlashBufferSize);
+        const std::uint32_t address = block.start + offset;
+        const bytes::ByteView chunk = image.subspan(image_offset + offset, kBeefFlashBufferSize);
         Result<bytes::Bytes> written =
             Exchange(ctx, kBeefWriteBuffer, bytes::ComposeBe(address, chunk), 0, kBeefWriteTimeout);
         if (!written.has_value())
@@ -354,29 +311,27 @@ Status FlashBlock(KernelContext& ctx, bytes::ByteView image, std::uint32_t image
         }
         LogDebug(ctx, "Data written to flash buffer");
 
-        const std::uint32_t percent = static_cast<std::uint32_t>(100U * (block.length - remaining) / block.length);
+        const std::uint32_t percent = 100U * offset / block.length;
         const auto now = ctx.clock.Now();
         const std::uint64_t elapsed = ElapsedMilliseconds(previous_time, now);
         previous_time = now;
-        const auto next_index = flash_bytes_index + kBeefFlashBufferSize;
-        const TransferRate rate = ComputeTransferRate(kBeefFlashBufferSize, elapsed, flash_bytes_count - next_index);
+        flash_bytes_index += kBeefFlashBufferSize;
+        const TransferRate rate =
+            ComputeTransferRate(kBeefFlashBufferSize, elapsed, flash_bytes_count - flash_bytes_index);
         LogInfo(ctx, FormatWriteProgress(address, percent, rate));
 
-        remaining -= static_cast<std::uint32_t>(kBeefFlashBufferSize);
-        address += kBeefFlashBufferSize;
-        flash_bytes_index += kBeefFlashBufferSize;
         progress.Update(static_cast<int>(std::min(flash_bytes_index, flash_bytes_count)));
 
-        if (address - commit_start == kBeefFlashCommitSize)
+        if ((offset + kBeefFlashBufferSize) % kBeefFlashCommitSize == 0)
         {
-            const std::size_t crc_offset = image_offset + static_cast<std::size_t>(commit_start - block.start);
+            const auto window_offset = offset + kBeefFlashBufferSize - kBeefFlashCommitSize;
             const Status committed =
-                CommitBuffer(ctx, image.subspan(crc_offset, kBeefFlashCommitSize), commit_start, test_write);
+                CommitBuffer(ctx, image.subspan(image_offset + window_offset, kBeefFlashCommitSize),
+                             block.start + static_cast<std::uint32_t>(window_offset), test_write);
             if (!committed.has_value())
             {
                 return committed;
             }
-            commit_start += kBeefFlashCommitSize;
         }
     }
     return {};
@@ -502,28 +457,21 @@ Status BeefCanKernel::Write(const FlashPlan& plan, PhaseSequence& phases, PhaseR
     const auto image_base = plan.TransferRegion().start;
     const auto regions = plan.EraseRegions();
     const bool test_write = plan.Operation() == FlashOperation::kTestWrite;
-    const auto family = profile_.family;
-    Result<CompareResult> before = CompareBlocks(ctx, regions, image_base, image, &compare_progress, false, family);
+    const auto before = CompareBlocks(ctx, regions, image_base, image, &compare_progress, false);
     if (!before.has_value())
     {
         return std::unexpected(before.error());
     }
     compare_progress.Complete();
-    if (before->changed_count == 0)
+    if (before->empty())
     {
         LogInfo(ctx, "*** Compare results no difference between ROM and ECU data, no flashing needed! ***");
         phases.Start("Write", 0);
         return {};
     }
 
-    std::size_t flash_bytes_count = 0;
-    for (std::size_t index = 0; index < before->modified.size(); ++index)
-    {
-        if (before->modified[index])
-        {
-            flash_bytes_count += regions[index].length;
-        }
-    }
+    const std::size_t flash_bytes_count = std::ranges::fold_left(
+        *before, std::size_t{0}, [&](std::size_t total, std::size_t index) { return total + regions[index].length; });
     LogInfo(ctx, "--- Start writing ROM file to ECU flash memory ---");
     if (const Status initialized = InitializeFlash(ctx, test_write); !initialized.has_value())
     {
@@ -532,12 +480,8 @@ Status BeefCanKernel::Write(const FlashPlan& plan, PhaseSequence& phases, PhaseR
 
     PhaseReporter write_progress = phases.Start("Write", static_cast<int>(flash_bytes_count));
     std::size_t flash_bytes_index = 0;
-    for (std::size_t index = 0; index < before->modified.size(); ++index)
+    for (const auto index : *before)
     {
-        if (!before->modified[index])
-        {
-            continue;
-        }
         if (const Status checkpoint = CancelledIfRequested(ctx, "flash block loop cancelled"); !checkpoint.has_value())
         {
             return checkpoint;
@@ -567,21 +511,20 @@ Status BeefCanKernel::Write(const FlashPlan& plan, PhaseSequence& phases, PhaseR
     }
     write_progress.Complete();
 
-    Result<CompareResult> after = CompareBlocks(ctx, regions, image_base, image, nullptr, true, family);
-    if (!after.has_value())
-    {
-        return std::unexpected(after.error());
-    }
-    if (test_write)
-    {
-        LogInfo(ctx, "*** Test write PASS, it's ok to perform actual write! ***");
-    }
-    else if (after->changed_count != 0)
-    {
-        LogError(ctx, "*** ERROR IN FLASH PROCESS ***");
-        LogError(ctx, "Don't power off your ECU, kernel is still running and you can try flashing again!");
-    }
-    return {};
+    return CompareBlocks(ctx, regions, image_base, image, nullptr, true)
+        .transform(
+            [&](const auto& after)
+            {
+                if (test_write)
+                {
+                    LogInfo(ctx, "*** Test write PASS, it's ok to perform actual write! ***");
+                }
+                else if (!after.empty())
+                {
+                    LogError(ctx, "*** ERROR IN FLASH PROCESS ***");
+                    LogError(ctx, "Don't power off your ECU, kernel is still running and you can try flashing again!");
+                }
+            });
 }
 
 } // namespace fastecu::flash
