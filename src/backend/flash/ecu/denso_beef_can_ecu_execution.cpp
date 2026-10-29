@@ -1,8 +1,11 @@
 #include "src/backend/flash/ecu/denso_beef_can_ecu_execution.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <format>
 #include <optional>
 #include <string>
@@ -10,7 +13,8 @@
 #include <utility>
 
 #include "src/algorithms/protocol/bytes.h"
-#include "src/algorithms/protocol/uds/uds_response.h"
+#include "src/algorithms/protocol/bytes_compose.h"
+#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/beef_can_kernel.h"
@@ -27,6 +31,10 @@
 // (113-510), upload_kernel (517-782), read_mem (789-936), write_mem
 // (943-1057), CRC/init/reflash/flash (1064-1689), security/crypto
 // (1696-1790), and request_kernel_id (1797-1829).
+// Petrol's matching oracle is flash_ecu_subaru_denso_sh7058_can_operation.cpp:
+// connect_bootloader (112-621), upload_kernel (626-870), and security
+// (1765-1906). Its five security variants and RaceRom-alt RAM preparation
+// remain selected solely by the admitted petrol plan.
 // ISO-15765 is only the envelope transport. UDS is used for strict
 // positive-response exchanges; tolerant identity/session queries and every
 // proprietary BEEF exchange remain explicit channel requests.
@@ -67,68 +75,215 @@ struct Context
     BeefCanKernel kernel;
 };
 
-Result<bytes::Bytes> StrictRequest(Context& context, bytes::ByteView pdu, const uds::ExchangePolicy& policy)
+// UdsClient requires the positive service id; neither ECU requires a payload
+// echo for transfer exit or routine start. Diesel additionally logs failures.
+template <typename Family>
+Status StrictService(Context& context, bytes::ByteView pdu, const uds::ExchangePolicy& policy)
 {
     Result<bytes::Bytes> reply = context.uds.Request(pdu, policy, context.cancellation);
     if (!reply.has_value())
     {
-        context.session.LogFailure(reply.error());
+        if constexpr (std::same_as<Family, SubaruDensoSh7058CanDieselPlan>)
+        {
+            context.session.LogFailure(reply.error());
+        }
         return std::unexpected(reply.error());
-    }
-    // A security-access reply with no service payload is refused.
-    if (!pdu.empty() && pdu.front() == uds::kSidSecurityAccess && reply->size() <= 1)
-    {
-        const Error shorter{ErrorKind::kBadResponse, "security access reply is too short"};
-        context.session.LogFailure(shorter);
-        return std::unexpected(shorter);
-    }
-    return reply;
-}
-
-Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expected, std::string_view label,
-                     const uds::ExchangePolicy& policy = kStrictPolicy)
-{
-    Result<bytes::Bytes> reply = StrictRequest(context, pdu, policy);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    const bytes::ByteView payload = uds::Payload(*reply);
-    if (payload.size() < expected.size() || !std::equal(expected.begin(), expected.end(), payload.begin()))
-    {
-        const Error mismatch{ErrorKind::kBadResponse, std::format("unexpected response during {}", label)};
-        context.session.LogFailure(mismatch);
-        return std::unexpected(mismatch);
     }
     return {};
 }
 
-Status StrictService(Context& context, bytes::ByteView pdu, bytes::Byte expected_service, std::string_view label,
-                     const uds::ExchangePolicy& policy)
+constexpr std::array<std::uint16_t, 16> kCobbSeedTable{
+    0x9DDB, 0x9CFB, 0x9B9A, 0x6136, 0x59E1, 0xBA03, 0xD683, 0x7092,
+    0x9E05, 0x8723, 0xF998, 0x15BB, 0xB8D5, 0xFF0C, 0x9D91, 0x24B9,
+};
+
+std::uint32_t ModularPower(std::uint32_t base, std::uint32_t exponent, std::uint32_t modulus)
 {
-    Result<bytes::Bytes> reply = StrictRequest(context, pdu, policy);
+    std::uint64_t result = 1;
+    std::uint64_t factor = base % modulus;
+    while (exponent != 0)
+    {
+        if ((exponent & 1U) != 0)
+        {
+            result = (result * factor) % modulus;
+        }
+        factor = (factor * factor) % modulus;
+        exponent >>= 1U;
+    }
+    return static_cast<std::uint32_t>(result);
+}
+
+struct RaceRomAltValues
+{
+    std::uint32_t seed_alter{};
+    bytes::Byte xor_byte_1{};
+    bytes::Byte xor_byte_2{};
+};
+
+Result<std::uint32_t> ReadRamLocation(Context& context, std::uint32_t address)
+{
+    // connect_bootloader(), revision 59f4e442:558-618. The vendor request
+    // carries four consecutive 24-bit addresses rather than a range length.
+    LogDebug(context, std::format("Reading RAM value at location: 0x{:x}", address));
+    bytes::Bytes request{0xA8, 0x00};
+    for (std::uint32_t offset = 0; offset < 4; ++offset)
+    {
+        const auto encoded = bytes::ComposeBe(bytes::U24{address + offset});
+        request.insert(request.end(), encoded.begin(), encoded.end());
+    }
+    Result<bytes::Bytes> reply = ChannelRequest(context, request, kReadTimeout);
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
     }
-    if (reply->empty() || reply->front() != expected_service)
+    if (reply->size() < 5 || (*reply)[0] != 0xE8)
     {
-        const Error mismatch{ErrorKind::kBadResponse, std::format("unexpected response during {}", label)};
-        context.session.LogFailure(mismatch);
-        return std::unexpected(mismatch);
+        return Fail(ErrorKind::kBadResponse, "invalid RaceRom-alt RAM response");
     }
-    return {};
+    return bytes::ReadU32Be(*reply, 1);
+}
+
+struct RaceRomAltAddresses
+{
+    std::string_view cal_id;
+    std::uint32_t seed_address;
+    std::uint32_t xor_address;
+};
+
+constexpr auto kRaceRomAltAddresses = std::to_array<RaceRomAltAddresses>({
+    {"AE5Z500V", 0xFFFF1ED8, 0xFFFF1E80},
+    {"AZ1G202I", 0xFFFFBBFC, 0xFFFFBC00},
+    {"AE5I910V", 0xFFFFBBA8, 0xFFFFBC00},
+});
+
+// RaceRom-alt ROMs keep their seed alteration and key XOR bytes in RAM at
+// addresses that depend on the CAL ID.
+Result<RaceRomAltValues> ReadRaceRomAltValues(Context& context, const std::optional<std::string>& cal_id)
+{
+    if (!cal_id.has_value())
+    {
+        LogInfo(context, "Unknown EcuTek ROM found... exiting...");
+        return Fail(ErrorKind::kBadResponse, "RaceRom-alt CAL ID is unavailable");
+    }
+    const auto addresses = std::ranges::find(kRaceRomAltAddresses, *cal_id, &RaceRomAltAddresses::cal_id);
+    if (addresses == kRaceRomAltAddresses.end())
+    {
+        LogInfo(context, "Unknown EcuTek ROM found... exiting...");
+        return Fail(ErrorKind::kBadResponse, "unsupported RaceRom-alt CAL ID");
+    }
+    Result<std::uint32_t> seed_alter = ReadRamLocation(context, addresses->seed_address);
+    if (!seed_alter.has_value())
+    {
+        return std::unexpected(seed_alter.error());
+    }
+    LogDebug(context, std::format("Value at RAM loc 0x{:x} is: 0x{:x}", addresses->seed_address, *seed_alter));
+    Result<std::uint32_t> xor_value = ReadRamLocation(context, addresses->xor_address);
+    if (!xor_value.has_value())
+    {
+        return std::unexpected(xor_value.error());
+    }
+    LogDebug(context, std::format("Value at RAM loc 0x{:x} is: 0x{:x}", addresses->xor_address, *xor_value));
+    const RaceRomAltValues values{.seed_alter = *seed_alter,
+                                  .xor_byte_1 = static_cast<bytes::Byte>((*xor_value >> 8U) & 0xFFU),
+                                  .xor_byte_2 = static_cast<bytes::Byte>(*xor_value & 0xFFU)};
+    LogInfo(context, std::format("Seed alter is: 0x{:x}", values.seed_alter));
+    LogInfo(context, std::format("XOR values are: 0x{:x} and 0x{:x}", values.xor_byte_1, values.xor_byte_2));
+    return values;
 }
 
 template <typename Family> struct EcuFamilyTraits;
+
+template <> struct EcuFamilyTraits<SubaruDensoSh7058CanPlan>
+{
+    static constexpr std::string_view kUnit = "Subaru Denso SH7058 petrol";
+    static constexpr const DensoBeefCanProfile& kProfile = kSubaruDensoSh7058CanBeefProfile;
+    static constexpr BeefKernelTransferPolicy kTransferPolicy{kStrictPolicy, kReadTimeout};
+    static constexpr uds::ExchangePolicy kTransferExitPolicy = kStrictPolicy;
+    static constexpr std::string_view kInitializeConnection = "Initialising connection...";
+    static constexpr std::string_view kRequestStartedKernelId = "Kernel requesting kernel ID...";
+
+    using SecurityState = std::optional<RaceRomAltValues>;
+
+    static Result<SecurityState> PrepareSecurity(Context& context, const SubaruDensoSh7058CanPlan& family,
+                                                 const std::optional<std::string>& cal_id)
+    {
+        if (family.security != SubaruDensoSh7058CanSecurity::kRaceRomAlt)
+        {
+            return SecurityState{};
+        }
+        return ReadRaceRomAltValues(context, cal_id)
+            .transform([](const RaceRomAltValues& values) { return SecurityState{values}; });
+    }
+
+    static Result<bytes::Bytes> SecurityKey(Context& context, const SubaruDensoSh7058CanPlan& family,
+                                            const SecurityState& alt, bytes::ByteView seed)
+    {
+        if (seed.size() != 4)
+        {
+            return Fail(ErrorKind::kBadResponse, "petrol security seed must contain four bytes");
+        }
+        switch (family.security)
+        {
+        case SubaruDensoSh7058CanSecurity::kStock:
+            LogInfo(context, "Using stock seed key algo");
+            return DensoSeedKey(seed);
+        case SubaruDensoSh7058CanSecurity::kEcuTek:
+            LogInfo(context, "Using EcuTek seed key algo");
+            return ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, ssm_protocol::kEcutekPairTable);
+        case SubaruDensoSh7058CanSecurity::kRaceRom:
+        {
+            LogInfo(context, "Using EcuTek RaceRom RSA algo");
+            const std::uint32_t raw = bytes::ReadU32Be(seed);
+            const std::uint32_t key = ModularPower(raw, 0x0A863281U, 0x0FDA9293U);
+            LogInfo(context, std::format("Seed key: 0x{:08x}", key));
+            return bytes::ComposeBeWithExtraCapacity(0, key);
+        }
+        case SubaruDensoSh7058CanSecurity::kRaceRomAlt:
+        {
+            if (!alt.has_value())
+            {
+                return Fail(ErrorKind::kBadResponse, "RaceRom-alt RAM values are unavailable");
+            }
+            LogInfo(context, "Using EcuTek seed key algo");
+            bytes::Bytes key =
+                ssm_protocol::CalculateSeedKey(seed, kDensoIso15765SeedKeyTable, ssm_protocol::kEcutekPairTable);
+            std::uint32_t altered = bytes::ReadU32Be(key);
+            constexpr std::uint32_t kXorMultiplier = 0x01000193U;
+            altered = ((alt->seed_alter ^ altered) ^ alt->xor_byte_1) * kXorMultiplier;
+            altered = (altered ^ alt->xor_byte_2) * kXorMultiplier;
+            key = bytes::ComposeBeWithExtraCapacity(0, altered);
+            LogDebug(context, std::format("Altered seed key: {}", bytes::ToHex(key)));
+            return key;
+        }
+        case SubaruDensoSh7058CanSecurity::kCobb:
+            LogInfo(context, "Using COBB seed key algo");
+            return ssm_protocol::CalculateSeedKey(seed, kCobbSeedTable, ssm_protocol::kStockPairTable);
+        }
+        return Fail(ErrorKind::kInternal, "unknown petrol security variant");
+    }
+};
 
 template <> struct EcuFamilyTraits<SubaruDensoSh7058CanDieselPlan>
 {
     static constexpr std::string_view kUnit = "Subaru 07+ Diesel 32-bit";
     static constexpr const DensoBeefCanProfile& kProfile = kSubaruDensoSh7058CanDieselBeefProfile;
     static constexpr BeefKernelTransferPolicy kTransferPolicy{kKernelStartPolicy, std::chrono::milliseconds{500}};
+    static constexpr uds::ExchangePolicy kTransferExitPolicy = kKernelStartPolicy;
+    static constexpr std::string_view kInitializeConnection = "Initializing connection...";
+    static constexpr std::string_view kRequestStartedKernelId = "Requesting kernel ID...";
 
-    static Result<bytes::Bytes> SecurityKey(Context&, bytes::ByteView seed)
+    struct SecurityState
+    {
+    };
+
+    static Result<SecurityState> PrepareSecurity(Context&, const SubaruDensoSh7058CanDieselPlan&,
+                                                 const std::optional<std::string>&)
+    {
+        return SecurityState{};
+    }
+
+    static Result<bytes::Bytes> SecurityKey(Context&, const SubaruDensoSh7058CanDieselPlan&, const SecurityState&,
+                                            bytes::ByteView seed)
     {
         if (seed.size() != 4)
         {
@@ -139,11 +294,12 @@ template <> struct EcuFamilyTraits<SubaruDensoSh7058CanDieselPlan>
 };
 
 // Logs the ECU's identity; a read prefixes the CAL ID to the image name.
-Status RequestIdentity(Context& context, bool read_operation, std::optional<std::string>& rom_id)
+Result<std::optional<std::string>> RequestIdentity(Context& context, bool read_operation,
+                                                   std::optional<std::string>& rom_id)
 {
     if (Status ecu_id = context.session.RequestEcuId(read_operation, rom_id); !ecu_id.has_value())
     {
-        return ecu_id;
+        return std::unexpected(ecu_id.error());
     }
     LogInfo(context, "Requesting VIN");
     Result<std::optional<std::string>> vin =
@@ -163,21 +319,29 @@ Status RequestIdentity(Context& context, bool read_operation, std::optional<std:
     {
         rom_id = **cal_id + "_" + rom_id.value_or(std::string{});
     }
-    return context.session.RequestCvn();
+    if (const Status cvn = context.session.RequestCvn(); !cvn.has_value())
+    {
+        return std::unexpected(cvn.error());
+    }
+    return cal_id;
 }
 
-Status UploadKernel(Context& context, const KernelImage& kernel, const BeefKernelTransferPolicy& policy)
+template <typename Family> Status UploadKernel(Context& context, const KernelImage& kernel)
 {
-    if (const Status uploaded = context.kernel.TransferPayload(kernel, policy); !uploaded.has_value())
+    using Traits = EcuFamilyTraits<Family>;
+    if (const Status uploaded = context.kernel.TransferPayload(kernel, Traits::kTransferPolicy); !uploaded.has_value())
     {
         return uploaded;
     }
-    const std::size_t padded_size = ((kernel.bytes.size() + 127U) / 128U) * 128U;
-    LogDebug(context, std::format("Data bytes sent: 0x{}", padded_size));
+    if constexpr (std::same_as<Family, SubaruDensoSh7058CanDieselPlan>)
+    {
+        const std::size_t padded_size = ((kernel.bytes.size() + 127U) / 128U) * 128U;
+        LogDebug(context, std::format("Data bytes sent: 0x{}", padded_size));
+    }
 
     LogInfo(context, "Kernel uploaded, starting...");
-    if (const Status exited = StrictPayload(context, bytes::Bytes{uds::kSidRequestTransferExit}, {},
-                                            "kernel transfer exit", kKernelStartPolicy);
+    if (const Status exited =
+            StrictService<Family>(context, bytes::Bytes{uds::kSidRequestTransferExit}, Traits::kTransferExitPolicy);
         !exited.has_value())
     {
         return exited;
@@ -186,14 +350,14 @@ Status UploadKernel(Context& context, const KernelImage& kernel, const BeefKerne
     {
         return delay;
     }
-    if (const Status started = StrictService(context, bytes::Bytes{uds::kSidRoutineControl, 0x01, 0x02, 0x02, 0x02},
-                                             0x71, "kernel start", kKernelStartPolicy);
+    if (const Status started = StrictService<Family>(
+            context, bytes::Bytes{uds::kSidRoutineControl, 0x01, 0x02, 0x02, 0x02}, kKernelStartPolicy);
         !started.has_value())
     {
         return started;
     }
 
-    LogInfo(context, "Requesting kernel ID...");
+    LogInfo(context, Traits::kRequestStartedKernelId);
     return context.session.StartedKernelId();
 }
 
@@ -233,18 +397,25 @@ Result<FlashExecutionResult> RunEcuExecution(const Family& family, const FlashPl
     {
         LogError(context, "No valid response from ECU");
         LogInfo(context, "No response from kernel, initialising ECU...");
-        LogInfo(context, "Initializing connection...");
-        if (const Status identity = RequestIdentity(context, read_operation, rom_id); !identity.has_value())
+        LogInfo(context, Traits::kInitializeConnection);
+        const auto cal_id = RequestIdentity(context, read_operation, rom_id);
+        if (!cal_id.has_value())
         {
-            return std::unexpected(identity.error());
+            return std::unexpected(cal_id.error());
+        }
+        const auto security = Traits::PrepareSecurity(context, family, *cal_id);
+        if (!security.has_value())
+        {
+            return std::unexpected(security.error());
         }
         auto sessions = context.session.RequestBootloaderSessions();
         if (!sessions.has_value())
         {
             return std::unexpected(sessions.error());
         }
-        if (const Status unlocked = UnlockBeefSecurity(context, Traits::SecurityKey, kStrictPolicy);
-            !unlocked.has_value())
+        const auto seed_key = [&](Context& c, bytes::ByteView seed)
+        { return Traits::SecurityKey(c, family, *security, seed); };
+        if (const Status unlocked = UnlockBeefSecurity(context, seed_key, kStrictPolicy); !unlocked.has_value())
         {
             return std::unexpected(unlocked.error());
         }
@@ -258,8 +429,7 @@ Result<FlashExecutionResult> RunEcuExecution(const Family& family, const FlashPl
         {
             context.events.Notice("Preparing, please wait...");
             LogInfo(context, std::format("Initializing {} CAN kernel upload, please wait...", Traits::kUnit));
-            if (const Status uploaded = UploadKernel(context, *plan.Kernel(), Traits::kTransferPolicy);
-                !uploaded.has_value())
+            if (const Status uploaded = UploadKernel<Family>(context, *plan.Kernel()); !uploaded.has_value())
             {
                 return std::unexpected(uploaded.error());
             }
@@ -295,6 +465,13 @@ Result<FlashExecutionResult> RunEcuExecution(const Family& family, const FlashPl
 }
 
 } // namespace
+
+Result<FlashExecutionResult> RunDensoBeefCanEcu(const SubaruDensoSh7058CanPlan& family, const FlashPlan& plan,
+                                                ICanFlashTransport& transport, IClock& clock,
+                                                const ICancellationToken& cancellation, IEventSink& events)
+{
+    return RunEcuExecution(family, plan, transport, clock, cancellation, events);
+}
 
 Result<FlashExecutionResult> RunDensoBeefCanEcu(const SubaruDensoSh7058CanDieselPlan& family, const FlashPlan& plan,
                                                 ICanFlashTransport& transport, IClock& clock,
