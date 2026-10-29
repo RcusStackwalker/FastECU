@@ -46,10 +46,8 @@ using ReceiveOutcome = Result<std::optional<bytes::Bytes>>;
 // Independent encrypted words from the legacy transcript oracle.
 bytes::Bytes UploadBlock(bytes::Bytes head, int zero_words, bytes::ByteView tail = {})
 {
-    for (int word = 0; word < zero_words; ++word)
-    {
-        head.insert(head.end(), {0xE7, 0xE2, 0x14, 0x30});
-    }
+    constexpr std::array<bytes::Byte, 4> kZeroWord{0xE7, 0xE2, 0x14, 0x30};
+    head.append_range(std::views::repeat(kZeroWord, zero_words) | std::views::join);
     head.insert(head.end(), tail.begin(), tail.end());
     return head;
 }
@@ -71,13 +69,10 @@ class ValidationBoundaryChannel final : public uds::ScriptedUdsChannel
     ReceiveOutcome Receive(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
         auto reply = ScriptedUdsChannel::Receive(timeout, cancellation);
-        if (after_reply)
-        {
-            after_reply();
-        }
+        after_reply();
         return reply;
     }
-    std::function<void()> after_reply;
+    std::function<void()> after_reply = [] {};
 };
 
 class BeefCanKernel : public ::testing::Test
@@ -295,7 +290,7 @@ TEST_F(BeefCanKernel, BlockSendFailureAndCancellationStopTheTransfer)
     Download(bytes::Bytes{0x34, 0x04, 0x33, 0xFF, 0x40, 0x00, 0x00, 0x01, 0x00});
     channel_.after_reply = [&] { cancellation_.SetCancelled(true); };
     EXPECT_THAT(Transfer(Image129()), IsErrWith(ErrorKind::kCancelled, "kernel upload cancelled"));
-    channel_.after_reply = {};
+    channel_.after_reply = [] {};
 
     cancellation_.SetCancelled(false);
     Download(bytes::Bytes{0x34, 0x04, 0x33, 0xFF, 0x40, 0x00, 0x00, 0x01, 0x00});
@@ -515,7 +510,7 @@ class BeefCanKernelWrite : public BeefCanKernel
         channel_.after_reply = [&] { logs_before_reply = events_.logs.size(); };
         EXPECT_THAT(RunWrite(plans_[0], profile), expected);
         EXPECT_THAT(std::span{events_.logs}.subspan(logs_before_reply), IsEmpty());
-        channel_.after_reply = {};
+        channel_.after_reply = [] {};
     }
 
     // One 0x1000 zero-filled window: erase, eight 0x200 chunks, commit/validate.
@@ -526,16 +521,10 @@ class BeefCanKernelWrite : public BeefCanKernel
         for (int step = 0; step <= last_exchange; ++step)
         {
             bytes::Byte opcode = step == 0 ? 0x25 : step == 9 ? (test_write ? 0x23 : 0x24) : 0x22;
-            bytes::Bytes payload =
-                Be32(address + (step > 0 && step < 9 ? static_cast<std::uint32_t>(step - 1) * 0x200 : 0));
-            if (step > 0 && step < 9)
-            {
-                payload.resize(0x204, 0);
-            }
-            else if (step == 9)
-            {
-                payload.insert(payload.end(), {0x10, 0x00, 0xF7, 0x22, 0xEF, 0x49});
-            }
+            const bool chunk = step > 0 && step < 9;
+            bytes::Bytes payload = Be32(address + (chunk ? static_cast<std::uint32_t>(step - 1) * 0x200 : 0));
+            payload.resize(chunk ? 0x204 : 4, 0);
+            payload.append_range(step == 9 ? bytes::Bytes{0x10, 0x00, 0xF7, 0x22, 0xEF, 0x49} : bytes::Bytes{});
             channel_.ExpectSend(BeefFrame(opcode, payload));
             channel_.QueueOutcome(fail_last && step == last_exchange
                                       ? Fail(ErrorKind::kTimeout, "no reply")
@@ -759,7 +748,7 @@ TEST_F(BeefCanKernelWrite, FlashBeefBlockRejectsBlocksThatDoNotFitTheImageAndNam
             }
         };
         EXPECT_THAT(RunWrite(*plan, kDiesel), IsErrWith(ErrorKind::kInvalidConfig, test.detail));
-        channel_.after_reply = {};
+        channel_.after_reply = [] {};
     }
 }
 
@@ -791,7 +780,7 @@ TEST_F(BeefCanKernelWrite, FlashBeefBlockErasesWritesAndCommitsOrValidatesOneWin
         ExpectLog("Reflash error! Do not panic, do not reset the ECU immediately. The "
                   "kernel is most likely still running and receiving commands!",
                   LogLevel::kError);
-        channel_.after_reply = {};
+        channel_.after_reply = [] {};
         cancellation_.SetCancelled(false);
         events_.logs.clear();
     }
