@@ -1875,5 +1875,33 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringCommitReplyReportsKer
                             "likely still running and receiving commands!"));
 }
 
+TEST(SubaruDensoSh7058CanDieselExecutor, WrongRepliesRenderInTheProfilePduFormat)
+{
+    bytes::Bytes kernel(129);
+    kernel.back() = 1;
+    const auto& variant = kVariants.front();
+    auto plan = PlanFor(variant, FlashOperation::kRead, {}, std::move(kernel));
+    ASSERT_THAT(plan, IsOk());
+    SubaruDensoSh7058CanDieselExecutor executor;
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport);
+    ScriptIdentityQueries(transport);
+    transport.ExpectWrite(Request(bytes::Bytes{0x10, 0x03}));
+    transport.QueueRead(Response(bytes::Bytes{0x7F, 0x10, 0x22}));
+    transport.ExpectWrite(Request(bytes::Bytes{0x10, 0x43}));
+    transport.QueueRead(Response(bytes::Bytes{0x50, 0x43}));
+    ScriptStockSecurityAndProgramming(transport, true);
+    Script129ByteKernelUpload(transport, variant.kernel_address);
+    ScriptZeroReadPages(transport, variant.rom_size);
+
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), IsOk());
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Wrong response from ECU: Conditions not correct")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
 } // namespace
 } // namespace fastecu::flash

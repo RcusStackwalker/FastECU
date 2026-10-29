@@ -432,8 +432,6 @@ cc_library(
     hdrs = ["subaru_tcu_denso_sh705x_can_executor.h"],
     implementation_deps = [
         ":beef_can_kernel",
-        ":beef_can_session",
-        ":denso_beef_can_common",
         ":denso_iso15765_crypto",
         ":flash_phase_progress",
         ":uds_client_exchange_common",
@@ -1668,33 +1666,6 @@ fastecu_portable_gtest(
 )
 
 cc_library(
-    name = "denso_beef_can_common",
-    hdrs = ["denso_beef_can_common.h"],
-    deps = [
-        ":flash_phase_progress",
-        ":uds_client_exchange_common",
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/uds",
-        "//src/algorithms/protocol/uds:uds_service_ids",
-        "//src/backend/flash:flash_executor",
-        "//src/backend/flash:flash_types",
-        "//src/backend/ports",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "denso_beef_can_common_test",
-    srcs = ["denso_beef_can_common_test.cpp"],
-    deps = [
-        ":denso_beef_can_common",
-        "//src/backend/ports/testing:fake_cancellation_token",
-        "//src/backend/ports/testing:fake_clock",
-        "//src/backend/ports/testing:result_matchers",
-        "@googletest//:gtest",
-    ],
-)
-
-cc_library(
     name = "denso_iso15765_can_common",
     srcs = ["denso_iso15765_can_common.cpp"],
     hdrs = ["denso_iso15765_can_common.h"],
@@ -2083,46 +2054,8 @@ fastecu_portable_gtest(
 )
 
 cc_library(
-    name = "beef_can_session",
-    srcs = ["beef_can_session.cpp"],
-    hdrs = ["beef_can_session.h"],
-    implementation_deps = [
-        ":denso_beef_can_common",
-        ":uds_client_exchange_common",
-        "//src/algorithms/protocol/uds",
-        "//src/algorithms/protocol/uds:uds_service_ids",
-    ],
-    deps = [
-        ":denso_beef_can_profile",
-        "//src/algorithms/protocol",
-        "//src/backend/flash:flash_executor",
-        "//src/backend/ports",
-        "//src/backend/protocol/uds:uds_client",
-    ],
-)
-
-cc_library(
     name = "denso_beef_can_profile",
     hdrs = ["denso_beef_can_profile.h"],
-)
-
-fastecu_portable_gtest(
-    name = "beef_can_session_test",
-    srcs = ["beef_can_session_test.cpp"],
-    deps = [
-        ":beef_can_session",
-        ":denso_beef_can_profile",
-        ":subaru_denso_sh7058_can_diesel_types",
-        ":subaru_denso_sh7058_can_types",
-        ":subaru_tcu_denso_sh705x_can_types",
-        "//src/backend/flash/testing:scripted_flash_transports",
-        "//src/backend/ports/testing:fake_cancellation_token",
-        "//src/backend/ports/testing:fake_clock",
-        "//src/backend/ports/testing:recording_event_sink",
-        "//src/backend/ports/testing:result_matchers",
-        "//src/backend/protocol/uds/testing:scripted_uds_channel",
-        "@googletest//:gtest",
-    ],
 )
 
 cc_library(
@@ -2135,8 +2068,8 @@ cc_library(
     srcs = ["beef_can_kernel.cpp"],
     hdrs = ["beef_can_kernel.h"],
     implementation_deps = [
-        ":denso_beef_can_common",
         ":denso_iso15765_crypto",
+        ":uds_client_exchange_common",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/uds",
@@ -2157,7 +2090,9 @@ fastecu_portable_gtest(
     srcs = ["beef_can_kernel_test.cpp"],
     deps = [
         ":beef_can_kernel",
+        ":subaru_denso_sh7058_can_diesel_types",
         ":subaru_denso_sh7058_can_plan",
+        ":subaru_tcu_denso_sh705x_can_types",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -2176,13 +2111,12 @@ cc_library(
     hdrs = ["denso_beef_can_ecu_execution.h"],
     implementation_deps = [
         ":beef_can_kernel",
-        ":beef_can_session",
-        ":denso_beef_can_common",
         ":denso_iso15765_crypto",
         ":flash_phase_progress",
         ":uds_client_exchange_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",
         "//src/backend/protocol/uds:uds_client",

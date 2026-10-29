@@ -18,8 +18,8 @@
 // mitsu_colt_m32r, subaru_hitachi_m32r, subaru_tcu_cvt_hitachi_m32r,
 // subaru_tcu_cvt_mitsu_mh8111, the Denso ISO-15765 bootloader dialect
 // (denso_iso15765_*) and the three Denso BEEF CAN executors
-// (subaru_denso_sh7058_can, its diesel sibling and subaru_tcu_denso_sh705x_can,
-// through denso_beef_can_common.h). subaru_tcu_cvt_mitsu_mh8104 talks to
+// (the shared petrol/diesel execution owner, kernel and separate TCU executor).
+// subaru_tcu_cvt_mitsu_mh8104 talks to
 // uds::IUdsChannel directly and uses none of it, see that executor's own file
 // header. Extracted because the first four families independently carried a
 // byte-for-byte identical copy of this logging/wrapping logic.

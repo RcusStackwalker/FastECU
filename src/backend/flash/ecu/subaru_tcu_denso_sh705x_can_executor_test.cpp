@@ -6,6 +6,7 @@
 #include <format>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
@@ -2187,6 +2188,111 @@ TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecu
 
     EXPECT_THAT(execution_error, IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(HasLog(failing_events, LogLevel::kWarning, "close failed after execution error"));
+}
+
+class SubaruTcuDensoSh705xCanColdTest : public ::testing::Test
+{
+  protected:
+    using Outcome = Result<std::optional<bytes::Bytes>>;
+    using Logs = std::vector<std::pair<LogLevel, std::string>>;
+
+    Result<FlashExecutionResult> Run(const Outcome& ecu_reply,
+                                     bytes::Bytes cal_reply = {0x49, 0x04, 0x01, 'C', 'A', 'L'})
+    {
+        auto plan = ReadPlan(kCases.front());
+        if (!plan.has_value())
+        {
+            return std::unexpected(plan.error());
+        }
+        ConfigureAndOpen(executor_, *plan, transport_);
+        ScriptKernelProbeTimeout(transport_);
+        transport_.ExpectWrite(Request(bytes::Bytes{0xAA}));
+        if (!ecu_reply.has_value())
+        {
+            transport_.QueueError(ecu_reply.error().kind, ecu_reply.error().detail);
+        }
+        else if (ecu_reply->has_value())
+        {
+            transport_.QueueRead(Response(**ecu_reply));
+        }
+        else
+        {
+            transport_.QueueNoFrame();
+        }
+        const bool terminal = !ecu_reply.has_value() && (ecu_reply.error().kind == ErrorKind::kCancelled ||
+                                                         ecu_reply.error().kind == ErrorKind::kDisconnected);
+        if (!terminal)
+        {
+            transport_.ExpectWrite(Request(bytes::Bytes{0x09, 0x04}));
+            transport_.QueueRead(Response(cal_reply));
+            ScriptStrictSessionAndSecurity(transport_);
+            ScriptKernelUpload(transport_, kCases.front());
+            ScriptKernelAlive(transport_);
+            ScriptReadPages(transport_, kCases.front().rom_size);
+        }
+        events_.logs.clear();
+        auto result = executor_.Execute(*plan, transport_, clock_, cancellation_, events_);
+        EXPECT_TRUE(transport_.ScriptConsumed());
+        return result;
+    }
+
+    Logs IdentityErrors() const
+    {
+        return events_.logs |
+               std::views::drop_while([](const auto& log) { return log.second != "Requesting ECU ID"; }) |
+               std::views::drop(1) |
+               std::views::take_while([](const auto& log) { return log.second != "Requesting session mode"; }) |
+               std::views::filter([](const auto& log) { return log.first == LogLevel::kError; }) |
+               std::ranges::to<Logs>();
+    }
+
+    SubaruTcuDensoSh705xCanExecutor executor_;
+    ScriptedCanFlashTransport transport_;
+    FakeClock clock_;
+    FakeCancellationToken cancellation_;
+    RecordingEventSink events_;
+};
+
+TEST_F(SubaruTcuDensoSh705xCanColdTest, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDeviceName)
+{
+    const auto reply = Run(Fail(ErrorKind::kBadResponse, "boom"));
+    ASSERT_THAT(reply, IsOk());
+    EXPECT_THAT(reply->rom_id, Optional(Eq("CAL_")));
+    EXPECT_THAT(IdentityErrors(), ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: boom")));
+}
+
+TEST_F(SubaruTcuDensoSh705xCanColdTest, LogFailureNamesTimeoutsAndBadRepliesAndStaysSilentOtherwise)
+{
+    Logs failures;
+    for (const auto& [kind, detail] :
+         std::array{std::pair{ErrorKind::kTimeout, "late"}, std::pair{ErrorKind::kBadResponse, "garbled"},
+                    std::pair{ErrorKind::kCancelled, "stop"}, std::pair{ErrorKind::kDisconnected, "gone"}})
+    {
+        SCOPED_TRACE(detail);
+        const auto reply = Run(Fail(kind, detail));
+        if (kind == ErrorKind::kCancelled || kind == ErrorKind::kDisconnected)
+        {
+            EXPECT_THAT(reply, fastecu::testing::IsErrWith(kind, _));
+            EXPECT_THAT(IdentityErrors(), ::testing::IsEmpty());
+        }
+        else
+        {
+            EXPECT_THAT(reply, IsOk());
+        }
+        failures.append_range(IdentityErrors());
+    }
+    EXPECT_THAT(failures, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU"),
+                                      Pair(LogLevel::kError, "Wrong response from TCU: garbled")));
+}
+
+TEST_F(SubaruTcuDensoSh705xCanColdTest, IdentityWrongReplyKeepsTcuPduWording)
+{
+    // The former session-only CVN case combined CVN parsing and TCU wording.
+    // Real TCU operations request CAL ID; the same negative vector preserves
+    // the TCU assertion here while petrol covers the actual CVN request.
+    ASSERT_THAT(Run(bytes::Bytes{0xEA, 0, 0, 0, 1, 2, 3, 4, 5}, {0x7F, 0x09}), IsOk());
+    EXPECT_THAT(IdentityErrors(), ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: 7f 09 ")));
+    EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting CAL ID")));
 }
 
 } // namespace

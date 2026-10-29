@@ -17,6 +17,8 @@
 
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_types.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
@@ -924,6 +926,100 @@ TEST_F(BeefCanKernelWrite, ElapsedMillisecondsReportsAtLeastOne)
 
         events_.logs.clear();
     }
+}
+
+TEST(DensoBeefCanProfileTest, FamilyProfilesKeepTheirLogWording)
+{
+    const auto expect_profile = [](const DensoBeefCanProfile& profile, std::string_view device, std::string_view family,
+                                   BeefPduFormat pdu_format, std::chrono::milliseconds init_timeout,
+                                   bool upper_hex_sizes)
+    {
+        SCOPED_TRACE(family);
+        EXPECT_EQ(profile.device, device);
+        EXPECT_EQ(profile.family, family);
+        EXPECT_EQ(profile.pdu_format, pdu_format);
+        EXPECT_EQ(profile.init_timeout, init_timeout);
+        EXPECT_EQ(profile.upper_hex_sizes, upper_hex_sizes);
+    };
+
+    expect_profile(kSubaruDensoSh7058CanBeefProfile, "ECU", "petrol", BeefPduFormat::kHex, 500ms, false);
+    expect_profile(kSubaruDensoSh7058CanDieselBeefProfile, "ECU", "diesel", BeefPduFormat::kDescribe, 500ms, false);
+    expect_profile(kSubaruTcuDensoSh705xCanBeefProfile, "TCU", "TCU", BeefPduFormat::kHex, 2000ms, true);
+}
+
+TEST_F(BeefCanKernel, CancelledIfRequestedReportsTheCallerDetail)
+{
+    const MemoryRegion region{0x1000, 1};
+    PhaseReporter progress(events_, "Read", 1, 1, 1);
+    ReadPage();
+    EXPECT_THAT(Kernel().Read(region, progress), IsOk());
+
+    class CancelOnSecondCheck final : public ICancellationToken
+    {
+      public:
+        bool Cancelled() const noexcept override
+        {
+            return checks_++ > 0;
+        }
+
+      private:
+        mutable int checks_{};
+    } token;
+    fastecu::flash::BeefCanKernel kernel(transport_, clock_, token, events_, channel_, kPetrol);
+    EXPECT_THAT(kernel.Read(region, progress), IsErrWith(ErrorKind::kCancelled, StrEq("cancelled before CAN request")));
+    EXPECT_TRUE(channel_.ScriptConsumed());
+}
+
+TEST_F(BeefCanKernel, SendChannelRequestSleepsOnlyForAPositiveDelay)
+{
+    // Warm BEEF exchanges have no post-send delay.
+    PhaseReporter progress(events_, "Read", 1, 1, 1);
+    EXPECT_CALL(clock_, Sleep).Times(0);
+    ReadPage();
+    EXPECT_THAT(Kernel().Read({0x1000, 1}, progress), IsOk());
+    EXPECT_EQ(clock_.Elapsed(), 0ms);
+    ::testing::Mock::VerifyAndClearExpectations(&clock_);
+
+    // Download's positive pre-read delay is observed through the public
+    // transfer operation. Fake time deliberately advances only five ms.
+    clock_.Fake().SetSleepAdvance(5ms);
+    EXPECT_CALL(clock_, Sleep(10ms, ::testing::_)).WillOnce(clock_.SleepOnFake());
+    EXPECT_CALL(clock_, Now()).Times(::testing::AnyNumber());
+    Expect129ByteTransfer();
+    EXPECT_THAT(Transfer(Image129(), {{10ms, 2000ms, 3000ms, 10}, 2000ms}), IsOk());
+    EXPECT_EQ(clock_.Elapsed(), 5ms);
+}
+
+TEST_F(BeefCanKernelWrite, ParseBeefBoundsEveryDeclaredField)
+{
+    for (const auto& [pdu, detail] :
+         std::array{std::pair{bytes::Bytes{0xBE, 0xEF, 0x00}, "short BEEF response envelope"},
+                    std::pair{bytes::Bytes{0x12, 0x34, 0x00, 0x01, 0x00}, "wrong BEEF response marker"},
+                    std::pair{bytes::Bytes{0xBE, 0xEF, 0x00, 0x09, 0x00}, "invalid BEEF response length"},
+                    std::pair{bytes::Bytes{0xBE, 0xEF, 0x00, 0x00, 0x00}, "invalid BEEF response length"}})
+    {
+        SCOPED_TRACE(::testing::PrintToString(pdu));
+        ExpectInitFailure(pdu, IsErrWith(ErrorKind::kBadResponse, StrEq(detail)));
+    }
+    // Both declared bodies parse successfully, exposing the original B6
+    // opcode to the warm exchange's opcode check. The trailing FF is padding.
+    for (const auto& pdu :
+         {bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0xB6}, bytes::Bytes{0xBE, 0xEF, 0x00, 0x02, 0xB6, 0xAA, 0xFF}})
+    {
+        SCOPED_TRACE(::testing::PrintToString(pdu));
+        ExpectInitFailure(
+            pdu, IsErrWith(ErrorKind::kBadResponse, StrEq("unexpected BEEF response opcode 0xb6, expected 0x45")));
+    }
+    // Observe the declared payload bound through Read: a full 1024-byte
+    // physical payload is still short when its declared length is 1023.
+    PhaseReporter progress(events_, "Read", 1, 1, 0x400);
+    channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0, 7, 3, 0, 0, 0x10, 0, 4, 0});
+    bytes::Bytes short_declared{0xBE, 0xEF, 4, 0, 0x43};
+    short_declared.resize(0x405, 0xAA);
+    channel_.QueueReceive(short_declared);
+    EXPECT_THAT(Kernel().Read({0x1000, 0x400}, progress),
+                IsErrWith(ErrorKind::kBadResponse, StrEq("short BEEF response payload")));
+    EXPECT_TRUE(channel_.ScriptConsumed());
 }
 
 } // namespace
