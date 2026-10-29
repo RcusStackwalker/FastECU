@@ -8,7 +8,6 @@
 #include <numeric>
 #include <ranges>
 #include <span>
-#include <stdexcept>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -48,9 +47,7 @@ using ReceiveOutcome = Result<std::optional<bytes::Bytes>>;
 bytes::Bytes UploadBlock(bytes::Bytes head, int zero_words, bytes::ByteView tail = {})
 {
     for (int word = 0; word < zero_words; ++word)
-    {
         head.insert(head.end(), {0xE7, 0xE2, 0x14, 0x30});
-    }
     head.insert(head.end(), tail.begin(), tail.end());
     return head;
 }
@@ -73,9 +70,7 @@ class ValidationBoundaryChannel final : public uds::ScriptedUdsChannel
     {
         auto reply = ScriptedUdsChannel::Receive(timeout, cancellation);
         if (after_reply)
-        {
             after_reply();
-        }
         return reply;
     }
     std::function<void()> after_reply;
@@ -291,6 +286,19 @@ TEST_F(BeefCanKernel, BlockSendFailureAndCancellationStopTheTransfer)
     EXPECT_THAT(transport_.ReadTimeouts(), IsEmpty());
     cancellation_.SetCancelled(true);
     EXPECT_THAT(Transfer(Image129()), IsErr(ErrorKind::kCancelled));
+
+    cancellation_.SetCancelled(false);
+    Download(bytes::Bytes{0x34, 0x04, 0x33, 0xFF, 0x40, 0x00, 0x00, 0x01, 0x00});
+    channel_.after_reply = [&] { cancellation_.SetCancelled(true); };
+    EXPECT_THAT(Transfer(Image129()), IsErrWith(ErrorKind::kCancelled, "kernel upload cancelled"));
+    channel_.after_reply = {};
+
+    cancellation_.SetCancelled(false);
+    Download(bytes::Bytes{0x34, 0x04, 0x33, 0xFF, 0x40, 0x00, 0x00, 0x01, 0x00});
+    channel_.ExpectSend(UploadBlock({0xB6, 0xFF, 0x40, 0x00}, 32));
+    transport_.QueueNoFrame();
+    cancellation_.CancelOnCheck(cancellation_.CheckCount() + 8);
+    EXPECT_THAT(Transfer(Image129()), IsErrWith(ErrorKind::kCancelled, "kernel upload cancelled"));
 }
 
 TEST_F(BeefCanKernel, DownloadFailuresPreserveEachProfilesLogWording)
@@ -373,21 +381,9 @@ class BeefCanKernelWrite : public BeefCanKernel
 {
   protected:
     BeefCanKernelWrite()
-        : plans_(
-              []
-              {
-                  auto write = SmallPlan();
-                  auto test = SmallPlan(bytes::Bytes(0x1000), 0x2000, {{0x2000, 0x1000}}, FlashOperation::kTestWrite);
-                  if (!write.has_value())
-                  {
-                      throw std::runtime_error(write.error().detail);
-                  }
-                  if (!test.has_value())
-                  {
-                      throw std::runtime_error(test.error().detail);
-                  }
-                  return std::array{std::move(*write), std::move(*test)};
-              }())
+        : plans_{std::move(SmallPlan()).value(),
+                 std::move(SmallPlan(bytes::Bytes(0x1000), 0x2000, {{0x2000, 0x1000}}, FlashOperation::kTestWrite))
+                     .value()}
     {
     }
 
@@ -435,9 +431,7 @@ class BeefCanKernelWrite : public BeefCanKernel
         channel_.ExpectSend(BeefFrame(0x02, payload));
         channel_.QueueReceive(BeefFrame(0x42, Be32(crc)));
         if (drain)
-        {
             transport_.QueueNoFrame();
-        }
     }
 
     void ScriptCompare(std::optional<std::size_t> differing = std::nullopt)
@@ -482,13 +476,13 @@ class BeefCanKernelWrite : public BeefCanKernel
     }
 
     Status CompleteWindow(bool test_write = false, const DensoBeefCanProfile& profile = kPetrol,
-                          const WriteReplies& replies = {0, 0x1000, 0x200, 100})
+                          const WriteReplies& replies = {0, 0x1000, 0x200, 100}, std::uint32_t after_crc = 0xF722EF49)
     {
         const auto timeouts = channel_.timeouts.size();
         const auto progress = events_.phase_progress_calls.size();
         ScriptBeforeWindow(test_write, replies);
         ScriptWindow(0x2000, test_write);
-        ScriptCrc({0x2000, 0x1000}, 0xF722EF49);
+        ScriptCrc({0x2000, 0x1000}, after_crc);
         const auto status = RunWrite(plans_[test_write ? 1 : 0], profile);
         EXPECT_THAT(channel_.timeouts | std::views::drop(timeouts),
                     ElementsAre(3000ms, profile.init_timeout, profile.init_timeout, profile.init_timeout, 500ms, 3000ms,
@@ -529,13 +523,9 @@ class BeefCanKernelWrite : public BeefCanKernel
             bytes::Bytes payload =
                 Be32(address + (step > 0 && step < 9 ? static_cast<std::uint32_t>(step - 1) * 0x200 : 0));
             if (step > 0 && step < 9)
-            {
                 payload.resize(0x204, 0);
-            }
             else if (step == 9)
-            {
                 payload.insert(payload.end(), {0x10, 0x00, 0xF7, 0x22, 0xEF, 0x49});
-            }
             channel_.ExpectSend(BeefFrame(opcode, payload));
             channel_.QueueOutcome(fail_last && step == last_exchange
                                       ? Fail(ErrorKind::kTimeout, "no reply")
@@ -634,6 +624,11 @@ TEST_F(BeefCanKernelWrite, WriteMemoryFailsWithTheExchangeErrorWhenTheVoltageChe
     channel_.QueueNoFrame();
     EXPECT_THAT(RunWrite(*plan), IsErrWith(ErrorKind::kTimeout, "no CAN response within the read timeout"));
     ExpectLog("Block 0 reflash failed.");
+
+    ScriptCompare(0);
+    ScriptInitialize();
+    cancellation_.CancelOnCheck(cancellation_.CheckCount() + kBlocks.size() * 7 + 10);
+    EXPECT_THAT(RunWrite(*plan), IsErrWith(ErrorKind::kCancelled, "flash block loop cancelled"));
 }
 
 TEST_F(BeefCanKernelWrite, CompareBeefBlocksChecksEachRegionAgainstItsOwnSliceOfTheImage)
@@ -694,6 +689,12 @@ TEST_F(BeefCanKernelWrite, CompareBeefBlocksStopsOnQueryFailureAndOnCancellation
             });
     ScriptCrc({0x1000, 4}, 0xCD3AA48B);
     EXPECT_THAT(RunWrite(*plan), IsErr(ErrorKind::kCancelled));
+
+    cancellation_.SetCancelled(false);
+    ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(&clock_));
+    cancellation_.CancelOnCheck(cancellation_.CheckCount() + 8);
+    ScriptCrc({0x1000, 4}, 0xCD3AA48B);
+    EXPECT_THAT(RunWrite(*plan), IsErrWith(ErrorKind::kCancelled, "ROM compare cancelled"));
 }
 
 TEST_F(BeefCanKernelWrite, InitializeBeefFlashSelectsTheModeAndStopsAtTheFirstFailingExchange)
@@ -788,9 +789,10 @@ TEST_F(BeefCanKernelWrite, FlashBeefBlockErasesWritesAndCommitsOrValidatesOneWin
 
 TEST_F(BeefCanKernelWrite, WriteBeefMemoryLogsTheVoltageAndTheTimeLeftFromTheBytesStillToWrite)
 {
-
-    EXPECT_THAT(CompleteWindow(), IsOk());
+    EXPECT_THAT(CompleteWindow(false, kPetrol, {}, 0xDEADBEEF), IsOk());
     ExpectLog(": 2V");
+    ExpectLog("*** ERROR IN FLASH PROCESS ***", LogLevel::kError);
+    ExpectLog("Don't power off your ECU, kernel is still running and you can try flashing again!", LogLevel::kError);
 }
 
 TEST_F(BeefCanKernelWrite, FlashBeefBlockReportsTheTimeLeftForTheRestOfTheWrite)
