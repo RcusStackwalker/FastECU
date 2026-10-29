@@ -1010,6 +1010,18 @@ TEST_F(BeefCanKernelWrite, ParseBeefBoundsEveryDeclaredField)
         ExpectInitFailure(
             pdu, IsErrWith(ErrorKind::kBadResponse, StrEq("unexpected BEEF response opcode 0xb6, expected 0x45")));
     }
+    // Matching voltage opcodes reach payload validation: zero declared bytes
+    // are short, and one declared byte cannot borrow the trailing FF padding.
+    for (const auto& pdu :
+         {bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x44}, bytes::Bytes{0xBE, 0xEF, 0x00, 0x02, 0x44, 0xAA, 0xFF}})
+    {
+        SCOPED_TRACE(::testing::PrintToString(pdu));
+        ScriptCrc({0x2000, 0x1000}, 0);
+        ScriptInitialize();
+        channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x04});
+        channel_.QueueReceive(pdu);
+        EXPECT_THAT(RunWrite(plans_[0]), IsErrWith(ErrorKind::kBadResponse, StrEq("short BEEF response payload")));
+    }
     // Observe the declared payload bound through Read: a full 1024-byte
     // physical payload is still short when its declared length is 1023.
     PhaseReporter progress(events_, "Read", 1, 1, 0x400);

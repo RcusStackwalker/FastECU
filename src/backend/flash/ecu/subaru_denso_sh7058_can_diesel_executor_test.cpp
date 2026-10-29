@@ -1899,7 +1899,14 @@ TEST(SubaruDensoSh7058CanDieselExecutor, WrongRepliesRenderInTheProfilePduFormat
     ScriptZeroReadPages(transport, variant.rom_size);
 
     ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), IsOk());
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kError, "Wrong response from ECU: Conditions not correct")));
+    const auto first =
+        std::ranges::find(events.logs, std::pair{LogLevel::kInfo, std::string("Requesting session mode")});
+    const auto last = std::ranges::find(events.logs, std::pair{LogLevel::kInfo, std::string("Requesting seed")});
+    ASSERT_NE(first, events.logs.end());
+    ASSERT_NE(last, events.logs.end());
+    ASSERT_LT(first, last);
+    EXPECT_THAT((std::span{first + 1, last}),
+                ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: Conditions not correct")));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 

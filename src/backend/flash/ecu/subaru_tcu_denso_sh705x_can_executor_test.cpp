@@ -2236,13 +2236,10 @@ class SubaruTcuDensoSh705xCanColdTest : public ::testing::Test
         return result;
     }
 
-    Logs IdentityErrors() const
+    Logs Section(std::string_view first, std::string_view last) const
     {
-        return events_.logs |
-               std::views::drop_while([](const auto& log) { return log.second != "Requesting ECU ID"; }) |
-               std::views::drop(1) |
-               std::views::take_while([](const auto& log) { return log.second != "Requesting session mode"; }) |
-               std::views::filter([](const auto& log) { return log.first == LogLevel::kError; }) |
+        return events_.logs | std::views::drop_while([first](const auto& log) { return log.second != first; }) |
+               std::views::drop(1) | std::views::take_while([last](const auto& log) { return log.second != last; }) |
                std::ranges::to<Logs>();
     }
 
@@ -2258,7 +2255,8 @@ TEST_F(SubaruTcuDensoSh705xCanColdTest, NonfatalQueryBadReplyLogsTheErrorDetailU
     const auto reply = Run(Fail(ErrorKind::kBadResponse, "boom"));
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(reply->rom_id, Optional(Eq("CAL_")));
-    EXPECT_THAT(IdentityErrors(), ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: boom")));
+    EXPECT_THAT(Section("Requesting ECU ID", "Requesting CAL ID"),
+                ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: boom")));
 }
 
 TEST_F(SubaruTcuDensoSh705xCanColdTest, LogFailureNamesTimeoutsAndBadRepliesAndStaysSilentOtherwise)
@@ -2273,13 +2271,13 @@ TEST_F(SubaruTcuDensoSh705xCanColdTest, LogFailureNamesTimeoutsAndBadRepliesAndS
         if (kind == ErrorKind::kCancelled || kind == ErrorKind::kDisconnected)
         {
             EXPECT_THAT(reply, fastecu::testing::IsErrWith(kind, _));
-            EXPECT_THAT(IdentityErrors(), ::testing::IsEmpty());
+            EXPECT_THAT(Section("Requesting ECU ID", "Requesting CAL ID"), ::testing::IsEmpty());
         }
         else
         {
             EXPECT_THAT(reply, IsOk());
         }
-        failures.append_range(IdentityErrors());
+        failures.append_range(Section("Requesting ECU ID", "Requesting CAL ID"));
     }
     EXPECT_THAT(failures, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU"),
                                       Pair(LogLevel::kError, "Wrong response from TCU: garbled")));
@@ -2291,7 +2289,8 @@ TEST_F(SubaruTcuDensoSh705xCanColdTest, IdentityWrongReplyKeepsTcuPduWording)
     // Real TCU operations request CAL ID; the same negative vector preserves
     // the TCU assertion here while petrol covers the actual CVN request.
     ASSERT_THAT(Run(bytes::Bytes{0xEA, 0, 0, 0, 1, 2, 3, 4, 5}, {0x7F, 0x09}), IsOk());
-    EXPECT_THAT(IdentityErrors(), ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: 7f 09 ")));
+    EXPECT_THAT(Section("Requesting CAL ID", "Requesting session mode"),
+                ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: 7f 09 ")));
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting CAL ID")));
 }
 

@@ -1634,18 +1634,16 @@ class SubaruDensoSh7058CanColdTest : public ::testing::Test
         return result;
     }
 
-    Logs Section(std::string_view first, std::string_view last, bool errors_only = false) const
+    Logs Section(std::string_view first, std::string_view last) const
     {
         return events_.logs | std::views::drop_while([first](const auto& log) { return log.second != first; }) |
                std::views::drop(1) | std::views::take_while([last](const auto& log) { return log.second != last; }) |
-               std::views::filter([errors_only](const auto& log)
-                                  { return !errors_only || log.first == LogLevel::kError; }) |
                std::ranges::to<Logs>();
     }
 
-    Logs EcuErrors() const
+    Logs EcuLogs() const
     {
-        return Section("Requesting ECU ID", "Requesting VIN", true);
+        return Section("Requesting ECU ID", "Requesting VIN");
     }
 
     SubaruDensoSh7058CanExecutor executor_;
@@ -1664,7 +1662,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryTimeoutLogsNoValidResponse)
     const auto reply = Run();
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(reply->rom_id, Eq(std::nullopt));
-    EXPECT_THAT(EcuErrors(), ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
+    EXPECT_THAT(EcuLogs(), ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
 TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryNoFrameLogsNoValidResponse)
@@ -1672,7 +1670,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryNoFrameLogsNoValidResponse)
     const auto reply = Run();
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(reply->rom_id, Eq(std::nullopt));
-    EXPECT_THAT(EcuErrors(), ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
+    EXPECT_THAT(EcuLogs(), ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
 TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDeviceName)
@@ -1681,7 +1679,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryBadReplyLogsTheErrorDetailUnde
     const auto reply = Run();
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(reply->rom_id, Eq(std::nullopt));
-    EXPECT_THAT(EcuErrors(), ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: boom")));
+    EXPECT_THAT(EcuLogs(), ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: boom")));
 }
 
 TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryPassesCancelAndDisconnectThrough)
@@ -1697,7 +1695,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryPassesCancelAndDisconnectThrou
         events_.logs.clear();
 
         EXPECT_THAT(executor_.Execute(*plan, transport_, clock_, cancellation_, events_), IsErrWith(kind, _));
-        EXPECT_THAT(EcuErrors(), IsEmpty());
+        EXPECT_THAT(EcuLogs(), IsEmpty());
         EXPECT_TRUE(transport_.ScriptConsumed());
     }
 }
@@ -1707,7 +1705,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryReturnsTheFrame)
     // Returning the literal 50 03 is observable as both selected programming
     // bytes 02 and 42, rather than only the always-accepted 43 -> 42.
     ASSERT_THAT(Run(), IsOk());
-    EXPECT_THAT(Section("Requesting session mode", "Requesting seed", true), IsEmpty());
+    EXPECT_THAT(Section("Requesting session mode", "Requesting seed"), IsEmpty());
 }
 
 TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryUsesTheReadTimeoutAndPostSendDelay)
@@ -1733,7 +1731,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryUsesTheReadTimeoutAndPostSendD
 TEST_F(SubaruDensoSh7058CanColdTest, RequestSessionAcceptsThePositiveReply)
 {
     ASSERT_THAT(Run(), IsOk());
-    EXPECT_THAT(Section("Requesting session mode", "Requesting seed", true), IsEmpty());
+    EXPECT_THAT(Section("Requesting session mode", "Requesting seed"), IsEmpty());
 }
 
 TEST_F(SubaruDensoSh7058CanColdTest, RequestSessionStepsOverSilence)
@@ -1741,7 +1739,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestSessionStepsOverSilence)
     session_03_ = std::nullopt;
     programming_ = {0x10, 0x42};
     ASSERT_THAT(Run(), IsOk());
-    EXPECT_THAT(Section("Requesting session mode", "Requesting seed", true),
+    EXPECT_THAT(Section("Requesting session mode", "Requesting seed"),
                 ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
@@ -1750,7 +1748,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, WrongRepliesRenderInTheProfilePduFormat)
     session_03_ = bytes::Bytes{0x7F, 0x10, 0x22};
     programming_ = {0x10, 0x42};
     ASSERT_THAT(Run(), IsOk());
-    EXPECT_THAT(Section("Requesting session mode", "Requesting seed", true),
+    EXPECT_THAT(Section("Requesting session mode", "Requesting seed"),
                 ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 7f 10 22 ")));
 }
 
