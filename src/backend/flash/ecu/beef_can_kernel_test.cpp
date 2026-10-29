@@ -81,16 +81,16 @@ class ValidationBoundaryChannel final : public uds::ScriptedUdsChannel
     std::function<void()> after_reply;
 };
 
-class BeefCanKernelTest : public ::testing::Test
+class BeefCanKernel : public ::testing::Test
 {
   protected:
     void ExpectLog(std::string_view text, LogLevel level = LogLevel::kInfo)
     {
         EXPECT_THAT(events_.logs, Contains(Pair(level, text)));
     }
-    BeefCanKernel Kernel(const DensoBeefCanProfile& profile = kPetrol)
+    fastecu::flash::BeefCanKernel Kernel(const DensoBeefCanProfile& profile = kPetrol)
     {
-        return BeefCanKernel(transport_, clock_, cancellation_, events_, channel_, profile);
+        return fastecu::flash::BeefCanKernel(transport_, clock_, cancellation_, events_, channel_, profile);
     }
 
     Status Transfer(const KernelImage& image, const BeefKernelTransferPolicy& policy = kPetrolPolicy,
@@ -146,7 +146,7 @@ class BeefCanKernelTest : public ::testing::Test
     ValidationBoundaryChannel channel_;
 };
 
-TEST_F(BeefCanKernelTest, ReadBeefMemoryTruncatesTheLastPageAndStopsOnFailureOrCancellation)
+TEST_F(BeefCanKernel, ReadBeefMemoryTruncatesTheLastPageAndStopsOnFailureOrCancellation)
 {
     const MemoryRegion region{0x1000, 0x500};
     PhaseReporter progress(events_, "Read", 1, 1, 0x500);
@@ -168,7 +168,7 @@ TEST_F(BeefCanKernelTest, ReadBeefMemoryTruncatesTheLastPageAndStopsOnFailureOrC
     EXPECT_TRUE(channel_.ScriptConsumed());
 }
 
-TEST_F(BeefCanKernelTest, ReadKeepsTheFixedPageLengthAndBoundsTailAndProgressToTheRequestedRegion)
+TEST_F(BeefCanKernel, ReadKeepsTheFixedPageLengthAndBoundsTailAndProgressToTheRequestedRegion)
 {
     const MemoryRegion region{0x1000, 0x401};
     // A larger reporter total exposes the operation's own progress cap.
@@ -188,14 +188,14 @@ TEST_F(BeefCanKernelTest, ReadKeepsTheFixedPageLengthAndBoundsTailAndProgressToT
                 ElementsAre(0, 0x400, 0x401));
 }
 
-TEST_F(BeefCanKernelTest, KernelDownloadRequestEncodesItsTwo24BitFields)
+TEST_F(BeefCanKernel, KernelDownloadRequestEncodesItsTwo24BitFields)
 {
     Expect129ByteTransfer();
 
     EXPECT_THAT(Transfer(Image129()), IsOk());
 }
 
-TEST_F(BeefCanKernelTest, BeefKernelUploadPayloadNamesTheFamilyInBothSizeErrors)
+TEST_F(BeefCanKernel, BeefKernelUploadPayloadNamesTheFamilyInBothSizeErrors)
 {
     EXPECT_THAT(Transfer({.id = "empty", .load_address = 0x1000, .bytes = {}}),
                 IsErrWith(ErrorKind::kInvalidConfig, StrEq("petrol kernel upload size is invalid")));
@@ -205,7 +205,7 @@ TEST_F(BeefCanKernelTest, BeefKernelUploadPayloadNamesTheFamilyInBothSizeErrors)
     EXPECT_EQ(channel_.SendCalls(), 0U);
 }
 
-TEST_F(BeefCanKernelTest, BeefKernelPayloadReplacesThePaddedLastWordWithTheChecksum)
+TEST_F(BeefCanKernel, BeefKernelPayloadReplacesThePaddedLastWordWithTheChecksum)
 {
     // A 125-byte image pads to 128; AA in the last word is replaced by
     // 5AA5A559, the complement of the first word 00000001. The first word,
@@ -226,7 +226,7 @@ TEST_F(BeefCanKernelTest, BeefKernelPayloadReplacesThePaddedLastWordWithTheCheck
     EXPECT_THAT(Transfer({.id = "empty", .load_address = 0x1000, .bytes = {}}), IsErr(ErrorKind::kInvalidConfig));
 }
 
-TEST_F(BeefCanKernelTest, UploadBeefKernelBlocksEndsWithAnAddressOnlyBlock)
+TEST_F(BeefCanKernel, UploadBeefKernelBlocksEndsWithAnAddressOnlyBlock)
 {
     Expect129ByteTransfer();
 
@@ -234,7 +234,7 @@ TEST_F(BeefCanKernelTest, UploadBeefKernelBlocksEndsWithAnAddressOnlyBlock)
     EXPECT_EQ(channel_.SendsConsumed(), 4U);
 }
 
-TEST_F(BeefCanKernelTest, FamilyPoliciesPreserveDownloadAndBlockReplyTiming)
+TEST_F(BeefCanKernel, FamilyPoliciesPreserveDownloadAndBlockReplyTiming)
 {
     for (const auto& [profile, policy] :
          {std::pair{&kPetrol, kPetrolPolicy},
@@ -261,7 +261,7 @@ TEST_F(BeefCanKernelTest, FamilyPoliciesPreserveDownloadAndBlockReplyTiming)
     }
 }
 
-TEST_F(BeefCanKernelTest, DiscardB6ReplyIgnoresStaleContentButNotCancellationOrDisconnection)
+TEST_F(BeefCanKernel, DiscardB6ReplyIgnoresStaleContentButNotCancellationOrDisconnection)
 {
     for (const auto kind : {ErrorKind::kBadResponse, ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
@@ -283,7 +283,7 @@ TEST_F(BeefCanKernelTest, DiscardB6ReplyIgnoresStaleContentButNotCancellationOrD
     }
 }
 
-TEST_F(BeefCanKernelTest, BlockSendFailureAndCancellationStopTheTransfer)
+TEST_F(BeefCanKernel, BlockSendFailureAndCancellationStopTheTransfer)
 {
     Download(bytes::Bytes{0x34, 0x04, 0x33, 0xFF, 0x40, 0x00, 0x00, 0x01, 0x00});
     channel_.ExpectSend(UploadBlock({0xB6, 0xFF, 0x40, 0x00}, 32), Fail(ErrorKind::kTimeout, "no ack"));
@@ -293,7 +293,7 @@ TEST_F(BeefCanKernelTest, BlockSendFailureAndCancellationStopTheTransfer)
     EXPECT_THAT(Transfer(Image129()), IsErr(ErrorKind::kCancelled));
 }
 
-TEST_F(BeefCanKernelTest, DownloadFailuresPreserveEachProfilesLogWording)
+TEST_F(BeefCanKernel, DownloadFailuresPreserveEachProfilesLogWording)
 {
     for (const auto *profile : {&kPetrol, &kDiesel, &kTcu})
     {
@@ -369,7 +369,7 @@ constexpr std::array<BlockFixture, 16> kBlocks{{
     {{0x000E0000, 0x00020000}, 0xC39BE4A8},
 }};
 
-class BeefCanKernelWrite : public BeefCanKernelTest
+class BeefCanKernelWrite : public BeefCanKernel
 {
   protected:
     BeefCanKernelWrite()
