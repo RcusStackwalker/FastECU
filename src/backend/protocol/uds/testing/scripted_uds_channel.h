@@ -21,7 +21,7 @@ namespace uds
 // A send that does not match the next expectation fails with ErrorKind::
 // Internal rather than an assertion, so a test sees the mismatch as a
 // returned Error at the point of use.
-class ScriptedUdsChannel final : public IUdsChannel
+class ScriptedUdsChannel : public IUdsChannel
 {
   public:
     // A matched expectation is consumed even when its scripted send fails.
@@ -32,15 +32,19 @@ class ScriptedUdsChannel final : public IUdsChannel
     }
     void QueueReceive(bytes::ByteView pdu)
     {
-        receives_.emplace_back(std::optional<bytes::Bytes>{bytes::Bytes(pdu.begin(), pdu.end())});
+        QueueOutcome(bytes::Bytes(pdu.begin(), pdu.end()));
     }
     void QueueNoFrame()
     {
-        receives_.emplace_back(std::optional<bytes::Bytes>{});
+        QueueOutcome(std::nullopt);
     }
     void QueueError(fastecu::ErrorKind kind, std::string detail = {})
     {
-        receives_.emplace_back(fastecu::Fail(kind, std::move(detail)));
+        QueueOutcome(fastecu::Fail(kind, std::move(detail)));
+    }
+    void QueueOutcome(fastecu::Result<std::optional<bytes::Bytes>> outcome)
+    {
+        receives_.push_back(std::move(outcome));
     }
 
     // Includes cancelled and unexpected attempts, unlike SendsConsumed().

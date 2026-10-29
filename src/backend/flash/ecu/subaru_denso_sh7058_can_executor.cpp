@@ -15,6 +15,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/beef_can_kernel.h"
 #include "src/backend/flash/ecu/beef_can_session.h"
 #include "src/backend/flash/ecu/denso_beef_can_common.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
@@ -48,8 +49,6 @@ constexpr std::chrono::milliseconds kExtraLongTimeout{3000};
 constexpr std::chrono::milliseconds kKernelStartDelay{100};
 constexpr std::chrono::milliseconds kKernelStartReadTimeout{10};
 
-constexpr std::size_t kKernelUploadBlockSize = 128;
-
 constexpr std::array<std::uint16_t, 16> kCobbSeedTable{
     0x9DDB, 0x9CFB, 0x9B9A, 0x6136, 0x59E1, 0xBA03, 0xD683, 0x7092,
     0x9E05, 0x8723, 0xF998, 0x15BB, 0xB8D5, 0xFF0C, 0x9D91, 0x24B9,
@@ -77,6 +76,7 @@ struct Context
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
     BeefCanSession session;
+    BeefCanKernel kernel;
 };
 
 Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expected, std::string_view label,
@@ -298,33 +298,11 @@ Status ConnectBootloader(Context& context, bool read_operation, std::optional<st
 
 Status UploadKernel(Context& context, const KernelImage& kernel)
 {
-    // upload_kernel(), revision 59f4e442:626-868. The unusual <= loop is
-    // intentional: after every 128-byte payload block the oracle emits one
-    // final address-only 0xB6 request.
-    const Result<bytes::Bytes> encrypted = BeefKernelUploadPayload(kernel.bytes, kKernelUploadBlockSize, "petrol");
-    if (!encrypted.has_value())
-    {
-        return std::unexpected(encrypted.error());
-    }
-
-    LogDebug(context, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address));
-    LogInfo(context, "Initialize kernel upload");
-    if (const Status initialized = StrictPayload(context, BeefKernelDownloadRequest(kernel.load_address, *encrypted),
-                                                 bytes::Bytes{0x20}, "kernel download");
-        !initialized.has_value())
-    {
-        return initialized;
-    }
-
-    LogInfo(context, "Uploading kernel, please wait...");
-    if (const Status uploaded = UploadBeefKernelBlocks(context, *encrypted, kernel.load_address, kKernelUploadBlockSize,
-                                                       [&context](bytes::ByteView request)
-                                                       { return DiscardB6Reply(context, request, kReadTimeout); });
+    if (const Status uploaded = context.kernel.TransferPayload(kernel, {kStrictPolicy, kReadTimeout});
         !uploaded.has_value())
     {
         return uploaded;
     }
-
     LogInfo(context, "Kernel uploaded, starting...");
     if (const Status exited =
             StrictPayload(context, bytes::Bytes{uds::kSidRequestTransferExit}, {}, "kernel transfer exit");
@@ -347,14 +325,6 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
 
     LogInfo(context, "Kernel requesting kernel ID...");
     return context.session.StartedKernelId();
-}
-
-// The family's BEEF exchange as a callable for the shared read and write paths.
-auto Exchanger(Context& context)
-{
-    return [&context](bytes::Byte opcode, bytes::ByteView payload, std::size_t minimum_payload,
-                      std::chrono::milliseconds timeout)
-    { return context.session.Exchange(opcode, payload, minimum_payload, timeout); };
 }
 
 } // namespace
@@ -405,14 +375,15 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::Run(const SubaruDenso
                     family.security,
                     uds_client,
                     channel,
-                    BeefCanSession(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanBeefProfile)};
+                    BeefCanSession(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanBeefProfile),
+                    BeefCanKernel(transport, clock, cancellation, events, channel, kSubaruDensoSh7058CanBeefProfile)};
 
     return RunBeefKernelOperation(
         plan, "Subaru Denso SH7058 petrol", context, [](Context& c) { return c.session.RunningKernelId(); },
         ConnectBootloader, UploadKernel, [](Context& c, const FlashPlan& p, PhaseReporter& progress)
-        { return ReadBeefMemory(c, p.TransferRegion(), progress, Exchanger(c)); },
+        { return c.kernel.Read(p.TransferRegion(), progress); },
         [](Context& c, const FlashPlan& p, PhaseSequence& phases, PhaseReporter& compare)
-        { return c.session.WriteMemory(p, phases, compare); });
+        { return c.kernel.Write(p, phases, compare); });
 }
 
 } // namespace fastecu::flash
