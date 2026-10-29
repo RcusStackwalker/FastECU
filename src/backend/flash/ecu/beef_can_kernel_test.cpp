@@ -378,9 +378,13 @@ class BeefCanKernelWrite : public BeefCanKernelTest
               {
                   auto write = SmallPlan();
                   auto test = SmallPlan(bytes::Bytes(0x1000), 0x2000, {{0x2000, 0x1000}}, FlashOperation::kTestWrite);
-                  if (!write.has_value() || !test.has_value())
+                  if (!write.has_value())
                   {
-                      throw std::runtime_error(!write.has_value() ? write.error().detail : test.error().detail);
+                      throw std::runtime_error(write.error().detail);
+                  }
+                  if (!test.has_value())
+                  {
+                      throw std::runtime_error(test.error().detail);
                   }
                   return std::array{std::move(*write), std::move(*test)};
               }())
@@ -416,11 +420,8 @@ class BeefCanKernelWrite : public BeefCanKernelTest
         PhaseSequence phases(events_, 4);
         phases.Start("Kernel", 1).Complete();
         auto compare = phases.Start("Compare", static_cast<int>(plan.EraseRegions().size()));
-        const auto status = Kernel(profile).Write(plan, phases, compare);
-        if (status.has_value())
-        {
-            phases.Start("Complete", 1).Complete();
-        }
+        const auto status =
+            Kernel(profile).Write(plan, phases, compare).transform([&] { phases.Start("Complete", 1).Complete(); });
         EXPECT_TRUE(channel_.ScriptConsumed());
         EXPECT_TRUE(transport_.ScriptConsumed());
         EXPECT_EQ(channel_.SendCalls(), channel_.SendsConsumed());
@@ -430,8 +431,7 @@ class BeefCanKernelWrite : public BeefCanKernelTest
     void ScriptCrc(const MemoryRegion& block, std::uint32_t crc, bool drain = true)
     {
         bytes::Bytes payload = Be32(block.start);
-        const auto length = Be32(block.length);
-        payload.insert(payload.end(), length.begin(), length.end());
+        payload.append_range(Be32(block.length));
         channel_.ExpectSend(BeefFrame(0x02, payload));
         channel_.QueueReceive(BeefFrame(0x42, Be32(crc)));
         if (drain)
