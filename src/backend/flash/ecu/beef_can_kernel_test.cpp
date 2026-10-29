@@ -47,7 +47,9 @@ using ReceiveOutcome = Result<std::optional<bytes::Bytes>>;
 bytes::Bytes UploadBlock(bytes::Bytes head, int zero_words, bytes::ByteView tail = {})
 {
     for (int word = 0; word < zero_words; ++word)
+    {
         head.insert(head.end(), {0xE7, 0xE2, 0x14, 0x30});
+    }
     head.insert(head.end(), tail.begin(), tail.end());
     return head;
 }
@@ -70,7 +72,9 @@ class ValidationBoundaryChannel final : public uds::ScriptedUdsChannel
     {
         auto reply = ScriptedUdsChannel::Receive(timeout, cancellation);
         if (after_reply)
+        {
             after_reply();
+        }
         return reply;
     }
     std::function<void()> after_reply;
@@ -431,7 +435,9 @@ class BeefCanKernelWrite : public BeefCanKernel
         channel_.ExpectSend(BeefFrame(0x02, payload));
         channel_.QueueReceive(BeefFrame(0x42, Be32(crc)));
         if (drain)
+        {
             transport_.QueueNoFrame();
+        }
     }
 
     void ScriptCompare(std::optional<std::size_t> differing = std::nullopt)
@@ -523,9 +529,13 @@ class BeefCanKernelWrite : public BeefCanKernel
             bytes::Bytes payload =
                 Be32(address + (step > 0 && step < 9 ? static_cast<std::uint32_t>(step - 1) * 0x200 : 0));
             if (step > 0 && step < 9)
+            {
                 payload.resize(0x204, 0);
+            }
             else if (step == 9)
+            {
                 payload.insert(payload.end(), {0x10, 0x00, 0xF7, 0x22, 0xEF, 0x49});
+            }
             channel_.ExpectSend(BeefFrame(opcode, payload));
             channel_.QueueOutcome(fail_last && step == last_exchange
                                       ? Fail(ErrorKind::kTimeout, "no reply")
