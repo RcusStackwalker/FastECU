@@ -73,12 +73,50 @@ validation) through `BuildWholeRomKernelPlan`, and their validators re-check the
 derived parts through `ValidateWholeRomKernelPlan`; family upload padding still
 differs (six versus 128 bytes) and is the template argument of both.
 
-## Denso BEEF CAN kernel download framing
+## Denso BEEF CAN kernel
 
-The [BEEF CAN helpers](../../src/backend/flash/ecu/denso_beef_can_common.h) own
-the shared kernel-download request: `34 04 33`, then the low 24 address bits and
-the checked 24-bit encrypted payload length, both big-endian. Payload validation
-precedes serialization; each family retains its reply policy and upload ordering.
+[BeefCanKernel](../../src/backend/flash/ecu/beef_can_kernel.h) owns three
+operations used directly by the Subaru SH7058 petrol ECU, SH7058 diesel ECU and
+SH705x TCU executors: kernel payload transfer, ROM read and ROM write. It borrows
+the caller's ports and profile; execution context, lifetimes and transport
+lifecycle remain with callers. The cold
+[session](../../src/backend/flash/ecu/beef_can_session.h) retains tolerant
+identity/session queries and kernel-ID handling, without forwarding warm work.
+
+- `TransferPayload` validates, pads, checksums and encrypts the kernel, sends
+  `34 04 33` with the low 24 address bits and checked 24-bit encrypted payload
+  length, both big-endian, then sends 128-byte B6 blocks and the final
+  address-only B6. Each block has one raw reply read; content and nonterminal
+  adapter outcomes are discarded, while cancellation/disconnection terminate.
+  The caller supplies the existing download exchange policy and block timeout;
+  the diesel's timings remain distinct from petrol/TCU.
+- `Read` requests fixed 0x400-byte raw BEEF pages, checks each reply and bounds
+  the appended tail and progress to the requested region. No normal-ROM BEEF
+  read decrypts the payload. Per-page clock sampling keeps the 1 ms elapsed
+  floor and existing rate logs.
+- `Write` owns CRC comparison and its raw stale-frame drain, flash init,
+  voltage query, erase, 0x200-byte buffers, 0x1000-byte validate/commit windows,
+  recovery warnings and final comparison. Unchanged images skip flashing;
+  ECU TestWrite selects disable/validate rather than enable/commit. Existing
+  address-window guards, cancellation boundaries and final-mismatch reporting
+  remain intact. The existing profile keeps wording, init timeout and hex
+  formatting: its uppercase-size setting also preserves TCU uppercase write
+  addresses and padded CRC logs, without selecting a different wire algorithm.
+
+Cold paths and post-upload handoffs stay in the family executors. Petrol and
+diesel retain their own identity/security/session sequences, transfer-exit and
+kernel-start policies and strict kernel-ID checks. The TCU retains its separate
+probe/identity/session/security sequence and kernel-ID continuation/drain logic;
+after kernel start it resets, configures and opens through `RestartIso15765`,
+waits 500 ms cancellably, then probes strictly. The outer attempt still owns the
+initial lifecycle and final close. Plan admission still rejects TCU TestWrite
+and SH7055 Write. These distinct cold paths and handoffs do not imply different
+warm read/write wire behavior.
+
+The unchanged family scripted wire suites and plan goldens are the preservation
+contract. Hardware status remains in the
+[qualification matrix](../flash-qualification-matrix.md); this sharing establishes
+no bench or vehicle qualification.
 
 ## Denso BEEF K-Line (MC68, SH7055)
 
