@@ -39,9 +39,9 @@ namespace fastecu::flash
 // it that way.
 
 // generate_can_seed_key's key-to-generate-index table (legacy
-// flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp lines 1474-1479 and the
-// corresponding lines of the SH72531, SH72543 diesel and 1N83M 4M sources),
-// confirmed byte-identical across all seven consumers by direct comparison.
+// flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp and the SH72531,
+// SH72543 diesel and 1N83M 4M sources), confirmed
+// byte-identical across all seven consumers by direct comparison.
 inline constexpr std::array<std::uint16_t, 16> kDensoIso15765SeedKeyTable{
     0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4, 0xFD21, 0x5E71,
     0xB046, 0x7F4A, 0x4B75, 0x93F9, 0x1895, 0x8961, 0x3ECC, 0x862B};

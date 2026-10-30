@@ -120,7 +120,7 @@ class Sh72543rExecutor : public ::testing::Test
     void Key(Bytes response = {0x67, 0x02})
     {
         // Independent Feistel transcription: DEAD BEEF -> DE44 6FC3, reverse
-        // Normal2 key table, legacy operation.cpp:1131-1151 at 5dc86672.
+        // Normal2 key table.
         X({0x27, 0x02, 0xde, 0x44, 0x6f, 0xc3}, std::move(response));
     }
     void Access()

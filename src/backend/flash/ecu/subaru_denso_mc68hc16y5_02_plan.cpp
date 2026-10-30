@@ -69,10 +69,9 @@ Status ValidateOperation(std::string_view protocol, FlashOperation operation)
 
 SubaruDensoMc68hc16y5_02Plan WireParams(std::string_view protocol)
 {
-    // flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:126-137 (response
-    // selection), 204-242 (baud/encryption/magic selection). Only "_ecutek"
-    // is reachable via the built-in catalog (see spec's "_cobb" note); every other
-    // accepted name takes the stock branch.
+    // Legacy response, baud, encryption and magic selection. Only
+    // "_ecutek" is reachable via the built-in catalog (see spec's "_cobb" note);
+    // every other accepted name takes the stock branch.
     if (protocol.ends_with("_ecutek"))
     {
         return {.connect_baud = 9600,
@@ -225,7 +224,7 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
         .transfer_region = MemoryRegion{kFlashDevices[static_cast<std::size_t>(index)].fblocks[0].start, romsize},
         .erase_regions = {}, // per-block erase happens inside the write executor
                              // (blank-page-per-modified-block, legacy
-                             // flash_block():950-992), not a fixed up-front set
+                             // flash_block()), not a fixed up-front set
         .image = std::move(file),
         .image_map = std::move(file_map),
         .kernel = std::move(kernel),

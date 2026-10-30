@@ -73,10 +73,10 @@ Status ValidateSubaruHitachiSh72543rCanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN plans are kernel-free");
     }
-    // Legacy operation.cpp:681: reflash_block ignores its test_write_arg
-    // parameter entirely, so "test write" performs the same live erase and
-    // flash write as "write" -- see the TestWrite comment in
-    // subaru_hitachi_sh72543r_can_types.h. There is no dry-run to port.
+    // reflash_block ignores its test_write_arg parameter entirely, so "test
+    // write" performs the same live erase and flash write as "write" -- see the
+    // TestWrite comment in subaru_hitachi_sh72543r_can_types.h. There is no
+    // dry-run to port.
     if (plan.Operation() != FlashOperation::kRead && plan.Operation() != FlashOperation::kWrite)
     {
         return Fail(ErrorKind::kUnsupported, "operation is not supported by Subaru Hitachi SH72543R CAN");

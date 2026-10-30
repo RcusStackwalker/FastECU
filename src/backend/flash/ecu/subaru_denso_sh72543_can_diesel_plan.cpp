@@ -14,11 +14,10 @@ constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_sh72543_can_dies
 
 // kFlashBlocksSH72543d[0]. Unlike its three siblings, this family's read_memory
 // does NOT hardcode over its own arguments -- the start_addr/length overwrite
-// is commented out (legacy lines 813-814) -- so the caller's
-// fblocks[0].start/len (legacy line 74) reach it, and the 0x34/0x35 setup
-// PDUs are computed from them rather than spelled out literally (legacy lines
-// 826-842 and 865-881). The values land on the same region either way; the
-// dialect executor's read_memory comment carries the same account.
+// is commented out -- so the caller's fblocks[0].start/len reach it, and the
+// 0x34/0x35 setup PDUs are computed from them rather than spelled out
+// literally. The values land on the same region either way; the dialect
+// executor's read_memory comment carries the same account.
 constexpr MemoryRegion kMainBlock{0x00008000, 0x001F7F00};
 // SH72543d's own romsize. Unlike its three siblings this is not the fblocks
 // sum -- the table's 0x0-0x8000 entry is commented out -- so the image base

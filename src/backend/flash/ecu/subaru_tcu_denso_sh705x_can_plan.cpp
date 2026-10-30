@@ -26,8 +26,8 @@ struct CatalogEntry
 };
 
 // Exact TCU identities and kernel addresses from the built-in catalog and
-// FlashTcuSubaruDensoSH705xCanOperation at revision 59f4e442 (lines 55-58).
-// Do not broaden this into a protocol suffix match.
+// FlashTcuSubaruDensoSH705xCanOperation at revision 59f4e442. Do not broaden
+// this into a protocol suffix match.
 constexpr auto kCatalog = std::to_array<CatalogEntry>({
     {"sub_tcu_denso_sh7055_can", "SH7055", 0x00080000, 0xFFFF9000, false},
     {"sub_tcu_denso_sh7058_can", "SH7058", 0x00100000, 0xFFFF3000, true},

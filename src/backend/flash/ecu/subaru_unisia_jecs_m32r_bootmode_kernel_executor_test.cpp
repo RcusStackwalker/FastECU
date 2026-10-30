@@ -83,11 +83,11 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, TransportSetupIs39063BaudEvenPa
     ASSERT_THAT(built_plan_1, fastecu::testing::IsOk());
     const auto setup = SubaruUnisiaJecsM32rBootModeKernelExecutor{}.TransportSetup(std::move(*built_plan_1));
     ASSERT_THAT(setup, IsOk());
-    EXPECT_EQ(setup->baud, 39063);                // execute() :58
-    EXPECT_EQ(setup->parity, KlineParity::kEven); // execute() :57
-    EXPECT_FALSE(setup->iso14230);                // execute() :53
-    EXPECT_EQ(setup->tester_id, 0xf0);            // execute() :59
-    EXPECT_EQ(setup->target_id, 0x10);            // execute() :60
+    EXPECT_EQ(setup->baud, 39063);
+    EXPECT_EQ(setup->parity, KlineParity::kEven);
+    EXPECT_FALSE(setup->iso14230);
+    EXPECT_EQ(setup->tester_id, 0xf0);
+    EXPECT_EQ(setup->target_id, 0x10);
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, BeforeConfigureResetsThenClearsTheHeader)
@@ -97,7 +97,7 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, BeforeConfigureResetsThenClears
     FakeCancellationToken cancellation;
     ASSERT_THAT(SubaruUnisiaJecsM32rBootModeKernelExecutor{}.BeforeTransportConfigure(transport, clock, cancellation),
                 IsOk());
-    EXPECT_EQ(transport.lifecycle_calls, std::vector<std::string>{"reset_connection"}); // execute() :52
+    EXPECT_EQ(transport.lifecycle_calls, std::vector<std::string>{"reset_connection"});
     EXPECT_EQ(transport.header_mode_calls, std::vector<bool>{false});
 }
 
@@ -112,8 +112,8 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, UploadsEveryChunkUnderBootModeL
     ASSERT_THAT(RunScripted(plan, transport, context), IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.control_line_trace, (std::vector{Line::kEnableBootModeLines, Line::kDisableLecLines}));
-    EXPECT_EQ(transport.read_timeouts, std::vector<std::chrono::milliseconds>{200ms}); // :339
-    EXPECT_EQ(context.clock.Elapsed(), 500ms);                                         // :338
+    EXPECT_EQ(transport.read_timeouts, std::vector<std::chrono::milliseconds>{200ms});
+    EXPECT_EQ(context.clock.Elapsed(), 500ms);
     EXPECT_EQ(context.events.progress_calls, (std::vector<std::pair<int, int>>{{1, 2}, {2, 2}}));
 }
 

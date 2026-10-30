@@ -26,15 +26,9 @@
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
-// Every exchange below is transcribed from revision 59f4e442 of
-// src/platform/desktop/common/flash/legacy/ecu/
-// flash_ecu_subaru_denso_sh7058_can_diesel_operation.cpp: connect_bootloader
-// (113-510), upload_kernel (517-782), read_mem (789-936), write_mem
-// (943-1057), CRC/init/reflash/flash (1064-1689), security/crypto
-// (1696-1790), and request_kernel_id (1797-1829).
-// Petrol's matching oracle is flash_ecu_subaru_denso_sh7058_can_operation.cpp:
-// connect_bootloader (112-621), upload_kernel (626-870), and security
-// (1765-1906). Its five security variants and RaceRom-alt RAM preparation
+// Every exchange below is transcribed from the legacy
+// flash_ecu_subaru_denso_sh7058_can_diesel_operation.cpp (and, for petrol,
+// flash_ecu_subaru_denso_sh7058_can_operation.cpp). Petrol's five security variants and RaceRom-alt RAM preparation
 // remain selected solely by the admitted petrol plan.
 // ISO-15765 is only the envelope transport. UDS is used for strict
 // positive-response exchanges; tolerant identity/session queries and every
@@ -333,8 +327,8 @@ struct RaceRomAltValues
 
 Result<std::uint32_t> ReadRamLocation(Context& context, std::uint32_t address)
 {
-    // connect_bootloader(), revision 59f4e442:558-618. The vendor request
-    // carries four consecutive 24-bit addresses rather than a range length.
+    // The vendor request carries four consecutive 24-bit addresses rather than
+    // a range length.
     LogDebug(context, std::format("Reading RAM value at location: 0x{:x}", address));
     bytes::Bytes request{0xA8, 0x00};
     for (std::uint32_t offset = 0; offset < 4; ++offset)

@@ -105,7 +105,7 @@ Result<FlashPlan> MakePlan(FlashOperation operation, std::string_view protocol =
     return BuildSubaruDensoSh705xKlinePlan(operation, protocol, mcu, std::move(image), KernelFor(mcu));
 }
 
-// connect_bootloader():127-157 -- kernel probe at 62500.
+// Kernel probe at 62500.
 void ScriptProbeDead(ScriptedKlineFlashTransport& t)
 {
     auto s = t.Section("probe");
@@ -133,7 +133,7 @@ bytes::Bytes EncryptedKernel(bytes::ByteView balanced)
 
 const bytes::Bytes kEcuIdPayload{0xFF, 0x00, 0x00, 0x00, 0x41, 0x42, 0x43, 0x44, 0x45};
 
-// connect_bootloader():161-323 -- SSM handshake at 4800.
+// SSM handshake at 4800.
 void ScriptHandshake(ScriptedKlineFlashTransport& t, bytes::ByteView key)
 {
     auto s = t.Section("handshake");
@@ -145,7 +145,7 @@ void ScriptHandshake(ScriptedKlineFlashTransport& t, bytes::ByteView key)
     t.Exchange(Ssm(bytes::Bytes{0x10, 0x85, 0x02}), SsmReply(bytes::Bytes{0x50}));
 }
 
-// upload_kernel():354-460 -- 34 / 36 / 31 at 15625.
+// 34 / 36 / 31 at 15625.
 void ScriptUploadFrames(ScriptedKlineFlashTransport& t, std::uint32_t address)
 {
     const bytes::Bytes encrypted = EncryptedKernel(kBalancedKernel);
@@ -154,7 +154,7 @@ void ScriptUploadFrames(ScriptedKlineFlashTransport& t, std::uint32_t address)
     t.Exchange(Ssm(bytes::Bytes{0x31, 0x01, 0x01}), SsmReply(bytes::Bytes{0x71}));
 }
 
-// upload_kernel():354-496 -- 34 / 36 / 31 at 15625, then kernel ID at 62500.
+// 34 / 36 / 31 at 15625, then kernel ID at 62500.
 void ScriptUpload(ScriptedKlineFlashTransport& t, std::uint32_t address)
 {
     auto s = t.Section("upload");
@@ -169,7 +169,7 @@ void ScriptSession(ScriptedKlineFlashTransport& t, bytes::ByteView key = {}, std
     ScriptUpload(t, address);
 }
 
-// check_romcrc():812-831 -- CRC [addr32, 00, len24] -> BE EF len 42 crc32 sum8.
+// CRC [addr32, 00, len24] -> BE EF len 42 crc32 sum8.
 bytes::Bytes CrcRequest(const FlashBlock& block)
 {
     return Beef(0x02, ComposeBe(block.start, 0x00_b, U24{block.len}));
@@ -259,9 +259,9 @@ TEST(SubaruDensoSh705xKlineExecutor, BoundAttemptResetsBeforeConfigure)
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    // The first setBaud (connect_bootloader():127, 62500) fails and stops execute().
+    // The first setBaud (connect_bootloader()) fails and stops execute().
     EXPECT_THAT(attempt->Run(clock, cancellation, events), IsErr(ErrorKind::kDisconnected));
-    // execute():67 reset_connection() precedes every setter and open_serial_port().
+    // execute() reset_connection() precedes every setter and open_serial_port().
     EXPECT_THAT(observed->lifecycle_calls, ::testing::ElementsAre("reset_connection", "configure", "open", "close"));
 }
 
@@ -306,7 +306,7 @@ TEST(SubaruDensoSh705xKlineExecutor, FullSessionIsByteExactWithLegacyBaudsAndTim
     ASSERT_THAT(built_plan_3, fastecu::testing::IsOk());
     ASSERT_THAT(h.Run(std::move(*built_plan_3)), IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(h.transport.ScriptConsumed());
-    // execute():68 -- the header flag is cleared once, before any frame.
+    // The header flag is cleared once, before any frame.
     EXPECT_EQ(h.transport.header_mode_calls, std::vector<bool>{false});
     EXPECT_THAT(h.transport.baud_calls, ::testing::ElementsAre(62500, 4800, 15625, 62500));
     // probe 800, BF..10 six x 2000, 34 3000, 36 2000, 31 3000, kernel ID 800,
@@ -320,7 +320,7 @@ TEST(SubaruDensoSh705xKlineExecutor, FullSessionIsByteExactWithLegacyBaudsAndTim
 
 TEST(SubaruDensoSh705xKlineExecutor, HeaderFlagFailurePropagatesBeforeAnyWrite)
 {
-    // execute():68 -- set_add_iso14230_header(false) precedes the first setBaud and write.
+    // set_add_iso14230_header(false) precedes the first setBaud and write.
     Harness h;
     h.transport.set_add_iso14230_header_result = Fail(ErrorKind::kDisconnected, "header flag");
 
@@ -380,7 +380,7 @@ TEST(SubaruDensoSh705xKlineExecutor, SessionLogsTheLegacyStrings)
     ASSERT_GE(h.events.logs.size(), expected.size());
     EXPECT_EQ(std::vector(h.events.logs.begin(), h.events.logs.begin() + static_cast<std::ptrdiff_t>(expected.size())),
               expected);
-    // execute():84 during the session, then :98 once the write tail starts.
+    // execute() notices once during the session, then once the write tail starts.
     EXPECT_THAT(h.events.notices, ::testing::ElementsAre("Preparing, please wait...", "Writing ROM, please wait..."));
 }
 
@@ -409,8 +409,8 @@ TEST(SubaruDensoSh705xKlineExecutor, Sh7058UploadsToItsOwnKernelAddress)
 
 TEST(SubaruDensoSh705xKlineExecutor, KernelTransferSplitsInto0x80ByteBlocks)
 {
-    // send_sid_36_transferdata():1533-1566 -- 0x80-byte blocks at addr +
-    // blockno * 0x80; the last block carries the remainder.
+    // 0x80-byte blocks at addr + blockno * 0x80; the last block carries the
+    // remainder.
     const bytes::Bytes kernel(0x100, 0x5A);
     const bytes::Bytes balanced = DensoSh705xKlineBalancedKernel(kernel);
     ASSERT_EQ(balanced.size(), 0x104U);
@@ -569,7 +569,7 @@ TEST(SubaruDensoSh705xKlineExecutor, EachNegativeHandshakeReplyStopsTheSession)
 
 TEST(SubaruDensoSh705xKlineExecutor, NegativeHandshakeReplyLogsTheNrc)
 {
-    // connect_bootloader():170 -- "Wrong response from ECU: " + parse_nrc_message(mid(4)).
+    // "Wrong response from ECU: " + parse_nrc_message(mid(4)).
     Harness h;
     ScriptProbeDead(h.transport);
     h.transport.Exchange(Ssm(bytes::Bytes{0xBF}), SsmReply(bytes::Bytes{0x7F, 0xBF, 0x12}));
@@ -703,7 +703,7 @@ TEST(SubaruDensoSh705xKlineExecutor, CancellationBeforeAnySessionWriteSendsNothi
 
 TEST(SubaruDensoSh705xKlineExecutor, FourByteProbeReplyIsNoValidResponse)
 {
-    // :134 -- `> 4`: four bytes is "no valid response", not a wrong one.
+    // `> 4`: four bytes is "no valid response", not a wrong one.
     Harness h;
     {
         auto s = h.transport.Section("probe");
@@ -890,11 +890,11 @@ TEST(SubaruDensoSh705xKlineExecutor, ReadReturnsTheWholeRomAndTheRomId)
     ASSERT_THAT(result, IsOk());
     EXPECT_TRUE(h.transport.ScriptConsumed());
     EXPECT_EQ(result->read_bytes, expected);
-    // execute()/connect_bootloader():206 RomId = ecuid + "_".
+    // execute()/connect_bootloader() RomId = ecuid + "_".
     EXPECT_EQ(result->rom_id, std::optional<std::string>("4142434445_"));
-    // execute():92-93 -- externalLoggerMessage() then LOG_I() before read_mem().
+    // ExternalLoggerMessage() then LOG_I() before read_mem().
     EXPECT_THAT(h.events.notices, ::testing::Contains("Reading ROM, please wait..."));
-    // read_mem():523 and :628 bracket the page loop.
+    // read_mem() bracket the page loop.
     using L = LogLevel;
     const auto& logs = h.events.logs;
     const auto start = std::ranges::find(
@@ -981,8 +981,8 @@ TEST(SubaruDensoSh705xKlineExecutor, ReadPropagatesTransportErrorsAndCancellatio
 
 // ---- Write and TestWrite (Task 8) -------------------------------------
 
-// get_changed_blocks():767-790 / check_romcrc():812-881 -- one CRC request per
-// block, then the 200ms flush read after every compare.
+// get_changed_blocks() / check_romcrc() -- one CRC request per block, then the
+// 200ms flush read after every compare.
 void ScriptCompare(ScriptedKlineFlashTransport& t, std::string_view mcu, const bytes::Bytes& image,
                    const std::vector<unsigned>& differing)
 {
@@ -1000,7 +1000,7 @@ void ScriptCompare(ScriptedKlineFlashTransport& t, std::string_view mcu, const b
         t.QueueNoFrame(); // the 200ms flush read after every compare
     }
 }
-// init_flash_write():893-1022 -- MAX_MSG, MAX_BLK, then FLASH_ENABLE/DISABLE.
+// MAX_MSG, MAX_BLK, then FLASH_ENABLE/DISABLE.
 void ScriptInit(ScriptedKlineFlashTransport& t, std::uint8_t mode_opcode)
 {
     auto s = t.Section("init_flash_write");
@@ -1008,8 +1008,8 @@ void ScriptInit(ScriptedKlineFlashTransport& t, std::uint8_t mode_opcode)
     t.Exchange(Beef(0x06), BeefReply(0x06, ComposeBe(std::uint32_t{0x00001000})));
     t.Exchange(Beef(mode_opcode), BeefReply(mode_opcode, bytes::Bytes{0x00}));
 }
-// reflash_block():1068-1105 PROG_VOLT, then flash_block():1155-1357 BLANK_PAGE,
-// 0x200-byte WRITE_FLASH_BUFFER chunks and a COMMIT/VALIDATE per 0x1000.
+// reflash_block() PROG_VOLT, then flash_block() BLANK_PAGE, 0x200-byte
+// WRITE_FLASH_BUFFER chunks and a COMMIT/VALIDATE per 0x1000.
 void ScriptReflash(ScriptedKlineFlashTransport& t, const bytes::Bytes& image, const FlashBlock& block,
                    std::uint8_t commit_opcode)
 {
@@ -1239,9 +1239,9 @@ TEST(SubaruDensoSh705xKlineExecutor, CompareUsesLegacyTimeoutsAndPacing)
 
 TEST(SubaruDensoSh705xKlineExecutor, WriteStepsUseLegacyTimeoutsWithoutSettleDelays)
 {
-    // init_flash_write():905/947/1000 500ms; reflash_block():1080 500ms;
-    // flash_block():1171/1231/1335 3000ms; the delay(500)/(50)/(200) there are
-    // commented out in legacy and stay omitted.
+    // init_flash_write() 500ms; reflash_block() 500ms; flash_block() 3000ms;
+    // the delay(500)/(50)/(200) there are commented out in legacy and stay
+    // omitted.
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     const bytes::Bytes image = Sh7055Image();
     ScriptProbeAlive(transport);
@@ -1291,8 +1291,7 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteLogsTheLegacyStrings)
     using Entry = std::pair<LogLevel, std::string>;
     const std::uint32_t crc0 = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(0, 0x1000));
     const std::uint32_t crc1 = fastecu::checksum::Crc32(bytes::ByteView(image).subspan(0x1000, 0x1000));
-    // write_mem():661-662, get_changed_blocks():782, check_romcrc():864-878
-    // for the first two blocks (block 0 differs).
+    // check_romcrc() for the first two blocks (block 0 differs).
     const std::vector<Entry> compare_head{
         {L::kInfo, "Writing ROM to Subaru 04 32-bit using K-Line"},
         {L::kInfo, "--- Comparing ECU flash memory pages to image file ---"},
@@ -1309,8 +1308,6 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteLogsTheLegacyStrings)
     const auto head = std::ranges::search(h.events.logs, compare_head);
     EXPECT_THAT(head, Not(IsEmpty()));
 
-    // write_mem():671-680, 695; init_flash_write():893-1008;
-    // reflash_block():1065-1089, 1115; flash_block():1148-1310; write_mem():709.
     std::vector<Entry> write_body{
         {L::kInfo, "Different blocks : "},
         {L::kInfo, "0, "},
@@ -1367,7 +1364,6 @@ TEST(SubaruDensoSh705xKlineExecutor, FailedFlashBlockLogsTheLegacyRecoveryText)
     ASSERT_THAT(built_plan_38, fastecu::testing::IsOk());
     EXPECT_THAT(h.Run(std::move(*built_plan_38)), IsErr(ErrorKind::kBadResponse));
     ASSERT_GE(h.events.logs.size(), 3U);
-    // flash_block():1180-1182, reflash_block():1109-1111, write_mem():703.
     EXPECT_EQ(h.events.logs[h.events.logs.size() - 3].first, LogLevel::kError);
     EXPECT_TRUE(h.events.logs[h.events.logs.size() - 3].second.starts_with("Wrong response from ECU: "));
     EXPECT_EQ(h.events.logs[h.events.logs.size() - 2],

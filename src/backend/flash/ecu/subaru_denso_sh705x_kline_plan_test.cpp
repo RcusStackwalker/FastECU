@@ -74,11 +74,11 @@ TEST(SubaruDensoSh705xKlinePlan, MapsAllSixPairsWithLegacyWireParameters)
         EXPECT_THAT(plan->EraseRegions(), IsEmpty());
         EXPECT_THAT(plan->Confirmations(), IsEmpty());
         const auto& family = std::get<SubaruDensoSh705xKlinePlan>(plan->FamilyPlan());
-        // execute():67-76 -- 4800 baud, tester 0xF0, target 0x10.
+        // 4800 baud, tester 0xF0, target 0x10.
         EXPECT_EQ(family.initial_baud, 4800);
         EXPECT_EQ(family.tester_id, 0xF0);
         EXPECT_EQ(family.target_id, 0x10);
-        // connect_bootloader():269 -- flash method endsWith("_ecutek").
+        // Flash method endsWith("_ecutek").
         EXPECT_EQ(family.seed_key, pair.seed_key);
     }
 }

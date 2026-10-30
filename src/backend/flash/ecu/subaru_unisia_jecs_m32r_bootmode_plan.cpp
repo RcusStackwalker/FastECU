@@ -30,11 +30,9 @@ constexpr auto kVariants = std::to_array<Variant>({
     {"sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", 0x20000},
     {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000},
 });
-constexpr std::uint32_t kChunk = 0x80; // upload_kernel() :312-315, write_mem() :473
-// execute() :55-60 (tester_id and target_id set on :59-60)
+constexpr std::uint32_t kChunk = 0x80;
 constexpr SubaruUnisiaJecsM32rBootModeKernelPlan kKernelWire{
     .initial_baud = 39063, .tester_id = 0xf0, .target_id = 0x10};
-// write_mem() :362-364.
 constexpr SubaruUnisiaJecsM32rBootModeProgramPlan kProgramWire{
     .initial_baud = 19200, .tester_id = 0xf0, .target_id = 0x10};
 
@@ -173,7 +171,7 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation ope
     {
         return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode kernel file is empty");
     }
-    // upload_kernel() :312-315: zero-pad to whole 128-byte chunks.
+    // Zero-pad to whole 128-byte chunks.
     kernel.resize((kernel.size() + kChunk - 1) / kChunk * kChunk, 0x00);
     return Build(FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel, *variant, std::move(kernel), kKernelWire);
 }

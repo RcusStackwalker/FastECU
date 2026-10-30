@@ -95,28 +95,25 @@ Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView e
                                         min_payload_size);
 }
 
-// Legacy's four non-fatal identity queries (ECU ID/VIN/CAL ID/CVN, lines
-// 115-257): each is info-logged on a matching reply and error-logged
-// otherwise, but the connect sequence never halts here -- even a genuine
-// exchange failure (timeout, disconnect) is logged and swallowed, exactly
-// mirroring legacy's total absence of early returns in this block.
+// Legacy's four non-fatal identity queries (ECU ID/VIN/CAL ID/CVN): each is
+// info-logged on a matching reply and error-logged otherwise, but the connect
+// sequence never halts here -- even a genuine exchange failure (timeout,
+// disconnect) is logged and swallowed, exactly mirroring legacy's total absence
+// of early returns in this block.
 void NonFatalQuery(Ctx& ctx, bytes::ByteView request_pdu, std::optional<bytes::Byte> expected_subfunction,
                    std::string_view label)
 {
     ::fastecu::flash::NonFatalQuery(ExchangeContext(ctx), request_pdu, expected_subfunction, kRejectionPrefix, label);
 }
 
-// Legacy connect_bootloader, flash_ecu_subaru_hitachi_m32r_can_operation.cpp:76-760.
-// The legacy `is_serial_port_open()` guard (lines 85-89) has no equivalent:
-// execute() below opens the transport through the port and propagates that
-// Status, so an unopened bus fails earlier and with a typed error.
-// "Checking if OBK is already running..." (lines 91-113). The
-// already-running signal is packaged as a UDS negative response (0x7F 0xB7
-// 0x13) that UdsClient::request() would otherwise treat as an ordinary
-// exchange failure, so this one goes through the channel directly rather than
-// through ctx.uds -- and, matching legacy exactly, a mismatch OR an
-// empty/failed read is a non-fatal "miss" that falls through to initializing
-// the ECU rather than propagating.
+// The legacy `is_serial_port_open()` guard has no equivalent: execute() below opens
+// the transport through the port and propagates that Status, so an unopened bus
+// fails earlier and with a typed error. "Checking if OBK is already running...". The
+// already-running signal is packaged as a UDS negative response (0x7F 0xB7 0x13)
+// that UdsClient::request() would otherwise treat as an ordinary exchange failure,
+// so this one goes through the channel directly rather than through ctx.uds -- and,
+// matching legacy exactly, a mismatch OR an empty/failed read is a non-fatal "miss"
+// that falls through to initializing the ECU rather than propagating.
 Result<bool> ObkActive(Ctx& ctx)
 {
     LogInfo(ctx, "Checking if OBK is already running...");
@@ -130,7 +127,7 @@ Result<bool> ObkActive(Ctx& ctx)
             });
 }
 
-// Lines 115-257: four non-fatal identity queries.
+// Four non-fatal identity queries.
 void QueryIdentity(Ctx& ctx)
 {
     LogInfo(ctx, "Requesting ECU ID");
@@ -146,10 +143,9 @@ void QueryIdentity(Ctx& ctx)
                   "CVN");
 }
 
-// Session-scope probe (lines 259-279): also a raw channel exchange, because
-// the branch decision inspects payload[1]/payload[2] without the response
-// ever carrying a SID+0x40 echo of the request. Only the bench branch is
-// ported.
+// Session-scope probe: also a raw channel exchange, because the branch decision
+// inspects payload[1]/payload[2] without the response ever carrying a SID+0x40
+// echo of the request. Only the bench branch is ported.
 Status RequireBenchSession(Ctx& ctx)
 {
     LogInfo(ctx, "Initializing bootloader...");
@@ -161,7 +157,7 @@ Status RequireBenchSession(Ctx& ctx)
                 if (!probe.has_value() || probe->size() < 3)
                 {
                     // Legacy's outer `if (received.length() > 5) {...} return
-                    // STATUS_ERROR;` (line 759): this is the only failure point in
+                    // STATUS_ERROR;`: this is the only failure point in
                     // connect_bootloader with no dedicated legacy log line, and the
                     // first point that DOES propagate rather than falling through.
                     return Fail(ErrorKind::kTimeout, "no response from ECU during the session-scope probe");
@@ -171,8 +167,8 @@ Status RequireBenchSession(Ctx& ctx)
                 // bench whenever either byte matches.
                 if (const bool bench = session_probe[1] == 0xA0 || session_probe[2] == 0x20; !bench)
                 {
-                    // On-car programming branch (lines 281-579): out of scope per the
-                    // design's on-car scope decision (only the bench path is ported).
+                    // On-car programming branch: out of scope per the design's on-car
+                    // scope decision (only the bench path is ported).
                     return Fail(ErrorKind::kUnsupported, "on-car programming is not supported by this port");
                 }
                 LogInfo(ctx, "Bench Programming, Accessing...");
@@ -180,8 +176,8 @@ Status RequireBenchSession(Ctx& ctx)
             });
 }
 
-// Bench branch (lines 581-753): every exchange from here on is fatal on
-// mismatch or empty reply, unlike the identity queries.
+// Bench branch: every exchange from here on is fatal on mismatch or empty
+// reply, unlike the identity queries.
 Status UnlockAndJump(Ctx& ctx)
 {
     return FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench}, bytes::Bytes{kSessionBench},
@@ -217,16 +213,16 @@ Status ConnectBootloader(Ctx& ctx)
         });
 }
 
-// Legacy read_mem, lines 767-963. start_addr/length are hardcoded to
-// 0/0x80000 in legacy (lines 780-781) regardless of caller arguments; this
-// family's plan always carries that exact transfer_region, so the sweep
-// below is written as the fixed full-ROM sweep legacy actually performs.
+// start_addr/length are hardcoded to 0/0x80000 in legacy regardless of caller
+// arguments; this family's plan always carries that exact transfer_region, so
+// the sweep below is written as the fixed full-ROM sweep legacy actually
+// performs.
 Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 {
     constexpr std::uint32_t kLength = 0x80000;
 
-    // "Settting dump start & length..." (lines 788-819): non-fatal on
-    // mismatch or empty reply -- legacy only logs here, never returns early.
+    // "Settting dump start & length...": non-fatal on mismatch or empty reply
+    // -- legacy only logs here, never returns early.
     LogInfo(ctx, "Settting dump start & length...");
     if (Result<bytes::Bytes> setup =
             ctx.uds.Request(bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
@@ -250,8 +246,8 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 
     LogInfo(ctx, "ROM read complete");
 
-    // "Sending stop command..." (lines 928-955): fatal on mismatch or empty
-    // reply, unlike the dump-setup exchange above.
+    // "Sending stop command...": fatal on mismatch or empty reply, unlike the
+    // dump-setup exchange above.
     LogInfo(ctx, "Sending stop command...");
     if (Result<bytes::Bytes> stop = FatalRequest(ctx, bytes::Bytes{uds::kSidRequestTransferExit}, "the stop command");
         !stop.has_value())
@@ -262,10 +258,9 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
     return rom;
 }
 
-// Legacy erase_memory, lines 1279-1345. One write, then re-reads (never
-// re-sends) up to 21 times total until the ECU reports completion --
-// structurally the CAN counterpart of subaru_hitachi_m32r_kline_executor.cpp's
-// erase_rom retry loop.
+// One write, then re-reads (never re-sends) up to 21 times total until the ECU
+// reports completion -- structurally the CAN counterpart of
+// subaru_hitachi_m32r_kline_executor.cpp's erase_rom retry loop.
 Status EraseMemory(Ctx& ctx)
 {
     LogInfo(ctx, "Erasing ECU ROM...");
@@ -276,9 +271,9 @@ Status EraseMemory(Ctx& ctx)
     {
         return sent;
     }
-    // Legacy's initial post-write read (lines 1310-1311) is discarded --
-    // unconditionally overwritten by the loop's first iteration -- so it is
-    // not reproduced as a separate step here.
+    // Legacy's initial post-write read is discarded -- unconditionally
+    // overwritten by the loop's first iteration -- so it is not reproduced as a
+    // separate step here.
     bool connected = false;
     for (int attempt = 0; attempt < 20; ++attempt)
     {
@@ -309,15 +304,13 @@ Status EraseMemory(Ctx& ctx)
     return {};
 }
 
-// Legacy reflash_block, lines 1056-1272, called once for the whole ROM
-// (numblocks == 1 for this family's FlashDevice).
+// Called once for the whole ROM (numblocks == 1 for this family's FlashDevice).
 Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& progress)
 {
     constexpr std::uint32_t kChunkSize = 256;
     constexpr std::uint32_t kLength = 0x80000;
 
-    // "Setting flash start & length..." (lines 1092-1127): fatal on mismatch
-    // or empty reply.
+    // "Setting flash start & length...": fatal on mismatch or empty reply.
     LogInfo(ctx, "Setting flash start & length...");
     if (Result<bytes::Bytes> setup =
             FatalRequest(ctx, bytes::Bytes{uds::kSidRequestDownload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
@@ -327,18 +320,18 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
         return std::unexpected(setup.error());
     }
 
-    // The whole ROM is encrypted once up front (legacy write_mem line 986),
-    // not per chunk.
+    // The whole ROM is encrypted once up front (legacy write_mem), not per
+    // chunk.
     const bytes::Bytes encrypted = EncryptRom(image);
 
     for (std::uint32_t addr = 0; addr < kLength; addr += kChunkSize)
     {
-        // Legacy's stopRequested() check (line 1132) returns 0 -- success --
-        // to the caller on cancellation, which write_mem then reports as a
-        // completed block. That is not reproduced here: a cancellation
-        // mid-write must never be reported as a successful ROM write, so
-        // this deliberately diverges from the literal legacy return value
-        // and reports Cancelled like every other family's write loop.
+        // Legacy's stopRequested() check returns 0 -- success -- to the caller
+        // on cancellation, which write_mem then reports as a completed block.
+        // That is not reproduced here: a cancellation mid-write must never be
+        // reported as a successful ROM write, so this deliberately diverges
+        // from the literal legacy return value and reports Cancelled like every
+        // other family's write loop.
         if (ctx.cancellation.Cancelled())
         {
             return Fail(ErrorKind::kCancelled, "write cancelled");
@@ -354,11 +347,10 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
         progress.Update(static_cast<int>(addr + kChunkSize));
     }
 
-    // Close-block retry loop (legacy lines 1180-1210): up to 6 attempts,
-    // tolerant of any non-0x77 response -- including a genuine exchange
-    // failure -- and the loop's own success flag is never checked
-    // afterward. Transcribed exactly: no check is added here that legacy
-    // does not have.
+    // Close-block retry loop: up to 6 attempts, tolerant of any non-0x77
+    // response -- including a genuine exchange failure -- and the loop's own
+    // success flag is never checked afterward. Transcribed exactly: no check is
+    // added here that legacy does not have.
     LogInfo(ctx, "Closing out Flashing of this block...");
     for (int attempt = 0; attempt < 6; ++attempt)
     {
@@ -371,9 +363,9 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
         }
     }
 
-    // "Verifying checksum..." (legacy lines 1214-1269). The ECU answers
-    // pending (0x7F 0x31 0x78) before the real result; UdsClient absorbs
-    // that NRC by re-reading internally, so this is a single request() call.
+    // "Verifying checksum...". The ECU answers pending (0x7F 0x31 0x78) before
+    // the real result; UdsClient absorbs that NRC by re-reading internally, so
+    // this is a single request() call.
     LogInfo(ctx, "Verifying checksum...");
     if (Result<bytes::Bytes> checksum =
             FatalQuery(ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x02, 0x01},

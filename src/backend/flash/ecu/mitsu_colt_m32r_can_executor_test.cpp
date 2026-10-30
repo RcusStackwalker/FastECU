@@ -142,8 +142,8 @@ std::string_view McuFor(std::string_view protocol)
     return protocol == kProtocol512 ? kMcu512 : kMcu384;
 }
 
-// Every request on this bus carries a 4-byte big-endian 0x7E0 prefix
-// (legacy build_request, flash_ecu_mitsu_m32r_can_operation.cpp:58-64).
+// Every request on this bus carries a 4-byte big-endian 0x7E0 prefix (legacy
+// build_request).
 bytes::Bytes Request(bytes::ByteView payload)
 {
     bytes::Bytes out;

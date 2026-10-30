@@ -20,12 +20,11 @@
 
 // Every exchange below cites the line of
 // src/platform/desktop/common/flash/legacy/tcu/flash_tcu_cvt_subaru_hitachi_m32r_can_operation.cpp
-// it was transcribed from. This is the family whose execute() calls the
-// always-failing hack_words() instead of connect_bootloader()/read_mem()/
-// write_mem() -- those three (plus their private helpers) are the real,
-// previously-unreachable logic this file ports; hack_words() itself (lines
-// 415-492) is not ported. See the original port design's "Deliberate divergence"
-// section and subaru_tcu_cvt_hitachi_m32r_can_types.h.
+// it was transcribed from. This is the family whose execute() calls the always-failing
+// hack_words() instead of connect_bootloader()/read_mem()/ write_mem() -- those three (plus their
+// private helpers) are the real, previously-unreachable logic this file ports; hack_words() itself
+// is not ported. See the original port design's "Deliberate divergence" section and
+// subaru_tcu_cvt_hitachi_m32r_can_types.h.
 namespace fastecu::flash
 {
 namespace
@@ -76,13 +75,13 @@ constexpr std::uint32_t kOtherRequestId = 0x7e0;
 // M32R_512KB's 11 flash blocks (src/backend/flash/kernel/kernelmemorymodels.h,
 // kFlashBlocksM32R_512KB): block 3 is 0x8000 bytes, NOT the uniform 0x10000 the
 // original port plan's Global Constraints table states for it (a transcription slip
-// there -- confirmed directly against the source, block 3 is
-// {0x00008000, 0x00008000}, not {0x00008000, 0x00010000}). Legacy's
-// block_modified mask skips blocks 0-2 and flashes 3-10 (8 blocks); those 8
-// blocks' lengths sum to exactly kWindow.length (0x78000), but are NOT eight
-// uniform 64KiB blocks: one 32KiB block (index 3) followed by seven 64KiB
-// blocks (indices 4-10). write_mem calls reflash_block once per block, with
-// that block's own fdt->fblocks[blockno].start/.len (lines 750-796).
+// there -- confirmed directly against the source, block 3 is {0x00008000,
+// 0x00008000}, not {0x00008000, 0x00010000}). Legacy's block_modified mask skips
+// blocks 0-2 and flashes 3-10 (8 blocks); those 8 blocks' lengths sum to exactly
+// kWindow.length (0x78000), but are NOT eight uniform 64KiB blocks: one 32KiB block
+// (index 3) followed by seven 64KiB blocks (indices 4-10). write_mem calls
+// reflash_block once per block, with that block's own
+// fdt->fblocks[blockno].start/.len.
 constexpr std::array<MemoryRegion, 8> kWriteBlocks{{
     {0x08000, 0x08000},
     {0x10000, 0x10000},
@@ -174,14 +173,14 @@ Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView e
     return FatalQuery(ctx, ctx.uds, pdu, expected_prefix, subject, min_payload_size);
 }
 
-// Legacy's TCU ID / CAL ID queries and the second session request (lines
-// 137-211, 244-265): logged on mismatch or absence but never halt
-// connect_bootloader -- even a genuine exchange failure is logged and
-// swallowed, mirroring subaru_hitachi_m32r_can_executor.cpp's
-// NonFatalQuery and legacy's own total absence of an early return here.
-// All three follow the standard SID+0x40 convention (0xAA->0xEA, 0x09->0x49,
-// 0x10->0x50), so they go through `client` (always ctx.other_uds here) like
-// every other exchange, instead of a hand-rolled raw path.
+// Legacy's TCU ID / CAL ID queries and the second session request: logged on
+// mismatch or absence but never halt connect_bootloader -- even a genuine
+// exchange failure is logged and swallowed, mirroring
+// subaru_hitachi_m32r_can_executor.cpp's NonFatalQuery and legacy's own total
+// absence of an early return here. All three follow the standard SID+0x40
+// convention (0xAA->0xEA, 0x09->0x49, 0x10->0x50), so they go through `client`
+// (always ctx.other_uds here) like every other exchange, instead of a
+// hand-rolled raw path.
 void NonFatalQuery(Ctx& ctx, uds::UdsClient& client, bytes::ByteView pdu,
                    std::optional<bytes::Byte> expected_subfunction, std::string_view label)
 {
@@ -189,17 +188,15 @@ void NonFatalQuery(Ctx& ctx, uds::UdsClient& client, bytes::ByteView pdu,
                                     expected_subfunction, kRejectionPrefix, label);
 }
 
-// Legacy connect_bootloader, lines 87-408.
 Status ConnectBootloader(Ctx& ctx)
 {
-    // Kernel-alive pre-check (lines 100-129): a match short-circuits the
-    // rest of connect_bootloader with zero further writes. Sent/read on
-    // this family's own 0x7e1/0x7e9 pair, so this goes through the channel
-    // directly (mirrors subaru_hitachi_m32r_can_executor.cpp's OBK-probe
-    // pattern): a genuine channel-level Result failure still propagates;
-    // only "no frame" or "frame present but content doesn't match" falls
-    // through to full initialization, matching legacy's total absence of an
-    // early return on that branch.
+    // Kernel-alive pre-check: a match short-circuits the rest of
+    // connect_bootloader with zero further writes. Sent/read on this family's
+    // own 0x7e1/0x7e9 pair, so this goes through the channel directly (mirrors
+    // subaru_hitachi_m32r_can_executor.cpp's OBK-probe pattern): a genuine
+    // channel-level Result failure still propagates; only "no frame" or "frame
+    // present but content doesn't match" falls through to full initialization,
+    // matching legacy's total absence of an early return on that branch.
     LogInfo(ctx, "Checking if kernel is already running...");
     if (const Status sent = ctx.channel.Send(
             bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01}, ctx.cancellation);
@@ -229,20 +226,20 @@ Status ConnectBootloader(Ctx& ctx)
 
     LogInfo(ctx, "TCU Init...");
 
-    // TCU ID / CAL ID queries (lines 137-211): sent on 0x7E0, non-fatal.
-    // Six of connect_bootloader's exchanges (these two, both session
-    // requests, and both seed exchanges below) are sent on 0x7E0 -- the OBD
-    // generic-ECU envelope, NOT this family's own 0x7E1/0x7E9 pair `ctx.uds`
-    // is bound to. Confirmed directly against lines 138-333: only the
-    // initial alive probe, the jump, and the final alive re-check use 0x7E1
-    // (the brief calls out the two identity queries explicitly; the
-    // session/seed exchanges carry the same 0xE0 envelope byte on inspection
-    // of the same line range). All six follow the standard SID+0x40
-    // convention, so `ctx.other_uds` -- a second CanFlashUdsChannel/UdsClient
-    // pair bound to (0x7e0, family.response_id) over the same underlying
-    // transport (see execute() and Ctx's comment) -- carries them through
-    // the same FatalRequest()/NonFatalQuery() machinery every other
-    // exchange in this file uses, rather than a hand-rolled raw path.
+    // TCU ID / CAL ID queries: sent on 0x7E0, non-fatal. Six of
+    // connect_bootloader's exchanges (these two, both session requests, and
+    // both seed exchanges below) are sent on 0x7E0 -- the OBD generic-ECU
+    // envelope, NOT this family's own 0x7E1/0x7E9 pair `ctx.uds` is bound to.
+    // Confirmed directly against legacy: only the initial alive probe, the jump, and
+    // the final alive re-check use 0x7E1 (the brief calls out the two identity
+    // queries explicitly; the session/seed exchanges carry the same 0xE0
+    // envelope byte on inspection). All six follow the
+    // standard SID+0x40 convention, so `ctx.other_uds` -- a second
+    // CanFlashUdsChannel/UdsClient pair bound to (0x7e0, family.response_id)
+    // over the same underlying transport (see execute() and Ctx's comment) --
+    // carries them through the same FatalRequest()/NonFatalQuery() machinery
+    // every other exchange in this file uses, rather than a hand-rolled raw
+    // path.
     LogInfo(ctx, "Requesting TCU ID");
     NonFatalQuery(ctx, ctx.other_uds, bytes::Bytes{uds::kSidEcuIdQuery}, std::nullopt, "TCU ID");
     LogInfo(ctx, "Requesting CAL ID");
@@ -251,7 +248,7 @@ Status ConnectBootloader(Ctx& ctx)
 
     LogInfo(ctx, "Initializing bootloader...");
 
-    // Session 0x10/0x03 (lines 216-242): sent on 0x7E0, fatal.
+    // Session 0x10/0x03: sent on 0x7E0, fatal.
     LogInfo(ctx, "Requesting session mode");
     if (Result<bytes::Bytes> session = FatalQuery(
             ctx, ctx.other_uds, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
@@ -261,11 +258,11 @@ Status ConnectBootloader(Ctx& ctx)
         return std::unexpected(session.error());
     }
 
-    // Session 0x10/0x43 (lines 244-265): sent on 0x7E0, non-fatal.
+    // Session 0x10/0x43: sent on 0x7E0, non-fatal.
     NonFatalQuery(ctx, ctx.other_uds, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBootload},
                   kSessionBootload, "session mode (bootloader)");
 
-    // Seed request 0x27/0x01 (lines 267-293): sent on 0x7E0, fatal.
+    // Seed request 0x27/0x01: sent on 0x7E0, fatal.
     LogInfo(ctx, "Starting seed request...");
     Result<bytes::Bytes> seed_reply =
         FatalQuery(ctx, ctx.other_uds, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
@@ -278,7 +275,7 @@ Status ConnectBootloader(Ctx& ctx)
     const bytes::ByteView seed = uds::Payload(*seed_reply).subspan(1, 4);
     const bytes::Bytes key = SeedKey(seed);
 
-    // Seed key 0x27/0x02 (lines 305-333): sent on 0x7E0, fatal.
+    // Seed key 0x27/0x02: sent on 0x7E0, fatal.
     LogInfo(ctx, "Sending seed key");
     bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
     key_request.insert(key_request.end(), key.begin(), key.end());
@@ -290,8 +287,8 @@ Status ConnectBootloader(Ctx& ctx)
     }
     LogInfo(ctx, "Seed key ok");
 
-    // Jump 0x10/0x02 (lines 339-365): back to this family's own 0x7e1,
-    // fatal, standard SID+0x40 -- routed through FatalRequest/ctx.uds.
+    // Jump 0x10/0x02: back to this family's own 0x7e1, fatal, standard SID+0x40
+    // -- routed through FatalRequest/ctx.uds.
     LogInfo(ctx, "Jumping to onboard kernel...");
     if (Result<bytes::Bytes> jump_reply =
             FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionProgramming},
@@ -302,7 +299,7 @@ Status ConnectBootloader(Ctx& ctx)
     }
     LogInfo(ctx, "Jump to kernel ok");
 
-    // Alive re-check 0x31/0x02/0x02/0x01 (lines 373-401): 0x7e1, fatal.
+    // Alive re-check 0x31/0x02/0x02/0x01: 0x7e1, fatal.
     LogInfo(ctx, "Checking if jump successful and kernel alive...");
     if (Result<bytes::Bytes> recheck =
             FatalQuery(ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01},
@@ -316,14 +313,14 @@ Status ConnectBootloader(Ctx& ctx)
     return {};
 }
 
-// Legacy read_mem, lines 499-719 (the resolved kWindow, not the underflowed
-// literal address -- see the plan's kReadRegion comment).
+// Legacy read_mem, (the resolved kWindow, not the underflowed literal address
+// -- see the plan's kReadRegion comment).
 Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 {
-    // "Settting dump start & length..." (lines 526-562): fatal on mismatch
-    // or empty reply -- unlike subaru_hitachi_m32r_can_executor.cpp's
-    // analogous step, this one IS fatal in this family's legacy source
-    // (both branches of the length check return STATUS_ERROR).
+    // "Settting dump start & length...": fatal on mismatch or empty reply --
+    // unlike subaru_hitachi_m32r_can_executor.cpp's analogous step, this one IS
+    // fatal in this family's legacy source (both branches of the length check
+    // return STATUS_ERROR).
     LogInfo(ctx, "Settting dump start & length...");
     if (Result<bytes::Bytes> setup = FatalQuery(
             ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{kWindow.start}, U24{kWindow.length}),
@@ -343,33 +340,30 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 
     LogInfo(ctx, "ROM read complete");
 
-    // "Sending stop command..." (lines 673-700). Legacy's own check here is
-    // inverted (received.at(4) == 0x77 -- a MATCHING response -- is treated
-    // as the error branch), the opposite polarity of every other close/stop
-    // check in this file (e.g. reflash_block's, lines 926-941, correctly
-    // uses != 0x77). Reproducing the inversion literally would make a
-    // successful read always report failure, defeating this port's stated
-    // purpose of giving the family a working path for the first time.
-    // Routing this exchange through FatalRequest(), exactly like every
-    // other standard SID+0x40 exchange in this file, naturally yields the
-    // correct polarity (a matching 0x77 is Ok, anything else is an error)
-    // without reproducing the bug -- disclosed here as a third deliberate
-    // divergence, alongside the dead-code and address-clamp ones already
-    // named in the plan and the matrix.
+    // "Sending stop command...". Legacy's own check here is inverted
+    // (received.at(4) == 0x77 -- a MATCHING response -- is treated as the error
+    // branch), the opposite polarity of every other close/stop check in this
+    // file (e.g. reflash_block's, correctly uses != 0x77). Reproducing the
+    // inversion literally would make a successful read always report failure,
+    // defeating this port's stated purpose of giving the family a working path
+    // for the first time. Routing this exchange through FatalRequest(), exactly
+    // like every other standard SID+0x40 exchange in this file, naturally
+    // yields the correct polarity (a matching 0x77 is Ok, anything else is an
+    // error) without reproducing the bug -- disclosed here as a third
+    // deliberate divergence, alongside the dead-code and address-clamp ones
+    // already named in the plan and the matrix.
     if (Result<bytes::Bytes> stop = FatalRequest(ctx, bytes::Bytes{uds::kSidRequestTransferExit}, "the stop command");
         !stop.has_value())
     {
         return std::unexpected(stop.error());
     }
 
-    // Legacy pads the unread low 0x8000 region with 0x00 (lines 705-712),
-    // unlike MH8111/MH8104, which pad with 0xFF; see the plan's kReadRegion
-    // comment.
+    // Legacy pads the unread low 0x8000 region with 0x00, unlike MH8111/MH8104,
+    // which pad with 0xFF; see the plan's kReadRegion comment.
     rom->insert(rom->begin(), kWindow.start, 0x00);
     return rom;
 }
 
-// Legacy erase_mem, lines 991-1039.
 Status EraseMemory(Ctx& ctx)
 {
     LogInfo(ctx, "Erasing TCU ROM...");
@@ -380,13 +374,12 @@ Status EraseMemory(Ctx& ctx)
     {
         return sent;
     }
-    // Legacy checks the echoed SID literally (0x31), not the standard
-    // SID+0x40 positive-response convention (0x71) every other exchange in
-    // this file uses -- this cannot go through FatalRequest()/ctx.uds,
-    // which would classify a raw 0x31-prefixed reply as Malformed and
-    // reject it regardless of content (confirmed against lines 1022-1036;
-    // the brief's own scripting note, "fatal-checked 0x31 0x02 0x01",
-    // matches).
+    // Legacy checks the echoed SID literally (0x31), not the standard SID+0x40
+    // positive-response convention (0x71) every other exchange in this file
+    // uses -- this cannot go through FatalRequest()/ctx.uds, which would
+    // classify a raw 0x31-prefixed reply as Malformed and reject it regardless
+    // of content (confirmed against legacy; the brief's own scripting note,
+    // "fatal-checked 0x31 0x02 0x01", matches).
     Result<std::optional<bytes::Bytes>> received = ctx.channel.Receive(2000ms, ctx.cancellation);
     if (!received.has_value())
     {
@@ -410,16 +403,16 @@ Status EraseMemory(Ctx& ctx)
     return {};
 }
 
-// Legacy reflash_block, lines 811-984, called once per modified block
-// (blocks 3-10 of M32R_512KB's 11 -- see kWriteBlocks).
+// Called once per modified block (blocks 3-10 of M32R_512KB's 11 -- see
+// kWriteBlocks).
 Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_t start, std::uint32_t length,
                              std::uint32_t done_before, PhaseReporter& progress)
 {
     constexpr std::uint32_t kChunkSize = 128;
 
-    // "Settting flash start & length..." (lines 845-880): fatal, and only
-    // the SID is checked (received.at(4) != 0x74) -- FatalRequest()'s own
-    // SID+0x40 matching already enforces exactly that.
+    // "Settting flash start & length...": fatal, and only the SID is checked
+    // (received.at(4) != 0x74) -- FatalRequest()'s own SID+0x40 matching
+    // already enforces exactly that.
     LogInfo(ctx, "Settting flash start & length...");
     if (Result<bytes::Bytes> setup =
             FatalRequest(ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{start}, U24{length}),
@@ -433,12 +426,11 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
 
     for (std::uint32_t offset = 0; offset < length; offset += kChunkSize)
     {
-        // Legacy's stopRequested() check (line 884) returns 0 -- success --
-        // to the caller on cancellation, which write_mem then reports as a
-        // completed block; the same bug subaru_hitachi_m32r_can_executor.cpp
-        // already disclosed and diverged from for its own family. Not
-        // reproduced here either: a cancellation mid-write is reported as
-        // Cancelled, never success.
+        // Legacy's stopRequested() check returns 0 -- success -- to the caller
+        // on cancellation, which write_mem then reports as a completed block;
+        // the same bug subaru_hitachi_m32r_can_executor.cpp already disclosed
+        // and diverged from for its own family. Not reproduced here either: a
+        // cancellation mid-write is reported as Cancelled, never success.
         if (ctx.cancellation.Cancelled())
         {
             return Fail(ErrorKind::kCancelled, "write cancelled");
@@ -446,11 +438,11 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
 
         const std::uint32_t addr = start + offset;
         const bytes::ByteView chunk_data = bytes::ByteView(encrypted).subspan(offset, kChunkSize);
-        // Legacy reads but never inspects the per-chunk reply at all (lines
-        // 907-908) -- only a transport-level failure from the read itself
-        // fails this exchange. Routed through the channel directly (not
-        // FatalRequest()/ctx.uds, which would enforce the SID+0x40 content
-        // match this family's legacy code never checks here).
+        // Legacy reads but never inspects the per-chunk reply at all -- only a
+        // transport-level failure from the read itself fails this exchange.
+        // Routed through the channel directly (not FatalRequest()/ctx.uds,
+        // which would enforce the SID+0x40 content match this family's legacy
+        // code never checks here).
         if (const Status exchanged = ExchangeCvtB6Chunk(ctx.channel, ctx.cancellation, addr, chunk_data);
             !exchanged.has_value())
         {
@@ -459,11 +451,10 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
         progress.Update(static_cast<int>(done_before + offset + kChunkSize));
     }
 
-    // Closing (lines 914-941): a single fatal attempt -- unlike Task 1's
-    // ECU family (subaru_hitachi_m32r_can_executor.cpp), which retries up
-    // to 6 times and tolerates every non-0x77 reply including a genuine
-    // exchange failure, this family's own close check has no retry loop at
-    // all.
+    // Closing: a single fatal attempt -- unlike Task 1's ECU family
+    // (subaru_hitachi_m32r_can_executor.cpp), which retries up to 6 times and
+    // tolerates every non-0x77 reply including a genuine exchange failure, this
+    // family's own close check has no retry loop at all.
     LogInfo(ctx, "Closing out Flashing of this block...");
     if (Result<bytes::Bytes> closed =
             FatalRequest(ctx, bytes::Bytes{uds::kSidRequestTransferExit}, "the close command");
@@ -472,7 +463,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
         return std::unexpected(closed.error());
     }
 
-    // "Verifying checksum..." (lines 945-978).
+    // "Verifying checksum...".
     LogInfo(ctx, "Verifying checksum...");
     if (Result<bytes::Bytes> checksum =
             FatalQuery(ctx, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x02, 0x01},
@@ -485,9 +476,9 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
     return {};
 }
 
-// Legacy write_mem, lines 727-804: erase_mem() is a separate, explicit call
-// here (unlike Task 1's ECU family, which has no standalone erase), followed
-// by one reflash_block() call per modified block.
+// erase_mem() is a separate, explicit call here (unlike Task 1's ECU family,
+// which has no standalone erase), followed by one reflash_block() call per
+// modified block.
 Status WriteBlocks(Ctx& ctx, bytes::ByteView image, PhaseReporter& write)
 {
     std::uint32_t done = 0;
