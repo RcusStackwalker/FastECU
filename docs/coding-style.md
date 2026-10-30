@@ -150,6 +150,31 @@ if (Status s = writeBlock(block); !s.has_value()) {
 }
 ```
 
+**Chain a straight-line run of fallible steps with `and_then`.** When two or
+more fallible calls run in sequence, each consuming only the previous step's
+value (or nothing), and every failure branch only propagates the error, write
+one `and_then` chain instead of an early return per step. Step logging goes
+inside the lambdas; a reply check is an `and_then` lambda that returns
+`Fail(...)`; `transform` is only for an infallible last step. Capture with
+`[&]`, and spell the return type (`-> Result<T>`, `-> Status`) when a lambda
+has more than one `return`:
+
+```cpp
+return FatalQuery(ctx, seed_request, ...)
+    .and_then(
+        [&](const bytes::Bytes& seed_reply)
+        {
+            log("Seed request ok");
+            return FatalQuery(ctx, KeyRequest(seed_reply), ...);
+        })
+    .transform([&](const bytes::Bytes&) { log("Seed key ok"); });
+```
+
+Keep the early-return form inside loops, when a step needs values from two or
+more earlier steps, and when a failure branch does more than propagate
+(cleanup, logging, a different error). A qualifying run inside a longer
+function is chained on its own.
+
 **Exceptions never cross a port.** The `ErrorKind` set in
 [error.h](../src/backend/ports/error.h) is closed; adding a value needs an
 [ADR](adr/README.md).
