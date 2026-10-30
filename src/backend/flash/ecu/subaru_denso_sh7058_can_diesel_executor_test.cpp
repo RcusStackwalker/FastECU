@@ -1910,5 +1910,23 @@ TEST(SubaruDensoSh7058CanDieselExecutor, WrongRepliesRenderInTheProfilePduFormat
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
+TEST(SubaruDensoSh7058CanDieselExecutor, BeforeConfigureStopsWhenCancelledOrWhenTheResetFails)
+{
+    for (const bool cancelled : {true, false})
+    {
+        SCOPED_TRACE(::testing::PrintToString(cancelled));
+        ScriptedCanFlashTransport transport;
+        transport.reset_result = Fail(ErrorKind::kDisconnected, "reset failed");
+        FakeClock clock;
+        FakeCancellationToken cancellation{cancelled};
+        EXPECT_THAT(SubaruDensoSh7058CanDieselExecutor{}.BeforeTransportConfigure(transport, clock, cancellation),
+                    cancelled ? IsErrWith(ErrorKind::kCancelled, Eq("cancelled before CAN reset"))
+                              : IsErrWith(ErrorKind::kDisconnected, Eq("reset failed")));
+        EXPECT_EQ(transport.lifecycle_calls,
+                  cancelled ? std::vector<std::string>{} : std::vector<std::string>{"reset_connection"});
+        EXPECT_EQ(clock.Elapsed(), 0ms);
+    }
+}
+
 } // namespace
 } // namespace fastecu::flash
