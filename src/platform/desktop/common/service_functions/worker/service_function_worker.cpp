@@ -77,14 +77,9 @@ std::optional<GateResponse> ServiceFunctionWorker::WaitForGate()
 
 void ServiceFunctionWorker::run()
 {
-    const Result<SsmTransportConfig> setup = session_->TransportSetup();
-    if (!setup.has_value())
-    {
-        emit finished(FailureResult(setup.error()));
-        return;
-    }
-
-    if (const Status configured = configurator_->Apply(*setup); !configured.has_value())
+    if (const Status configured = session_->TransportSetup().and_then([&](const SsmTransportConfig& setup)
+                                                                      { return configurator_->Apply(setup); });
+        !configured.has_value())
     {
         emit finished(FailureResult(configured.error()));
         return;

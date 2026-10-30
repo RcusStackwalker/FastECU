@@ -23,8 +23,8 @@ using namespace std::chrono_literals;
 constexpr auto kShortTimeout = 200ms;
 constexpr auto kLongTimeout = 800ms;
 constexpr auto kExtraLongTimeout = 3000ms;
-// read_mem() :157-163 polls up to 50 times, sleeping 100 ms after each poll,
-// then sleeps 1 ms per page (:204).
+// read_mem() polls up to 50 times, sleeping 100 ms after each poll, then sleeps
+// 1 ms per page.
 constexpr unsigned kPagePolls = 50;
 constexpr auto kPagePollDelay = 100ms;
 constexpr auto kInterPageDelay = 1ms;
@@ -105,8 +105,8 @@ Status Discard(IKlineFlashTransport& transport, IClock& clock, const ICancellati
     return {};
 }
 
-// Legacy compares the whole reply with the token (flash_block() :394,
-// write_mem() :268, :286); the accumulated reply must equal it exactly.
+// Legacy compares the whole reply with the token (flash_block(), write_mem());
+// the accumulated reply must equal it exactly.
 Status ExpectAck(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                  std::string_view token, std::chrono::milliseconds budget)
 {
@@ -128,9 +128,9 @@ Status ExpectAck(IKlineFlashTransport& transport, IClock& clock, const ICancella
                 std::format("BDM bridge sent {} instead of {}", bytes::ToHex(*received), token));
 }
 
-// read_mem() :146-175. Legacy replaced its buffer on every poll and appended
-// any non-empty remainder; the page now accumulates across polls and must be
-// exactly 0x400 bytes (spec: deliberate corrections).
+// Legacy replaced its buffer on every poll and appended any non-empty
+// remainder; the page now accumulates across polls and must be exactly 0x400
+// bytes (spec: deliberate corrections).
 Result<bytes::Bytes> ReadPage(std::uint32_t address, IKlineFlashTransport& transport, IClock& clock,
                               const ICancellationToken& cancellation)
 {
@@ -166,7 +166,6 @@ Result<bytes::Bytes> ReadPage(std::uint32_t address, IKlineFlashTransport& trans
     return page;
 }
 
-// read_mem() :82-215.
 Result<bytes::Bytes> ReadImage(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
                                const ICancellationToken& cancellation, IEventSink& events)
 {
@@ -185,7 +184,7 @@ Result<bytes::Bytes> ReadImage(const FlashPlan& plan, IKlineFlashTransport& tran
     {
         if (address == kRamStart)
         {
-            // read_mem() :132-144: the RAM block is never requested.
+            // The RAM block is never requested.
             image.insert(image.end(), kRamEnd - kRamStart, 0xff);
             address = kRamEnd;
             continue;
@@ -220,15 +219,12 @@ constexpr std::string_view kAckWrite = "ACK_WR";
 Status SendAndAck(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                   bytes::ByteView request, std::string_view token, std::chrono::milliseconds budget)
 {
-    if (auto written = WriteExact(transport, request); !written.has_value())
-    {
-        return written;
-    }
-    return ExpectAck(transport, clock, cancellation, token, budget);
+    return WriteExact(transport, request)
+        .and_then([&] { return ExpectAck(transport, clock, cancellation, token, budget); });
 }
 
-// write_mem() :296-305 reads and logs these replies without checking them;
-// the bridge's replies are unknown, so they stay ungated (spec appendix).
+// write_mem() reads and logs these replies without checking them; the bridge's
+// replies are unknown, so they stay ungated (spec appendix).
 Status LogReply(std::string_view command, IKlineFlashTransport& transport, IClock& clock,
                 const ICancellationToken& cancellation, IEventSink& events)
 {
@@ -241,27 +237,25 @@ Status LogReply(std::string_view command, IKlineFlashTransport& transport, ICloc
     return {};
 }
 
-// write_mem() :217-350 and flash_block() :352-474. Uploads the padded kernel to
-// RAM, enables SCIB, sets PC/SP and starts the kernel. The ROM is not written.
-// Writes the kernel into RAM in upload chunks.
+// Uploads the padded kernel to RAM, enables SCIB, sets PC/SP and starts the
+// kernel. The ROM is not written. Writes the kernel into RAM in upload chunks.
 Status WriteKernelToRam(bytes::ByteView kernel, IKlineFlashTransport& transport, IClock& clock,
                         const ICancellationToken& cancellation, IEventSink& events)
 {
-    // write_mem() :226.
-    if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
-    {
-        return cleared;
-    }
-    // flash_block() :378-399.
-    events.Log(LogLevel::kInfo, std::format("Writing block: 00 at address 0x{:08X}", kRamStart));
-    if (auto started = SendAndAck(transport, clock, cancellation,
-                                  Ascii(std::format("wdmem 0x{:08X} 0x{:08X}", kRamStart, kernel.size())), kAckCommand,
-                                  kExtraLongTimeout);
+    if (auto started =
+            Discard(transport, clock, cancellation, events, kShortTimeout)
+                .and_then(
+                    [&]
+                    {
+                        events.Log(LogLevel::kInfo, std::format("Writing block: 00 at address 0x{:08X}", kRamStart));
+                        return SendAndAck(transport, clock, cancellation,
+                                          Ascii(std::format("wdmem 0x{:08X} 0x{:08X}", kRamStart, kernel.size())),
+                                          kAckCommand, kExtraLongTimeout);
+                    });
         !started.has_value())
     {
         return started;
     }
-    // flash_block() :402-468.
     const std::size_t chunks = kernel.size() / kUploadChunk;
     for (std::size_t index = 0; index < chunks; ++index)
     {
@@ -278,7 +272,6 @@ Status WriteKernelToRam(bytes::ByteView kernel, IKlineFlashTransport& transport,
         events.Progress(static_cast<int>(index + 1), static_cast<int>(chunks));
     }
     events.Log(LogLevel::kInfo, "Block write complete.");
-    // flash_block() :470.
     if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
     {
         return cleared;
@@ -289,35 +282,21 @@ Status WriteKernelToRam(bytes::ByteView kernel, IKlineFlashTransport& transport,
 Status EnableScib(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                   IEventSink& events)
 {
-    // write_mem() :258-275: enable SCIB (the kernel sets 62500 baud itself).
-    if (auto scib =
-            SendAndAck(transport, clock, cancellation, Ascii("wdmem 0xFFC28 0x4"), kAckCommand, kExtraLongTimeout);
-        !scib.has_value())
-    {
-        return scib;
-    }
-    if (auto cleared = Discard(transport, clock, cancellation, events, kLongTimeout); !cleared.has_value())
-    {
-        return cleared;
-    }
-    // write_mem() :277-294.
-    if (auto scib =
-            SendAndAck(transport, clock, cancellation, bytes::Bytes{0x00, 0x0d, 0x00, 0x0c}, kAckWrite, kLongTimeout);
-        !scib.has_value())
-    {
-        return scib;
-    }
-    if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
-    {
-        return cleared;
-    }
-    return {};
+    // Enable SCIB (the kernel sets 62500 baud itself).
+    return SendAndAck(transport, clock, cancellation, Ascii("wdmem 0xFFC28 0x4"), kAckCommand, kExtraLongTimeout)
+        .and_then([&] { return Discard(transport, clock, cancellation, events, kLongTimeout); })
+        .and_then(
+            [&]
+            {
+                return SendAndAck(transport, clock, cancellation, bytes::Bytes{0x00, 0x0d, 0x00, 0x0c}, kAckWrite,
+                                  kLongTimeout);
+            })
+        .and_then([&] { return Discard(transport, clock, cancellation, events, kShortTimeout); });
 }
 
 Status StartKernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                    IEventSink& events)
 {
-    // write_mem() :296-305.
     if (auto written = WriteExact(transport, Ascii("wpcsp")); !written.has_value())
     {
         return written;
@@ -329,13 +308,10 @@ Status StartKernel(IKlineFlashTransport& transport, IClock& clock, const ICancel
             return logged;
         }
     }
-    // write_mem() :317-323. Once `go` is sent the kernel is running: nothing
-    // after it can fail or cancel the operation.
-    if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    if (auto written = WriteExact(transport, Ascii("go")); !written.has_value())
+    // Once `go` is sent the kernel is running: nothing after it can fail or
+    // cancel the operation.
+    if (auto written = CancelledIfRequested(cancellation).and_then([&] { return WriteExact(transport, Ascii("go")); });
+        !written.has_value())
     {
         return written;
     }
@@ -354,21 +330,14 @@ Status BootstrapKernel(bytes::ByteView kernel, IKlineFlashTransport& transport, 
                        const ICancellationToken& cancellation, IEventSink& events)
 {
     events.Log(LogLevel::kInfo, "Uploading kernel to Subaru Denso MC68HC16 RAM with BDM");
-    if (auto written = WriteKernelToRam(kernel, transport, clock, cancellation, events); !written.has_value())
-    {
-        return written;
-    }
-    if (auto scib = EnableScib(transport, clock, cancellation, events); !scib.has_value())
-    {
-        return scib;
-    }
-    return StartKernel(transport, clock, cancellation, events);
+    return WriteKernelToRam(kernel, transport, clock, cancellation, events)
+        .and_then([&] { return EnableScib(transport, clock, cancellation, events); })
+        .and_then([&] { return StartKernel(transport, clock, cancellation, events); });
 }
 } // namespace
 
 Result<KlineConfig> SubaruDensoMc68hc16y5_02BdmExecutor::Setup(const SubaruDensoMc68hc16y5_02BdmPlan& family) const
 {
-    // execute() :50-54.
     return KlineConfig{
         .baud = family.baud, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::kNone};
 }

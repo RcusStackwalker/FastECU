@@ -15,8 +15,12 @@
 
 #include <algorithm>
 #include <iterator>
+#include <optional>
 #include <ranges>
 #include <string_view>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
@@ -25,6 +29,7 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
+#include "src/backend/flash/testing/faulting_kline_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 
 using ::testing::_;
@@ -716,6 +721,116 @@ TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentS
 
     run_to_seed_key(DensoSecurityVariant::kStock, stock_key);
     run_to_seed_key(DensoSecurityVariant::kEcuTek, ecutek_key);
+}
+
+namespace
+{
+void EnqueueFullRead(ScriptedKlineFlashTransport& transport)
+{
+    EnqueueFullBootloaderAndKernelUpload(transport, bytes::Bytes{0x11, 0x22, 0x33, 0x44}, KernelFixtureBytes(),
+                                         kKernelStartAddr);
+    transport.ExpectWrite(SidDumpRequestForSh7055(2));
+    transport.QueueRead(EepromPayload280Bytes());
+}
+
+// The number of `op` calls in a clean full read.
+std::size_t CountCalls(KlineFaultOp op)
+{
+    auto plan = ValidKlinePlan();
+    if (!plan.has_value())
+    {
+        ADD_FAILURE() << "plan rejected";
+        return 0;
+    }
+    FaultingKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    transport.op = op;
+    EnqueueFullRead(transport);
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+    std::ignore = DensoSh705xEepromKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events);
+    return transport.calls;
+}
+} // namespace
+
+TEST(DensoSh705xEepromKlineExecutorTest, EveryTransportFaultInAFullReadPropagatesAndStops)
+{
+    // The third header-mode call is the best-effort reset after the read; its
+    // failure is logged, not returned.
+    const std::vector<std::pair<KlineFaultOp, std::size_t>> ops{
+        {KlineFaultOp::kWrite, CountCalls(KlineFaultOp::kWrite)},
+        {KlineFaultOp::kRead, CountCalls(KlineFaultOp::kRead)},
+        {KlineFaultOp::kSetBaud, CountCalls(KlineFaultOp::kSetBaud)},
+        {KlineFaultOp::kHeaderMode, CountCalls(KlineFaultOp::kHeaderMode) - 1},
+    };
+    for (const auto& [op, count] : ops)
+    {
+        SCOPED_TRACE(::testing::Message() << "op " << static_cast<int>(op));
+        ASSERT_GT(count, 0U);
+        for (std::size_t k = 1; k <= count; ++k)
+        {
+            SCOPED_TRACE(::testing::Message() << "call " << k);
+            auto plan = ValidKlinePlan();
+            ASSERT_THAT(plan, fastecu::testing::IsOk());
+            FaultingKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+            transport.op = op;
+            transport.fail_at = k;
+            EnqueueFullRead(transport);
+            FakeClock clock;
+            FakeCancellationToken cancellation;
+            RecordingEventSink events;
+            EXPECT_THAT(DensoSh705xEepromKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                        fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("injected")));
+            EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>{transport.WritesConsumed()});
+        }
+    }
+}
+
+TEST(DensoSh705xEepromKlineExecutorTest, EveryCancellationCheckInAFullReadStops)
+{
+    std::size_t checks = 0;
+    {
+        auto plan = ValidKlinePlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        EnqueueFullRead(transport);
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        cancellation.SetPredicate(
+            [&checks]
+            {
+                ++checks;
+                return false;
+            });
+        RecordingEventSink events;
+        ASSERT_THAT(DensoSh705xEepromKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsOk());
+    }
+    for (std::size_t n = 1; n <= checks; ++n)
+    {
+        SCOPED_TRACE(n);
+        auto plan = ValidKlinePlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        EnqueueFullRead(transport);
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        std::size_t seen = 0;
+        std::optional<std::size_t> writes_at_cancel;
+        cancellation.SetPredicate(
+            [&]
+            {
+                if (++seen == n)
+                {
+                    writes_at_cancel = transport.WritesConsumed();
+                }
+                return seen >= n;
+            });
+        RecordingEventSink events;
+        EXPECT_THAT(DensoSh705xEepromKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErr(ErrorKind::kCancelled));
+        EXPECT_EQ(writes_at_cancel, std::optional<std::size_t>{transport.WritesConsumed()});
+    }
 }
 
 } // namespace fastecu::flash

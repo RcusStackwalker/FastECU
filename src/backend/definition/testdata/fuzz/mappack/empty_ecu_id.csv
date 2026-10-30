@@ -1,0 +1,2 @@
+Name;FolderName;DataOrg;Columns;Rows;Fieldvalues.Name;Fieldvalues.Unit;Fieldvalues.Factor;Precision;Fieldvalues.StartAddr;AxisX.Name;AxisX.DataOrg;AxisX.Unit;AxisX.Factor;AxisX.Precision;AxisX.DataHeader;AxisX.DataAddr;AxisY.Name;AxisY.DataOrg;AxisY.Unit;AxisY.Factor;AxisY.Precision;AxisY.DataHeader;AxisY.DataAddr;Comment
+;;;2;3;;;1;1;1;;;;2;0;;;;;;3;1;;;

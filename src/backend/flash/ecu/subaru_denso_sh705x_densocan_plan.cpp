@@ -35,21 +35,6 @@ constexpr auto kCatalog =
                                  {"sub_ecu_denso_sh7058s_diesel_densocan", "SH7058", 0x00100000, 0xFFFF3000},
                                  {"sub_ecu_denso_sh7059_diesel_densocan", "SH7059d", 0x00180000, 0xFFFEE000}});
 
-Result<CatalogEntry> GetCatalogEntry(std::string_view protocol, std::string_view mcu)
-{
-    const auto it = std::ranges::find(kCatalog, protocol, &CatalogEntry::protocol);
-    if (it == kCatalog.end())
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("Unsupported DensoCAN protocol: {}", protocol));
-    }
-    if (mcu != it->mcu)
-    {
-        return Fail(ErrorKind::kInvalidConfig,
-                    std::format("DensoCAN protocol {} requires MCU {}, not {}", protocol, it->mcu, mcu));
-    }
-    return *it;
-}
-
 const FlashDevice *CheckedDevice(const CatalogEntry& entry)
 {
     const FlashDevice *device = FindFlashDevice(entry.mcu);
@@ -71,21 +56,6 @@ bool WireParametersMatch(const SubaruDensoSh705xDensoCanPlan& wire)
            wire.raw_receive_id == 0x21 && wire.bitrate == 500000 && !wire.iso_extended_id && wire.raw_extended_id;
 }
 
-Status ValidateImage(const FlashPlan& plan, const FlashDevice& device)
-{
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        return !detail::OperationImageShapeMatches(plan, device.romsize)
-                   ? Fail(ErrorKind::kInvalidConfig, "DensoCAN read plan carries an image")
-                   : Status{};
-    }
-    if (!detail::OperationImageShapeMatches(plan, device.romsize))
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
-    }
-    return {};
-}
-
 } // namespace
 
 Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan)
@@ -95,7 +65,7 @@ Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN wire parameters are invalid");
     }
-    const auto entry = GetCatalogEntry(plan.TargetId(), plan.McuName());
+    const auto entry = detail::FindCatalogEntry(kCatalog, "DensoCAN", plan.TargetId(), plan.McuName());
     if (!entry.has_value())
     {
         return std::unexpected(entry.error());
@@ -105,32 +75,18 @@ Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN catalog does not match the flash device table");
     }
-    if (!plan.Kernel().has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, "DensoCAN requires a kernel image");
-    }
-    if (Status kernel = detail::ValidateKernelUpload<6>(plan.Kernel()->bytes.size(), plan.Kernel()->load_address,
-                                                        entry->kernel_load_address, device->kblocks[0]);
-        !kernel.has_value())
-    {
-        return kernel;
-    }
     if (!detail::RequiresOnly(plan.Confirmations(), ConfirmationSpec::Id::kCycleIgnition))
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN requires exactly the CycleIgnition confirmation");
     }
-    if (Status regions = detail::ValidateRegions(plan, *device); !regions.has_value())
-    {
-        return regions;
-    }
-    return ValidateImage(plan, *device);
+    return detail::ValidateWholeRomKernelPlan<6>(plan, entry->kernel_load_address, *device);
 }
 
 Result<FlashPlan> BuildSubaruDensoSh705xDensocanPlan(FlashOperation operation, std::string_view protocol_name,
                                                      std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                      KernelImage kernel)
 {
-    const auto entry = GetCatalogEntry(protocol_name, mcu_type);
+    const auto entry = detail::FindCatalogEntry(kCatalog, "DensoCAN", protocol_name, mcu_type);
     if (!entry.has_value())
     {
         return std::unexpected(entry.error());
@@ -140,53 +96,18 @@ Result<FlashPlan> BuildSubaruDensoSh705xDensocanPlan(FlashOperation operation, s
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN catalog does not match the flash device table");
     }
-    if (Status upload = detail::ValidateKernelUpload<6>(kernel.bytes.size(), kernel.load_address,
-                                                        entry->kernel_load_address, device->kblocks[0]);
-        !upload.has_value())
-    {
-        return std::unexpected(upload.error());
-    }
-    if (operation == FlashOperation::kRead)
-    {
-        if (image.has_value())
+    return detail::BuildWholeRomKernelPlan<6>(
         {
-            return Fail(ErrorKind::kInvalidConfig, "DensoCAN read plans must not carry an image");
-        }
-    }
-    else if (!image.has_value() || image->size() != device->romsize)
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", device->romsize));
-    }
-
-    std::vector<MemoryRegion> erase_regions;
-    if (operation != FlashOperation::kRead)
-    {
-        erase_regions = detail::MakeEraseRegions(*device);
-    }
-
-    FlashPlanFields fields{
-        .operation = operation,
-        .family = FlashFamily::kSubaruDensoSh705xDensoCan,
-        .transport = TransportKind::kCanRawIso15765,
-        .target_id = std::string(protocol_name),
-        .mcu_name = std::string(mcu_type),
-        .transfer_region = {device->fblocks[0].start, device->romsize},
-        .erase_regions = std::move(erase_regions),
-        .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
-        .kernel = std::move(kernel),
-        .family_plan = WireParameters(),
-        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}},
-    };
-    Result<FlashPlan> plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705xDensocanPlan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+            .operation = operation,
+            .family = FlashFamily::kSubaruDensoSh705xDensoCan,
+            .transport = TransportKind::kCanRawIso15765,
+            .target_id = std::string(protocol_name),
+            .mcu_name = std::string(mcu_type),
+            .family_plan = WireParameters(),
+            .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}},
+        },
+        std::move(image), std::move(kernel), entry->kernel_load_address, *device,
+        ValidateSubaruDensoSh705xDensocanPlan);
 }
 
 } // namespace fastecu::flash

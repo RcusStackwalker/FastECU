@@ -27,8 +27,10 @@ namespace
 {
 using namespace std::chrono_literals;
 using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::_;
+using ::testing::Eq;
 using ::testing::Optional;
 
 constexpr MixedCanConfig Config()
@@ -374,6 +376,104 @@ TEST(TestDesktopMixedCanFlashTransport, cancellationAndUnblockSuppressSubsequent
     EXPECT_CALL(*fake, ReadSerialData(::testing::_)).Times(0);
     const auto unblocked_read = transport.ReadIso15765(10ms, cancellation);
     EXPECT_THAT(unblocked_read, IsErr(ErrorKind::kCancelled));
+}
+
+TEST(TestDesktopMixedCanFlashTransport, rejectsIoAndTransitionsInTheWrongMode)
+{
+    FakeBackend *fake = nullptr;
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
+    FakeCancellationToken cancellation;
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
+    EXPECT_CALL(*fake, WriteSerialDataEchoCheck(_)).Times(0);
+    EXPECT_CALL(*fake, ReadSerialData(_)).Times(0);
+    EXPECT_CALL(*fake, ClearRxBuffer()).Times(0);
+    const auto wrong_mode = [](std::string operation)
+    { return IsErrWith(ErrorKind::kInvalidConfig, Eq("mixed CAN " + operation + " in wrong mode")); };
+
+    EXPECT_THAT(transport.EnterIso15765KernelMode(), wrong_mode("ISO-15765 kernel transition"));
+    EXPECT_THAT(transport.ClearReceiveBuffer(), wrong_mode("receive-buffer clear"));
+    EXPECT_THAT(transport.WriteRaw({0x000ffffe, {0x7a}}, cancellation), wrong_mode("raw CAN write"));
+    EXPECT_THAT(transport.ReadRaw(10ms, cancellation), wrong_mode("raw CAN read"));
+
+    ASSERT_THAT(transport.EnterRawBootloaderMode(), IsOk());
+    EXPECT_THAT(transport.EnterRawBootloaderMode(), wrong_mode("raw bootloader transition"));
+    EXPECT_THAT(transport.WriteIso15765(bytes::Bytes{0x01}, cancellation), wrong_mode("ISO-15765 write"));
+    EXPECT_THAT(transport.ReadIso15765(10ms, cancellation), wrong_mode("ISO-15765 read"));
+}
+
+TEST(TestDesktopMixedCanFlashTransport, rawTransitionResetFailureMakesIoTerminal)
+{
+    FakeBackend *fake = nullptr;
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
+    FakeCancellationToken cancellation;
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
+    EXPECT_CALL(*fake, ResetConnection()).WillOnce(::testing::Throw(std::runtime_error("scripted reset failure")));
+    EXPECT_CALL(*fake, SetIsCanConnection(true)).Times(0);
+
+    EXPECT_THAT(transport.EnterRawBootloaderMode(), IsErr(ErrorKind::kInternal));
+    EXPECT_THAT(transport.WriteRaw({0x000ffffe, {0x7a}}, cancellation), IsErr(ErrorKind::kInternal));
+}
+
+TEST(TestDesktopMixedCanFlashTransport, kernelTransitionFailuresMakeIoTerminal)
+{
+    const std::array<std::function<void(FakeBackend&)>, 3> failures{
+        [](FakeBackend& fake)
+        { EXPECT_CALL(fake, ResetConnection()).WillOnce(::testing::Throw(std::runtime_error("scripted reset"))); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, SetIsIso15765Connection(true)).WillOnce(::testing::Return(false)); },
+        [](FakeBackend& fake) { EXPECT_CALL(fake, OpenSerialPort()).WillOnce(::testing::Return(QString{})); },
+    };
+    const std::array<ErrorKind, 3> kinds{ErrorKind::kInternal, ErrorKind::kInvalidConfig, ErrorKind::kDisconnected};
+    for (std::size_t index = 0; index < failures.size(); ++index)
+    {
+        SCOPED_TRACE(index);
+        FakeBackend *fake = nullptr;
+        DesktopMixedCanFlashTransport transport(MakeSerial(fake));
+        FakeCancellationToken cancellation;
+        ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
+        ASSERT_THAT(transport.EnterRawBootloaderMode(), IsOk());
+        failures.at(index)(*fake);
+
+        EXPECT_THAT(transport.EnterIso15765KernelMode(), IsErr(kinds.at(index)));
+        EXPECT_CALL(*fake, WriteSerialDataEchoCheck(_)).Times(0);
+        EXPECT_THAT(transport.WriteIso15765(bytes::Bytes{0x01}, cancellation), IsErr(kinds.at(index)));
+    }
+}
+
+TEST(TestDesktopMixedCanFlashTransport, rawIoRejectsOversizedPayloadsAndPassesEmptyAndCancelledReads)
+{
+    FakeBackend *fake = nullptr;
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
+    FakeCancellationToken cancellation;
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
+    ASSERT_THAT(transport.EnterRawBootloaderMode(), IsOk());
+
+    EXPECT_CALL(*fake, WriteSerialDataEchoCheck(_)).Times(0);
+    EXPECT_THAT(transport.WriteRaw({0x000ffffe, bytes::Bytes(9, 0x00)}, cancellation),
+                IsErrWith(ErrorKind::kInvalidConfig, Eq("raw CAN payload exceeds 8 bytes")));
+
+    EXPECT_CALL(*fake, ReadSerialData(_)).WillOnce(::testing::Return(QByteArray{}));
+    EXPECT_THAT(transport.ReadRaw(10ms, cancellation), fastecu::testing::IsOkAnd(Eq(std::nullopt)));
+
+    EXPECT_CALL(*fake, ReadSerialData(_))
+        .WillOnce(::testing::Return(QByteArray::fromHex("00000021000000000000000000")));
+    EXPECT_THAT(transport.ReadRaw(10ms, cancellation),
+                IsErrWith(ErrorKind::kBadResponse, Eq("raw CAN response payload exceeds 8 bytes")));
+
+    FakeCancellationToken cancelled(true);
+    EXPECT_THAT(transport.ReadRaw(10ms, cancelled), IsErr(ErrorKind::kCancelled));
+}
+
+TEST(TestDesktopMixedCanFlashTransport, clearReceiveBufferRejectsAClosedPort)
+{
+    FakeBackend *fake = nullptr;
+    DesktopMixedCanFlashTransport transport(MakeSerial(fake));
+    ASSERT_NO_FATAL_FAILURE(ConfigureAndOpen(transport));
+    ASSERT_THAT(transport.EnterRawBootloaderMode(), IsOk());
+    EXPECT_CALL(*fake, IsSerialPortOpen()).WillOnce(::testing::Return(false));
+    EXPECT_CALL(*fake, ClearRxBuffer()).Times(0);
+
+    EXPECT_THAT(transport.ClearReceiveBuffer(),
+                IsErrWith(ErrorKind::kDisconnected, Eq("mixed CAN adapter disconnected before receive-buffer clear")));
 }
 
 TEST(TestDesktopMixedCanFlashTransport, nonOwningCloseDoesNotDestroyCallerSerial)

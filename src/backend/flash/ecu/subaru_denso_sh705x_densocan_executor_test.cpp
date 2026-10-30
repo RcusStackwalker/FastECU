@@ -226,8 +226,8 @@ bytes::Bytes IsoRequest(std::uint8_t opcode, bytes::ByteView payload = {})
 
 bytes::Bytes KernelIdRequest()
 {
-    // Legacy request_kernel_id(), lines 1435-1484. The declared BEEF length
-    // is one opcode byte, followed by three fixed zero bytes on the CAN wire.
+    // The declared BEEF length is one opcode byte, followed by three fixed zero
+    // bytes on the CAN wire.
     return {0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00};
 }
 
@@ -315,10 +315,10 @@ void ScriptUpload(ScriptedMixedCanFlashTransport& transport, std::optional<cdbg:
     transport.ExpectRawWrite(RawRequest({0x7A, 0x9C, 0xFF, 0xFF, 0x60, 0x04, 0x00, 0x00}));
     transport.QueueRawRead(RawResponse({0x7A, 0x9C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}));
 
-    // Hand-derived from the five-byte test kernel in legacy upload_kernel()
-    // (r59f4e442 lines 227-507): its final six-byte block is zero-padded
-    // and B4 carries FFFF6004 + 6 + 1 = FFFF600B. Keep these as fixed wire
-    // literals; no test helper recomputes the production padding arithmetic.
+    // Hand-derived from the five-byte test kernel in legacy upload_kernel():
+    // its final six-byte block is zero-padded and B4 carries FFFF6004 + 6 + 1 =
+    // FFFF600B. Keep these as fixed wire literals; no test helper recomputes
+    // the production padding arithmetic.
     transport.ExpectRawWrite(RawRequest({0x7A, 0xAE, 0x11, 0x22, 0x33, 0x44, 0x55, 0x00}));
     transport.ExpectRawWrite(RawRequest({0x7A, 0xB4, 0xFF, 0xFF, 0x60, 0x0B, 0x00, 0x00}));
     transport.QueueRawRead(RawResponse({0x7A, 0xB1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}));
@@ -681,7 +681,7 @@ std::vector<LogRecord> ExpectedLegacyWriteLogs(const FlashDevice& device, FlashO
     logs.emplace_back(LogLevel::kInfo, ": 0x1000");
     logs.emplace_back(LogLevel::kInfo, test_write ? "Test write mode on, no actual flash write is performed"
                                                   : "Test write mode off, perform actual flash write");
-    logs.emplace_back(LogLevel::kError, "Flash mode succesfully set");
+    logs.emplace_back(LogLevel::kError, "Flash mode successfully set");
     logs.emplace_back(LogLevel::kInfo, "Flash block addr: 0x00000000 len: 0x00001000");
     logs.emplace_back(LogLevel::kInfo, "Check flash voltage");
     logs.emplace_back(LogLevel::kInfo, ": 2V");
@@ -780,9 +780,9 @@ std::vector<LogRecord> ExpectedLegacyUploadReadLogs(std::uint32_t rom_size)
     return logs;
 }
 
-// Kernel ID request literal, derived from legacy request_kernel_id() lines
-// 1435-1484: [000007e0][beef][0001][01][000000]. This locks the helper above
-// independently of the executor's private framing logic.
+// Kernel ID request literal, derived from legacy request_kernel_id():
+// [000007e0][beef][0001][01][000000]. This locks the helper above independently
+// of the executor's private framing logic.
 TEST(SubaruDensoSh705xDensoCanExecutor, KernelIdFrameMatchesHandDerivedWireBytes)
 {
     EXPECT_THAT(KernelIdRequest(), ElementsAre(0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00));

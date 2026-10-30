@@ -1,4 +1,5 @@
 #include "src/backend/definition/mappack_converter.h"
+#include "src/backend/definition/text_format.h"
 
 #include <algorithm>
 #include <charconv>
@@ -351,6 +352,10 @@ Status AppendMap(pugi::xml_node base, pugi::xml_node rom, const MapRow& row)
 
 Result<std::string> ConvertMappackCsv(std::string_view csv, std::string_view ecu_id)
 {
+    if (TrimHeaderText(ecu_id).empty())
+    {
+        return Invalid(1, "ecu_id", "expected nonempty ECU ID");
+    }
     if (ContainsXmlControl(ecu_id))
     {
         return Invalid(1, "ecu_id", "XML-invalid control character");

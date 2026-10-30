@@ -111,12 +111,13 @@ Status ValidateHeaderStructure(pugi::xml_node rom, std::string_view source)
         }
         return {};
     };
-    if (auto status = validate_fields(rom.child("romid"), kSingletonChildren); !status.has_value())
-    {
-        return status;
-    }
-    constexpr std::array kRootFields{"include", "notes"};
-    return validate_fields(rom, kRootFields);
+    return validate_fields(rom.child("romid"), kSingletonChildren)
+        .and_then(
+            [&]
+            {
+                constexpr std::array kRootFields{"include", "notes"};
+                return validate_fields(rom, kRootFields);
+            });
 }
 
 namespace
@@ -231,34 +232,30 @@ Result<std::string> RequiredChildText(pugi::xml_node parent, std::string_view pa
 
 Result<std::string> DefinitionIdForRom(pugi::xml_node rom, std::string_view source)
 {
-    auto rom_id = IdentityElement(rom, source);
-    if (!rom_id)
-    {
-        return std::unexpected(rom_id.error());
-    }
-    return RequiredChildText(*rom_id, "romid", "xmlid", source);
+    return IdentityElement(rom, source)
+        .and_then([&](pugi::xml_node rom_id) { return RequiredChildText(rom_id, "romid", "xmlid", source); });
 }
 
 Result<ParsedRomHeader> ParseRomHeader(pugi::xml_node rom, std::string_view source)
 {
-    auto definition_id = DefinitionIdForRom(rom, source);
-    if (!definition_id.has_value())
-    {
-        return std::unexpected(definition_id.error());
-    }
-    const auto rom_id = rom.child("romid");
-    auto address = ParseHeaderAddress(ReadElementText(rom_id.child("internalidaddress")), source, *definition_id);
-    if (!address.has_value())
-    {
-        return std::unexpected(address.error());
-    }
-    return ParsedRomHeader{
-        .rom = rom,
-        .identity = RomIdentity{.xml_id = std::move(*definition_id),
-                                .internal_id = HeaderChildText(rom_id, "internalidstring"),
-                                .ecu_id = HeaderChildText(rom_id, "ecuid"),
-                                .internal_id_address = *address},
-    };
+    return DefinitionIdForRom(rom, source)
+        .and_then(
+            [&](std::string definition_id)
+            {
+                const auto rom_id = rom.child("romid");
+                return ParseHeaderAddress(ReadElementText(rom_id.child("internalidaddress")), source, definition_id)
+                    .transform(
+                        [&](std::optional<memory::DefinitionAddress> address)
+                        {
+                            return ParsedRomHeader{
+                                .rom = rom,
+                                .identity = RomIdentity{.xml_id = std::move(definition_id),
+                                                        .internal_id = HeaderChildText(rom_id, "internalidstring"),
+                                                        .ecu_id = HeaderChildText(rom_id, "ecuid"),
+                                                        .internal_id_address = address},
+                            };
+                        });
+            });
 }
 
 RomMetadata ParseMetadata(pugi::xml_node rom_id)
@@ -372,22 +369,19 @@ Result<std::optional<memory::DefinitionAddress>> OptionalAddress(pugi::xml_node 
                                                                  std::string_view definition_id)
 {
     const char *name = node.attribute("address") ? "address" : "storageaddress";
-    auto value = OptionalHexAttribute(node, name, source, definition_id);
-    if (!value.has_value())
-    {
-        return std::unexpected(value.error());
-    }
-    if (!value->has_value())
-    {
-        return std::optional<memory::DefinitionAddress>{};
-    }
-    auto address = DefinitionAddressFrom(**value, TrimCopy(node.attribute(name).value()), source,
-                                         std::format("element <{}> attribute '{}'", node.name(), name), definition_id);
-    if (!address.has_value())
-    {
-        return std::unexpected(address.error());
-    }
-    return std::optional<memory::DefinitionAddress>{*address};
+    return OptionalHexAttribute(node, name, source, definition_id)
+        .and_then(
+            [&](std::optional<std::uint64_t> value) -> Result<std::optional<memory::DefinitionAddress>>
+            {
+                if (!value.has_value())
+                {
+                    return std::optional<memory::DefinitionAddress>{};
+                }
+                return DefinitionAddressFrom(*value, TrimCopy(node.attribute(name).value()), source,
+                                             std::format("element <{}> attribute '{}'", node.name(), name),
+                                             definition_id)
+                    .transform([](memory::DefinitionAddress address) { return std::optional{address}; });
+            });
 }
 
 Result<std::uint32_t> DimensionAttribute(pugi::xml_node node, std::string_view attribute_name,
@@ -481,35 +475,30 @@ Status PopulateCommonAxisAttributes(pugi::xml_node table, UnresolvedAxisDefiniti
 {
     axis.type = ValueOrEmpty(table.attribute("type"));
     axis.name = ValueOrEmpty(table.attribute("name"));
-    auto storage_type = OptionalStorageTypeAttribute(table, "storagetype", source, definition_id);
-    if (!storage_type.has_value())
-    {
-        return std::unexpected(storage_type.error());
-    }
-    axis.storage_type = *storage_type;
-    axis.endian = ValueOrEmpty(table.attribute("endian"));
-    if (auto status = PopulateOptionalHexDimension(table, "startpos", axis.start_position, source, definition_id);
-        !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = PopulateOptionalHexDimension(table, "interval", axis.interval, source, definition_id);
-        !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (const auto log_parameter = table.attribute("logparam"))
-    {
-        axis.log_parameter = ValueOrEmpty(log_parameter);
-    }
-    if (table.child("data"))
-    {
-        const auto data_nodes = table.children("data");
-        axis.static_data = data_nodes |
-                           std::views::transform([](pugi::xml_node data) { return TableElementText(data); }) |
-                           std::ranges::to<std::vector<std::string>>();
-    }
-    return {};
+    return OptionalStorageTypeAttribute(table, "storagetype", source, definition_id)
+        .and_then(
+            [&](std::optional<StorageType> storage_type)
+            {
+                axis.storage_type = storage_type;
+                axis.endian = ValueOrEmpty(table.attribute("endian"));
+                return PopulateOptionalHexDimension(table, "startpos", axis.start_position, source, definition_id);
+            })
+        .and_then([&] { return PopulateOptionalHexDimension(table, "interval", axis.interval, source, definition_id); })
+        .transform(
+            [&]
+            {
+                if (const auto log_parameter = table.attribute("logparam"))
+                {
+                    axis.log_parameter = ValueOrEmpty(log_parameter);
+                }
+                if (table.child("data"))
+                {
+                    const auto data_nodes = table.children("data");
+                    axis.static_data =
+                        data_nodes | std::views::transform([](pugi::xml_node data) { return TableElementText(data); }) |
+                        std::ranges::to<std::vector<std::string>>();
+                }
+            });
 }
 
 void ApplyScalingToAxis(const UnresolvedScaling& scaling, UnresolvedAxisDefinition& axis)
@@ -550,28 +539,23 @@ Status PopulateCommonMapAttributes(pugi::xml_node table, UnresolvedCalibrationMa
     }
     map.level = ValueOrEmpty(table.attribute("level"));
     map.user_level = ValueOrEmpty(table.attribute("userlevel"));
-    auto storage_type = OptionalStorageTypeAttribute(table, "storagetype", source, definition_id);
-    if (!storage_type.has_value())
-    {
-        return std::unexpected(storage_type.error());
-    }
-    map.storage_type = *storage_type;
-    map.endian = ValueOrEmpty(table.attribute("endian"));
-    if (auto status = PopulateOptionalHexDimension(table, "startpos", map.start_position, source, definition_id);
-        !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = PopulateOptionalHexDimension(table, "interval", map.interval, source, definition_id);
-        !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (const auto log_parameter = table.attribute("logparam"))
-    {
-        map.log_parameter = ValueOrEmpty(log_parameter);
-    }
-    return {};
+    return OptionalStorageTypeAttribute(table, "storagetype", source, definition_id)
+        .and_then(
+            [&](std::optional<StorageType> storage_type)
+            {
+                map.storage_type = storage_type;
+                map.endian = ValueOrEmpty(table.attribute("endian"));
+                return PopulateOptionalHexDimension(table, "startpos", map.start_position, source, definition_id);
+            })
+        .and_then([&] { return PopulateOptionalHexDimension(table, "interval", map.interval, source, definition_id); })
+        .transform(
+            [&]
+            {
+                if (const auto log_parameter = table.attribute("logparam"))
+                {
+                    map.log_parameter = ValueOrEmpty(log_parameter);
+                }
+            });
 }
 
 Status PopulateOptionalDimension(pugi::xml_node table, std::string_view attribute_name,
@@ -626,45 +610,33 @@ Status PopulateOptionalBoolean(pugi::xml_node table, std::string_view attribute_
 Status PopulateMapHeader(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
                          std::string_view definition_id)
 {
-    if (auto status = PopulateCommonMapAttributes(table, map, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (map.name.empty())
-    {
-        return Invalid(source, "element <table> attribute 'name'", "missing or empty map name", definition_id);
-    }
-    auto address = OptionalAddress(table, source, definition_id);
-    if (!address.has_value())
-    {
-        return std::unexpected(address.error());
-    }
-    map.address = *address;
-    return {};
+    return PopulateCommonMapAttributes(table, map, source, definition_id)
+        .and_then(
+            [&]() -> Result<std::optional<memory::DefinitionAddress>>
+            {
+                if (map.name.empty())
+                {
+                    return Invalid(source, "element <table> attribute 'name'", "missing or empty map name",
+                                   definition_id);
+                }
+                return OptionalAddress(table, source, definition_id);
+            })
+        .transform([&](std::optional<memory::DefinitionAddress> address) { map.address = address; });
 }
 
 Status PopulateMapSize(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
                        std::string_view definition_id)
 {
-    if (auto status = PopulateOptionalDimension(table, "sizex", map.x_size, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    return PopulateOptionalDimension(table, "sizey", map.y_size, source, definition_id);
+    return PopulateOptionalDimension(table, "sizex", map.x_size, source, definition_id)
+        .and_then([&] { return PopulateOptionalDimension(table, "sizey", map.y_size, source, definition_id); });
 }
 
 Status PopulateMapOrientation(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
                               std::string_view definition_id)
 {
-    if (auto status = PopulateOptionalBoolean(table, "swapxy", map.swap_xy, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = PopulateOptionalBoolean(table, "flipx", map.flip_x, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    return PopulateOptionalBoolean(table, "flipy", map.flip_y, source, definition_id);
+    return PopulateOptionalBoolean(table, "swapxy", map.swap_xy, source, definition_id)
+        .and_then([&] { return PopulateOptionalBoolean(table, "flipx", map.flip_x, source, definition_id); })
+        .and_then([&] { return PopulateOptionalBoolean(table, "flipy", map.flip_y, source, definition_id); });
 }
 
 std::string MapScalingFallbackName(const UnresolvedCalibrationMap& map)

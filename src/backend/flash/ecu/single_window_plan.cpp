@@ -57,38 +57,47 @@ Status ValidateOperation(const SingleWindowPlanSpec& spec, FlashOperation operat
 
 Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPlan& plan)
 {
-    if (auto valid = ValidateIdentity(spec, plan.TargetId(), plan.McuName()); !valid.has_value())
-    {
-        return valid;
-    }
-    if (!spec.wire_params_ok(plan))
-    {
-        return Fail(kInvalidConfig, std::format("{} wire parameters are invalid", spec.display_name));
-    }
-    if (const MemoryRegion& expected = plan.Operation() == FlashOperation::kRead ? spec.read_region : spec.write_region;
+    return ValidateIdentity(spec, plan.TargetId(), plan.McuName())
+        .and_then(
+            [&]() -> Status
+            {
+                if (!spec.wire_params_ok(plan))
+                {
+                    return Fail(kInvalidConfig, std::format("{} wire parameters are invalid", spec.display_name));
+                }
+                if (plan.Kernel())
+                {
+                    return Fail(kInvalidConfig, std::format("{} plans are kernel-free", spec.display_name));
+                }
+                return ValidateOperation(spec, plan.Operation());
+            })
+        .and_then(
+            [&]
+            {
+                return ValidatePlanWindows(plan, spec.display_name, spec.read_region, spec.write_region,
+                                           spec.image_size);
+            });
+}
+
+Status ValidatePlanWindows(const FlashPlan& plan, std::string_view name, const MemoryRegion& read_region,
+                           const MemoryRegion& write_region, std::uint32_t image_size)
+{
+    if (const MemoryRegion& expected = plan.Operation() == FlashOperation::kRead ? read_region : write_region;
         plan.TransferRegion().start != expected.start || plan.TransferRegion().length != expected.length)
     {
-        return Fail(kInvalidConfig, std::format("{} transfer region is invalid", spec.display_name));
-    }
-    if (plan.Kernel())
-    {
-        return Fail(kInvalidConfig, std::format("{} plans are kernel-free", spec.display_name));
-    }
-    if (auto valid = ValidateOperation(spec, plan.Operation()); !valid.has_value())
-    {
-        return valid;
+        return Fail(kInvalidConfig, std::format("{} transfer region is invalid", name));
     }
     if (plan.Operation() == FlashOperation::kRead)
     {
-        return plan.EraseRegions().empty() ? Status{} : Fail(kInvalidConfig, "read plans must not erase memory");
+        return {};
     }
-    if (!std::ranges::equal(plan.EraseRegions(), std::array{spec.write_region}))
+    if (!std::ranges::equal(plan.EraseRegions(), std::array{write_region}))
     {
-        return Fail(kInvalidConfig, std::format("{} erase region is invalid", spec.display_name));
+        return Fail(kInvalidConfig, std::format("{} erase region is invalid", name));
     }
-    if (!plan.Image().has_value() || plan.Image()->size() != spec.image_size)
+    if (plan.Image()->size() != image_size)
     {
-        return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", spec.image_size));
+        return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", image_size));
     }
     return {};
 }
@@ -97,11 +106,9 @@ Result<FlashPlan> BuildSingleWindowPlan(const SingleWindowPlanSpec& spec, FlashO
                                         std::string_view protocol_name, std::string_view mcu_type,
                                         std::optional<bytes::Bytes> image, FamilyPlan family_plan)
 {
-    if (auto valid = ValidateIdentity(spec, protocol_name, mcu_type); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (auto valid = ValidateOperation(spec, operation); !valid.has_value())
+    if (const Status valid = ValidateIdentity(spec, protocol_name, mcu_type)
+                                 .and_then([&] { return ValidateOperation(spec, operation); });
+        !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -130,15 +137,8 @@ Result<FlashPlan> BuildSingleWindowPlan(const SingleWindowPlanSpec& spec, FlashO
         .kernel = std::nullopt,
         .family_plan = std::move(family_plan),
     };
-    auto plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (auto valid = ValidateSingleWindowPlan(spec, *plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return ValidateAndBuild(std::move(fields))
+        .and_then([&](FlashPlan plan)
+                  { return ValidateSingleWindowPlan(spec, plan).transform([&] { return std::move(plan); }); });
 }
 } // namespace fastecu::flash

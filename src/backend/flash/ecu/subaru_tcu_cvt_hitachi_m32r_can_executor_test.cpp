@@ -216,7 +216,7 @@ void ScriptFullConnect(ScriptedCanFlashTransport& transport)
     ScriptJumpAndRecheck(transport);
 }
 
-// Scripts the "Settting dump start & length..." exchange (legacy read_mem)
+// Scripts the "Setting dump start & length..." exchange (legacy read_mem)
 // over the resolved {0x8000, 0x78000} window.
 void ScriptDumpSetup(ScriptedCanFlashTransport& transport)
 {

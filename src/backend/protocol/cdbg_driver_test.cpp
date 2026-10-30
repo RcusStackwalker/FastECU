@@ -6,6 +6,11 @@
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 #include "src/backend/protocol/testing/scripted_can_transport.h"
 
+#include <ranges>
+#include <string>
+#include <tuple>
+#include <vector>
+
 using ::testing::IsEmpty;
 using namespace mitsu_colt_can_cdbg;
 using namespace std::chrono_literals;
@@ -198,4 +203,134 @@ TEST(TestCdbgDriver, handshake_propagates_cancellation_from_bounded_read)
     fastecu::FakeCancellationToken cancellation(true);
 
     ASSERT_THAT(d.StartFreeFormLog(ch, 0, 10, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
+}
+
+namespace
+{
+struct HandshakeStep
+{
+    CdbgFrame write;
+    bytes::Bytes reply;
+    std::string detail;
+};
+
+// The successful StartFreeFormLog exchange for `ch`, one step per frame sent.
+std::vector<HandshakeStep> HandshakeSteps(const std::vector<CdbgChannel>& ch)
+{
+    const bytes::Bytes ack = test_bytes::BytesFromHex("0000000000000000");
+    std::vector<HandshakeStep> steps{
+        {BuildInitFrame(), ack, "CDBG session init failed"},
+        {BuildSecuritySeedRequestFrame(), test_bytes::BytesFromHex("0000000012345678"),
+         "CDBG security seed request failed"},
+        {BuildSecurityKeyFrame(0x8C536B33), test_bytes::BytesFromHex("0000000100000000"),
+         "CDBG security key request failed"},
+        {BuildLogResetFrame(0), ack, "CDBG log reset failed"},
+    };
+    std::vector<std::vector<CdbgChannel>> frames;
+    std::ignore = BatchChannelsIntoFrames(ch, frames);
+    for (std::size_t f = 0; f < frames.size(); ++f)
+    {
+        steps.append_range(BuildFrameInitFrames(0, bytes::Byte(f), frames.at(f)) |
+                           std::views::transform([&](const CdbgFrame& cmd)
+                                                 { return HandshakeStep{cmd, ack, "CDBG log frame setup failed"}; }));
+    }
+    steps.push_back({BuildLogStartFrame(0, static_cast<bytes::Byte>(frames.size()), 10), ack, "CDBG log start failed"});
+    return steps;
+}
+
+enum class HandshakeFault
+{
+    kWriteRejected,
+    kShortWrite,
+    kReadError,
+    kNoReply,
+    kWrongId,
+    kEmptyPayload,
+};
+
+// Scripts `steps` up to and including `faulted`, whose exchange fails as `fault` says.
+void ScriptFault(cdbg::ScriptedCanTransport& t, const std::vector<HandshakeStep>& steps, std::size_t faulted,
+                 HandshakeFault fault)
+{
+    for (std::size_t i = 0; i < faulted; ++i)
+    {
+        t.ExpectWrite(kRequestCanId, steps[i].write);
+        t.QueueRead(kReplyCanId, steps[i].reply);
+    }
+    switch (fault)
+    {
+    case HandshakeFault::kWriteRejected:
+        break;
+    case HandshakeFault::kShortWrite:
+        t.ExpectShortWrite(kRequestCanId, steps[faulted].write);
+        break;
+    case HandshakeFault::kReadError:
+        t.ExpectWrite(kRequestCanId, steps[faulted].write);
+        t.QueueError(fastecu::ErrorKind::kTimeout, "scripted read failure");
+        break;
+    case HandshakeFault::kNoReply:
+        t.ExpectWrite(kRequestCanId, steps[faulted].write);
+        t.QueueNoFrame();
+        break;
+    case HandshakeFault::kWrongId:
+        t.ExpectWrite(kRequestCanId, steps[faulted].write);
+        t.QueueRead(kRequestCanId, steps[faulted].reply);
+        break;
+    case HandshakeFault::kEmptyPayload:
+        t.ExpectWrite(kRequestCanId, steps[faulted].write);
+        t.QueueRead(kReplyCanId, bytes::Bytes{});
+        break;
+    }
+}
+} // namespace
+
+TEST(TestCdbgDriver, handshake_propagates_each_exchange_failure_and_stays_idle)
+{
+    const std::vector<CdbgChannel> ch = {{0x804FBF, 1}, {0x804DF2, 2}};
+    const std::vector<HandshakeStep> steps = HandshakeSteps(ch);
+    for (std::size_t faulted = 0; faulted < steps.size(); ++faulted)
+    {
+        SCOPED_TRACE(::testing::Message() << "step " << faulted);
+        for (const auto& [fault, kind, detail] :
+             {std::tuple{HandshakeFault::kWriteRejected, fastecu::ErrorKind::kInternal,
+                         std::string("unexpected scripted CAN write")},
+              std::tuple{HandshakeFault::kShortWrite, fastecu::ErrorKind::kInternal, std::string("partial CAN write")},
+              std::tuple{HandshakeFault::kReadError, fastecu::ErrorKind::kTimeout,
+                         std::string("scripted read failure")},
+              std::tuple{HandshakeFault::kNoReply, fastecu::ErrorKind::kBadResponse, steps[faulted].detail},
+              std::tuple{HandshakeFault::kWrongId, fastecu::ErrorKind::kBadResponse, steps[faulted].detail},
+              std::tuple{HandshakeFault::kEmptyPayload, fastecu::ErrorKind::kBadResponse, steps[faulted].detail}})
+        {
+            SCOPED_TRACE(::testing::Message() << "fault " << static_cast<int>(fault));
+            cdbg::ScriptedCanTransport t;
+            ScriptFault(t, steps, faulted, fault);
+            CdbgLogDriver d(t);
+            fastecu::FakeCancellationToken cancellation;
+
+            EXPECT_THAT(d.StartFreeFormLog(ch, 0, 10, cancellation), fastecu::testing::IsErrWith(kind, detail));
+            EXPECT_FALSE(d.IsStreaming());
+            EXPECT_TRUE(t.ScriptConsumed());
+        }
+    }
+}
+
+TEST(TestCdbgDriver, rejects_channels_that_need_more_than_the_maximum_frames_after_unlocking)
+{
+    // A four-byte channel fills a frame, so one channel past the limit needs a ninth frame.
+    const std::vector<CdbgChannel> ch(static_cast<std::size_t>(kMaxFrames) + 1, CdbgChannel{0x804FBF, 4});
+    const std::vector<HandshakeStep> steps = HandshakeSteps({{0x804FBF, 1}});
+    cdbg::ScriptedCanTransport t;
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        t.ExpectWrite(kRequestCanId, steps[i].write);
+        t.QueueRead(kReplyCanId, steps[i].reply);
+    }
+    CdbgLogDriver d(t);
+    fastecu::FakeCancellationToken cancellation;
+
+    EXPECT_THAT(
+        d.StartFreeFormLog(ch, 0, 10, cancellation),
+        fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, "too many CDBG log parameters selected"));
+    EXPECT_FALSE(d.IsStreaming());
+    EXPECT_TRUE(t.ScriptConsumed());
 }

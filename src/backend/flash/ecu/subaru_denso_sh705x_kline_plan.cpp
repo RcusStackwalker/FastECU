@@ -10,6 +10,7 @@
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/ecu/plan_primitives.h"
 
 namespace fastecu::flash
 {
@@ -42,20 +43,6 @@ constexpr auto kVariants = std::to_array<Variant>({
 
 constexpr std::uint32_t kCommitBlockSize = 0x1000;   // flash_block() flashblocksize
 constexpr std::uint64_t kMaxWireLength = 0x00FFFFFF; // send_sid_34_request_upload() 24-bit length
-
-Result<const Variant *> FindVariant(std::string_view protocol, std::string_view mcu)
-{
-    const auto variant = std::ranges::find(kVariants, protocol, &Variant::protocol);
-    if (variant == kVariants.end())
-    {
-        return Fail(kInvalidConfig, std::format("Unsupported Denso SH705x K-Line protocol: {}", protocol));
-    }
-    if (variant->mcu != mcu)
-    {
-        return Fail(kInvalidConfig, std::format("{} requires MCU {}, not {}", protocol, variant->mcu, mcu));
-    }
-    return std::to_address(variant);
-}
 
 Status ValidateOperation(const Variant& variant, FlashOperation operation)
 {
@@ -156,17 +143,18 @@ Result<const FlashDevice *> FindDevice(std::string_view mcu)
 
 Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan)
 {
-    Result<const Variant *> variant = FindVariant(plan.TargetId(), plan.McuName());
+    Result<Variant> variant =
+        detail::FindCatalogEntry(kVariants, "Denso SH705x K-Line", plan.TargetId(), plan.McuName());
     if (!variant.has_value())
     {
         return std::unexpected(variant.error());
     }
-    if (Status valid = ValidateOperation(**variant, plan.Operation()); !valid.has_value())
+    if (Status valid = ValidateOperation(*variant, plan.Operation()); !valid.has_value())
     {
         return valid;
     }
     if (const auto *family = std::get_if<SubaruDensoSh705xKlinePlan>(&plan.FamilyPlan());
-        family == nullptr || *family != WireFor(**variant))
+        family == nullptr || *family != WireFor(*variant))
     {
         return Fail(kInvalidConfig, "Denso SH705x K-Line wire parameters are invalid");
     }
@@ -178,36 +166,33 @@ Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan)
     {
         return Fail(kInvalidConfig, "Denso SH705x K-Line requires a kernel image");
     }
-    if (Status valid = ValidateKernel(**variant, *plan.Kernel()); !valid.has_value())
-    {
-        return valid;
-    }
-    Result<const FlashDevice *> device = FindDevice(plan.McuName());
-    if (!device.has_value())
-    {
-        return std::unexpected(device.error());
-    }
-    if (plan.TransferRegion() != MemoryRegion{0, (*device)->romsize})
-    {
-        return Fail(kInvalidConfig, "Denso SH705x K-Line transfer region does not match the MCU");
-    }
-    return ValidateImage(plan.Operation(), plan.Image(), (*device)->romsize);
+    return ValidateKernel(*variant, *plan.Kernel())
+        .and_then([&] { return FindDevice(plan.McuName()); })
+        .and_then(
+            [&](const FlashDevice *device) -> Status
+            {
+                if (plan.TransferRegion() != MemoryRegion{0, device->romsize})
+                {
+                    return Fail(kInvalidConfig, "Denso SH705x K-Line transfer region does not match the MCU");
+                }
+                return ValidateImage(plan.Operation(), plan.Image(), device->romsize);
+            });
 }
 
 Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std::string_view protocol_name,
                                                   std::string_view mcu_type, std::optional<bytes::Bytes> image,
                                                   KernelImage kernel)
 {
-    Result<const Variant *> variant = FindVariant(protocol_name, mcu_type);
+    Result<Variant> variant = detail::FindCatalogEntry(kVariants, "Denso SH705x K-Line", protocol_name, mcu_type);
     if (!variant.has_value())
     {
         return std::unexpected(variant.error());
     }
-    if (Status valid = ValidateOperation(**variant, operation); !valid.has_value())
+    if (Status valid = ValidateOperation(*variant, operation); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    if (Status valid = ValidateKernel(**variant, kernel); !valid.has_value())
+    if (Status valid = ValidateKernel(*variant, kernel); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -231,19 +216,12 @@ Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std:
         .erase_regions = {},
         .image = operation == FlashOperation::kRead ? std::nullopt : std::move(image),
         .kernel = std::move(kernel),
-        .family_plan = WireFor(**variant),
+        .family_plan = WireFor(*variant),
         .confirmations = {},
     };
-    auto plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705xKlinePlan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return ValidateAndBuild(std::move(fields))
+        .and_then([](FlashPlan plan)
+                  { return ValidateSubaruDensoSh705xKlinePlan(plan).transform([&] { return std::move(plan); }); });
 }
 
 } // namespace fastecu::flash

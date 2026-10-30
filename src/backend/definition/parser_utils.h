@@ -127,21 +127,23 @@ Result<UnresolvedAxisDefinition> ParseAxisDefinition(pugi::xml_node table, std::
                                                      ParseScaling parse_scaling)
 {
     UnresolvedAxisDefinition axis;
-    if (auto status = PopulateCommonAxisAttributes(table, axis, source, definition_id); !status.has_value())
+    const Status header =
+        PopulateCommonAxisAttributes(table, axis, source, definition_id)
+            .and_then(
+                [&]() -> Result<std::optional<memory::DefinitionAddress>>
+                {
+                    if (axis.name.empty())
+                    {
+                        return Invalid(source, std::format("element <table> type '{}' attribute 'name'", axis.type),
+                                       "missing or empty axis name", definition_id);
+                    }
+                    return OptionalAddress(table, source, definition_id);
+                })
+            .transform([&](std::optional<memory::DefinitionAddress> address) { axis.address = address; });
+    if (!header.has_value())
     {
-        return std::unexpected(status.error());
+        return std::unexpected(header.error());
     }
-    if (axis.name.empty())
-    {
-        return Invalid(source, std::format("element <table> type '{}' attribute 'name'", axis.type),
-                       "missing or empty axis name", definition_id);
-    }
-    auto address = OptionalAddress(table, source, definition_id);
-    if (!address.has_value())
-    {
-        return std::unexpected(address.error());
-    }
-    axis.address = *address;
 
     if (const char *size_attribute =
             table.attribute("elements") ? "elements" : (table.attribute("size") ? "size" : nullptr);

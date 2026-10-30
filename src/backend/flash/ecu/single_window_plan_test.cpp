@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
+#include "src/backend/flash/flash_validation.h"
 
 namespace
 {
@@ -196,5 +197,60 @@ TEST(SingleWindowPlan, DistinctReadAndWriteWindowsAreHonoured)
     EXPECT_EQ(write->TransferRegion().start, 0x80000U);
     ASSERT_EQ(write->EraseRegions().size(), 1U);
     EXPECT_EQ(write->EraseRegions()[0].start, 0x80000U);
+}
+
+fastecu::flash::FlashPlanFields HandBuiltReadFields()
+{
+    return {
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kSubaruDensoSh72531Can,
+        .transport = TransportKind::kCanIso15765,
+        .target_id = "sub_ecu_denso_sh72531_can",
+        .mcu_name = "SH72531",
+        .transfer_region = kBlock,
+        .family_plan = Wire(),
+    };
+}
+
+TEST(SingleWindowPlan, ValidateRejectsAPlanForAnotherProtocol)
+{
+    auto fields = HandBuiltReadFields();
+    fields.target_id = "sub_ecu_denso_sh7058_can";
+    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    EXPECT_THAT(
+        ValidateSingleWindowPlan(kSpec, *plan),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                    Eq("Unsupported Test Single Window Family protocol: sub_ecu_denso_sh7058_can")));
+}
+
+TEST(SingleWindowPlan, ValidateRejectsAPlanCarryingAKernel)
+{
+    auto fields = HandBuiltReadFields();
+    fields.kernel = fastecu::flash::KernelImage{.id = "kernel", .load_address = 0xffff0000, .bytes = {0x01}};
+    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    EXPECT_THAT(
+        ValidateSingleWindowPlan(kSpec, *plan),
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, Eq("Test Single Window Family plans are kernel-free")));
+}
+
+TEST(SingleWindowPlan, BuildPropagatesTheGenericPlanValidation)
+{
+    static constexpr SingleWindowPlanSpec kEmptyRead{
+        .display_name = "Test Empty Window Family",
+        .protocols = kProtocols,
+        .mcu = "SH72531",
+        .family = FlashFamily::kSubaruDensoSh72531Can,
+        .transport = TransportKind::kCanIso15765,
+        .read_region = MemoryRegion{0x8000, 0},
+        .write_region = kBlock,
+        .image_size = 0x140000,
+        .geometry_ok = GeometryOk,
+        .wire_params_ok = WireParamsOk,
+    };
+    EXPECT_THAT(BuildSingleWindowPlan(kEmptyRead, FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531",
+                                      std::nullopt, Wire()),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, Eq("transfer_region must not be empty")));
 }
 } // namespace

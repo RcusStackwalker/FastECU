@@ -8,6 +8,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
+#include "src/backend/ports/cancellation.h"
 
 namespace fastecu::flash
 {
@@ -19,38 +20,32 @@ using bytes::Bytes;
 Result<Bytes> Exchange(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancel,
                        bytes::ByteView payload, std::chrono::milliseconds delay = 200ms)
 {
-    if (cancel.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "SH7058 read cancelled");
-    }
     const Bytes frame = ssm_protocol::AddHeader(payload, 0xf0, 0x10);
-    auto written = transport.Write(frame);
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (*written != frame.size())
-    {
-        return Fail(ErrorKind::kDisconnected, "short SH7058 K-Line write");
-    }
-    if (auto slept = clock.Sleep(delay, cancel); !slept.has_value())
-    {
-        return std::unexpected(slept.error());
-    }
-    auto reply = transport.Read(delay == 0ms ? 5000ms : 500ms, cancel);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    if (cancel.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "SH7058 read cancelled");
-    }
-    if (!reply->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no SH7058 K-Line response");
-    }
-    return std::move(**reply);
+    return CheckCancelled(cancel, "SH7058 read cancelled")
+        .and_then([&] { return transport.Write(frame); })
+        .and_then(
+            [&](std::size_t written) -> Status
+            {
+                if (written != frame.size())
+                {
+                    return Fail(ErrorKind::kDisconnected, "short SH7058 K-Line write");
+                }
+                return clock.Sleep(delay, cancel);
+            })
+        .and_then([&] { return transport.Read(delay == 0ms ? 5000ms : 500ms, cancel); })
+        .and_then(
+            [&](std::optional<Bytes> reply) -> Result<Bytes>
+            {
+                if (cancel.Cancelled())
+                {
+                    return Fail(ErrorKind::kCancelled, "SH7058 read cancelled");
+                }
+                if (!reply.has_value())
+                {
+                    return Fail(ErrorKind::kTimeout, "no SH7058 K-Line response");
+                }
+                return std::move(*reply);
+            });
 }
 
 bool Valid(bytes::ByteView frame, bytes::Byte service, std::size_t payload_size)
@@ -76,37 +71,27 @@ Status ExpectPrefix(const Result<Bytes>& reply, bytes::Byte prefix, std::string_
 Result<std::string> IdentifyAndSwitchBaud(IKlineFlashTransport& transport, IClock& clock,
                                           const ICancellationToken& cancel)
 {
-    if (auto status = transport.SetBaud(4800); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    auto identity = Exchange(transport, clock, cancel, Bytes{0xbf});
-    if (!identity.has_value())
-    {
-        return std::unexpected(identity.error());
-    }
-    if (!ssm_protocol::HasValidFrame(*identity, 0xf0, 0x10) || identity->size() < 14 || (*identity)[4] != 0xff)
-    {
-        return Fail(ErrorKind::kBadResponse, "invalid SH7058 identity response");
-    }
-    std::string rom_id = bytes::ToHex(bytes::ByteView(*identity).subspan(8, 5), "{:02X}") + '_';
-    if (auto switched = ExpectPrefix(Exchange(transport, clock, cancel, Bytes{0xb8, 0, 0, 0, 0x75}, 50ms), 0xf8,
-                                     "SH7058 baud switch rejected");
-        !switched.has_value())
-    {
-        return std::unexpected(switched.error());
-    }
-    if (auto status = transport.SetBaud(38400); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto resumed = ExpectPrefix(Exchange(transport, clock, cancel, Bytes{0xbf}), 0xff,
-                                    "SH7058 connection lost after baud switch");
-        !resumed.has_value())
-    {
-        return std::unexpected(resumed.error());
-    }
-    return rom_id;
+    return transport.SetBaud(4800)
+        .and_then([&] { return Exchange(transport, clock, cancel, Bytes{0xbf}); })
+        .and_then(
+            [&](const Bytes& identity) -> Result<std::string>
+            {
+                if (!ssm_protocol::HasValidFrame(identity, 0xf0, 0x10) || identity.size() < 14 || identity[4] != 0xff)
+                {
+                    return Fail(ErrorKind::kBadResponse, "invalid SH7058 identity response");
+                }
+                std::string rom_id = bytes::ToHex(bytes::ByteView(identity).subspan(8, 5), "{:02X}") + '_';
+                return ExpectPrefix(Exchange(transport, clock, cancel, Bytes{0xb8, 0, 0, 0, 0x75}, 50ms), 0xf8,
+                                    "SH7058 baud switch rejected")
+                    .and_then([&] { return transport.SetBaud(38400); })
+                    .and_then(
+                        [&]
+                        {
+                            return ExpectPrefix(Exchange(transport, clock, cancel, Bytes{0xbf}), 0xff,
+                                                "SH7058 connection lost after baud switch");
+                        })
+                    .transform([&] { return std::move(rom_id); });
+            });
 }
 
 // The 1 MiB window above the ROM, in 0x80-byte pages.
@@ -145,13 +130,11 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::Run(const SubaruH
                                                                    IKlineFlashTransport& transport, IClock& clock,
                                                                    const ICancellationToken& cancel, IEventSink& events)
 {
-    if (auto status = transport.SetAddIso14230Header(false); !status.has_value())
+    if (const Status configured =
+            transport.SetAddIso14230Header(false).and_then([&] { return transport.SetBaud(38400); });
+        !configured.has_value())
     {
-        return std::unexpected(status.error());
-    }
-    if (auto status = transport.SetBaud(38400); !status.has_value())
-    {
-        return std::unexpected(status.error());
+        return std::unexpected(configured.error());
     }
     auto initial = Exchange(transport, clock, cancel, Bytes{0xbf});
     if (!initial.has_value() && initial.error().kind != ErrorKind::kTimeout)

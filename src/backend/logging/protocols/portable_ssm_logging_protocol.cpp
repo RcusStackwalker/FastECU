@@ -174,22 +174,18 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::ReadFramedResponse(std::chrono
     bytes::Bytes received;
     const auto deadline = clock_.Now() + timeout;
 
-    const auto read_and_append = [&](std::chrono::milliseconds read_timeout) -> fastecu::Status
+    const auto read_and_append = [&](std::chrono::milliseconds read_timeout)
     {
-        if (auto status = CheckCancellation(cancellation); !status.has_value())
-        {
-            return status;
-        }
-        auto chunk = transport_->Read(read_timeout, cancellation);
-        if (!chunk.has_value())
-        {
-            return std::unexpected(chunk.error());
-        }
-        if (chunk->has_value())
-        {
-            AppendBytes(received, std::move(chunk->value()));
-        }
-        return {};
+        return CheckCancellation(cancellation)
+            .and_then([&] { return transport_->Read(read_timeout, cancellation); })
+            .transform(
+                [&](std::optional<bytes::Bytes> chunk)
+                {
+                    if (chunk.has_value())
+                    {
+                        AppendBytes(received, std::move(*chunk));
+                    }
+                });
     };
 
     if (use_openport2_adapter_)
@@ -232,71 +228,49 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::ReadFramedResponse(std::chrono
 
 fastecu::Status SsmLoggingProtocol::Start(const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status.has_value())
-    {
-        return status;
-    }
-    if (!transport_->IsOpen())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
-    }
-
-    pending_response_bytes_.clear();
-    const bytes::Bytes output{0xA8, 0x00, 0x00, 0x00, 0x07};
-    if (auto write_result = transport_->Write(BuildSsmHeader(output)); !write_result.has_value())
-    {
-        return std::unexpected(write_result.error());
-    }
-
-    auto received = ReadFramedResponse(kStartTimeout, cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    // The startup probe requests one address, hence one data byte.
-    if (!IsReadReply(*received, TargetId(target_is_ecu_), 1))
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "no response to logging start request");
-    }
-    return {};
+    return CheckLoggingRunCanContinue(*transport_, cancellation)
+        .and_then(
+            [&]
+            {
+                pending_response_bytes_.clear();
+                const bytes::Bytes output{0xA8, 0x00, 0x00, 0x00, 0x07};
+                return transport_->Write(BuildSsmHeader(output));
+            })
+        .and_then([&](std::size_t) { return ReadFramedResponse(kStartTimeout, cancellation); })
+        .and_then(
+            [&](const bytes::Bytes& received) -> fastecu::Status
+            {
+                // The startup probe requests one address, hence one data byte.
+                if (!IsReadReply(received, TargetId(target_is_ecu_), 1))
+                {
+                    return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "no response to logging start request");
+                }
+                return {};
+            });
 }
 
 fastecu::Result<PollData> SsmLoggingProtocol::Poll(std::chrono::milliseconds timeout,
                                                    const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (!transport_->IsOpen())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
-    }
-
-    if (auto write_result = transport_->Write(BuildSsmHeader(BuildPollRequest(plan_))); !write_result.has_value())
-    {
-        return std::unexpected(write_result.error());
-    }
-
-    auto received = ReadFramedResponse(timeout, cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (received->empty())
-    {
-        return PollData{.responded = false};
-    }
-    if (!IsReadReply(*received, TargetId(target_is_ecu_), plan_.addresses.size()))
-    {
-        return Fail(ErrorKind::kBadResponse, "SSM logging response does not match complete physical read plan");
-    }
-    auto samples = DecodeSamples(plan_, channels_, bytes::ByteView{*received}.subspan(5, plan_.addresses.size()));
-    if (!samples.has_value())
-    {
-        return std::unexpected(samples.error());
-    }
-    return PollData{.responded = true, .samples = std::move(*samples)};
+    return CheckLoggingRunCanContinue(*transport_, cancellation)
+        .and_then([&] { return transport_->Write(BuildSsmHeader(BuildPollRequest(plan_))); })
+        .and_then([&](std::size_t) { return ReadFramedResponse(timeout, cancellation); })
+        .and_then(
+            [&](const bytes::Bytes& received) -> fastecu::Result<PollData>
+            {
+                if (received.empty())
+                {
+                    return PollData{.responded = false};
+                }
+                if (!IsReadReply(received, TargetId(target_is_ecu_), plan_.addresses.size()))
+                {
+                    return Fail(ErrorKind::kBadResponse,
+                                "SSM logging response does not match complete physical read plan");
+                }
+                return DecodeSamples(plan_, channels_, bytes::ByteView{received}.subspan(5, plan_.addresses.size()))
+                    .transform([](std::vector<ProtocolSample> samples)
+                               { return PollData{.responded = true, .samples = std::move(samples)}; });
+            });
 }
 
 fastecu::Status SsmLoggingProtocol::Stop()

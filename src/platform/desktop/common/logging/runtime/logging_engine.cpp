@@ -32,7 +32,7 @@ bool LoggingEngine::IsRunning() const
     return active_worker_ != nullptr;
 }
 
-fastecu::Status LoggingEngine::Start(const LogSessionConfig& config, DesktopLoggingSnapshot snapshot)
+fastecu::Status LoggingEngine::Start(const LogSessionConfig& config, fastecu::logging::LoggingRunSnapshot snapshot)
 {
     if (IsRunning())
     {

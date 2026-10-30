@@ -301,7 +301,7 @@ void ScriptSessionSelection(ScriptedCanFlashTransport& transport, bool fallback_
 }
 
 void ScriptStockSecurityAndProgramming(ScriptedCanFlashTransport& transport, bool fallback_to_43 = false,
-                                       bool accept_key = true)
+                                       bool accept_key = true, std::optional<bytes::Byte> echoed_mode = std::nullopt)
 {
     transport.ExpectWrite(Request(bytes::Bytes{0x27, 0x01}));
     transport.QueueRead(Response(bytes::Bytes{0x67, 0x01, 0x11, 0x22, 0x33, 0x44}));
@@ -313,7 +313,7 @@ void ScriptStockSecurityAndProgramming(ScriptedCanFlashTransport& transport, boo
     }
     transport.QueueRead(Response(bytes::Bytes{0x67, 0x02}));
     transport.ExpectWrite(Request(fallback_to_43 ? bytes::Bytes{0x10, 0x42} : bytes::Bytes{0x10, 0x02}));
-    transport.QueueRead(Response(fallback_to_43 ? bytes::Bytes{0x50, 0x42} : bytes::Bytes{0x50, 0x02}));
+    transport.QueueRead(Response(bytes::Bytes{0x50, echoed_mode.value_or(fallback_to_43 ? 0x42 : 0x02)}));
 }
 
 void ScriptBootloaderConnection(ScriptedCanFlashTransport& transport, bool fallback_to_43 = false,
@@ -883,11 +883,35 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProbeFallbackUploadsExactKernelAddressA
     }
 }
 
+TEST(SubaruDensoSh7058CanDieselExecutor, KernelSilentAfterUploadTimesOut)
+{
+    bytes::Bytes kernel_data(129, bytes::Byte{0});
+    kernel_data.back() = 0x01;
+    auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
+    ASSERT_THAT(plan, IsOk());
+    SubaruDensoSh7058CanDieselExecutor executor;
+    ScriptedCanFlashTransport transport;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptBootloaderConnection(transport);
+    Script129ByteKernelUpload(transport, kVariants.front().kernel_address, KernelIdResponse(), UploadB6Reply::kNoFrame,
+                              Response(bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02}), false);
+    transport.ExpectWrite(KernelIdRequest());
+    transport.QueueNoFrame();
+    FakeCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+                IsErrWith(ErrorKind::kTimeout, "kernel did not answer after upload"));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
 TEST(SubaruDensoSh7058CanDieselExecutor, InitialProbeToleratesShortMalformedNegativeAndWrongIdFrames)
 {
-    const std::array<bytes::Bytes, 4> probe_replies{{
+    const std::array<bytes::Bytes, 5> probe_replies{{
         {0x00, 0x00, 0x07},
         {0x00, 0x00, 0x07, 0xE8, 0xDE, 0xAD, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44},
+        {0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x04, 0x42, 0x4B, 0x49, 0x44},
         {0x00, 0x00, 0x07, 0xE8, 0x7F, 0x01, 0x22},
         {0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44},
     }};
@@ -1048,6 +1072,26 @@ TEST(SubaruDensoSh7058CanDieselExecutor, IdentityQueriesAndSessionThreeToFortyTh
               transport.writes.end());
 }
 
+TEST(SubaruDensoSh7058CanDieselExecutor, ProgrammingSessionReplyEchoingAnotherModeIsRefused)
+{
+    auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    SubaruDensoSh7058CanDieselExecutor executor;
+    ScriptedCanFlashTransport transport;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport);
+    ScriptIdentityQueries(transport);
+    ScriptSessionSelection(transport);
+    ScriptStockSecurityAndProgramming(transport, false, true, 0x03);
+    FakeCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+                IsErrWith(ErrorKind::kBadResponse, "unexpected programming session response"));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
 // A service-only 0x67 reply carries no seed or key, so it is refused before
 // the payload checks run.
 TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecuritySeedReplyIsRefused)
@@ -1102,6 +1146,41 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyReplyIsRefused)
     EXPECT_EQ(
         events.logs.back(),
         (std::pair{LogLevel::kError, std::string{"Wrong response from ECU: security access reply is too short"}}));
+}
+
+TEST(SubaruDensoSh7058CanDieselExecutor, ShortOrWrongSecurityKeyReplyIsRefused)
+{
+    const std::array<std::pair<bytes::Bytes, std::string_view>, 2> replies{{
+        {{0x00, 0x00, 0x07, 0xE8, 0x67}, "Wrong response from ECU: security access reply is too short"},
+        {{0x00, 0x00, 0x07, 0xE8, 0x67, 0x03}, "Wrong response from ECU: unexpected response during seed key"},
+    }};
+    for (const auto& [reply, log] : replies)
+    {
+        SCOPED_TRACE(log);
+        auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
+        ASSERT_THAT(plan, IsOk());
+        SubaruDensoSh7058CanDieselExecutor executor;
+        ScriptedCanFlashTransport transport;
+        ConfigureAndOpen(executor, *plan, transport);
+        ScriptKernelProbeTimeout(transport);
+        ScriptIdentityQueries(transport);
+        ScriptSessionSelection(transport);
+        transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
+        transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44});
+        transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
+        transport.QueueRead(reply);
+        FakeCancellationToken cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        const auto result =
+            testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+
+        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        ASSERT_THAT(events.logs, Not(IsEmpty()));
+        EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::kError, std::string(log)}));
+    }
 }
 
 // A negative RequestDownload reply is logged with its NRC description.
@@ -1316,7 +1395,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSeedResponseIsRejected)
     const auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result,
-                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::StrEq("invalid diesel seed response")));
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::StrEq("invalid seed response")));
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, TestWriteDisablesFlashAndValidatesWithoutCommitForBothGenerations)
@@ -1916,6 +1995,59 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringCommitReplyReportsKer
     EXPECT_TRUE(HasExactLog(events, LogLevel::kError,
                             "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most "
                             "likely still running and receiving commands!"));
+}
+
+TEST(SubaruDensoSh7058CanDieselExecutor, WrongRepliesRenderInTheProfilePduFormat)
+{
+    bytes::Bytes kernel(129);
+    kernel.back() = 1;
+    const auto& variant = kVariants.front();
+    auto plan = PlanFor(variant, FlashOperation::kRead, {}, std::move(kernel));
+    ASSERT_THAT(plan, IsOk());
+    SubaruDensoSh7058CanDieselExecutor executor;
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport);
+    ScriptIdentityQueries(transport);
+    transport.ExpectWrite(Request(bytes::Bytes{0x10, 0x03}));
+    transport.QueueRead(Response(bytes::Bytes{0x7F, 0x10, 0x22}));
+    transport.ExpectWrite(Request(bytes::Bytes{0x10, 0x43}));
+    transport.QueueRead(Response(bytes::Bytes{0x50, 0x43}));
+    ScriptStockSecurityAndProgramming(transport, true);
+    Script129ByteKernelUpload(transport, variant.kernel_address);
+    ScriptZeroReadPages(transport, variant.rom_size);
+
+    ASSERT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events), IsOk());
+    const auto first =
+        std::ranges::find(events.logs, std::pair{LogLevel::kInfo, std::string("Requesting session mode")});
+    const auto last = std::ranges::find(events.logs, std::pair{LogLevel::kInfo, std::string("Requesting seed")});
+    ASSERT_NE(first, events.logs.end());
+    ASSERT_NE(last, events.logs.end());
+    ASSERT_LT(first, last);
+    EXPECT_THAT((std::span{first + 1, last}),
+                ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: Conditions not correct")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+TEST(SubaruDensoSh7058CanDieselExecutor, BeforeConfigureStopsWhenCancelledOrWhenTheResetFails)
+{
+    for (const bool cancelled : {true, false})
+    {
+        SCOPED_TRACE(::testing::PrintToString(cancelled));
+        ScriptedCanFlashTransport transport;
+        transport.reset_result = Fail(ErrorKind::kDisconnected, "reset failed");
+        FakeClock clock;
+        FakeCancellationToken cancellation{cancelled};
+        EXPECT_THAT(SubaruDensoSh7058CanDieselExecutor{}.BeforeTransportConfigure(transport, clock, cancellation),
+                    cancelled ? IsErrWith(ErrorKind::kCancelled, Eq("cancelled before CAN reset"))
+                              : IsErrWith(ErrorKind::kDisconnected, Eq("reset failed")));
+        EXPECT_EQ(transport.lifecycle_calls,
+                  cancelled ? std::vector<std::string>{} : std::vector<std::string>{"reset_connection"});
+        EXPECT_EQ(clock.Elapsed(), 0ms);
+    }
 }
 
 } // namespace

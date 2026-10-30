@@ -3,11 +3,8 @@
 // Equivalence tests for SubaruDensoSh72531CanExecutor, the portable
 // replacement for FlashEcuSubaruDensoSH72531CanOperation's
 // connect_bootloader(), read_memory(), write_memory(), reflash_block() and
-// erase_memory(). Every scripted exchange cites the line of
-// src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh72531_can_operation.cpp
-// it was transcribed from, as of 20892df -- this branch's base, and the last
-// commit before the file was deleted here. Master later reflowed one line in
-// three of the four (S1117, #240), so resolve citations against 20892df.
+// erase_memory(), as transcribed from the legacy
+// flash_ecu_subaru_denso_sh72531_can_operation.cpp.
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_executor.h"
 
 #include <gmock/gmock.h>
@@ -285,9 +282,9 @@ TEST(SubaruDensoSh72531CanExecutor, BenchReadReturnsPaddedImage)
         {
             EXPECT_THAT(
                 run.events.logs,
-                Contains(Pair(LogLevel::kInfo, "Connecting to ECU Denso SH72531 CAN bootloader, please wait...")));
+                Contains(Pair(LogLevel::kInfo, "Connecting to Subaru Denso SH72531 CAN bootloader, please wait...")));
             EXPECT_THAT(run.events.logs,
-                        Contains(Pair(LogLevel::kInfo, "Reading ROM from ECU, Denso SH72531 using CAN")));
+                        Contains(Pair(LogLevel::kInfo, "Reading ROM from Subaru Denso SH72531 using CAN")));
             EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "OBK not active, initialising ECU...")));
             EXPECT_THAT(run.events.logs,
                         Contains(Pair(LogLevel::kInfo, "Bench programming: accessing, please wait...")));
@@ -331,7 +328,7 @@ TEST_F(SubaruDensoSh72531CanExecutorWrite, WriteErasesThenFlashesBlockOne)
     EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.notices, Contains("Writing ROM, please wait..."));
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Writing ROM to ECU, Denso SH72531 using CAN")));
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Writing ROM to Subaru Denso SH72531 using CAN")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Flash erased! Starting flash write, do not power off!")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Closing out Flashing of this block")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kInfo, "Checksum verified")));
@@ -416,10 +413,9 @@ struct Sh72531CanTraits
     static constexpr std::uint32_t kBlockStart = ::kBlockStart;
     static constexpr std::uint32_t kBlockLength = ::kBlockLength;
     static constexpr std::uint32_t kPageSize = ::kPageSize;
-    // serial_read_short_timeout (header lines 45-48): the timeout the
-    // TolerantProbe exchanges in ConnectBootloader read with, and the one
-    // every other short-timeout read in this family's connect/read path
-    // shares.
+    // serial_read_short_timeout: the timeout the TolerantProbe exchanges in
+    // ConnectBootloader read with, and the one every other short-timeout read
+    // in this family's connect/read path shares.
     static constexpr std::chrono::milliseconds kProbeTimeout{200};
     // The dump sweep's own reads use receive_timeout, not this one.
     static constexpr int kProbeCount = 6; // seed and key now read at 2000ms

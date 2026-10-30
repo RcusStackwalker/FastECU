@@ -12,6 +12,7 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/m32r_ssm_exchange.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_plan.h"
+#include "src/backend/ports/logged_step.h"
 
 namespace fastecu::flash
 {
@@ -23,15 +24,15 @@ using namespace bytes::literals;
 using namespace std::chrono_literals;
 
 // Legacy flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.{h,cpp}.
-constexpr std::uint32_t kBlock = 0x80;   // write_mem() :473
-constexpr auto kEraseSettle = 500ms;     // write_mem() :389
-constexpr auto kPollRead = 10ms;         // write_mem() :400, :442
-constexpr int kEraseRounds = 20;         // write_mem() :393, :435
-constexpr auto kEraseStartSleep = 500ms; // write_mem() :421
-constexpr auto kEraseDoneSleep = 1000ms; // write_mem() :462
-constexpr auto kPostErase = 1000ms;      // write_mem() :465
-constexpr auto kBlockTimeout = 3000ms;   // serial_read_extra_long_timeout, :518
-constexpr auto kBlockPacing = 10ms;      // write_mem() :539
+constexpr std::uint32_t kBlock = 0x80;
+constexpr auto kEraseSettle = 500ms;
+constexpr auto kPollRead = 10ms;
+constexpr int kEraseRounds = 20;
+constexpr auto kEraseStartSleep = 500ms;
+constexpr auto kEraseDoneSleep = 1000ms;
+constexpr auto kPostErase = 1000ms;
+constexpr auto kBlockTimeout = 3000ms; // serial_read_extra_long_timeout
+constexpr auto kBlockPacing = 10ms;
 
 struct Session
 {
@@ -62,7 +63,7 @@ bool IsStatus(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModeProgramPl
     return IsStatusReply(frame, wire) && frame[5] == status;
 }
 
-// write_mem() :346-353 documents these as error codes; success replies are
+// Legacy documents these as error codes; success replies are
 // EF 42 and EF 52, so they are read as the status byte after EF.
 std::string_view StatusMeaning(bytes::Byte status)
 {
@@ -94,7 +95,7 @@ std::string Describe(bytes::ByteView frame, const SubaruUnisiaJecsM32rBootModePr
     return bytes::ToHex(frame);
 }
 
-// write_mem() :393-463. read() returns whole frames: an empty read continues
+// read() returns whole frames: an empty read continues
 // the poll, and any frame must be EF <status>. Legacy's first poll fell
 // through on one to six bytes and its second never failed.
 Status PollFor(Session& s, bytes::Byte status, std::chrono::milliseconds sleep, std::string_view what)
@@ -125,29 +126,12 @@ Status PollFor(Session& s, bytes::Byte status, std::chrono::milliseconds sleep, 
 Status EraseFlash(Session& s)
 {
     s.events.Log(LogLevel::kInfo, "Requesting flash erase, please wait...");
-    if (Status sent = Send(s, ComposeBe(0xaf_b, 0x31_b)); !sent.has_value())
-    {
-        return sent;
-    }
-    if (Status settled = s.clock.Sleep(kEraseSettle, s.cancellation); !settled.has_value())
-    {
-        return settled;
-    }
-    if (Status started = PollFor(s, 0x42, kEraseStartSleep, "flash erase start"); !started.has_value())
-    {
-        return started;
-    }
-    s.events.Log(LogLevel::kInfo, "Flash erase in progress, please wait...");
-    if (Status erased = PollFor(s, 0x52, kEraseDoneSleep, "flash erase"); !erased.has_value())
-    {
-        return erased;
-    }
-    s.events.Log(LogLevel::kInfo, "Flash erased!");
-    if (Status settled = s.clock.Sleep(kPostErase, s.cancellation); !settled.has_value())
-    {
-        return settled;
-    }
-    return {};
+    return Send(s, ComposeBe(0xaf_b, 0x31_b))
+        .and_then([&] { return s.clock.Sleep(kEraseSettle, s.cancellation); })
+        .and_then([&] { return PollFor(s, 0x42, kEraseStartSleep, "flash erase start"); })
+        .and_then(LogThen(s.events, "Flash erase in progress, please wait...",
+                          [&] { return PollFor(s, 0x52, kEraseDoneSleep, "flash erase"); }))
+        .and_then(LogThen(s.events, "Flash erased!", [&] { return s.clock.Sleep(kPostErase, s.cancellation); }));
 }
 
 // One block write; the final AF 69 block may go unanswered.
@@ -156,48 +140,43 @@ Status WriteBlock(Session& s, bytes::ByteView image, int block, int blocks)
     const std::uint32_t address = static_cast<std::uint32_t>(block) * kBlock;
     const bool last = block == blocks - 1;
     const bytes::ByteView data = image.subspan(address, kBlock);
-    if (Status sent = Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24{address}, data)); !sent.has_value())
-    {
-        return sent;
-    }
-    auto response = Receive(s, kBlockTimeout);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    if (!response->has_value())
-    {
-        if (!last)
-        {
-            return Fail(ErrorKind::kTimeout, std::format("no response to block write at 0x{:06X}", address));
-        }
-        // Legacy never read a reply to AF 69 (:517); its shape is unknown.
-        s.events.Log(LogLevel::kWarning, "No reply to the final block; treating the write as complete");
-    }
-    else if (!IsStatus(**response, s.wire, 0x52))
-    {
-        return Fail(ErrorKind::kBadResponse,
-                    std::format("block write at 0x{:06X} failed: {}", address, Describe(**response, s.wire)));
-    }
-    s.events.Progress(block + 1, blocks);
-    return last ? Status{} : s.clock.Sleep(kBlockPacing, s.cancellation);
+    return Send(s, ComposeBe(0xaf_b, last ? 0x69_b : 0x61_b, U24{address}, data))
+        .and_then([&] { return Receive(s, kBlockTimeout); })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& response) -> Status
+            {
+                if (!response.has_value())
+                {
+                    if (!last)
+                    {
+                        return Fail(ErrorKind::kTimeout,
+                                    std::format("no response to block write at 0x{:06X}", address));
+                    }
+                    // Legacy never read a reply to AF 69; its shape is unknown.
+                    s.events.Log(LogLevel::kWarning, "No reply to the final block; treating the write as complete");
+                }
+                else if (!IsStatus(*response, s.wire, 0x52))
+                {
+                    return Fail(ErrorKind::kBadResponse, std::format("block write at 0x{:06X} failed: {}", address,
+                                                                     Describe(*response, s.wire)));
+                }
+                s.events.Progress(block + 1, blocks);
+                return last ? Status{} : s.clock.Sleep(kBlockPacing, s.cancellation);
+            });
 }
 
 Status Program(Session& s, const FlashPlan& plan)
 {
     // Plan admission is the cancellation checkpoint before the voltage.
-    // write_mem() :366: VPP stays, MOD1 drops. The operator removed MOD1
+    // VPP stays, MOD1 drops. The operator removed MOD1
     // before this attempt started (the workflow's RemoveMod1 prompt).
     s.events.Log(LogLevel::kDebug, "Set programming voltage +12v to Line End Check 1");
-    if (Status raised = s.transport.EnableProgrammingVoltageLine(); !raised.has_value())
-    {
-        return raised;
-    }
-    if (Status erased = EraseFlash(s); !erased.has_value())
+    if (Status erased = s.transport.EnableProgrammingVoltageLine().and_then([&] { return EraseFlash(s); });
+        !erased.has_value())
     {
         return erased;
     }
-    // write_mem() :467-578. Data goes as-is; unlike 6c-3 there is no XOR.
+    // Data goes as-is; unlike 6c-3 there is no XOR.
     const bytes::Bytes& image = plan.ImageOrEmpty();
     const auto blocks = static_cast<int>(image.size() / kBlock);
     for (int block = 0; block < blocks; ++block)
@@ -208,7 +187,6 @@ Status Program(Session& s, const FlashPlan& plan)
         }
     }
     s.events.Log(LogLevel::kInfo, "ROM written to flash.");
-    // write_mem() :581.
     s.events.Log(LogLevel::kInfo, "Please remove VPP voltage, power cycle ECU and request SSM Init to confirm.");
     return {};
 }
@@ -217,19 +195,14 @@ Status Program(Session& s, const FlashPlan& plan)
 Result<KlineConfig>
 SubaruUnisiaJecsM32rBootModeProgramExecutor::Setup(const SubaruUnisiaJecsM32rBootModeProgramPlan& family) const
 {
-    // write_mem() :361-364: no parity, 19200 baud.
+    // No parity, 19200 baud.
     return NonIso14230KlineConfigFrom(family);
 }
 
 Status SubaruUnisiaJecsM32rBootModeProgramExecutor::BeforeTransportConfigure(IKlineFlashTransport& transport, IClock&,
                                                                              const ICancellationToken&) const
 {
-    // write_mem() :361.
-    if (Status reset = transport.ResetConnection(); !reset.has_value())
-    {
-        return reset;
-    }
-    return transport.SetAddIso14230Header(false);
+    return transport.ResetConnection().and_then([&] { return transport.SetAddIso14230Header(false); });
 }
 
 Result<FlashExecutionResult>
@@ -239,7 +212,7 @@ SubaruUnisiaJecsM32rBootModeProgramExecutor::Run(const SubaruUnisiaJecsM32rBootM
 {
     Session session{transport, clock, cancellation, events, family};
     const Status written = Program(session, plan);
-    // execute() :85, :89: legacy dropped the lines after write_mem().
+    // Legacy dropped the lines after write_mem().
     events.Log(LogLevel::kDebug, "Removing programming voltage +12v from Line End Check 1");
     const Status dropped = transport.DisableLecLines();
     if (!written.has_value())

@@ -15,6 +15,7 @@
 #include <ranges>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -23,12 +24,15 @@
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/flash/testing/guarded_attempt_expectations.h"
 #include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
 #include "src/backend/flash/testing/execute_with_cancellation_guard.h"
 #include "src/backend/ports/manual_cancellation_token.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/faulting_clock.h"
 #include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -255,8 +259,7 @@ void ScriptSilentStop(ScriptedCanFlashTransport& transport)
 // swapped table or a shifted header strip changes this expectation.
 Bytes ExpectedImage()
 {
-    // Legacy decrypt_payload (operation.cpp:1021) -- encrypt's four words
-    // reversed.
+    // Legacy decrypt_payload -- encrypt's four words reversed.
     static constexpr std::array<std::uint16_t, 4> kDecryptTable{0x1075, 0x9E51, 0x8BEF, 0x3B61};
 
     Bytes dumped;
@@ -308,7 +311,7 @@ struct Call
 
 constexpr Call kWriteCall{CallKind::kWrite, 0ms};
 constexpr Call kReadCall{CallKind::kRead, 2000ms};
-// Legacy read_mem:553 -- a 1 ms pause after every dumped page.
+// A 1 ms pause after every dumped page.
 constexpr Call kPagePauseCall{CallKind::kSleep, 1ms};
 
 std::string_view Describe(CallKind kind)
@@ -950,10 +953,9 @@ TEST(SubaruTcuHitachiM32rCanExecutor, SuccessfulReadRebuildsTheFullRomImage)
     EXPECT_EQ(result->operation, FlashOperation::kRead);
     ASSERT_THAT(result->read_bytes, Optional(_));
     ASSERT_EQ(result->read_bytes->size(), kRomSize);
-    // I2: legacy composes ecuCalDef->RomId as "<CALID>_<TCUID>_"
-    // (operation.cpp:170, 207); scriptIdentity's fixture bytes decode to TCU
-    // ID "1122334455" and CAL ID "CAL" (SuccessfulIdentityResponsesLogDecodedFields
-    // pins the same log lines).
+    // I2: legacy composes ecuCalDef->RomId as "<CALID>_<TCUID>_"; scriptIdentity's
+    // fixture bytes decode to TCU ID "1122334455" and CAL ID "CAL"
+    // (SuccessfulIdentityResponsesLogDecodedFields pins the same log lines).
     EXPECT_EQ(result->rom_id, std::optional<std::string>("CAL_1122334455_"));
 
     const Bytes expected = ExpectedImage();
@@ -1203,7 +1205,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, StopFrameSilenceIsNotFatal)
 
 constexpr std::uint32_t kWriteFrameSize = 128;
 // Legacy reflash_block retries both the 0x37 close and the 0x31 02 02 01
-// checksum up to 20 times (operation.cpp:842, 889).
+// checksum up to 20 times.
 constexpr int kRetryAttempts = 20;
 
 struct BlockSpec
@@ -1212,8 +1214,8 @@ struct BlockSpec
     std::uint32_t len;
 };
 
-// M32R_512KB blocks 3-10: legacy write_mem's block_modified table marks
-// exactly these (operation.cpp:632-633).
+// M32R_512KB blocks 3-10: legacy write_mem's block_modified table marks exactly
+// these.
 constexpr std::array<BlockSpec, 8> kFlashedBlocks{{
     {0x08000, 0x08000},
     {0x10000, 0x10000},
@@ -1253,7 +1255,6 @@ const Bytes& EncryptedRom()
 {
     static const Bytes kRom = []
     {
-        // Legacy encrypt_payload (operation.cpp:1002).
         static constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
         return ssm_protocol::CalculatePayload(PlaintextRom(), kEncryptTable, ssm_protocol::kStockPairTable);
     }();
@@ -1470,10 +1471,10 @@ std::vector<std::chrono::milliseconds> FullWriteReadTimeouts()
 
 TEST(SubaruTcuHitachiM32rCanExecutor, DataFramesCarryTheEncryptedImageNotThePlaintext)
 {
-    // Legacy write_mem encrypts the whole ROM before the first frame leaves
-    // (operation.cpp:640). The scripted transport rejects any 0xB6 frame whose
-    // 128 payload bytes are not the encrypted ones, and the guard below proves
-    // that expectation is not vacuously equal to the plaintext.
+    // Legacy write_mem encrypts the whole ROM before the first frame leaves.
+    // The scripted transport rejects any 0xB6 frame whose 128 payload bytes are
+    // not the encrypted ones, and the guard below proves that expectation is
+    // not vacuously equal to the plaintext.
     Bytes plaintext_frame{0xB6};
     bytes::AppendU24Be(plaintext_frame, kRegionStart);
     plaintext_frame.insert(plaintext_frame.end(), PlaintextRom().begin() + kRegionStart,
@@ -1731,9 +1732,9 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WriteFlashesBlocksThreeThroughTenAndNothin
     EXPECT_EQ(transport.WritesConsumed(), kFullWriteWrites);
     EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_THAT(result->read_bytes, Eq(std::nullopt));
-    // I2: legacy only assigns ecuCalDef->RomId when cmd_type == "read"
-    // (operation.cpp:168, 205); connect_bootloader() decodes the TCU/CAL ID
-    // identically on every connect, but the write result must not surface it.
+    // I2: legacy only assigns ecuCalDef->RomId when cmd_type == "read";
+    // connect_bootloader() decodes the TCU/CAL ID identically on every connect,
+    // but the write result must not surface it.
     EXPECT_EQ(result->rom_id, std::nullopt);
     EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::kInfo, "TCU ID: 1122334455")));
 
@@ -1816,7 +1817,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, BlockWindowMismatchIsFatal)
 TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalCloseAnswerIsRetriedAndTheBlockStillCompletes)
 {
     // Legacy treats a non-0x77 close reply as non-fatal (its return is
-    // commented out, operation.cpp:861) and simply tries again.
+    // commented out) and simply tries again.
     ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
     ScriptFullConnect(transport);
     ScriptErase(transport);
@@ -2439,4 +2440,119 @@ TEST(SubaruTcuHitachiM32rCanExecutor, SelectedGuardIsUsedByBoundAttempt)
     fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruTcuHitachiM32rCanExecutor>(*plan);
 }
 
+// The connect frames, then the read window or the erase: the span the
+// sweeps below cover. Each sweep ends where the next step is unscripted.
+void ScriptConnectThen(ScriptedCanFlashTransport& transport, FlashOperation operation)
+{
+    ScriptFullConnect(transport);
+    if (operation == FlashOperation::kRead)
+    {
+        ScriptReadWindow(transport);
+    }
+    else
+    {
+        ScriptErase(transport);
+    }
+}
+
+fastecu::Result<FlashPlan> PlanFor(FlashOperation operation)
+{
+    return operation == FlashOperation::kRead ? ReadPlan() : WritePlan();
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, EveryConnectAndEraseTransportFaultPropagates)
+{
+    for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kWrite})
+    {
+        SCOPED_TRACE(::testing::PrintToString(operation));
+        auto plan = PlanFor(operation);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        for (const bool reads : {false, true})
+        {
+            SCOPED_TRACE(::testing::PrintToString(reads));
+            for (std::size_t k = 1; k <= kConnectFrames + 1; ++k)
+            {
+                SCOPED_TRACE(::testing::PrintToString(std::tuple{operation, reads, k}));
+                fastecu::flash::FaultingCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+                (reads ? transport.fail_read_at : transport.fail_write_at) = k;
+                ScriptConnectThen(transport, operation);
+                SubaruTcuHitachiM32rCanExecutor executor;
+                FakeClock clock;
+                RecordingEventSink events;
+                EXPECT_THAT(Execute(executor, *plan, transport, clock, events),
+                            fastecu::testing::IsErr(ErrorKind::kDisconnected));
+                EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>(transport.WritesConsumed()));
+            }
+        }
+    }
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, EveryConnectAndEraseSleepFailurePropagates)
+{
+    for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kWrite})
+    {
+        SCOPED_TRACE(::testing::PrintToString(operation));
+        auto plan = PlanFor(operation);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        for (std::size_t k = 1;; ++k)
+        {
+            SCOPED_TRACE(::testing::PrintToString(std::pair{operation, k}));
+            ASSERT_LT(k, 32U);
+            ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+            ScriptConnectThen(transport, operation);
+            SubaruTcuHitachiM32rCanExecutor executor;
+            fastecu::FaultingClock clock;
+            clock.fail_at = k;
+            RecordingEventSink events;
+            const auto result = Execute(executor, *plan, transport, clock, events);
+            if (!transport.ScriptConsumed())
+            {
+                EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("sleep failed")));
+                continue;
+            }
+            // The fault now lands past the scripted span.
+            break;
+        }
+    }
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, CancellingAtEveryConnectAndEraseCheckWritesNothingMore)
+{
+    for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kWrite})
+    {
+        SCOPED_TRACE(::testing::PrintToString(operation));
+        auto plan = PlanFor(operation);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        for (std::size_t k = 2;; ++k)
+        {
+            SCOPED_TRACE(::testing::PrintToString(std::pair{operation, k}));
+            ASSERT_LT(k, 128U);
+            ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+            ScriptConnectThen(transport, operation);
+            fastecu::FakeCancellationToken cancellation;
+            std::size_t checks = 0;
+            std::optional<std::size_t> writes_at_cancel;
+            cancellation.SetPredicate(
+                [&]
+                {
+                    if (++checks == k && !transport.ScriptConsumed())
+                    {
+                        writes_at_cancel = transport.WritesConsumed();
+                    }
+                    return writes_at_cancel.has_value();
+                });
+            SubaruTcuHitachiM32rCanExecutor executor;
+            FakeClock clock;
+            RecordingEventSink events;
+            const auto result = fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock,
+                                                                                      cancellation, events);
+            if (!writes_at_cancel.has_value())
+            {
+                break;
+            }
+            EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
+            EXPECT_EQ(transport.WritesConsumed(), *writes_at_cancel);
+        }
+    }
+}
 } // namespace

@@ -16,6 +16,7 @@
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/transfer_progress.h"
+#include "src/backend/ports/cancellation.h"
 
 namespace fastecu::flash
 {
@@ -46,15 +47,6 @@ constexpr std::string_view kReflashRecoveryWarning =
     "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most likely still running and "
     "receiving commands!";
 
-Status CheckCancelled(const ICancellationToken& cancellation, std::string detail)
-{
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, std::move(detail));
-    }
-    return {};
-}
-
 std::uint64_t ElapsedMilliseconds(std::chrono::steady_clock::time_point start,
                                   std::chrono::steady_clock::time_point end)
 {
@@ -70,10 +62,8 @@ bytes::Bytes IsoRequest(std::uint8_t opcode, bytes::ByteView payload = {})
     return request;
 }
 
-// Legacy request_kernel_id(),
-// src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.cpp:1435-1484.
-// The message declares a one-byte BEEF payload but is passed to the legacy
-// ISO-15765 driver as a fixed twelve-byte CAN wire buffer with three zeros.
+// The message declares a one-byte BEEF payload but is passed to the legacy ISO-15765 driver as a fixed
+// twelve-byte CAN wire buffer with three zeros.
 bytes::Bytes KernelIdRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00};
@@ -150,8 +140,7 @@ Status ExpectIsoResponse(bytes::ByteView response, std::uint8_t expected_opcode,
 {
     // DensoCAN BEEF is a proprietary kernel envelope, not a UDS PDU. Its
     // fixed transport identifier occupies 0..3; BEEF, declared length and
-    // opcode then occupy 4..8. Legacy checks the BEEF/opcode bytes at
-    // 512-657, 820-905 and 906-1395; the guards below also make each later
+    // opcode then occupy 4..8. Legacy checks the BEEF/opcode bytes; the guards below also make each later
     // indexed byte safe.
     if (response.size() < 9)
     {
@@ -251,10 +240,9 @@ std::string KernelIdText(bytes::ByteView response)
 Result<bool> ProbeKernel(IMixedCanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                          IEventSink& events)
 {
-    // Legacy connect_bootloader(), revision 59f4e442 lines 106-153. Any
-    // absent, short, malformed, wrong-id, or wrong-content initial reply is
-    // treated as "kernel absent" and falls through to the raw bootloader.
-    // Typed cancellation and adapter loss remain terminal.
+    // Any absent, short, malformed, wrong-id, or wrong-content initial reply is
+    // treated as "kernel absent" and falls through to the raw bootloader. Typed
+    // cancellation and adapter loss remain terminal.
     events.Log(LogLevel::kInfo, "Checking if Kernel already running...");
     events.Log(LogLevel::kInfo, "Requesting kernel ID");
     const bytes::Bytes request = KernelIdRequest();
@@ -296,8 +284,8 @@ Result<bool> ProbeKernel(IMixedCanFlashTransport& transport, IClock& clock, cons
 Status RequireKernelId(IMixedCanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                        IEventSink& events)
 {
-    // Legacy upload_kernel(), lines 475-507, repeats the same proprietary
-    // BEEF exchange only after the raw bootloader jump and ISO transition.
+    // Repeats the same proprietary BEEF exchange only after the raw bootloader
+    // jump and ISO transition.
     events.Log(LogLevel::kInfo, "Requesting kernel ID");
     const bytes::Bytes request = KernelIdRequest();
     if (Status written = IsoWrite(transport, request, cancellation, "kernel ID"); !written)
@@ -328,10 +316,9 @@ Status RequireKernelId(IMixedCanFlashTransport& transport, IClock& clock, const 
 Status WakeBootloader(IMixedCanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                       IEventSink& events)
 {
-    // Legacy connect_bootloader(), lines 157-222. The portable executor
-    // retains the exact 1,000 raw wake frames, adding a cooperative check at
-    // every iteration so this bounded loop cannot become an uncancellable UI
-    // stall.
+    // The portable executor retains the exact 1,000 raw wake frames, adding a
+    // cooperative check at every iteration so this bounded loop cannot become
+    // an uncancellable UI stall.
     const cdbg::CanFrame wake{.id = kRawTransmitId, .payload = {0xFF, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
     events.Log(LogLevel::kInfo, "Initializing bootloader");
     for (int count = 0; count < 1000; ++count)
@@ -486,9 +473,9 @@ Status JumpToKernel(IMixedCanFlashTransport& transport, std::uint32_t load_addre
     {
         return std::unexpected(jumped.error());
     }
-    // Legacy lines 446-463 log but deliberately do not return on a missing
-    // or wrong 7A/A0 response. Preserve both the tolerant outcome and its
-    // operator-visible error records.
+    // Legacy log but deliberately do not return on a missing or wrong 7A/A0
+    // response. Preserve both the tolerant outcome and its operator-visible
+    // error records.
     if (!jumped->has_value())
     {
         events.Log(LogLevel::kError, "No valid response from ECU");
@@ -503,9 +490,9 @@ Status JumpToKernel(IMixedCanFlashTransport& transport, std::uint32_t load_addre
 Status UploadKernel(IMixedCanFlashTransport& transport, const KernelImage& kernel, IClock& clock,
                     const ICancellationToken& cancellation, IEventSink& events)
 {
-    // Legacy upload_kernel(), lines 227-507. This raw Denso bootloader path
-    // uses a 29-bit transmit ID, six payload bytes per 0x7A/0xAE block, and
-    // a zero-padded final block. BEEF is not used in this mode.
+    // This raw Denso bootloader path uses a 29-bit transmit ID, six payload
+    // bytes per 0x7A/0xAE block, and a zero-padded final block. BEEF is not
+    // used in this mode.
     if (kernel.bytes.empty())
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN kernel image is empty");
@@ -543,9 +530,8 @@ Status UploadKernel(IMixedCanFlashTransport& transport, const KernelImage& kerne
 Result<bytes::Bytes> ReadMem(IMixedCanFlashTransport& transport, const MemoryRegion& region, IClock& clock,
                              const ICancellationToken& cancellation, IEventSink& events, PhaseReporter& phase)
 {
-    // Legacy read_mem(), lines 512-657, appends each BEEF page exactly as it
-    // arrived. Every 0x400-byte response must contain its entire raw page
-    // before it is indexed.
+    // Appends each BEEF page exactly as it arrived. Every 0x400-byte response
+    // must contain its entire raw page before it is indexed.
     bytes::Bytes rom;
     rom.reserve(region.length);
     events.Log(LogLevel::kInfo, "Start reading ROM, please wait...");
@@ -581,8 +567,8 @@ Result<bytes::Bytes> ReadMem(IMixedCanFlashTransport& transport, const MemoryReg
 Result<std::uint32_t> ReadBlockCrc(IMixedCanFlashTransport& transport, const MemoryRegion& block,
                                    const ICancellationToken& cancellation)
 {
-    // Legacy check_romcrc(), lines 820-905. The seven-byte CRC request body
-    // is [address:4][00][length:3]; response bytes 9..12 hold the ECU CRC.
+    // The seven-byte CRC request body is [address:4][00][length:3]; response
+    // bytes 9..12 hold the ECU CRC.
     const bytes::Bytes request = IsoRequest(0x02, ComposeBe(block.start, 0x00_b, U24{block.length}));
     Result<bytes::Bytes> received = IsoExchange(transport, request, kCrcTimeout, cancellation,
                                                 {.subject = "ROM CRC", .ack = 0x42, .min_payload = 4});
@@ -591,8 +577,8 @@ Result<std::uint32_t> ReadBlockCrc(IMixedCanFlashTransport& transport, const Mem
         return std::unexpected(received.error());
     }
     const std::uint32_t crc = bytes::ReadU32Be(*received, 9);
-    // Legacy lines 883 and 904 intentionally perform this short stale-byte
-    // drain after both equal and unequal CRC outcomes.
+    // Legacy intentionally perform this short stale-byte drain after both equal
+    // and unequal CRC outcomes.
     Result<std::optional<bytes::Bytes>> drained = IsoRead(transport, 200ms, cancellation, "ROM CRC drain");
     if (!drained)
     {
@@ -617,9 +603,9 @@ Status SetFlashMode(IMixedCanFlashTransport& transport, bool enabled, const ICan
 Status InitFlashWrite(IMixedCanFlashTransport& transport, bool test_write, const ICancellationToken& cancellation,
                       IEventSink& events)
 {
-    // Legacy init_flash_write(), lines 906-1059. Returned max lengths are
-    // retained as diagnostic evidence; the legacy flash_block() explicitly
-    // selects 0x1000 commit windows regardless of the reported block size.
+    // Returned max lengths are retained as diagnostic evidence; the legacy
+    // flash_block() explicitly selects 0x1000 commit windows regardless of the
+    // reported block size.
     for (const std::uint8_t command : {std::uint8_t{0x05}, std::uint8_t{0x06}})
     {
         events.Log(LogLevel::kInfo, command == 0x05 ? "Check max message length" : "Check flashblock size");
@@ -633,23 +619,23 @@ Status InitFlashWrite(IMixedCanFlashTransport& transport, bool test_write, const
         const std::uint32_t value = bytes::ReadU32Be(*received, 9);
         events.Log(LogLevel::kInfo, std::format(": 0x{:04x}", value));
     }
-    // Legacy test write sends FLASH_DISABLE instead of FLASH_ENABLE at
-    // lines 1014-1019, then validates rather than commits each 0x1000 block.
+    // Legacy test write sends FLASH_DISABLE instead of FLASH_ENABLE, then
+    // validates rather than commits each 0x1000 block.
     events.Log(LogLevel::kInfo, test_write ? "Test write mode on, no actual flash write is performed"
                                            : "Test write mode off, perform actual flash write");
     if (Status mode = SetFlashMode(transport, !test_write, cancellation); !mode)
     {
         return mode;
     }
-    events.Log(LogLevel::kError, "Flash mode succesfully set");
+    events.Log(LogLevel::kError, "Flash mode successfully set");
     return {};
 }
 
 Status QueryProgrammingVoltage(IMixedCanFlashTransport& transport, const ICancellationToken& cancellation,
                                IEventSink& events)
 {
-    // Legacy reflash_block(), lines 1087-1150. Require bytes 9 and 10 before
-    // decoding the voltage; legacy's >7 check did not make that access safe.
+    // Require bytes 9 and 10 before decoding the voltage; legacy's >7 check did
+    // not make that access safe.
     events.Log(LogLevel::kInfo, "Check flash voltage");
     Result<bytes::Bytes> received = IsoExchange(
         transport, IsoRequest(0x04), kFlashInitTimeout, cancellation,
@@ -706,9 +692,9 @@ Status FlashBlock(IMixedCanFlashTransport& transport, bytes::ByteView image, con
                   IClock& clock, const ICancellationToken& cancellation, IEventSink& events, PhaseReporter& phase,
                   bool& destructive_erase_succeeded, std::uint32_t& flashbytesindex, std::uint32_t flashbytescount)
 {
-    // Legacy flash_block(), lines 1153-1395. Each physical block is blanked
-    // only for a real write, transferred in 0x200 chunks, and committed (or
-    // validated for test-write) in fixed 0x1000 windows.
+    // Each physical block is blanked only for a real write, transferred in
+    // 0x200 chunks, and committed (or validated for test-write) in fixed 0x1000
+    // windows.
     if (block.start > image.size() || block.length > image.size() - block.start ||
         block.length % kWriteChunkSize != 0 || block.length % kCommitBlockSize != 0)
     {
@@ -867,11 +853,11 @@ Status WriteMem(IMixedCanFlashTransport& transport, const FlashPlan& plan, ICloc
                 const ICancellationToken& cancellation, IEventSink& events, PhaseSequence& phases,
                 PhaseReporter& compare_phase)
 {
-    // Legacy write_mem()/get_changed_blocks(), lines 662-819, then
-    // check_romcrc()/init_flash_write()/reflash_block()/flash_block(),
-    // lines 820-1395. The portable plan retains every one of the sixteen
-    // physical regions, so the image is addressed by its absolute flash
-    // offsets exactly as legacy's data_array was.
+    // Legacy write_mem()/get_changed_blocks(), then
+    // check_romcrc()/init_flash_write()/reflash_block()/flash_block(). The
+    // portable plan retains every one of the sixteen physical regions, so the
+    // image is addressed by its absolute flash offsets exactly as legacy's
+    // data_array was.
     if (!plan.Image().has_value())
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN write requires a ROM image");

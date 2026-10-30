@@ -101,7 +101,6 @@ Result<FlashPlan> BuildMitsuColtM32rCanPlan(FlashOperation operation, std::strin
                     "diagnostic-session handshake");
     }
 
-    // Legacy: flash_ecu_mitsu_m32r_can_operation.cpp:24-29.
     if (FindFlashDeviceIndex(mcu_type) < 0)
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("Unknown MCU type: {}", mcu_type));

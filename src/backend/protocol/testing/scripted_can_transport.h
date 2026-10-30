@@ -17,6 +17,13 @@ class ScriptedCanTransport : public ICanTransport
     {
         expected_ids_.push_back(id);
         expected_payloads_.emplace_back(payload.begin(), payload.end());
+        short_writes_.push_back(false);
+    }
+    // Like ExpectWrite, but the transport reports one byte fewer than written.
+    void ExpectShortWrite(std::uint32_t id, bytes::ByteView payload)
+    {
+        ExpectWrite(id, payload);
+        short_writes_.back() = true;
     }
     void QueueRead(std::uint32_t id, bytes::ByteView payload)
     {
@@ -54,11 +61,8 @@ class ScriptedCanTransport : public ICanTransport
             ok_ = false;
             return fastecu::Fail(fastecu::ErrorKind::kInternal, "unexpected scripted CAN write");
         }
-        else
-        {
-            ++w_idx_;
-        }
-        return payload.size();
+        const bool short_write = short_writes_.at(w_idx_++);
+        return short_write ? payload.size() - 1 : payload.size();
     }
     fastecu::Result<std::optional<CanFrame>> Read(std::chrono::milliseconds,
                                                   const fastecu::ICancellationToken& cancellation) override
@@ -79,6 +83,7 @@ class ScriptedCanTransport : public ICanTransport
   private:
     std::vector<std::uint32_t> expected_ids_;
     std::vector<bytes::Bytes> expected_payloads_;
+    std::vector<bool> short_writes_;
     std::deque<fastecu::Result<std::optional<CanFrame>>> reads_;
     std::size_t w_idx_ = 0;
     bool ok_ = true;

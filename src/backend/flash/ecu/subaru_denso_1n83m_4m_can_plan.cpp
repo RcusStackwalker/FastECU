@@ -13,8 +13,7 @@ namespace
 constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_1n83m_4m_can"}};
 
 // kFlashBlocksN83M_4MB[1], the window legacy read_memory hardcodes over its own
-// arguments (lines 834-836) and the 0x34/0x35 setup PDUs spell out literally
-// (lines 845-860, 886-901).
+// arguments and the 0x34/0x35 setup PDUs spell out literally.
 constexpr MemoryRegion kMainBlock{0x08FAC000, 0x003D3F00};
 constexpr std::uint32_t kImageStart =
     DensoIso15765BootloaderProfileOf<SubaruDenso1n83m_4mCanPlan>::kValue.image_start; // fblocks[0].start
@@ -27,8 +26,8 @@ constexpr std::uint32_t kTailPad = 0x100;
 // (SH72543d also checks romsize, but against its single-block table's declared
 // 0x200000 rather than a block sum.) N83M_1_5MB remains the one family that
 // cannot check it. Nothing on either path consumes romsize -- read_memory
-// discards the length argument derived from it at line 836 -- so the check
-// guards the flash table, not the transfer.
+// discards the length argument derived from it -- so the check guards the flash
+// table, not the transfer.
 bool GeometryOk(const FlashDevice& device)
 {
     return device.numblocks == 3 && device.romsize == kImageSize && device.fblocks[0].start == kImageStart &&

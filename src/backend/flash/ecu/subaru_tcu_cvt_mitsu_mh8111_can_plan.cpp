@@ -13,8 +13,8 @@ namespace
 constexpr std::array kProtocols{std::string_view{"sub_tcu_cvt_mitsu_mh8111_can"}};
 
 // Legacy read_mem hardcodes start_addr = 0x8000, length = 0x78000
-// unconditionally (lines 356-358, "hack for testing" -- overwriting
-// whatever the caller passed), independent of block_modified/fblocks.
+// unconditionally ("hack for testing" -- overwriting whatever the caller
+// passed), independent of block_modified/fblocks.
 constexpr MemoryRegion kReadRegion{0x8000, 0x78000};
 
 // Legacy write_mem's block_modified mask ({0,0,0,1}, only numblocks=4

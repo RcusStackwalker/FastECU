@@ -67,12 +67,8 @@ Status RequestM32rSsmPrefix(IKlineFlashTransport& transport, const ICancellation
                             bytes::ByteView payload, const M32rSsmEndpoint& endpoint, bytes::ByteView prefix,
                             std::chrono::milliseconds timeout)
 {
-    auto response = ExchangeM32rSsmRequired(transport, cancellation, payload, endpoint, timeout);
-    if (!response.has_value())
-    {
-        return std::unexpected(response.error());
-    }
-    return ExpectM32rSsmPrefix(*response, prefix, endpoint.peer);
+    return ExchangeM32rSsmRequired(transport, cancellation, payload, endpoint, timeout)
+        .and_then([&](const bytes::Bytes& response) { return ExpectM32rSsmPrefix(response, prefix, endpoint.peer); });
 }
 
 Status SendM32rSsmFrame(IKlineFlashTransport& transport, const ICancellationToken& cancellation,

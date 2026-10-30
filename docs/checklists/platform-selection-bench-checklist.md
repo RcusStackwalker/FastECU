@@ -20,7 +20,7 @@ Run `bazel test --config=release //...` first.
 - [ ] The port list shows the installed J2534 vendor names after the serial
       ports.
 - [ ] Selecting the OpenPort 2.0 vendor connects ("J2534: Interface opened
-      succesfully!" in the log).
+      successfully!" in the log).
 
 ## Sign-off
 

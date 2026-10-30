@@ -146,15 +146,9 @@ bool HasDuplicateConfirmation(const FlashPlanFields& fields)
 
 Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
 {
-    if (auto valid = ValidateTargetAndRegions(fields); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (auto valid = ValidateOperationShape(fields); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    auto rom_image = PlaceImage(fields);
+    auto rom_image = ValidateTargetAndRegions(fields)
+                         .and_then([&] { return ValidateOperationShape(fields); })
+                         .and_then([&] { return PlaceImage(fields); });
     if (!rom_image.has_value())
     {
         return std::unexpected(rom_image.error());

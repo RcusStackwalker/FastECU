@@ -277,5 +277,13 @@ TEST(SubaruDensoMc68hc16y5_02Plan, KernelUploadRequiresCanonicalAddressAndPadded
     }
 }
 
+TEST(SubaruDensoMc68hc16y5_02Plan, BuildPropagatesTheGenericPlanValidation)
+{
+    EXPECT_THAT(BuildSubaruDensoMc68hc16y502Plan(FlashOperation::kRead, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5",
+                                                 std::nullopt,
+                                                 KernelImage{.id = "", .load_address = 0x20000, .bytes = {0xaa}}),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("kernel id must not be empty")));
+}
+
 } // namespace
 } // namespace fastecu::flash

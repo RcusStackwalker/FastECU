@@ -9,6 +9,10 @@
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
 #include "src/backend/protocol/testing/scripted_kline_transport.h"
 
+#include <array>
+#include <string>
+#include <vector>
+
 using namespace mutdma;
 using namespace std::chrono_literals;
 
@@ -233,4 +237,71 @@ TEST(TestDriver, ChecksumValidOversizedStreamIsRejected)
     driver.SetChannelsForTest({{0x4010, 2}});
     fastecu::FakeCancellationToken cancellation;
     EXPECT_THAT(driver.PollOnce(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+}
+
+TEST(TestDriver, start_propagates_each_exchange_failure_and_stays_idle)
+{
+    const std::vector<Channel> ch = {{0x8000, 2}};
+    const MutDmaFrame setup = BuildSetupFrame(0xA0, 1);
+    const std::array<bytes::Bytes, 2> writes{bytes::Bytes(setup.begin(), setup.end()), BuildIdListFrame(0xA1, ch)};
+    const std::array<MutDmaFrame, 2> acks{BuildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd),
+                                          BuildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd)};
+    const std::array<std::string, 2> bad_ack_details{"MUT/DMA setup acknowledgement invalid",
+                                                     "MUT/DMA channel-list acknowledgement invalid"};
+    for (std::size_t faulted = 0; faulted < writes.size(); ++faulted)
+    {
+        SCOPED_TRACE(::testing::Message() << "exchange " << faulted);
+        for (int fault = 0; fault < 4; ++fault)
+        {
+            SCOPED_TRACE(::testing::Message() << "fault " << fault);
+            ScriptedKlineTransport t;
+            for (std::size_t i = 0; i < faulted; ++i)
+            {
+                t.ExpectWrite(writes[i]);
+                t.QueueRead(acks[i]);
+            }
+            if (fault != 0)
+            {
+                // Fault 0 leaves the write unexpected, so the transport rejects it.
+                t.ExpectWrite(writes[faulted]);
+            }
+            switch (fault)
+            {
+            case 0:
+                break;
+            case 1:
+                t.QueueError(fastecu::ErrorKind::kTimeout, "sentinel read failure");
+                break;
+            case 2:
+                t.QueueNoFrame();
+                break;
+            default:
+                // The other exchange's acknowledgement is well formed but wrong here.
+                t.QueueRead(acks[1 - faulted]);
+                break;
+            }
+            AlreadyInMode init(125000);
+            MutDmaDriver d(t, init);
+            fastecu::FakeCancellationToken cancellation;
+
+            const auto started = d.StartFreeFormLog(ch, 0xA0, 0xA1, cancellation);
+            if (fault == 0)
+            {
+                EXPECT_THAT(started, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal,
+                                                                 "unexpected scripted K-Line write"));
+            }
+            else if (fault == 1)
+            {
+                EXPECT_THAT(started,
+                            fastecu::testing::IsErrWith(fastecu::ErrorKind::kTimeout, "sentinel read failure"));
+            }
+            else
+            {
+                EXPECT_THAT(started,
+                            fastecu::testing::IsErrWith(fastecu::ErrorKind::kBadResponse, bad_ack_details[faulted]));
+            }
+            EXPECT_FALSE(d.IsStreaming());
+            EXPECT_TRUE(t.ScriptConsumed());
+        }
+    }
 }

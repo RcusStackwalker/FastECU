@@ -378,25 +378,21 @@ class FamilyExecutor : public Interface
 
     Result<ConfigType> TransportSetup(const FlashPlan& plan) const final
     {
-        if (const Status admitted = CheckPlan(plan); !admitted.has_value())
-        {
-            return std::unexpected(admitted.error());
-        }
-        return Setup(std::get<Plan>(plan.FamilyPlan()));
+        return CheckPlan(plan).and_then([&] { return Setup(std::get<Plan>(plan.FamilyPlan())); });
     }
 
     Result<FlashExecutionResult> Execute(const FlashPlan& plan, TransportType& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) final
     {
-        if (const Status admitted = CheckPlan(plan); !admitted.has_value())
-        {
-            return std::unexpected(admitted.error());
-        }
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled before setup");
-        }
-        return Run(std::get<Plan>(plan.FamilyPlan()), plan, transport, clock, cancellation, events);
+        return CheckPlan(plan).and_then(
+            [&]() -> Result<FlashExecutionResult>
+            {
+                if (cancellation.Cancelled())
+                {
+                    return Fail(ErrorKind::kCancelled, "cancelled before setup");
+                }
+                return Run(std::get<Plan>(plan.FamilyPlan()), plan, transport, clock, cancellation, events);
+            });
     }
 
   protected:
@@ -408,11 +404,7 @@ class FamilyExecutor : public Interface
   private:
     static Status CheckPlan(const FlashPlan& plan)
     {
-        if (const Status match = CheckFamily(plan, FamilyTraits<Plan>::kFamily); !match.has_value())
-        {
-            return match;
-        }
-        return Validator::Validate(plan);
+        return CheckFamily(plan, FamilyTraits<Plan>::kFamily).and_then([&] { return Validator::Validate(plan); });
     }
 };
 
@@ -463,29 +455,20 @@ template <typename Executor, typename Transport> class BoundAttempt final : publ
     {
         // Pure: validates the plan and derives config, touching no hardware, so
         // a bad plan is rejected before the adapter is configured or opened.
-        Result<typename Executor::ConfigType> setup = executor_->TransportSetup(plan_);
-        if (!setup.has_value())
-        {
-            return std::unexpected(setup.error());
-        }
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled before configure");
-        }
-        if (const Status preparation = executor_->BeforeTransportConfigure(*transport_, clock, cancellation);
-            !preparation.has_value())
-        {
-            return std::unexpected(preparation.error());
-        }
-        if (const Status configured = transport_->Configure(*setup); !configured.has_value())
-        {
-            return std::unexpected(configured.error());
-        }
-        if (const Status checkpoint = executor_->BeforeTransportOpen(cancellation); !checkpoint.has_value())
-        {
-            return std::unexpected(checkpoint.error());
-        }
-        if (const Status opened = transport_->Open(); !opened.has_value())
+        const Status opened = executor_->TransportSetup(plan_)
+                                  .and_then(
+                                      [&](const typename Executor::ConfigType& setup) -> Status
+                                      {
+                                          if (cancellation.Cancelled())
+                                          {
+                                              return Fail(ErrorKind::kCancelled, "cancelled before configure");
+                                          }
+                                          return executor_->BeforeTransportConfigure(*transport_, clock, cancellation)
+                                              .and_then([&] { return transport_->Configure(setup); });
+                                      })
+                                  .and_then([&] { return executor_->BeforeTransportOpen(cancellation); })
+                                  .and_then([&] { return transport_->Open(); });
+        if (!opened.has_value())
         {
             return std::unexpected(opened.error());
         }

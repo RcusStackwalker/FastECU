@@ -30,8 +30,8 @@ Status ValidateIdentity(std::string_view protocol, std::string_view mcu)
 
 SubaruDensoSh7055_02Plan WireParams(FlashOperation operation)
 {
-    // connect_bootloader():133-168 gates the SSM ECU-ID request on cmd_type
-    // being "read". The selected suffix never changes these parameters.
+    // connect_bootloader() gates the SSM ECU-ID request on cmd_type being
+    // "read". The selected suffix never changes these parameters.
     return {.tester_id = 0xf0, .target_id = 0x10, .read_ecu_id = operation == FlashOperation::kRead};
 }
 
@@ -153,15 +153,8 @@ Result<FlashPlan> BuildSubaruDensoSh705502Plan(FlashOperation operation, std::st
         .family_plan = WireParams(operation),
         .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}},
     };
-    auto plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (auto valid = ValidateSubaruDensoSh705502Plan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return ValidateAndBuild(std::move(fields))
+        .and_then([](FlashPlan plan)
+                  { return ValidateSubaruDensoSh705502Plan(plan).transform([&] { return std::move(plan); }); });
 }
 } // namespace fastecu::flash

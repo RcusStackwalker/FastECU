@@ -1,0 +1,894 @@
+{
+  "attempts": [
+    {
+      "date": "2026-10-25",
+      "group": "31bc0895cb96",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8104CanExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8111CanExecutor::Run"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 911,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-25",
+      "group": "07a897f35841",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtHitachiM32rCanExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8104CanExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8111CanExecutor::Run"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 911,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "31bc0895cb96",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8104CanExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8111CanExecutor::Run"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 911,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "07a897f35841",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtHitachiM32rCanExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8104CanExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::SubaruTcuCvtMitsuMh8111CanExecutor::Run"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 911,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "b91e1d66ec88",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "8a2addc0a04d",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::BuildSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "e7372ecfc55b",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::BuildSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "5f645d48b737",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::BuildSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "f4f8c740cb3a",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "b91e1d66ec88",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "8a2addc0a04d",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::BuildSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "e7372ecfc55b",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::BuildSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "5f645d48b737",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::BuildSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "f4f8c740cb3a",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::BuildSubaruDensoSh705xDensocanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 912,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "e8bbf4877554",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.cpp",
+          "fastecu::flash::SubaruDensoMc68hc16y5_02Executor::ReadBlockCrc"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7055_02Executor::ReadBlockCrc"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 913,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "e8bbf4877554",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.cpp",
+          "fastecu::flash::SubaruDensoMc68hc16y5_02Executor::ReadBlockCrc"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7055_02Executor::ReadBlockCrc"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 913,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "fceafff90903",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::ValidateSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::ValidateSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 914,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "fceafff90903",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.cpp",
+          "fastecu::flash::ValidateSubaruDensoSh7058CanDieselPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::ValidateSubaruTcuDensoSh705xCanPlan"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 914,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "f6ac7376dfa7",
+      "members": [
+        [
+          "apps/bench/bench_session.cpp",
+          "fastecu::bench::BenchSession::RequestOnce"
+        ],
+        [
+          "apps/bench/bench_session.cpp",
+          "fastecu::bench::BenchSession::ExchangeRaw"
+        ]
+      ],
+      "outcome": "deferred",
+      "pr": null,
+      "reason": "no wire evidence: BenchSession::Exchange and ExchangeRaw are not covered by any test"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "05d57143e924",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_m32r_kline_executor.cpp",
+          "fastecu::flash::ParseRomId"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_executor.cpp",
+          "fastecu::flash::ParseRomId"
+        ]
+      ],
+      "outcome": "unsuitable",
+      "pr": null,
+      "reason": "shared ROM-ID parse saves under 10 NLOC once its uncovered too-short branch is tested; SeedKey and prefix wrappers differ only by family tables and endpoints"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "24bb309eb4e6",
+      "members": [
+        [
+          "src/backend/logging/protocols/portable_cdbg_logging_protocol.cpp",
+          "fastecu::logging::CdbgLoggingProtocol::Poll"
+        ],
+        [
+          "src/backend/logging/protocols/portable_mut_dma_logging_protocol.cpp",
+          "fastecu::logging::MutDmaLoggingProtocol::Poll"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 915,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "24bb309eb4e6",
+      "members": [
+        [
+          "src/backend/logging/protocols/portable_cdbg_logging_protocol.cpp",
+          "fastecu::logging::CdbgLoggingProtocol::Poll"
+        ],
+        [
+          "src/backend/logging/protocols/portable_mut_dma_logging_protocol.cpp",
+          "fastecu::logging::MutDmaLoggingProtocol::Poll"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 915,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "9c1aa2f984d6",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::RequestIdentity"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::RequestIdentity"
+        ]
+      ],
+      "outcome": "unsuitable",
+      "pr": null,
+      "reason": "identity requests already compose BeefCanSession steps; a shared RequestCalId saves only 6 NLOC; the VIN and CVN differences are per family"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "80729a331f16",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::RequestIdentity"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.cpp",
+          "fastecu::flash::RequestIdentity"
+        ]
+      ],
+      "outcome": "unsuitable",
+      "pr": null,
+      "reason": "identity requests already compose BeefCanSession steps; a shared RequestCalId saves only 6 NLOC; the VIN and CVN differences are per family"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "6d5d643b1138",
+      "members": [
+        [
+          "src/ui/desktop/definition/dialog/definition_authoring_dialog.cpp",
+          "fastecu::ui::DefinitionAuthoringDialog::createNewDefinition"
+        ],
+        [
+          "src/ui/desktop/definition/dialog/definition_authoring_dialog.cpp",
+          "fastecu::ui::DefinitionAuthoringDialog::useExistingDefinition"
+        ]
+      ],
+      "outcome": "deferred",
+      "pr": null,
+      "reason": "no wire evidence: DefinitionAuthoringDialog create and import flows are Qt dialog code with no tests"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "73562443c34a",
+      "members": [
+        [
+          "src/platform/desktop/common/serial/direct/serial_port_actions_direct.h",
+          "<file>"
+        ],
+        [
+          "src/platform/desktop/unix/j2534/driver/J2534_unix.h",
+          "<file>"
+        ]
+      ],
+      "outcome": "deferred",
+      "pr": null,
+      "reason": "no wire evidence: the shared surface is the standard J2534 PassThru declaration list in two untested transport classes"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "f3f859904c81",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::FatalRequest"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::FatalRequest"
+        ]
+      ],
+      "outcome": "unsuitable",
+      "pr": null,
+      "reason": "both judges: the wrappers are one-line partial applications of the shared FatalRequest/FatalQuery binding each family's exchange policy (500 ms vs 2000 ms, wire behaviour) and rejection wording; any further cut is a pass-through binder or a config bundle (point 2), and tcu_cvt_hitachi's two-client overloads fail point 3"
+    },
+    {
+      "date": "2026-10-26",
+      "group": "b9a5cb08ddd5",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.cpp",
+          "fastecu::flash::ValidateRegions"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.cpp",
+          "fastecu::flash::ValidateRegions"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 916,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "b9a5cb08ddd5",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.cpp",
+          "fastecu::flash::ValidateRegions"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.cpp",
+          "fastecu::flash::ValidateRegions"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 916,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "121458fcbf98",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::GetCatalogEntry"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::GetCatalogEntry"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 917,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "121458fcbf98",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.cpp",
+          "fastecu::flash::GetCatalogEntry"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp",
+          "fastecu::flash::GetCatalogEntry"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 917,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "df4a0c15577c",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.cpp",
+          "fastecu::flash::SubaruDensoMc68hc16y5_02Executor::WriteMem"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7055_02Executor::WriteMem"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 918,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "df4a0c15577c",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.cpp",
+          "fastecu::flash::SubaruDensoMc68hc16y5_02Executor::WriteMem"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7055_02Executor::WriteMem"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 918,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "d221bf7018e1",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 919,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "a792e6c47fca",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 919,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "d221bf7018e1",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 919,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "a792e6c47fca",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.cpp",
+          "fastecu::flash::EnterProgrammingSession"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 919,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "3aedf29fe2f6",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7058CanDieselExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7058CanExecutor::Run"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 920,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "3aedf29fe2f6",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7058CanDieselExecutor::Run"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::SubaruDensoSh7058CanExecutor::Run"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 920,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "724d9ea65e01",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::UploadKernel"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::UploadKernel"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 921,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "3e4db0742425",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::ConnectBootloader"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::ConnectBootloader"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 921,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "724d9ea65e01",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::UploadKernel"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::UploadKernel"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 921,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "3e4db0742425",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::ConnectBootloader"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::ConnectBootloader"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 921,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "0f30cfd5d6c4",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp",
+          "fastecu::flash::UnlockSecurity"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.cpp",
+          "fastecu::flash::UnlockSecurity"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 921,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "a01e20afc259",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp",
+          "fastecu::flash::WriteMem"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::WriteMem"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 922,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "a01e20afc259",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp",
+          "fastecu::flash::WriteMem"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::WriteMem"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 922,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "28c814540dc3",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::UnlockAndJump"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::ConnectBootloader"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 923,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "28c814540dc3",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::UnlockAndJump"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp",
+          "fastecu::flash::ConnectBootloader"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 923,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "93e1401cdeaa",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::DumpFlashRange"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::DumpFlashRange"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 924,
+      "reason": ""
+    },
+    {
+      "date": "2026-10-26",
+      "group": "93e1401cdeaa",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::DumpFlashRange"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor.cpp",
+          "fastecu::flash::DumpFlashRange"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 924,
+      "reason": ""
+    }
+  ]
+}

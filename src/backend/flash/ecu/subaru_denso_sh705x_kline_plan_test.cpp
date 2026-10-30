@@ -74,11 +74,11 @@ TEST(SubaruDensoSh705xKlinePlan, MapsAllSixPairsWithLegacyWireParameters)
         EXPECT_THAT(plan->EraseRegions(), IsEmpty());
         EXPECT_THAT(plan->Confirmations(), IsEmpty());
         const auto& family = std::get<SubaruDensoSh705xKlinePlan>(plan->FamilyPlan());
-        // execute():67-76 -- 4800 baud, tester 0xF0, target 0x10.
+        // 4800 baud, tester 0xF0, target 0x10.
         EXPECT_EQ(family.initial_baud, 4800);
         EXPECT_EQ(family.tester_id, 0xF0);
         EXPECT_EQ(family.target_id, 0x10);
-        // connect_bootloader():269 -- flash method endsWith("_ecutek").
+        // Flash method endsWith("_ecutek").
         EXPECT_EQ(family.seed_key, pair.seed_key);
     }
 }
@@ -136,6 +136,13 @@ TEST(SubaruDensoSh705xKlinePlan, RejectsBadKernels)
     EXPECT_THAT(BuildSubaruDensoSh705xKlinePlan(FlashOperation::kRead, "sub_ecu_denso_sh7055_04", "SH7055",
                                                 std::nullopt, KernelFor("SH7058")),
                 IsErr(ErrorKind::kInvalidConfig));
+
+    // Caught by the generic plan validation, after every family check passed.
+    KernelImage unnamed = KernelFor("SH7055");
+    unnamed.id.clear();
+    EXPECT_THAT(BuildSubaruDensoSh705xKlinePlan(FlashOperation::kRead, "sub_ecu_denso_sh7055_04", "SH7055",
+                                                std::nullopt, unnamed),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, Eq("kernel id must not be empty")));
 
     KernelImage oversized = KernelFor("SH7058");
     oversized.bytes.assign(0x01000000, 0x00);

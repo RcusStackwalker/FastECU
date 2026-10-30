@@ -50,6 +50,12 @@ Result<bytes::Bytes> DensoBeefKlineExchangeAck(IKlineFlashTransport& transport, 
                                                std::chrono::milliseconds settle, std::chrono::milliseconds timeout,
                                                bytes::Byte opcode, std::string_view phase, std::size_t more_than = 0);
 
+// Requests the ECU's CRC over `block` and returns the first chunk of its reply
+// (empty when none arrives within 3 s); each family reads the rest and
+// decodes it under its own acceptance rules.
+Result<bytes::Bytes> DensoBeefKlineRequestBlockCrc(IKlineFlashTransport& transport,
+                                                   const ICancellationToken& cancellation, const MemoryRegion& block);
+
 // Runs `action` between cancellation checks reading "cancelled before <what>"
 // and "cancelled after <what>".
 template <typename Action>
@@ -94,5 +100,73 @@ Result<unsigned> DensoBeefKlineCompareBlocks(std::span<const MemoryRegion> block
         modified_count += modified[index] ? 1U : 0U;
     }
     return modified_count;
+}
+
+// The BEEF K-Line write over `blocks` of the addressed `image`: compares every
+// block's CRC, enables programming voltage (also when nothing differs) and,
+// when a block differs, initialises the flash write, reflashes each changed
+// block after a 200 ms programming-voltage query, then compares again and
+// reports. A final mismatch logs an error and still returns success.
+template <typename ReadCrc, typename InitFlashWrite, typename FlashBlock>
+Status DensoBeefKlineWriteChangedBlocks(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
+                                        IEventSink& events, std::span<const MemoryRegion> blocks, bytes::ByteView image,
+                                        bool test_write, ReadCrc&& read_crc, InitFlashWrite&& init_flash_write,
+                                        FlashBlock&& flash_block)
+{
+    std::vector<bool> modified(blocks.size(), false);
+    const auto compare = [&] { return DensoBeefKlineCompareBlocks(blocks, image, modified, cancellation, read_crc); };
+    events.Log(LogLevel::kInfo, "Comparing ECU flash memory pages to image file");
+    Result<unsigned> modified_count = compare();
+    if (!modified_count.has_value())
+    {
+        return std::unexpected(modified_count.error());
+    }
+    if (Status line = DensoBeefKlineEnableProgrammingVoltage(transport, cancellation); !line.has_value())
+    {
+        return line;
+    }
+    if (*modified_count == 0)
+    {
+        events.Log(LogLevel::kInfo, "No difference between ROM and ECU data, no flashing needed");
+        return {};
+    }
+    if (Status initialized = init_flash_write(); !initialized.has_value())
+    {
+        return initialized;
+    }
+    for (std::size_t block_no = 0; block_no < blocks.size(); ++block_no)
+    {
+        if (!modified[block_no])
+        {
+            continue;
+        }
+        if (Result<bytes::Bytes> voltage =
+                DensoBeefKlineExchangeAck(transport, nullptr, cancellation, DensoBeefKlineFrame(kDensoKlineOpProgVolt),
+                                          std::chrono::milliseconds{0}, std::chrono::milliseconds{200},
+                                          kDensoKlineOpProgVolt, "prog-volt query", 7);
+            !voltage.has_value())
+        {
+            return std::unexpected(voltage.error());
+        }
+        if (Status flashed = flash_block(blocks[block_no]); !flashed.has_value())
+        {
+            return flashed;
+        }
+        events.Log(LogLevel::kInfo, "Block reflash complete");
+    }
+    events.Log(LogLevel::kInfo, "Comparing ECU flash memory pages to image file after reflash");
+    return compare().transform(
+        [&](unsigned remaining)
+        {
+            if (test_write)
+            {
+                events.Log(LogLevel::kInfo, "Test write PASS, it is safe to perform the actual write");
+            }
+            else if (remaining != 0)
+            {
+                events.Log(LogLevel::kError,
+                           "Flash verification differs; do not power off, the kernel is still running");
+            }
+        });
 }
 } // namespace fastecu::flash

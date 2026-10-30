@@ -5,6 +5,8 @@
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
+#include "src/backend/flash/ecu/flash_phase_progress.h"
+#include "src/backend/flash/flash_types.h"
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/clock.h"
 #include "src/backend/ports/error.h"
@@ -16,8 +18,8 @@
 // mitsu_colt_m32r, subaru_hitachi_m32r, subaru_tcu_cvt_hitachi_m32r,
 // subaru_tcu_cvt_mitsu_mh8111, the Denso ISO-15765 bootloader dialect
 // (denso_iso15765_*) and the three Denso BEEF CAN executors
-// (subaru_denso_sh7058_can, its diesel sibling and subaru_tcu_denso_sh705x_can,
-// through denso_beef_can_common.h). subaru_tcu_cvt_mitsu_mh8104 talks to
+// (the shared petrol/diesel execution owner, kernel and separate TCU executor).
+// subaru_tcu_cvt_mitsu_mh8104 talks to
 // uds::IUdsChannel directly and uses none of it, see that executor's own file
 // header. Extracted because the first four families independently carried a
 // byte-for-byte identical copy of this logging/wrapping logic.
@@ -141,5 +143,19 @@ void NonFatalQuery(const UdsExchangeContext& ctx, bytes::ByteView pdu, std::opti
 Result<bytes::Bytes> FatalQuery(const UdsExchangeContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                                 std::string_view rejection_prefix, std::string_view subject,
                                 std::optional<std::size_t> min_payload_size = std::nullopt);
+
+// The seed/key unlock and kernel jump: a fatal seed request (27 01, a reply of
+// at least five payload bytes opening 01), the family's `seed_key` of its four
+// seed bytes sent as 27 02 (reply opening 02), then the kernel jump 10 42
+// (reply opening 42). Any failure aborts.
+Status UnlockAndKernelJump(const UdsExchangeContext& ctx, std::string_view rejection_prefix,
+                           bytes::Bytes (*seed_key)(bytes::ByteView seed));
+
+// Reads `region` as 0x100-byte encrypted B7 pages (B7 plus a 24-bit address,
+// each a FatalRequest), checking cancellation before every page, and returns
+// the pages decrypted with the family's `decrypt_page`.
+Result<bytes::Bytes> ReadEncryptedB7Pages(const UdsExchangeContext& ctx, std::string_view rejection_prefix,
+                                          const MemoryRegion& region, bytes::Bytes (*decrypt_page)(bytes::ByteView),
+                                          PhaseReporter& progress);
 
 } // namespace fastecu::flash

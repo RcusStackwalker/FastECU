@@ -120,17 +120,15 @@ Result<DecodedMap> CalibrationSession::DecodeMap(std::size_t map_index) const
                                                            rom_definition.maps.size()));
     }
     const definition::CalibrationMap& map = rom_definition.maps[map_index];
-    const auto extent = CheckMapPlacement(rom_definition, map, image_.Map());
-    if (!extent.has_value())
-    {
-        return std::unexpected(extent.error());
-    }
-    const auto window = Read(extent->start, static_cast<std::size_t>(extent->end - extent->start));
-    if (!window.has_value())
-    {
-        return std::unexpected(window.error());
-    }
-    return DecodeCalibrationMap(rom_definition, map, DefinitionBytes(*window, extent->start));
+    return CheckMapPlacement(rom_definition, map, image_.Map())
+        .and_then(
+            [&](const MapExtent& extent)
+            {
+                return Read(extent.start, static_cast<std::size_t>(extent.end - extent.start))
+                    .and_then(
+                        [&](const bytes::Bytes& window)
+                        { return DecodeCalibrationMap(rom_definition, map, DefinitionBytes(window, extent.start)); });
+            });
 }
 
 Result<bytes::Bytes> CalibrationSession::Read(std::uint64_t offset, std::size_t size) const

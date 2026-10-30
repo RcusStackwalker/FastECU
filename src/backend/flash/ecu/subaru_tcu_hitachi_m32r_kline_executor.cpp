@@ -224,21 +224,15 @@ Result<FlashExecutionResult> SubaruTcuHitachiM32rKlineExecutor::Run(const Subaru
                                                                     const ICancellationToken& cancellation,
                                                                     IEventSink& events)
 {
-    if (auto header = transport.SetAddIso14230Header(false); !header.has_value())
-    {
-        return std::unexpected(header.error());
-    }
-    auto id = ConnectBootloader(transport, clock, cancellation, p);
-    if (!id.has_value())
-    {
-        return std::unexpected(id.error());
-    }
-    auto rom = ReadRom(transport, clock, cancellation, events, p);
-    if (!rom.has_value())
-    {
-        return std::unexpected(rom.error());
-    }
-    return FlashExecutionResult{FlashOperation::kRead, std::move(*rom), std::move(*id)};
+    return transport.SetAddIso14230Header(false)
+        .and_then([&] { return ConnectBootloader(transport, clock, cancellation, p); })
+        .and_then(
+            [&](std::string id)
+            {
+                return ReadRom(transport, clock, cancellation, events, p)
+                    .transform([&](bytes::Bytes rom)
+                               { return FlashExecutionResult{FlashOperation::kRead, std::move(rom), std::move(id)}; });
+            });
 }
 
 namespace

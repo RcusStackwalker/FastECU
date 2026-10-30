@@ -43,7 +43,7 @@ enum class DensoIdentityQuery
 };
 
 // The wording of the read-setup and write-block log lines: legacy's
-// "Settting dump start & length" / "Flash block addr: ..." pair, or
+// "Setting dump start & length" / "Flash block addr: ..." pair, or
 // "Setting flash start: ... and length: ..." for both.
 enum class DensoRegionLog
 {
@@ -68,8 +68,7 @@ struct DensoBenchArm
 // DensoIso15765BootloaderExecutor.
 struct DensoIso15765BootloaderProfile
 {
-    std::string_view log_name;    // "Connecting to ECU {log_name} CAN bootloader, ..."
-    std::string_view family_name; // "test_write is not supported by the {family_name} family"
+    std::string_view unit; // RunBootloaderOperation's unit, e.g. "Subaru Denso SH72531"
     std::string_view obk_active_log;
     DensoIdentityQuery identity_query;
     std::chrono::milliseconds probe_timeout;

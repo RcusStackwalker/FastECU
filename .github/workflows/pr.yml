@@ -235,7 +235,105 @@ jobs:
           BASE_REF: origin/${{ github.base_ref }}
         run: |
           python3 scripts/mutation_test.py --diff-ref "${BASE_REF}" \
-            --summary "$GITHUB_STEP_SUMMARY" --annotate
+            --summary "$GITHUB_STEP_SUMMARY" --annotate --report-dir mull-reports
+
+      # The sonar-dedup verdict reads these; it does not run Mull again (ADR 0029).
+      # The marker makes the artifact exist even when nothing was mutated, so a
+      # failed download fails the verdict instead of reading as "no survivors".
+      - name: Mark the mutation reports
+        run: mkdir -p mull-reports && touch mull-reports/.uploaded
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutation-reports
+          path: mull-reports
+          include-hidden-files: true
+
+  # The merge rules of a `sonar-dedup` loop PR (ADR 0029): NLOC drops by at
+  # least 10, and the PR adds no duplicated lines, no uncovered lines and no
+  # surviving mutants. Changed-line coverage and new duplication come only from
+  # the SonarCloud job, so this waits for it. It runs on every PR and reads the
+  # labels when it starts: `gh pr create --label` labels the PR after the
+  # `opened` event, whose payload would not show the label yet.
+  sonar-dedup-verdict:
+    name: sonar-dedup verdict
+    needs: [sonarcloud, mutation]
+    if: always()
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Skip PRs that are not loop PRs
+        id: label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if gh pr view "${PR}" --repo "${GITHUB_REPOSITORY}" --json labels \
+              --jq '.labels[].name' | grep -qx sonar-dedup; then
+            echo "loop=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Not labelled sonar-dedup; nothing to check." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # A skipped or failed job would otherwise leave this check skipped, which
+      # reads as passing.
+      - name: Require the SonarCloud and mutation jobs
+        if: steps.label.outputs.loop == 'true'
+        env:
+          SONAR: ${{ needs.sonarcloud.result }}
+          MUTATION: ${{ needs.mutation.result }}
+        run: |
+          if [ "${SONAR}" != success ] || [ "${MUTATION}" != success ]; then
+            echo "sonarcloud: ${SONAR}, mutation: ${MUTATION}; both must succeed" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.label.outputs.loop == 'true'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Install prek
+        if: steps.label.outputs.loop == 'true'
+        run: pipx install prek
+
+      - name: Cache prek hook environments
+        if: steps.label.outputs.loop == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/prek
+          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        if: steps.label.outputs.loop == 'true'
+        with:
+          name: mutation-reports
+          path: mull-reports
+
+      # The base's copy of the script judges the PR, so a PR cannot change its
+      # own verdict; the verdict fails a PR that changes the loop's tooling.
+      - name: Check the loop PR's merge rules
+        if: steps.label.outputs.loop == 'true'
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -o pipefail
+          base="$(git merge-base "${BASE_REF}" HEAD)"
+          git worktree add ../base "${base}"
+          verdict=../base/scripts/dedup_loop.py
+          before="$(python3 "${verdict}" --root ../base measure --json | jq -e .total)"
+          after="$(python3 "${verdict}" --root . measure --json | jq -e .total)"
+          git diff --name-only "${base}" HEAD > "${RUNNER_TEMP}/changed.txt"
+          python3 "${verdict}" --root . verdict --pr "${PR}" --head-sha "${HEAD_SHA}" \
+            --nloc-before "${before}" --nloc-after "${after}" \
+            --changed-file "${RUNNER_TEMP}/changed.txt" --mutation-reports mull-reports \
+            | tee -a "$GITHUB_STEP_SUMMARY"
 
   clang-tidy:
     name: clang-tidy (${{ matrix.os }})

@@ -6,6 +6,7 @@
 #include <format>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
@@ -323,8 +324,8 @@ bytes::Bytes Response(bytes::ByteView pdu)
     return ComposeBe(kResponseId, pdu);
 }
 
-// Legacy request_kernel_id(), r59f4e442 lines 1583-1647. This is the initial
-// ISO-15765 probe's exact twelve-byte wire buffer, not a UDS PDU.
+// This is the initial ISO-15765 probe's exact twelve-byte wire buffer, not a
+// UDS PDU.
 bytes::Bytes KernelIdRequest()
 {
     return {0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -424,18 +425,20 @@ void ScriptRawReadPagesWithBoundarySentinels(ScriptedCanFlashTransport& transpor
 
 void ScriptIdentityQueries(ScriptedCanFlashTransport& transport)
 {
-    // connect_bootloader(), r59f4e442 lines 137-214: both identity queries
-    // are non-fatal, but successful read identity contributes to rom_id.
+    // Both identity queries are non-fatal, but successful read identity
+    // contributes to rom_id.
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xAA});
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xEA, 0x00, 0x00, 0x00, 0x45, 0x43, 0x55, 0x30, 0x31});
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x09, 0x04});
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x49, 0x04, 0x00, 0x43, 0x41, 0x4C});
 }
 
-void ScriptStrictSessionAndSecurity(ScriptedCanFlashTransport& transport)
+// The strict exchanges up to and including the programming session request;
+// the caller scripts its reply.
+void ScriptStrictSessionUntilProgramming(ScriptedCanFlashTransport& transport)
 {
-    // connect_bootloader(), r59f4e442 lines 216-359. Seed 11 22 33 44 maps
-    // to 35 B6 83 BF; the literal is fixed independently of executor code.
+    // Seed 11 22 33 44 maps to 35 B6 83 BF; the literal is fixed independently
+    // of executor code.
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x01});
@@ -443,7 +446,12 @@ void ScriptStrictSessionAndSecurity(ScriptedCanFlashTransport& transport)
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x67, 0x02});
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x02});
-    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x42});
+}
+
+void ScriptStrictSessionAndSecurity(ScriptedCanFlashTransport& transport, bytes::Byte programming_echo = 0x42)
+{
+    ScriptStrictSessionUntilProgramming(transport);
+    transport.QueueRead(Response(bytes::Bytes{0x50, programming_echo}));
 }
 
 void QueueUploadB6Reply(ScriptedCanFlashTransport& transport, UploadB6Reply reply)
@@ -483,10 +491,9 @@ void QueueUploadB6Reply(ScriptedCanFlashTransport& transport, UploadB6Reply repl
 void ScriptKernelUploadUntilStart(ScriptedCanFlashTransport& transport, const Case& test_case,
                                   UploadB6Reply b6_reply = UploadB6Reply::kNoFrame)
 {
-    // upload_kernel(), r59f4e442 lines 369-627. Four kernel bytes pad to one
-    // 128-byte transfer. The checksum word is 59 A3 A2 56, and the first and
-    // last encrypted words are fixed here so the test never calls production
-    // crypto helpers.
+    // Four kernel bytes pad to one 128-byte transfer. The checksum word is 59
+    // A3 A2 56, and the first and last encrypted words are fixed here so the
+    // test never calls production crypto helpers.
     transport.ExpectWrite(Request(ComposeBe(0x34_b, 0x04_b, 0x33_b, U24{test_case.kernel_address}, U24{0x80})));
     transport.QueueRead(Response(bytes::Bytes{0x74, 0x20}));
 
@@ -780,11 +787,13 @@ void AppendCompareLogs(std::vector<LogRecord>& logs, std::span<const BlockFixtur
 std::vector<LogRecord> ExpectedWriteLogs(std::span<const BlockFixture> blocks)
 {
     std::vector<LogRecord> logs;
+    logs.emplace_back(LogLevel::kInfo, "Connecting to Subaru Denso SH705x TCU CAN bootloader, please wait...");
     logs.emplace_back(LogLevel::kInfo, "Checking if kernel is already running...");
     logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
     logs.emplace_back(LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ");
     logs.emplace_back(LogLevel::kInfo, "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 ");
     logs.emplace_back(LogLevel::kInfo, "Kernel ID: KID");
+    logs.emplace_back(LogLevel::kInfo, "Writing ROM to Subaru Denso SH705x TCU using CAN");
     AppendCompareLogs(logs, blocks, true, false);
     logs.emplace_back(LogLevel::kInfo, "--- Start writing ROM file to ECU flash memory ---");
     logs.emplace_back(LogLevel::kInfo, "Check max message length");
@@ -792,7 +801,7 @@ std::vector<LogRecord> ExpectedWriteLogs(std::span<const BlockFixture> blocks)
     logs.emplace_back(LogLevel::kInfo, "Check flashblock size");
     logs.emplace_back(LogLevel::kInfo, ": 0x10BC");
     logs.emplace_back(LogLevel::kInfo, "Test write mode off, perform actual flash write");
-    logs.emplace_back(LogLevel::kError, "Flash mode succesfully set");
+    logs.emplace_back(LogLevel::kError, "Flash mode successfully set");
     logs.emplace_back(LogLevel::kInfo, "Flash block addr: 0x00000000 len: 0x00001000");
     logs.emplace_back(LogLevel::kInfo, "Check flash voltage");
     logs.emplace_back(LogLevel::kInfo, ": 2V");
@@ -823,6 +832,7 @@ std::vector<LogRecord> ExpectedWriteLogs(std::span<const BlockFixture> blocks)
 std::vector<LogRecord> ExpectedReadLogs(const Case& test_case)
 {
     std::vector<LogRecord> logs;
+    logs.emplace_back(LogLevel::kInfo, "Connecting to Subaru Denso SH705x TCU CAN bootloader, please wait...");
     logs.emplace_back(LogLevel::kInfo, "Checking if kernel is already running...");
     logs.emplace_back(LogLevel::kInfo, "Requesting kernel ID");
     logs.emplace_back(LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ");
@@ -830,6 +840,7 @@ std::vector<LogRecord> ExpectedReadLogs(const Case& test_case)
                                            ? "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 00 00 "
                                            : "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 ");
     logs.emplace_back(LogLevel::kInfo, "Kernel ID: KID");
+    logs.emplace_back(LogLevel::kInfo, "Reading ROM from Subaru Denso SH705x TCU using CAN");
     logs.emplace_back(LogLevel::kInfo, "Start reading ROM, please wait...");
     constexpr unsigned kFakeClockSpeed = 1'024'000;
     for (std::uint32_t offset = 0; offset < test_case.rom_size; offset += kReadPageSize)
@@ -999,7 +1010,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdContinuationAppendsTheEntireAccept
         bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
     transport.scripted.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x07, 0x41, 0x41});
     // These bytes happen to begin with BEEF, but this is a continuation
-    // payload, not a second envelope. Legacy lines 1621-1625 append it whole.
+    // payload, not a second envelope. Legacy append it whole.
     transport.scripted.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x03, 0x41, 0x42, 0x43});
     transport.scripted.QueueNoFrame();
     ScriptCompare(transport.scripted, BlocksFor(kCases[1]), false);
@@ -1086,12 +1097,13 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeTreatsLegacyNonterminalR
         kAdapterError,
         kShort,
         kMalformedLength,
+        kTruncatedLength,
         kWrongCanId,
         kWrongOpcode,
     };
-    for (const ProbeReply reply :
-         {ProbeReply::kNoFrame, ProbeReply::kTimeout, ProbeReply::kAdapterError, ProbeReply::kShort,
-          ProbeReply::kMalformedLength, ProbeReply::kWrongCanId, ProbeReply::kWrongOpcode})
+    for (const ProbeReply reply : {ProbeReply::kNoFrame, ProbeReply::kTimeout, ProbeReply::kAdapterError,
+                                   ProbeReply::kShort, ProbeReply::kMalformedLength, ProbeReply::kTruncatedLength,
+                                   ProbeReply::kWrongCanId, ProbeReply::kWrongOpcode})
     {
         SCOPED_TRACE(static_cast<int>(reply));
         auto plan = ReadPlan(kCases[1]);
@@ -1127,6 +1139,10 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeTreatsLegacyNonterminalR
                 break;
             case ProbeReply::kMalformedLength:
                 transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x02, 0x41});
+                transport.QueueNoFrame();
+                break;
+            case ProbeReply::kTruncatedLength:
+                transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41});
                 transport.QueueNoFrame();
                 break;
             case ProbeReply::kWrongCanId:
@@ -1184,8 +1200,8 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeKeepsCancellationAndDisc
 
 TEST(SubaruTcuDensoSh705xCanExecutor, SessionSafetyCorrectionRejectsBothLegacyPartialMatchesAndAcceptsExactMatch)
 {
-    // Oracle line 230 uses `sid != 0x50 && subfunction != 0x03`; its truth
-    // table accepts either 50 02 or 51 03 because one inequality is false.
+    // Oracle uses `sid != 0x50 && subfunction != 0x03`; its truth table accepts
+    // either 50 02 or 51 03 because one inequality is false.
     const std::array<bytes::Bytes, 2> partial_matches{{bytes::Bytes{0x50, 0x02}, bytes::Bytes{0x51, 0x03}}};
     for (const bytes::Bytes& reply : partial_matches)
     {
@@ -1479,6 +1495,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
     const std::vector<LogRecord> expected_upload_prefix{
+        {LogLevel::kInfo, "Connecting to Subaru Denso SH705x TCU CAN bootloader, please wait..."},
         {LogLevel::kInfo, "Checking if kernel is already running..."},
         {LogLevel::kInfo, "Requesting kernel ID"},
         {LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
@@ -1501,8 +1518,9 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
         {LogLevel::kInfo, "Seed request ok"},
         {LogLevel::kInfo, "Sending seed key"},
         {LogLevel::kInfo, "Seed key ok"},
-        {LogLevel::kInfo, "Requesting programming session"},
+        {LogLevel::kInfo, "Set session mode"},
         {LogLevel::kInfo, "Succesfully set to programming session"},
+        {LogLevel::kInfo, "Initializing Subaru Denso SH705x TCU CAN kernel upload, please wait..."},
         {LogLevel::kDebug, "Start address to upload kernel: 0xffff9000"},
         {LogLevel::kInfo, "Initialize kernel upload"},
         {LogLevel::kInfo, "Uploading kernel, please wait..."},
@@ -1512,6 +1530,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
         {LogLevel::kInfo, "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 "},
         {LogLevel::kInfo, "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 "},
         {LogLevel::kInfo, "Kernel ID: KID"},
+        {LogLevel::kInfo, "Reading ROM from Subaru Denso SH705x TCU using CAN"},
         {LogLevel::kInfo, "Start reading ROM, please wait..."},
     };
     ASSERT_GE(events.logs.size(), expected_upload_prefix.size());
@@ -2229,5 +2248,197 @@ TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecu
     EXPECT_TRUE(HasLog(failing_events, LogLevel::kWarning, "close failed after execution error"));
 }
 
+class SubaruTcuDensoSh705xCanCold : public ::testing::Test
+{
+  protected:
+    using Outcome = Result<bytes::Bytes>;
+    using Logs = std::vector<std::pair<LogLevel, std::string>>;
+
+    Result<FlashExecutionResult> ExecuteCold(const Outcome& ecu_reply,
+                                             bytes::Bytes cal_reply = {0x49, 0x04, 0x01, 'C', 'A', 'L'},
+                                             bytes::Byte programming_echo = 0x42)
+    {
+        auto plan = ReadPlan(kCases.front());
+        if (!plan.has_value())
+        {
+            return std::unexpected(plan.error());
+        }
+        ConfigureAndOpen(executor_, *plan, transport_);
+        ScriptKernelProbeTimeout(transport_);
+        transport_.ExpectWrite(Request(bytes::Bytes{0xAA}));
+        if (!ecu_reply.has_value())
+        {
+            transport_.QueueError(ecu_reply.error().kind, ecu_reply.error().detail);
+        }
+        else
+        {
+            transport_.QueueRead(Response(*ecu_reply));
+        }
+        const bool terminal = !ecu_reply.has_value() && (ecu_reply.error().kind == ErrorKind::kCancelled ||
+                                                         ecu_reply.error().kind == ErrorKind::kDisconnected);
+        if (!terminal)
+        {
+            transport_.Exchange(Request(bytes::Bytes{0x09, 0x04}), Response(cal_reply));
+            ScriptStrictSessionAndSecurity(transport_, programming_echo);
+            ScriptKernelUpload(transport_, kCases.front());
+            ScriptKernelAlive(transport_);
+            ScriptReadPages(transport_, kCases.front().rom_size);
+        }
+        events_.logs.clear();
+        auto result =
+            testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock_, cancellation_, events_);
+        EXPECT_TRUE(transport_.ScriptConsumed());
+        return result;
+    }
+
+    Logs Section(std::string_view first, std::string_view last) const
+    {
+        return events_.logs | std::views::drop_while([first](const auto& log) { return log.second != first; }) |
+               std::views::drop(1) | std::views::take_while([last](const auto& log) { return log.second != last; }) |
+               std::ranges::to<Logs>();
+    }
+
+    SubaruTcuDensoSh705xCanExecutor executor_;
+    ScriptedCanFlashTransport transport_;
+    FakeClock clock_;
+    FakeCancellationToken cancellation_;
+    RecordingEventSink events_;
+};
+
+TEST_F(SubaruTcuDensoSh705xCanCold, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDeviceName)
+{
+    const auto reply = ExecuteCold(Fail(ErrorKind::kBadResponse, "boom"));
+    ASSERT_THAT(reply, IsOk());
+    EXPECT_THAT(reply->rom_id, Optional(Eq("CAL_")));
+    EXPECT_THAT(Section("Requesting ECU ID", "Requesting CAL ID"),
+                ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: boom")));
+}
+
+TEST_F(SubaruTcuDensoSh705xCanCold, LogFailureNamesTimeoutsAndBadRepliesAndStaysSilentOtherwise)
+{
+    Logs failures;
+    for (const auto& [kind, detail] :
+         std::array{std::pair{ErrorKind::kTimeout, "late"}, std::pair{ErrorKind::kBadResponse, "garbled"},
+                    std::pair{ErrorKind::kCancelled, "stop"}, std::pair{ErrorKind::kDisconnected, "gone"}})
+    {
+        SCOPED_TRACE(detail);
+        const auto reply = ExecuteCold(Fail(kind, detail));
+        if (kind == ErrorKind::kCancelled || kind == ErrorKind::kDisconnected)
+        {
+            EXPECT_THAT(reply, fastecu::testing::IsErrWith(kind, _));
+            EXPECT_THAT(Section("Requesting ECU ID", "Requesting CAL ID"), ::testing::IsEmpty());
+        }
+        else
+        {
+            EXPECT_THAT(reply, IsOk());
+        }
+        failures.append_range(Section("Requesting ECU ID", "Requesting CAL ID"));
+    }
+    EXPECT_THAT(failures, ElementsAre(Pair(LogLevel::kError, "No valid response from ECU"),
+                                      Pair(LogLevel::kError, "Wrong response from TCU: garbled")));
+}
+
+TEST_F(SubaruTcuDensoSh705xCanCold, IdentityWrongReplyKeepsTcuPduWording)
+{
+    // The former session-only CVN case combined CVN parsing and TCU wording.
+    // Real TCU operations request CAL ID; the same negative vector preserves
+    // the TCU assertion here while petrol covers the actual CVN request.
+    ASSERT_THAT(ExecuteCold(bytes::Bytes{0xEA, 0, 0, 0, 1, 2, 3, 4, 5}, {0x7F, 0x09}), IsOk());
+    EXPECT_THAT(Section("Requesting CAL ID", "Requesting session mode"),
+                ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: 7f 09 ")));
+    EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting CAL ID")));
+}
+
+TEST_F(SubaruTcuDensoSh705xCanCold, OpcodeOnlyKernelIdContinuesToReadWithoutColdInitialization)
+{
+    auto plan = ReadPlan(kCases.front());
+    ASSERT_THAT(plan, IsOk());
+    ConfigureAndOpen(executor_, *plan, transport_);
+    transport_.Exchange(KernelIdRequest(), bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x41});
+    transport_.QueueNoFrame();
+    ScriptReadPages(transport_, kCases.front().rom_size);
+    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock_, cancellation_, events_),
+                IsOk());
+    EXPECT_TRUE(transport_.ScriptConsumed());
+    EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Kernel ID: ")));
+}
+
+TEST_F(SubaruTcuDensoSh705xCanCold, MinimalCalIdAndProgrammingSessionRepliesRemainAccepted)
+{
+    const auto result = ExecuteCold(Fail(ErrorKind::kTimeout, ""), {0x49, 0x04, 0x01}, 0x02);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_THAT(result->rom_id, Optional(Eq("_")));
+    EXPECT_THAT(Section("Requesting CAL ID", "Requesting session mode"),
+                ElementsAre(Pair(LogLevel::kInfo, "CAL ID: ")));
+}
+
+// Runs a kCases[1] read through the probe timeout and identity queries, then
+// `script`, and returns the outcome.
+template <typename Script> Result<FlashExecutionResult> RunAfterIdentity(Script script)
+{
+    auto plan = ReadPlan(kCases[1]);
+    if (!plan.has_value())
+    {
+        return std::unexpected(plan.error());
+    }
+    SubaruTcuDensoSh705xCanExecutor executor;
+    ScriptedCanFlashTransport transport;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport);
+    ScriptIdentityQueries(transport);
+    script(transport);
+    FakeCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    EXPECT_TRUE(transport.ScriptConsumed());
+    return result;
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, AShortOrWrongSeedIsRejected)
+{
+    for (const bytes::Bytes& seed :
+         {bytes::Bytes{0x67, 0x01, 0x11, 0x22, 0x33}, bytes::Bytes{0x67, 0x03, 0x11, 0x22, 0x33, 0x44}})
+    {
+        SCOPED_TRACE(bytes::ToHex(seed));
+        EXPECT_THAT(RunAfterIdentity(
+                        [&](ScriptedCanFlashTransport& transport)
+                        {
+                            transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+                            transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
+                            transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x01});
+                            transport.QueueRead(Response(seed));
+                        }),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("invalid TCU seed response")));
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, AnEmptyOrWrongProgrammingSessionReplyIsRejected)
+{
+    for (const bytes::Bytes& reply : {bytes::Bytes{0x50}, bytes::Bytes{0x50, 0x03}})
+    {
+        SCOPED_TRACE(bytes::ToHex(reply));
+        EXPECT_THAT(RunAfterIdentity(
+                        [&](ScriptedCanFlashTransport& transport)
+                        {
+                            ScriptStrictSessionUntilProgramming(transport);
+                            transport.QueueRead(Response(reply));
+                        }),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
+                                                ::testing::Eq("unexpected programming session response")));
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, ASilentKernelAfterUploadTimesOut)
+{
+    EXPECT_THAT(RunAfterIdentity(
+                    [](ScriptedCanFlashTransport& transport)
+                    {
+                        ScriptStrictSessionAndSecurity(transport);
+                        ScriptKernelUpload(transport, kCases[1]);
+                        ScriptKernelProbeTimeout(transport);
+                    }),
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, ::testing::Eq("kernel did not answer after upload")));
+}
 } // namespace
 } // namespace fastecu::flash

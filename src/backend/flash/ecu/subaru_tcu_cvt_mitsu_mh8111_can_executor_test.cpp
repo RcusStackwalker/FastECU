@@ -20,6 +20,7 @@
 #include <array>
 #include <cstdint>
 #include <initializer_list>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -32,6 +33,7 @@
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
+#include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/flash/testing/guarded_attempt_expectations.h"
 #include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
@@ -203,7 +205,7 @@ void ScriptFullConnect(ScriptedCanFlashTransport& transport)
     ScriptAliveCheck(transport);
 }
 
-// Scripts the "Settting dump start & length..." exchange (legacy read_mem):
+// Scripts the "Setting dump start & length..." exchange (legacy read_mem):
 // sent 0x35-prefixed, checked against a 0x74-prefixed reply -- again a service
 // mismatch, confirmed directly against source.
 void ScriptDumpSetup(ScriptedCanFlashTransport& transport)
@@ -629,6 +631,87 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x180000")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_THAT(events.logs, IsEmpty());
+}
+
+template <typename Transport>
+fastecu::Result<fastecu::flash::FlashExecutionResult> RunRead(Transport& transport, RecordingEventSink& events)
+{
+    const auto plan = ReadPlan();
+    if (!plan.has_value())
+    {
+        return std::unexpected(plan.error());
+    }
+    FakeClock clock;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruTcuCvtMitsuMh8111CanExecutor executor;
+    return ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+}
+
+bool ContainsLog(const RecordingEventSink& events, std::string_view substring)
+{
+    return std::ranges::any_of(events.logs,
+                               [&](const auto& entry) { return entry.second.find(substring) != std::string::npos; });
+}
+
+// The full connect is seven exchanges, so the dump setup is the eighth.
+constexpr std::size_t kDumpSetupExchange = 8;
+
+TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ADumpSetupTransportFaultPropagates)
+{
+    for (const bool on_read : {false, true})
+    {
+        SCOPED_TRACE(::testing::PrintToString(on_read));
+        fastecu::flash::FaultingCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+        (on_read ? transport.fail_read_at : transport.fail_write_at) = kDumpSetupExchange;
+        ScriptFullConnect(transport);
+        ScriptDumpSetup(transport);
+        RecordingEventSink events;
+        EXPECT_THAT(RunRead(transport, events), fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+        EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>(kDumpSetupExchange - (on_read ? 0 : 1)));
+        EXPECT_EQ(transport.WritesConsumed(), *transport.writes_at_fault);
+    }
+}
+
+TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ASilentWrongOrShortDumpSetupReplyIsRejected)
+{
+    const bytes::Bytes request = Request({0x35, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00});
+    for (const auto& [reply, log] : std::to_array<std::pair<std::optional<bytes::Bytes>, std::string_view>>({
+             {std::nullopt, "No valid response from ECU"},
+             {Response({0x74, 0x20, 0x01, 0x05}), "Wrong response from TCU: "},
+             {Response({0x74, 0x20, 0x01}), "Wrong response from TCU: "},
+         }))
+    {
+        SCOPED_TRACE(log);
+        ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+        ScriptFullConnect(transport);
+        if (reply.has_value())
+        {
+            transport.Exchange(request, *reply);
+        }
+        else
+        {
+            transport.Exchange(request);
+            transport.QueueNoFrame();
+        }
+        RecordingEventSink events;
+        EXPECT_THAT(RunRead(transport, events),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse, Eq("dump start & length setup rejected")));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_TRUE(ContainsLog(events, log));
+    }
+}
+
+TEST(SubaruTcuCvtMitsuMh8111CanExecutor, AFailedStopSendFailsTheRead)
+{
+    fastecu::flash::FaultingCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    transport.fail_write_at = kDumpSetupExchange + kReadLength / 0x100 + 1;
+    ScriptFullConnect(transport);
+    ScriptDumpSetup(transport);
+    ScriptFlashDump(transport, kReadStart, kReadLength, 0x100, 0x5A);
+    RecordingEventSink events;
+    EXPECT_THAT(RunRead(transport, events), fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_TRUE(ContainsLog(events, "ROM read complete"));
 }
 
 // The IFlashExecutor contract this family satisfies -- see

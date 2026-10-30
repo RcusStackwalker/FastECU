@@ -333,6 +333,18 @@ TEST(EcuFlashParserTest, RejectsUnrecognizedStorageType)
     ExpectInvalidWithContext(result, "bad-storagetype.xml", "storagetype");
 }
 
+TEST(EcuFlashParserTest, RejectsInvalidInlineScaling)
+{
+    auto result = ParseEcuflashDefinition(Bytes("<rom><romid><xmlid>A</xmlid></romid>"
+                                                "<table name=\"Fuel\"><scaling storagetype=\"nibble\"/></table></rom>"),
+                                          "bad-scaling.xml");
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                            ::testing::Eq("EcuFlash/RomRaider source 'bad-scaling.xml', "
+                                                          "definition 'A': element <scaling> attribute "
+                                                          "'storagetype': unrecognized storage type 'nibble'")));
+}
+
 TEST(EcuFlashParserTest, RejectsInvalidStrictFlags)
 {
     for (const auto attribute : {"swapxy", "flipx", "flipy"})

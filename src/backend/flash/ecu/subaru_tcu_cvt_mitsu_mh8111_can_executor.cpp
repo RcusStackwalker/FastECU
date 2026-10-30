@@ -10,6 +10,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/bootloader_operation.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/cvt_b6_chunk_exchange.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_can_common.h"
@@ -38,17 +39,15 @@ constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout = 2000ms};
 // band -- no standard meaning, unlike uds::kSessionProgramming/
 // kSessionExtendedDiagnostic.
 constexpr bytes::Byte kSessionBootload = 0x43;
-constexpr bytes::Byte kSessionKernelJump = 0x42;
 
-// Seed key (legacy generate_seed_key, lines 908-914). Byte-identical to the
-// sibling MH8104 family's table (Task 6 comparison); factored into the
-// shared subaru_tcu_cvt_mitsu_can_common.h/.cpp.
-// Encrypt (write payload, legacy encrypt_payload lines 947-948) and decrypt
-// (read payload, legacy decrypt_payload lines 965-966) tables: same Task 6
-// finding, same shared header.
+// Seed key (legacy generate_seed_key). Byte-identical to the sibling MH8104
+// family's table (Task 6 comparison); factored into the shared
+// subaru_tcu_cvt_mitsu_can_common.h/.cpp. Encrypt (write payload, legacy
+// encrypt_payload) and decrypt (read payload, legacy decrypt_payload) tables:
+// same Task 6 finding, same shared header.
 
-// Hardcoded in legacy read_mem regardless of caller arguments (lines
-// 356-358, "hack for testing").
+// Hardcoded in legacy read_mem regardless of caller arguments ("hack for
+// testing").
 constexpr MemoryRegion kReadRegion{0x8000, 0x78000};
 // The sole flashed block (block_modified skips 0-2, flashes only block 3 --
 // kFlashBlocksMH8111[3] in kernelmemorymodels.h). Deliberately does NOT overlap
@@ -75,29 +74,10 @@ Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rej
     return ::fastecu::flash::ReportExchangeFailure(ctx.events, failure, rejection_prefix, operation);
 }
 
-// Sends `pdu` through ctx.uds and, on failure, logs and returns the error.
-// Used for every exchange whose expected reply follows the standard
-// SID+0x40 positive-response convention that UdsClient itself enforces.
-Result<bytes::Bytes> FatalRequest(Ctx& ctx, bytes::ByteView pdu, std::string_view operation)
-{
-    return ::fastecu::flash::FatalRequest(ExchangeContext(ctx), pdu, kRejectionPrefix, operation);
-}
-
-// Binds this family's context and rejection prefix to the shared FatalQuery,
-// which connect_bootloader calls for each of its exchanges. The shared
-// header documents expected_prefix, subject and min_payload_size.
-Result<bytes::Bytes> FatalQuery(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
-                                std::string_view subject, std::optional<std::size_t> min_payload_size = std::nullopt)
-{
-    return ::fastecu::flash::FatalQuery(ExchangeContext(ctx), pdu, expected_prefix, kRejectionPrefix, subject,
-                                        min_payload_size);
-}
-
-// Legacy's two non-fatal identity queries (TCU ID/CAL ID, lines 94-168) and
-// the non-fatal session request (lines 173-197): logged on mismatch or
-// absence but never halt connect_bootloader -- even a genuine exchange
-// failure is logged and swallowed, mirroring legacy's total absence of an
-// early return in this block.
+// Legacy's two non-fatal identity queries (TCU ID/CAL ID) and the non-fatal
+// session request: logged on mismatch or absence but never halt
+// connect_bootloader -- even a genuine exchange failure is logged and
+// swallowed, mirroring legacy's total absence of an early return in this block.
 void NonFatalQuery(Ctx& ctx, bytes::ByteView pdu, std::optional<bytes::Byte> expected_subfunction,
                    std::string_view label)
 {
@@ -109,27 +89,24 @@ void NonFatalQuery(Ctx& ctx, bytes::ByteView pdu, std::optional<bytes::Byte> exp
 // it). Legacy logs the reply, or its absence, before failing.
 Status RawExpect(Ctx& ctx, bytes::ByteView request, bytes::ByteView expected, std::string_view failure)
 {
-    if (const Status sent = ctx.channel.Send(request, ctx.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> reply = ctx.channel.Receive(2000ms, ctx.cancellation);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    if (!reply->has_value())
-    {
-        LogError(ctx, "No valid response from ECU");
-        return Fail(ErrorKind::kBadResponse, std::string(failure));
-    }
-    if (reply->value().size() < expected.size() ||
-        !std::ranges::equal(bytes::ByteView(**reply).first(expected.size()), expected))
-    {
-        LogError(ctx, std::format("Wrong response from TCU: {}", bytes::ToHex(**reply)));
-        return Fail(ErrorKind::kBadResponse, std::string(failure));
-    }
-    return {};
+    return ctx.channel.Send(request, ctx.cancellation)
+        .and_then([&] { return ctx.channel.Receive(2000ms, ctx.cancellation); })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& reply) -> Status
+            {
+                if (!reply.has_value())
+                {
+                    LogError(ctx, "No valid response from ECU");
+                    return Fail(ErrorKind::kBadResponse, std::string(failure));
+                }
+                if (reply->size() < expected.size() ||
+                    !std::ranges::equal(bytes::ByteView(*reply).first(expected.size()), expected))
+                {
+                    LogError(ctx, std::format("Wrong response from TCU: {}", bytes::ToHex(*reply)));
+                    return Fail(ErrorKind::kBadResponse, std::string(failure));
+                }
+                return {};
+            });
 }
 
 // True once one of `attempts` tries of `request` succeeds.
@@ -145,79 +122,47 @@ bool RequestWithRetries(Ctx& ctx, bytes::ByteView request, int attempts)
     return false;
 }
 
-// Legacy connect_bootloader, lines 81-337. Unlike SubaruTcuCvtHitachiM32rCan
-// (Task 3), this family has NO kernel-alive pre-check shortcut -- the full
-// 7-exchange sequence below runs every time (Test 2,
-// ConnectFullSequenceEveryTime, pins this).
+// Unlike SubaruTcuCvtHitachiM32rCan (Task 3), this family has NO kernel-alive
+// pre-check shortcut -- the full 7-exchange sequence below runs every time
+// (Test 2, ConnectFullSequenceEveryTime, pins this).
 Status ConnectBootloader(Ctx& ctx)
 {
-    // TCU ID 0xAA (lines 94-133), non-fatal.
+    // TCU ID 0xAA, non-fatal.
     LogInfo(ctx, "Requesting TCU ID");
     NonFatalQuery(ctx, bytes::Bytes{uds::kSidEcuIdQuery}, std::nullopt, "TCU ID");
 
-    // CAL ID 0x09/0x04 (lines 135-168), non-fatal.
+    // CAL ID 0x09/0x04, non-fatal.
     LogInfo(ctx, "Requesting CAL ID...");
     NonFatalQuery(ctx, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId}, uds::kVehicleInfoPidCalId,
                   "CAL ID");
 
-    // Session 0x10/0x43 (lines 170-197), non-fatal -- the match branch (line
-    // 186-188) is empty in legacy; only the mismatch branch logs.
+    // Session 0x10/0x43, non-fatal -- the match branch is empty in legacy; only
+    // the mismatch branch logs.
     LogInfo(ctx, "Initializing bootloader...");
     NonFatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBootload}, kSessionBootload,
                   "session mode (bootloader)");
 
-    // Seed 0x27/0x01 (lines 199-225), fatal.
-    LogInfo(ctx, "Requesting seed");
-    Result<bytes::Bytes> seed_reply =
-        FatalQuery(ctx, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
-                   bytes::Bytes{uds::kSecurityAccessRequestSeed}, "seed request", 5);
-    if (!seed_reply.has_value())
+    // Seed 0x27/0x01, key 0x27/0x02 and jump 0x10/0x42, fatal.
+    if (const Status unlocked = UnlockAndKernelJump(ExchangeContext(ctx), kRejectionPrefix, TcuCvtMitsuSeedKey);
+        !unlocked.has_value())
     {
-        return std::unexpected(seed_reply.error());
+        return unlocked;
     }
-    LogInfo(ctx, "Seed request ok");
-    const bytes::ByteView seed = uds::Payload(*seed_reply).subspan(1, 4);
-    const bytes::Bytes key = TcuCvtMitsuSeedKey(seed);
 
-    // Seed key 0x27/0x02 (lines 236-263), fatal.
-    LogInfo(ctx, "Sending seed key");
-    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
-    key_request.insert(key_request.end(), key.begin(), key.end());
-    if (Result<bytes::Bytes> key_reply =
-            FatalQuery(ctx, key_request, bytes::Bytes{uds::kSecurityAccessSendKey}, "seed key");
-        !key_reply.has_value())
-    {
-        return std::unexpected(key_reply.error());
-    }
-    LogInfo(ctx, "Seed key ok");
-
-    // Jump 0x10/0x42 (lines 267-295), fatal.
-    LogInfo(ctx, "Jumping to onboad kernel...");
-    if (Result<bytes::Bytes> jump_reply =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
-                       bytes::Bytes{kSessionKernelJump}, "kernel jump");
-        !jump_reply.has_value())
-    {
-        return std::unexpected(jump_reply.error());
-    }
-    LogInfo(ctx, "Jump to kernel ok");
-
-    // Alive check (lines 298-331). The SENT PDU is
-    // 0x34/0x04/0x33/0x00/0x00/0x00/0x08/0x00/0x00 -- the SAME literal
-    // trailing bytes as dump_flash_range's dump-setup exchange and (by
-    // coincidence of this block's own halved data_len) unlock_and_reflash_
-    // block's setup exchange -- but the checked reply is
-    // 0x71/0x02/0x02/0x03, the SID+0x40 form of a DIFFERENT service (0x31),
-    // not 0x74 (0x34's own SID+0x40). Confirmed directly against the
-    // source, re-read twice; the brief's Step 7 description of this step's
-    // sent bytes as 0x31/0x02/0x02/0x01 (Task 3's own alive re-check PDU)
-    // does not match the actual legacy source and is disclosed here as a
-    // found brief/source discrepancy, not silently resolved either way.
-    // Because the reply's service byte does not match the sent PDU's own
-    // SID, this cannot go through FatalRequest()/ctx.uds (UdsClient::
-    // request() would reject any 0x71-led reply as "expected response to
-    // SID 0x34, got 0x71", making this step always fail) -- routed through
-    // the channel directly instead.
+    // Alive check. The SENT PDU is 0x34/0x04/0x33/0x00/0x00/0x00/0x08/0x00/0x00
+    // -- the SAME literal trailing bytes as dump_flash_range's dump-setup
+    // exchange and (by coincidence of this block's own halved data_len)
+    // unlock_and_reflash_ block's setup exchange -- but the checked reply is
+    // 0x71/0x02/0x02/0x03, the SID+0x40 form of a DIFFERENT service (0x31), not
+    // 0x74 (0x34's own SID+0x40). Confirmed directly against the source,
+    // re-read twice; the brief's Step 7 description of this step's sent bytes
+    // as 0x31/0x02/0x02/0x01 (Task 3's own alive re-check PDU) does not match
+    // the actual legacy source and is disclosed here as a found brief/source
+    // discrepancy, not silently resolved either way. Because the reply's
+    // service byte does not match the sent PDU's own SID, this cannot go
+    // through FatalRequest()/ctx.uds (UdsClient:: request() would reject any
+    // 0x71-led reply as "expected response to SID 0x34, got 0x71", making this
+    // step always fail) -- routed through the channel directly instead.
     LogInfo(ctx, "Checking if jump successful and kernel alive...");
     if (const Status alive =
             RawExpect(ctx, bytes::Bytes{uds::kSidRequestDownload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
@@ -231,45 +176,14 @@ Status ConnectBootloader(Ctx& ctx)
     return {};
 }
 
-// 0x100-byte pages over kReadRegion, decrypted.
-Result<bytes::Bytes> ReadPages(Ctx& ctx, PhaseReporter& progress)
-{
-    constexpr std::uint32_t kPageSize = 0x100;
-    LogInfo(ctx, "Start reading ROM, please wait...");
-    bytes::Bytes rom;
-    rom.reserve(kReadRegion.length);
-    for (std::uint32_t addr = kReadRegion.start; addr < kReadRegion.start + kReadRegion.length; addr += kPageSize)
-    {
-        // Legacy stopRequested() at line 421, top of loop.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "read cancelled");
-        }
-
-        // Lines 406-454: SID 0xB7 + 3-byte big-endian address, standard
-        // SID+0x40 convention (0xB7 -> 0xF7).
-        Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidReadMemoryChunk, U24{addr}),
-                                                  std::format("the flash read at 0x{:x}", addr));
-        if (!chunk.has_value())
-        {
-            return std::unexpected(chunk.error());
-        }
-        const bytes::Bytes decrypted = TcuCvtMitsuDecryptPage(uds::Payload(*chunk));
-        rom.insert(rom.end(), decrypted.begin(), decrypted.end());
-        progress.Update(static_cast<int>(addr + kPageSize - kReadRegion.start));
-    }
-    return rom;
-}
-
-// "Sending stop command..." (lines 504-526): resent up to 6 times,
-// content-blind (legacy checks only `received != ""`, never an SID or
-// content match) -- and OUTCOME-blind too: legacy has no
-// `if (try_count == 6) return ERROR` after this loop at all (unlike
-// erase_mem's/unlock_and_reflash_block's own retry loops below, which
-// do gate on the final try_count), so read_mem proceeds to decrypt and
-// return success regardless of whether the TCU ever acknowledged stop.
-// Routed through the channel directly, both because content is never
-// checked and because a "failure" here must never fail the read.
+// "Sending stop command...": resent up to 6 times, content-blind (legacy checks
+// only `received != ""`, never an SID or content match) -- and OUTCOME-blind
+// too: legacy has no `if (try_count == 6) return ERROR` after this loop at all
+// (unlike erase_mem's/unlock_and_reflash_block's own retry loops below, which
+// do gate on the final try_count), so read_mem proceeds to decrypt and return
+// success regardless of whether the TCU ever acknowledged stop. Routed through
+// the channel directly, both because content is never checked and because a
+// "failure" here must never fail the read.
 Status SendStop(Ctx& ctx)
 {
     LogInfo(ctx, "Sending stop command...");
@@ -293,55 +207,58 @@ Status SendStop(Ctx& ctx)
     return {};
 }
 
-// Legacy read_mem, lines 344-544.
 Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 {
-    // "Settting dump start & length..." (lines 365-400). The sent PDU's SID
-    // is 0x35, but the checked ack is 0x74 -- the same "set up transfer"
-    // ack byte unlock_and_reflash_block's own (0x34-prefixed) setup
-    // exchange checks, not the standard SID+0x40 response to 0x35 (which
-    // would be 0x75). The trailing 6 bytes are a hardcoded literal, NOT
-    // derived from kReadRegion.start/length (0x8000/0x78000) -- confirmed
-    // directly against the source. Because the ack's service byte does not
-    // match the sent PDU's own SID, this cannot go through FatalRequest()/
-    // ctx.uds either -- routed through the channel directly, mirroring the
-    // alive-check exchange's own necessity in connect_bootloader.
-    LogInfo(ctx, "Settting dump start & length...");
-    if (const Status setup =
-            RawExpect(ctx, bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
-                      bytes::Bytes{0x74, 0x20, 0x01, 0x04}, "dump start & length setup rejected");
-        !setup.has_value())
-    {
-        return std::unexpected(setup.error());
-    }
-    Result<bytes::Bytes> rom = ReadPages(ctx, progress);
-    if (!rom.has_value())
-    {
-        return rom;
-    }
-    LogInfo(ctx, "ROM read complete");
-    if (const Status stopped = SendStop(ctx); !stopped.has_value())
-    {
-        return std::unexpected(stopped.error());
-    }
-    return rom;
+    // "Setting dump start & length...". The sent PDU's SID is 0x35, but the
+    // checked ack is 0x74 -- the same "set up transfer" ack byte
+    // unlock_and_reflash_block's own (0x34-prefixed) setup exchange checks, not
+    // the standard SID+0x40 response to 0x35 (which would be 0x75). The
+    // trailing 6 bytes are a hardcoded literal, NOT derived from
+    // kReadRegion.start/length (0x8000/0x78000) -- confirmed directly against
+    // the source. Because the ack's service byte does not match the sent PDU's
+    // own SID, this cannot go through FatalRequest()/ ctx.uds either -- routed
+    // through the channel directly, mirroring the alive-check exchange's own
+    // necessity in connect_bootloader.
+    LogInfo(ctx, "Setting dump start & length...");
+    return RawExpect(ctx, bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
+                     bytes::Bytes{0x74, 0x20, 0x01, 0x04}, "dump start & length setup rejected")
+        .and_then(
+            [&]
+            {
+                return ReadEncryptedB7Pages(ExchangeContext(ctx), kRejectionPrefix, kReadRegion, TcuCvtMitsuDecryptPage,
+                                            progress);
+            })
+        .and_then(
+            [&](bytes::Bytes rom)
+            {
+                LogInfo(ctx, "ROM read complete");
+                return SendStop(ctx).transform(
+                    [&]
+                    {
+                        // Legacy pads the unread low 0x8000 region with 0xFF (the comment above
+                        // the loop says "pad ... with 0x00" but the loop body writes 0xFF; the
+                        // code, not the misleading comment, is preserved), unlike
+                        // SubaruTcuCvtHitachiM32rCan, which pads with 0x00.
+                        rom.insert(rom.begin(), kReadRegion.start, 0xFF);
+                        return std::move(rom);
+                    });
+            });
 }
 
-// Legacy erase_mem, lines 833-892. The literal legacy loop never resends
-// (it writes the erase command once, above the loop, then only re-READS)
-// and its mismatch branch's `return STATUS_ERROR` is commented out with no
-// success branch anywhere -- so `try_count` always reaches 20 and the
-// function ALWAYS returns STATUS_ERROR, regardless of what the TCU
-// answers. That would make write_mem's very first step
-// (`if (erase_mem()) { ...; return STATUS_ERROR; }`) fail unconditionally,
-// so every write in this family has never worked in production. The
-// brief's own description of this loop ("retried ... until <response> ...
-// fatal after 20 failed attempts") presupposes a working retry-until-match
-// shape, matching the sibling close/checksum retry loops in this very
-// file (both of which DO resend each attempt and DO break/return on an
-// exact match). This targets that evident intent instead -- disclosed here
-// as this family's one deliberate divergence from the literal legacy
-// source, alongside Tasks 1 and 3's own disclosed findings.
+// The literal legacy loop never resends (it writes the erase command once,
+// above the loop, then only re-READS) and its mismatch branch's `return
+// STATUS_ERROR` is commented out with no success branch anywhere -- so
+// `try_count` always reaches 20 and the function ALWAYS returns STATUS_ERROR,
+// regardless of what the TCU answers. That would make write_mem's very first
+// step (`if (erase_mem()) { ...; return STATUS_ERROR; }`) fail unconditionally,
+// so every write in this family has never worked in production. The brief's own
+// description of this loop ("retried ... until <response> ... fatal after 20
+// failed attempts") presupposes a working retry-until-match shape, matching the
+// sibling close/checksum retry loops in this very file (both of which DO resend
+// each attempt and DO break/return on an exact match). This targets that
+// evident intent instead -- disclosed here as this family's one deliberate
+// divergence from the literal legacy source, alongside Tasks 1 and 3's own
+// disclosed findings.
 Status EraseMemory(Ctx& ctx)
 {
     LogInfo(ctx, "Erasing TCU ROM...");
@@ -380,10 +297,10 @@ Status SendChunks(Ctx& ctx, bytes::ByteView encrypted, PhaseReporter& progress)
 
     for (std::uint32_t offset = 0; offset < kWriteRegion.length; offset += kChunkSize)
     {
-        // Legacy's stopRequested() check (line 710) returns 0 -- success --
-        // to the caller on cancellation; the same bug Tasks 1 and 3 already
-        // disclosed and diverged from. Not reproduced here either: a
-        // cancellation mid-write is reported as Cancelled, never success.
+        // Legacy's stopRequested() check returns 0 -- success -- to the caller
+        // on cancellation; the same bug Tasks 1 and 3 already disclosed and
+        // diverged from. Not reproduced here either: a cancellation mid-write
+        // is reported as Cancelled, never success.
         if (ctx.cancellation.Cancelled())
         {
             return Fail(ErrorKind::kCancelled, "write cancelled");
@@ -391,11 +308,11 @@ Status SendChunks(Ctx& ctx, bytes::ByteView encrypted, PhaseReporter& progress)
 
         const std::uint32_t addr = kWriteRegion.start + offset;
         const bytes::ByteView chunk_data = encrypted.subspan(offset, kChunkSize);
-        // Legacy reads but never inspects the per-chunk reply at all (lines
-        // 734-736) -- only a transport-level failure from the read itself
-        // fails this exchange. Routed through the channel directly, not
-        // FatalRequest()/ctx.uds, which would enforce a SID+0x40 content
-        // match this family's legacy code never checks here.
+        // Legacy reads but never inspects the per-chunk reply at all -- only a
+        // transport-level failure from the read itself fails this exchange.
+        // Routed through the channel directly, not FatalRequest()/ctx.uds,
+        // which would enforce a SID+0x40 content match this family's legacy
+        // code never checks here.
         if (const Status exchanged = ExchangeCvtB6Chunk(ctx.channel, ctx.cancellation, addr, chunk_data);
             !exchanged.has_value())
         {
@@ -406,8 +323,8 @@ Status SendChunks(Ctx& ctx, bytes::ByteView encrypted, PhaseReporter& progress)
     return {};
 }
 
-// "Verifying checksum..." (lines 786-825): retried up to 20 times, fatal
-// after 20 -- the same shape as erase_mem's own (fixed) retry loop above.
+// "Verifying checksum...": retried up to 20 times, fatal after 20 -- the same
+// shape as erase_mem's own (fixed) retry loop above.
 Status VerifyChecksum(Ctx& ctx)
 {
     LogInfo(ctx, "Verifying checksum...");
@@ -434,35 +351,34 @@ Status VerifyChecksum(Ctx& ctx)
     return Fail(ErrorKind::kBadResponse, "ROM checksum verify failed");
 }
 
-// Legacy reflash_block, lines 636-826, called once (this family flashes
-// exactly one block, kWriteRegion / kFlashBlocksMH8111[3]).
-Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporter& progress)
+// Called once (this family flashes exactly one block, kWriteRegion /
+// kFlashBlocksMH8111[3]).
+Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& progress)
 {
+    const bytes::ByteView block_plain = image.subspan(kWriteRegion.start, kWriteRegion.length);
     constexpr std::uint32_t kChunkSize = 256;
 
-    // maxblocks/end_addr/data_len (lines 661-663): maxblocks = pl_len/256
-    // (the real chunk count the loop below uses -- 4096 for this block's
-    // 0x100000 bytes), but end_addr is computed as start + maxblocks*128
-    // (HALF a chunk's width per block, not *256), so data_len == pl_len/2
-    // == 0x80000 for this block. This is a genuine legacy arithmetic bug in
-    // the value DECLARED in the setup packet below -- distinct from
-    // erase_mem's control-flow bug above, this one does not prevent the
-    // write from working (the chunk loop below still sends the full
-    // 0x100000 bytes; only the setup packet's own length field is wrong)
-    // -- so it is preserved exactly rather than corrected, per this package's
-    // established precedent for found-but-harmless byte-value quirks
+    // maxblocks/end_addr/data_len: maxblocks = pl_len/256 (the real chunk count
+    // the loop below uses -- 4096 for this block's 0x100000 bytes), but
+    // end_addr is computed as start + maxblocks*128 (HALF a chunk's width per
+    // block, not *256), so data_len == pl_len/2 == 0x80000 for this block. This
+    // is a genuine legacy arithmetic bug in the value DECLARED in the setup
+    // packet below -- distinct from erase_mem's control-flow bug above, this
+    // one does not prevent the write from working (the chunk loop below still
+    // sends the full 0x100000 bytes; only the setup packet's own length field
+    // is wrong) -- so it is preserved exactly rather than corrected, per this
+    // package's established precedent for found-but-harmless byte-value quirks
     // (Task 3's block-size finding).
     constexpr std::uint32_t kMaxBlocks = kWriteRegion.length / kChunkSize; // 4096
     constexpr std::uint32_t kSetupDataLen = kMaxBlocks * 128;              // 0x80000
 
-    // "Settting flash start & length..." (lines 670-705): retried up to 6
-    // times, fatal after 6. Legacy DOES check content here
-    // (`received.at(4) == 0x74`, confirmed directly against the source --
-    // the brief's Step 7 description of this step as content-blind does
-    // not match), but that check is exactly the standard SID+0x40 match
-    // ctx.uds.request() already enforces (0x34 -> 0x74), so no extra check
-    // is added here beyond the retry-count wrapper.
-    LogInfo(ctx, "Settting flash start & length...");
+    // "Setting flash start & length...": retried up to 6 times, fatal after 6.
+    // Legacy DOES check content here (`received.at(4) == 0x74`, confirmed
+    // directly against the source -- the brief's Step 7 description of this
+    // step as content-blind does not match), but that check is exactly the
+    // standard SID+0x40 match ctx.uds.request() already enforces (0x34 ->
+    // 0x74), so no extra check is added here beyond the retry-count wrapper.
+    LogInfo(ctx, "Setting flash start & length...");
     if (!RequestWithRetries(ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{0}, U24{kSetupDataLen}), 6))
     {
         return Fail(ErrorKind::kBadResponse, "flash start & length setup rejected");
@@ -471,11 +387,11 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporte
     {
         return sent;
     }
-    // Closing (lines 744-782): retried up to 20 times, fatal after 20 --
-    // unlike Task 1's ECU family (6-attempt, tolerant-of-anything-including-
-    // failure close) and Task 3's own close (single fatal attempt, no
-    // retry). Content beyond the standard SID+0x40 match (0x37 -> 0x77) is
-    // never checked, matching ctx.uds.request()'s own enforcement exactly.
+    // Closing: retried up to 20 times, fatal after 20 -- unlike Task 1's ECU
+    // family (6-attempt, tolerant-of-anything-including- failure close) and
+    // Task 3's own close (single fatal attempt, no retry). Content beyond the
+    // standard SID+0x40 match (0x37 -> 0x77) is never checked, matching
+    // ctx.uds.request()'s own enforcement exactly.
     LogInfo(ctx, "Closing out Flashing of this block...");
     if (!RequestWithRetries(ctx, bytes::Bytes{uds::kSidRequestTransferExit}, 20))
     {
@@ -483,27 +399,6 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, PhaseReporte
     }
     LogInfo(ctx, "Flashing of block closed");
     return VerifyChecksum(ctx);
-}
-
-// Legacy write_mem, lines 552-629: erase_mem() first, then exactly one
-// reflash_block() call for the sole modified block (index 3).
-Status WriteMem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
-{
-    PhaseReporter erase = phases.Start("Erase", 1);
-    if (const Status erased = EraseMemory(ctx); !erased.has_value())
-    {
-        return erased;
-    }
-    erase.Complete();
-
-    PhaseReporter write = phases.Start("Write ROM", static_cast<int>(kWriteRegion.length));
-    const bytes::ByteView block_plain = image.subspan(kWriteRegion.start, kWriteRegion.length);
-    if (const Status written = UnlockAndReflashBlock(ctx, block_plain, write); !written.has_value())
-    {
-        return written;
-    }
-    write.Complete();
-    return {};
 }
 
 } // namespace
@@ -519,66 +414,11 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::Run(const Subar
                                                                      const ICancellationToken& cancellation,
                                                                      IEventSink& events)
 {
-    const bool read = plan.Operation() == FlashOperation::kRead;
-    PhaseSequence phases(events, read ? 2 : 3);
-    PhaseReporter connect = phases.Start(read ? "Connect to TCU" : "Connect", 1);
-
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
     Ctx ctx{cancellation, events, clock, uds_client, channel};
-
-    LogInfo(ctx, "Connecting to Subaru TCU Mitsubishi CAN bootloader, please wait...");
-    if (const Status connected = ConnectBootloader(ctx); !connected.has_value())
-    {
-        return std::unexpected(connected.error());
-    }
-    connect.Complete();
-
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        events.Notice("Reading ROM, please wait...");
-        LogInfo(ctx, "Reading ROM from TCU Subaru Mitsubishi using CAN");
-
-        PhaseReporter read_phase = phases.Start("Read ROM", static_cast<int>(plan.TransferRegion().length));
-        Result<bytes::Bytes> window = DumpFlashRange(ctx, read_phase);
-        if (!window.has_value())
-        {
-            return std::unexpected(window.error());
-        }
-        read_phase.Complete();
-
-        // Legacy pads the unread low 0x8000 region with 0xFF (lines
-        // 531-538 -- the comment above the loop says "pad ... with 0x00"
-        // but the loop body writes 0xFF; the code, not the misleading
-        // comment, is preserved). This differs from
-        // SubaruTcuCvtHitachiM32rCan (Task 3), which pads with 0x00.
-        bytes::Bytes rom(kReadRegion.start, 0xFF);
-        rom.append_range(*window);
-        return FlashExecutionResult{
-            .operation = FlashOperation::kRead,
-            .read_bytes = std::move(rom),
-        };
-    }
-
-    // build_subaru_tcu_cvt_mitsu_mh8111_can_plan refuses TestWrite; the
-    // guard is repeated here so a plan built another way cannot turn a dry
-    // run into a real erase and write.
-    if (plan.Operation() != FlashOperation::kWrite)
-    {
-        return Fail(ErrorKind::kUnsupported,
-                    "test_write is not supported by the Subaru TCU CVT Mitsu MH8111 CAN family");
-    }
-
-    events.Notice("Writing ROM, please wait...");
-    LogInfo(ctx, "Writing ROM to Subaru Mitsubishi CAN 32bit TCUs, on board kernel");
-    if (const Status written = WriteMem(ctx, plan.ImageOrEmpty(), phases); !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    return FlashExecutionResult{
-        .operation = plan.Operation(),
-        .read_bytes = std::nullopt,
-    };
+    return RunBootloaderOperation(plan, "Subaru TCU CVT Mitsu MH8111", ctx, ConnectBootloader, DumpFlashRange,
+                                  EraseMemory, UnlockAndReflashBlock);
 }
 
 } // namespace fastecu::flash

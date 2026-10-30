@@ -1,0 +1,23 @@
+name: SonarCloud (master)
+
+# Started by the Sonar dedup loop after a loop PR merges, so the next
+# nomination comes from an analysis of master HEAD (ADR 0029). The project's
+# new-code period is "previous version" and sonar.projectVersion is unset, so
+# these extra analyses leave the release-time quality gate's baseline alone.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  sonarcloud:
+    name: SonarCloud
+    uses: ./.github/workflows/sonar.yml
+    with:
+      ref: master
+      cache-save: false
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      BUILDBUDDY_API_KEY: ${{ secrets.BUILDBUDDY_API_KEY }}

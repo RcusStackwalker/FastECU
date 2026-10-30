@@ -17,6 +17,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <memory>
+#include <optional>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -78,10 +79,15 @@ class RecordingConfigurator final : public ISerialFacadeConfigurator
     fastecu::Status Apply(const SsmTransportConfig& config) override
     {
         applied.push_back(config);
+        if (failure.has_value())
+        {
+            return std::unexpected(*failure);
+        }
         return {};
     }
 
     std::vector<SsmTransportConfig> applied;
+    std::optional<fastecu::Error> failure;
 };
 
 struct BlockingLifetimeState
@@ -267,6 +273,25 @@ TEST_F(ServiceFunctionWorkerTest, neverTouchesTheSerialFacadeWhenSetupFails)
     const auto result = std::get<0>(done.Snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::kUnsupported);
+}
+
+TEST_F(ServiceFunctionWorkerTest, aFacadeConfigurationFailureEndsTheRunBeforeTheSession)
+{
+    Harness harness;
+    harness.configurator.failure = fastecu::Error{ErrorKind::kDisconnected, "no serial facade"};
+    harness.Build({CompletedStep{SetParametersOutcome{}}});
+    fastecu::testing::SignalRecorder done(harness.worker.get(), &ServiceFunctionWorker::finished);
+
+    harness.worker->start();
+    ASSERT_TRUE(harness.worker->wait(5000));
+
+    ASSERT_EQ(harness.configurator.applied.size(), std::size_t{1});
+    ASSERT_EQ(harness.session->resume_calls, 0);
+    ASSERT_EQ(done.Count(), 1U);
+    const auto result = std::get<0>(done.Snapshot().at(0));
+    ASSERT_TRUE(!result.success);
+    ASSERT_EQ(result.error_kind, ErrorKind::kDisconnected);
+    ASSERT_EQ(result.error_detail, QStringLiteral("no serial facade"));
 }
 
 TEST_F(ServiceFunctionWorkerTest, blocksOnAGateUntilItIsAnswered)

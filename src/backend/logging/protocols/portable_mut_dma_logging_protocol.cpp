@@ -25,14 +25,6 @@ std::vector<mutdma::Channel> MakeWireChannels(const std::vector<LoggingChannel>&
            std::ranges::to<std::vector<mutdma::Channel>>();
 }
 
-fastecu::Status CheckCancellation(const fastecu::ICancellationToken& cancellation)
-{
-    if (cancellation.Cancelled())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kCancelled, "MUT/DMA logging cancelled");
-    }
-    return {};
-}
 } // namespace
 
 MutDmaLoggingProtocol::MutDmaLoggingProtocol(std::unique_ptr<mutdma::IKlineTransport> transport,
@@ -45,56 +37,45 @@ MutDmaLoggingProtocol::MutDmaLoggingProtocol(std::unique_ptr<mutdma::IKlineTrans
 
 fastecu::Status MutDmaLoggingProtocol::Start(const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status.has_value())
-    {
-        return status;
-    }
-    if (!transport_->IsOpen())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
-    }
-    return driver_.StartFreeFormLog(wire_channels_, 0xA0, 0xA1, cancellation);
+    return CheckLoggingRunCanContinue(*transport_, cancellation)
+        .and_then([&] { return driver_.StartFreeFormLog(wire_channels_, 0xA0, 0xA1, cancellation); });
 }
 
 fastecu::Result<PollData> MutDmaLoggingProtocol::Poll(std::chrono::milliseconds timeout,
                                                       const fastecu::ICancellationToken& cancellation)
 {
-    if (auto status = CheckCancellation(cancellation); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (!transport_->IsOpen())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
-    }
-    if (!driver_.IsStreaming())
-    {
-        return PollData{.responded = false};
-    }
+    return CheckLoggingRunCanContinue(*transport_, cancellation)
+        .and_then(
+            [&]() -> fastecu::Result<PollData>
+            {
+                if (!driver_.IsStreaming())
+                {
+                    return PollData{.responded = false};
+                }
+                return driver_.PollOnce(timeout, cancellation)
+                    .transform(
+                        [&](const std::vector<std::uint32_t>& values)
+                        {
+                            if (values.empty())
+                            {
+                                return PollData{.responded = false};
+                            }
 
-    auto values = driver_.PollOnce(timeout, cancellation);
-    if (!values.has_value())
-    {
-        return std::unexpected(values.error());
-    }
-    if (values->empty())
-    {
-        return PollData{.responded = false};
-    }
-
-    PollData data{.responded = true};
-    const std::size_t sample_count = std::min(values->size(), channels_.size());
-    data.samples = std::views::iota(std::size_t{0}, sample_count) |
-                   std::views::transform(
-                       [&](std::size_t i)
-                       {
-                           return ProtocolSample{
-                               .channel_id = channels_[i].id,
-                               .raw_value = std::to_string(values->at(i)),
-                           };
-                       }) |
-                   std::ranges::to<std::vector<ProtocolSample>>();
-    return data;
+                            PollData data{.responded = true};
+                            const std::size_t sample_count = std::min(values.size(), channels_.size());
+                            data.samples = std::views::iota(std::size_t{0}, sample_count) |
+                                           std::views::transform(
+                                               [&](std::size_t i)
+                                               {
+                                                   return ProtocolSample{
+                                                       .channel_id = channels_[i].id,
+                                                       .raw_value = std::to_string(values.at(i)),
+                                                   };
+                                               }) |
+                                           std::ranges::to<std::vector<ProtocolSample>>();
+                            return data;
+                        });
+            });
 }
 
 fastecu::Status MutDmaLoggingProtocol::Stop()

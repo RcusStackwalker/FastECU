@@ -6,6 +6,7 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_types.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/ecu/single_window_plan.h"
 
 namespace fastecu::flash
 {
@@ -54,42 +55,6 @@ bool WireParametersMatch(const SubaruHitachiSh72543rCanPlan& wire)
            !wire.extended_id && wire.page_size == kPageSize && wire.write_frame_size == kWriteFrameSize;
 }
 
-Status ValidateRegions(const FlashPlan& plan)
-{
-    const auto window = plan.Operation() == FlashOperation::kRead ? kReadWindow : kWriteWindow;
-    if (plan.TransferRegion().start != window.start || plan.TransferRegion().length != window.length)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN transfer region is invalid");
-    }
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        return plan.EraseRegions().empty()
-                   ? Status{}
-                   : Fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN read plans must not erase memory");
-    }
-    if (plan.EraseRegions().size() != 1 || plan.EraseRegions()[0].start != kWriteWindow.start ||
-        plan.EraseRegions()[0].length != kWriteWindow.length)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN erase region is invalid");
-    }
-    return {};
-}
-
-Status ValidateImage(const FlashPlan& plan)
-{
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        return plan.Image().has_value()
-                   ? Fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN read plan carries a ROM image")
-                   : Status{};
-    }
-    if (!plan.Image().has_value() || plan.Image()->size() != kRomSize)
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", kRomSize));
-    }
-    return {};
-}
-
 } // namespace
 
 Status ValidateSubaruHitachiSh72543rCanPlan(const FlashPlan& plan)
@@ -108,10 +73,10 @@ Status ValidateSubaruHitachiSh72543rCanPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN plans are kernel-free");
     }
-    // Legacy operation.cpp:681: reflash_block ignores its test_write_arg
-    // parameter entirely, so "test write" performs the same live erase and
-    // flash write as "write" -- see the TestWrite comment in
-    // subaru_hitachi_sh72543r_can_types.h. There is no dry-run to port.
+    // reflash_block ignores its test_write_arg parameter entirely, so "test
+    // write" performs the same live erase and flash write as "write" -- see the
+    // TestWrite comment in subaru_hitachi_sh72543r_can_types.h. There is no
+    // dry-run to port.
     if (plan.Operation() != FlashOperation::kRead && plan.Operation() != FlashOperation::kWrite)
     {
         return Fail(ErrorKind::kUnsupported, "operation is not supported by Subaru Hitachi SH72543R CAN");
@@ -121,11 +86,7 @@ Status ValidateSubaruHitachiSh72543rCanPlan(const FlashPlan& plan)
         return Fail(ErrorKind::kInvalidConfig,
                     "Subaru Hitachi SH72543R CAN plans must not declare extra confirmations");
     }
-    if (Status regions = ValidateRegions(plan); !regions.has_value())
-    {
-        return regions;
-    }
-    return ValidateImage(plan);
+    return ValidatePlanWindows(plan, "Subaru Hitachi SH72543R CAN", kReadWindow, kWriteWindow, kRomSize);
 }
 
 Result<FlashPlan> BuildSubaruHitachiSh72543rCanPlan(FlashOperation operation, std::string_view protocol_name,
@@ -174,16 +135,9 @@ Result<FlashPlan> BuildSubaruHitachiSh72543rCanPlan(FlashOperation operation, st
                                                     .write_frame_size = kWriteFrameSize},
         .confirmations = {},
     };
-    Result<FlashPlan> plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (Status valid = ValidateSubaruHitachiSh72543rCanPlan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return ValidateAndBuild(std::move(fields))
+        .and_then([](FlashPlan plan)
+                  { return ValidateSubaruHitachiSh72543rCanPlan(plan).transform([&] { return std::move(plan); }); });
 }
 
 } // namespace fastecu::flash

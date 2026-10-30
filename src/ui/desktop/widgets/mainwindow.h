@@ -56,7 +56,6 @@
 #include "src/ui/desktop/channels/log_channel.h"
 
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
-#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 #include "src/ui/desktop/widgets/desktop_logging_run.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
@@ -165,8 +164,6 @@ class MainWindow : public QMainWindow
 
     QTimer *vbatt_timer_;
     uint16_t vbatt_timer_timeout_ = 1000;
-
-    QString active_log_value_protocol_filter_;
 
     LogBox *log_boxes_;
 

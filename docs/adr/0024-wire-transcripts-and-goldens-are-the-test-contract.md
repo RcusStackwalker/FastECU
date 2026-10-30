@@ -71,7 +71,8 @@ cases that observed it.
 
 - `scripts/nloc_loop.py` guards, its ledger, the `nloc-loop` workflow and the
   `hill-climbing-nloc` skill implement ADR 0023 and are retired; `measure` is
-  kept for reporting.
+  kept for reporting. Amended by [ADR 0029](0029-lower-nloc-with-sonar-nominated-right-sized-abstractions.md):
+  the loop returns on SonarCloud nominations, under this ADR's evidence rules.
 - Transcripts are test data, not C++, and are regenerated from a known-good
   implementation rather than edited by hand. A deliberate wire change
   re-records them in the same PR, with hardware evidence where the

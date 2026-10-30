@@ -508,18 +508,14 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         {
             return std::unexpected(program.error());
         }
-        Result<bytes::Bytes> kernel_bytes = ResolveKernelBytes(request_, *ports_.files);
-        if (!kernel_bytes.has_value())
-        {
-            return std::unexpected(kernel_bytes.error());
-        }
-        auto kernel = BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(request_.operation, request_.protocol.name,
-                                                                  request_.protocol.mcu, std::move(*kernel_bytes));
-        if (!kernel.has_value())
-        {
-            return std::unexpected(kernel.error());
-        }
-        return Plans{std::move(*kernel), std::move(*program)};
+        return ResolveKernelBytes(request_, *ports_.files)
+            .and_then(
+                [&](bytes::Bytes kernel_bytes)
+                {
+                    return BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(request_.operation, request_.protocol.name,
+                                                                       request_.protocol.mcu, std::move(kernel_bytes));
+                })
+            .transform([&](FlashPlan kernel) { return Plans{std::move(kernel), std::move(*program)}; });
     }
 
     FlashWorkflowStep FirstAttempt()
@@ -655,13 +651,13 @@ template <PlanPreparation Prepare> class LazyPlan
 template <KernelBackedPlanBuilder Build>
 Result<FlashPlan> PrepareKernelBacked(FlashWorkflowRequest& request, IFileRepository& files)
 {
-    Result<KernelImage> kernel = ResolveKernel(request, files);
-    if (!kernel.has_value())
-    {
-        return std::unexpected(kernel.error());
-    }
-    return Build(request.operation, request.protocol.name, request.protocol.mcu, std::move(request.image),
-                 std::move(*kernel));
+    return ResolveKernel(request, files)
+        .and_then(
+            [&](KernelImage kernel)
+            {
+                return Build(request.operation, request.protocol.name, request.protocol.mcu, std::move(request.image),
+                             std::move(kernel));
+            });
 }
 
 // MC68HC16Y5_02: prepareKernelBacked with two family steps before the kernel
@@ -681,20 +677,17 @@ Result<FlashPlan> PrepareMc68(FlashWorkflowRequest& request, IFileRepository& fi
     }
     // Run the family builder first so a protocol or MCU the family rejects
     // fails before the kernel file is read.
-    Result<FlashPlan> preflight = BuildSubaruDensoMc68hc16y502Plan(
-        request.operation, request.protocol.name, request.protocol.mcu, image,
-        KernelImage{.id = std::format("{}-kernel", request.protocol.name), .load_address = 0x20000, .bytes = {0}});
-    if (!preflight.has_value())
-    {
-        return std::unexpected(preflight.error());
-    }
-    Result<KernelImage> kernel = ResolveKernel(request, files);
-    if (!kernel.has_value())
-    {
-        return std::unexpected(kernel.error());
-    }
-    return BuildSubaruDensoMc68hc16y502Plan(request.operation, request.protocol.name, request.protocol.mcu,
-                                            std::move(image), std::move(*kernel));
+    return BuildSubaruDensoMc68hc16y502Plan(request.operation, request.protocol.name, request.protocol.mcu, image,
+                                            KernelImage{.id = std::format("{}-kernel", request.protocol.name),
+                                                        .load_address = 0x20000,
+                                                        .bytes = {0}})
+        .and_then([&](const FlashPlan&) { return ResolveKernel(request, files); })
+        .and_then(
+            [&](KernelImage kernel)
+            {
+                return BuildSubaruDensoMc68hc16y502Plan(request.operation, request.protocol.name, request.protocol.mcu,
+                                                        std::move(image), std::move(kernel));
+            });
 }
 
 // MC68HC16Y5 BDM: only Write reads the kernel file -- its "write" uploads and
@@ -707,13 +700,13 @@ Result<FlashPlan> PrepareBdm(FlashWorkflowRequest& request, IFileRepository& fil
         return BuildSubaruDensoMc68hc16y502BdmPlan(request.operation, request.protocol.name, request.protocol.mcu,
                                                    std::nullopt, std::nullopt);
     }
-    Result<KernelImage> kernel = ResolveKernel(request, files);
-    if (!kernel.has_value())
-    {
-        return std::unexpected(kernel.error());
-    }
-    return BuildSubaruDensoMc68hc16y502BdmPlan(request.operation, request.protocol.name, request.protocol.mcu,
-                                               std::nullopt, std::move(*kernel));
+    return ResolveKernel(request, files)
+        .and_then(
+            [&](KernelImage kernel)
+            {
+                return BuildSubaruDensoMc68hc16y502BdmPlan(request.operation, request.protocol.name,
+                                                           request.protocol.mcu, std::nullopt, std::move(kernel));
+            });
 }
 
 template <KernelBackedPlanBuilder Build> using CachedKernelPlan = LazyPlan<&PrepareKernelBacked<Build>>;

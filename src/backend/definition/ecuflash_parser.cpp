@@ -193,28 +193,17 @@ Result<UnresolvedCalibrationMap> ParseTable(pugi::xml_node table, std::string_vi
                                             std::string_view definition_id, std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedCalibrationMap map;
-    if (auto status = PopulateMapHeader(table, map, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = PopulateDimensions(table, map, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = PopulateMapOrientation(table, map, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = AddMapScaling(table, map, source, definition_id, scalings); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = PopulateAxes(table, map, source, definition_id, scalings, ParseAxis); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    PopulateInlineXAxis(table, map);
-    return map;
+    return PopulateMapHeader(table, map, source, definition_id)
+        .and_then([&] { return PopulateDimensions(table, map, source, definition_id); })
+        .and_then([&] { return PopulateMapOrientation(table, map, source, definition_id); })
+        .and_then([&] { return AddMapScaling(table, map, source, definition_id, scalings); })
+        .and_then([&] { return PopulateAxes(table, map, source, definition_id, scalings, ParseAxis); })
+        .transform(
+            [&]
+            {
+                PopulateInlineXAxis(table, map);
+                return std::move(map);
+            });
 }
 
 std::vector<std::string> ParentReferences(pugi::xml_node rom)
@@ -234,12 +223,8 @@ std::vector<std::string> ParentReferences(pugi::xml_node rom)
 Result<ParsedRomHeader> ParseHeader(pugi::xml_document& document, std::span<const std::uint8_t> xml,
                                     std::string_view source)
 {
-    const auto root = ParseRoot(document, xml, source, "rom"sv);
-    if (!root.has_value())
-    {
-        return std::unexpected(root.error());
-    }
-    return ParseRomHeader(*root, source);
+    return ParseRoot(document, xml, source, "rom"sv)
+        .and_then([&](pugi::xml_node root) { return ParseRomHeader(root, source); });
 }
 
 } // namespace

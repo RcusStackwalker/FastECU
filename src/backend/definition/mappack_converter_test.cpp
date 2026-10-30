@@ -255,5 +255,15 @@ TEST(MapPackConverter, RejectsXmlControlCharactersInsteadOfTruncatingValues)
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
+TEST(MapPackConverter, RejectsBlankEcuId)
+{
+    const auto is_invalid_ecu_id =
+        fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::AllOf(::testing::HasSubstr("row 1"),
+                                                                                ::testing::HasSubstr("column ecu_id"),
+                                                                                ::testing::HasSubstr("empty")));
+    EXPECT_THAT(ConvertMappackCsv(Csv(), ""), is_invalid_ecu_id);
+    EXPECT_THAT(ConvertMappackCsv(Csv(), "\xe3\x80\x80"), is_invalid_ecu_id);
+}
+
 } // namespace
 } // namespace fastecu::definition

@@ -61,8 +61,8 @@ QString FormatLoggingValue(double value, int precision)
 {
     return QString::number(value, 'f', precision);
 }
-fastecu::Status ApplyLogSample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
-                               DesktopLoggerValues& values)
+fastecu::Status ApplyLogSample(const fastecu::logging::LoggingRunSnapshot& snapshot,
+                               const fastecu::logging::LogSample& sample, DesktopLoggerValues& values)
 {
     const auto resolved = fastecu::logging::ResolveLogSample(snapshot, sample);
     if (!resolved.has_value())

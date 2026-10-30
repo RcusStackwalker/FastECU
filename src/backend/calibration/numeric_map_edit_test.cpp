@@ -20,6 +20,7 @@ namespace
 {
 using definition::StorageType;
 using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using fastecu::testing::IsOkAnd;
 using ::testing::ElementsAre;
@@ -817,6 +818,26 @@ TEST(NumericMapEdit, RejectsNonFinitePastedValueBeforeReturningAnyWrites)
     const bytes::Bytes rom{0, 0};
     const std::vector<std::vector<double>> pasted{{1, std::numeric_limits<double>::infinity()}};
     EXPECT_THAT(CalculatePaste(rom, spec, 2, 1, kOneCell, pasted), IsErr(ErrorKind::kInvalidConfig));
+}
+
+TEST(NumericMapEdit, RejectsAssignmentWithUnsupportedTokenBeforeReadingCells)
+{
+    const auto spec = SpecFor(StorageType::kUint8);
+    const bytes::Bytes rom{0};
+    const std::array<NumericCell, 1> cells{0.0};
+    EXPECT_THAT(CalculateAssignment(rom, spec, 1, cells, kOneCell, "y"),
+                IsErrWith(ErrorKind::kInvalidConfig, "assignment contains an unsupported token"));
+}
+
+TEST(NumericMapEdit, RejectsPasteWhenDefinitionLimitsAreBroken)
+{
+    auto spec = SpecFor(StorageType::kUint8);
+    spec.min_value = "100";
+    spec.max_value = "0";
+    const bytes::Bytes rom{0};
+    const std::vector<std::vector<double>> pasted{{1}};
+    EXPECT_THAT(CalculatePaste(rom, spec, 1, 1, kOneCell, pasted),
+                IsErrWith(ErrorKind::kInvalidConfig, "definition minimum exceeds maximum"));
 }
 } // namespace
 } // namespace fastecu::calibration
