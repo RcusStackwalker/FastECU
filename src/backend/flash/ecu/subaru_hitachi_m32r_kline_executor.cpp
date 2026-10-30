@@ -94,59 +94,54 @@ Status AuthenticatedSession(IKlineFlashTransport& transport, const ICancellation
 {
     if (include_bf)
     {
-        auto id = Exchange(transport, cancellation, bytes::Bytes{0xbf}, p);
-        if (!id.has_value())
-        {
-            return std::unexpected(id.error());
-        }
-        if (auto valid = ParseRomId(*id); !valid.has_value())
-        {
-            return std::unexpected(valid.error());
-        }
-        if (auto s = RequestPrefix(transport, cancellation, {0x81}, {0xc1}, p); !s.has_value())
+        if (auto s = Exchange(transport, cancellation, bytes::Bytes{0xbf}, p)
+                         .and_then([](const bytes::Bytes& id) { return ParseRomId(id); })
+                         .and_then([&](const std::string&)
+                                   { return RequestPrefix(transport, cancellation, {0x81}, {0xc1}, p); });
+            !s.has_value())
         {
             return s;
         }
     }
-    if (auto s = RequestPrefix(transport, cancellation, {0x83, 0}, {0xc3}, p); !s.has_value())
-    {
-        return s;
-    }
-    auto seed =
-        Exchange(transport, cancellation, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, p);
-    if (!seed.has_value())
-    {
-        return std::unexpected(seed.error());
-    }
-    if (auto s = ExpectPrefix(*seed, {0x67, uds::kSecurityAccessRequestSeed}); !s.has_value())
-    {
-        return s;
-    }
-    if (seed->size() < 10)
-    {
-        return Fail(ErrorKind::kBadResponse, "seed response is too short");
-    }
-    bytes::Bytes key_request =
-        ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, SeedKey(bytes::ByteView{*seed}.subspan(6, 4)));
-    if (Status key_status = p.session_mode == HitachiM32rKlineSessionMode::kRecovery
-                                ? RequestPrefix(transport, cancellation, std::move(key_request), {0x67}, p)
-                                : RequestPrefix(transport, cancellation, std::move(key_request),
-                                                {0x67, uds::kSecurityAccessSendKey}, p);
-        !key_status.has_value())
-    {
-        return key_status;
-    }
-    return RequestPrefix(transport, cancellation, {uds::kSidDiagnosticSessionControl, 0x85, 0x02}, {0x50}, p);
+    return RequestPrefix(transport, cancellation, {0x83, 0}, {0xc3}, p)
+        .and_then(
+            [&]
+            {
+                return Exchange(transport, cancellation,
+                                bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, p);
+            })
+        .and_then(
+            [&](const bytes::Bytes& seed)
+            {
+                return ExpectPrefix(seed, {0x67, uds::kSecurityAccessRequestSeed})
+                    .and_then(
+                        [&]() -> Status
+                        {
+                            if (seed.size() < 10)
+                            {
+                                return Fail(ErrorKind::kBadResponse, "seed response is too short");
+                            }
+                            bytes::Bytes key_request = ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey,
+                                                                 SeedKey(bytes::ByteView{seed}.subspan(6, 4)));
+                            return p.session_mode == HitachiM32rKlineSessionMode::kRecovery
+                                       ? RequestPrefix(transport, cancellation, std::move(key_request), {0x67}, p)
+                                       : RequestPrefix(transport, cancellation, std::move(key_request),
+                                                       {0x67, uds::kSecurityAccessSendKey}, p);
+                        });
+            })
+        .and_then(
+            [&]
+            {
+                return RequestPrefix(transport, cancellation, {uds::kSidDiagnosticSessionControl, 0x85, 0x02}, {0x50},
+                                     p);
+            });
 }
 
 Result<std::string> PrepareRead(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
                                 const SubaruHitachiM32rKlinePlan& p)
 {
-    if (auto baud = transport.SetBaud(p.read_baud); !baud.has_value())
-    {
-        return std::unexpected(baud.error());
-    }
-    auto probe = ExchangeOptional(transport, cancellation, bytes::Bytes{0xbf}, p);
+    auto probe = transport.SetBaud(p.read_baud)
+                     .and_then([&] { return ExchangeOptional(transport, cancellation, bytes::Bytes{0xbf}, p); });
     if (!probe.has_value())
     {
         return std::unexpected(probe.error());
@@ -158,33 +153,17 @@ Result<std::string> PrepareRead(IKlineFlashTransport& transport, const ICancella
             return id;
         }
     }
-    if (auto baud = transport.SetBaud(p.initial_baud); !baud.has_value())
-    {
-        return std::unexpected(baud.error());
-    }
-    auto initial = Exchange(transport, cancellation, bytes::Bytes{0xbf}, p);
-    if (!initial.has_value())
-    {
-        return std::unexpected(initial.error());
-    }
-    auto id = ParseRomId(*initial);
-    if (!id.has_value())
-    {
-        return std::unexpected(id.error());
-    }
-    if (auto s = RequestPrefix(transport, cancellation, {0xb8, 0x00, 0x00, 0x00, 0x75}, {0xf8}, p); !s.has_value())
-    {
-        return std::unexpected(s.error());
-    }
-    if (auto baud = transport.SetBaud(p.read_baud); !baud.has_value())
-    {
-        return std::unexpected(baud.error());
-    }
-    if (auto s = RequestPrefix(transport, cancellation, {0xbf}, {0xff}, p); !s.has_value())
-    {
-        return std::unexpected(s.error());
-    }
-    return id;
+    return transport.SetBaud(p.initial_baud)
+        .and_then([&] { return Exchange(transport, cancellation, bytes::Bytes{0xbf}, p); })
+        .and_then([](const bytes::Bytes& initial) { return ParseRomId(initial); })
+        .and_then(
+            [&](std::string id)
+            {
+                return RequestPrefix(transport, cancellation, {0xb8, 0x00, 0x00, 0x00, 0x75}, {0xf8}, p)
+                    .and_then([&] { return transport.SetBaud(p.read_baud); })
+                    .and_then([&] { return RequestPrefix(transport, cancellation, {0xbf}, {0xff}, p); })
+                    .transform([&] { return std::move(id); });
+            });
 }
 
 Status PrepareWrite(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
@@ -221,12 +200,14 @@ Status PrepareWrite(IKlineFlashTransport& transport, const ICancellationToken& c
         }
         return AuthenticatedSession(transport, cancellation, p, false);
     }
-    if (auto baud = transport.SetBaud(p.write_baud); !baud.has_value())
-    {
-        return baud;
-    }
     auto probe =
-        ExchangeOptional(transport, cancellation, bytes::Bytes{uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x08, 0, 0}, p);
+        transport.SetBaud(p.write_baud)
+            .and_then(
+                [&]
+                {
+                    return ExchangeOptional(transport, cancellation,
+                                            bytes::Bytes{uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x08, 0, 0}, p);
+                });
     if (!probe.has_value())
     {
         return std::unexpected(probe.error());
@@ -235,11 +216,8 @@ Status PrepareWrite(IKlineFlashTransport& transport, const ICancellationToken& c
     {
         return {};
     }
-    if (auto baud = transport.SetBaud(p.initial_baud); !baud.has_value())
-    {
-        return baud;
-    }
-    return AuthenticatedSession(transport, cancellation, p, true);
+    return transport.SetBaud(p.initial_baud)
+        .and_then([&] { return AuthenticatedSession(transport, cancellation, p, true); });
 }
 
 Result<bytes::Bytes> ReadRom(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
@@ -345,47 +323,40 @@ Status TransferRom(IKlineFlashTransport& transport, const ICancellationToken& ca
 Status WriteRom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                 IEventSink& events, const SubaruHitachiM32rKlinePlan& p, const FlashPlan& plan)
 {
-    if (auto baud = transport.SetBaud(p.write_baud); !baud.has_value())
-    {
-        return baud;
-    }
-    if (auto s =
-            RequestPrefix(transport, cancellation, {uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x08, 0, 0}, {0x74}, p);
-        !s.has_value())
-    {
-        return s;
-    }
-    if (auto slept = clock.Sleep(200ms, cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    if (auto erased = EraseRom(transport, clock, cancellation, p); !erased.has_value())
-    {
-        return erased;
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after erase");
-    }
-    if (auto transferred = TransferRom(transport, cancellation, events, p, plan); !transferred.has_value())
-    {
-        return transferred;
-    }
-    if (auto slept = clock.Sleep(300ms, cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    auto checksum = ExchangeOptional(transport, cancellation,
-                                     bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02}, p);
-    if (!checksum.has_value())
-    {
-        return std::unexpected(checksum.error());
-    }
-    if (!checksum->has_value() || (*checksum)->empty())
-    {
-        return Fail(ErrorKind::kTimeout, "no final checksum response");
-    }
-    return {};
+    return transport.SetBaud(p.write_baud)
+        .and_then(
+            [&]
+            {
+                return RequestPrefix(transport, cancellation, {uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x08, 0, 0},
+                                     {0x74}, p);
+            })
+        .and_then([&] { return clock.Sleep(200ms, cancellation); })
+        .and_then([&] { return EraseRom(transport, clock, cancellation, p); })
+        .and_then(
+            [&]() -> Status
+            {
+                if (cancellation.Cancelled())
+                {
+                    return Fail(ErrorKind::kCancelled, "cancelled after erase");
+                }
+                return TransferRom(transport, cancellation, events, p, plan);
+            })
+        .and_then([&] { return clock.Sleep(300ms, cancellation); })
+        .and_then(
+            [&]
+            {
+                return ExchangeOptional(transport, cancellation,
+                                        bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02}, p);
+            })
+        .and_then(
+            [](const std::optional<bytes::Bytes>& checksum) -> Status
+            {
+                if (!checksum.has_value() || checksum->empty())
+                {
+                    return Fail(ErrorKind::kTimeout, "no final checksum response");
+                }
+                return {};
+            });
 }
 } // namespace
 
@@ -399,43 +370,27 @@ Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::Run(const SubaruHit
                                                                  IClock& clock, const ICancellationToken& cancellation,
                                                                  IEventSink& events)
 {
-    Result<FlashExecutionResult> outcome = Fail(ErrorKind::kInternal, "unreachable");
-    if (auto header = transport.SetAddIso14230Header(false); !header.has_value())
-    {
-        outcome = std::unexpected(header.error());
-    }
-    else if (plan.Operation() == FlashOperation::kRead)
-    {
-        auto id = PrepareRead(transport, cancellation, p);
-        if (!id.has_value())
+    return transport.SetAddIso14230Header(false).and_then(
+        [&]() -> Result<FlashExecutionResult>
         {
-            outcome = std::unexpected(id.error());
-        }
-        else if (auto rom = ReadRom(transport, cancellation, events, p); !rom.has_value())
-        {
-            outcome = std::unexpected(rom.error());
-        }
-        else
-        {
-            outcome = FlashExecutionResult{FlashOperation::kRead, std::move(*rom), std::move(*id)};
-        }
-    }
-    else if (auto prepared = PrepareWrite(transport, cancellation, p); !prepared.has_value())
-    {
-        outcome = std::unexpected(prepared.error());
-    }
-    else if (auto written = WriteRom(transport, clock, cancellation, events, p, plan); !written.has_value())
-    {
-        outcome = std::unexpected(written.error());
-    }
-    else
-    {
-        outcome = FlashExecutionResult{FlashOperation::kWrite, std::nullopt, std::nullopt};
-    }
-    if (!outcome.has_value())
-    {
-        return std::unexpected(outcome.error());
-    }
-    return outcome;
+            if (plan.Operation() == FlashOperation::kRead)
+            {
+                return PrepareRead(transport, cancellation, p)
+                    .and_then(
+                        [&](std::string id)
+                        {
+                            return ReadRom(transport, cancellation, events, p)
+                                .transform(
+                                    [&](bytes::Bytes rom)
+                                    {
+                                        return FlashExecutionResult{FlashOperation::kRead, std::move(rom),
+                                                                    std::move(id)};
+                                    });
+                        });
+            }
+            return PrepareWrite(transport, cancellation, p)
+                .and_then([&] { return WriteRom(transport, clock, cancellation, events, p, plan); })
+                .transform([] { return FlashExecutionResult{FlashOperation::kWrite, std::nullopt, std::nullopt}; });
+        });
 }
 } // namespace fastecu::flash
