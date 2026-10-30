@@ -56,6 +56,7 @@ style guide.
 | `ecu/subaru_unisia_jecs_m32r_kline_executor.cpp` (+ shared `FaultingKlineFlashTransport`) | #933 | -33 | +88 |
 | `ecu/denso_iso15765_can_common.cpp` | #934 | -47 | +168 |
 | `ecu/subaru_denso_sh7055_02_executor.cpp` | #935 | -30 | +217 |
+| `ecu/subaru_denso_mc68hc16y5_02_executor.cpp` | #TBD | -23 | +182 |
 
 ## Inventory
 
