@@ -133,6 +133,17 @@ TEST(IdentifyKlineSsm2, AssemblesTheFrameFromPartialReads)
                 ElementsAre(kKlineOpen, "write 80 10 F0 01 BF 40", "read 200", "read 50", "read 50", "read 50"));
 }
 
+TEST(IdentifyKlineSsm2, AFourByteHeaderIsEnoughToReadTheBody)
+{
+    Harness h;
+    h.link.QueueRead(B({0x80, 0xF0, 0x10, 0x09}));
+    h.link.QueueRead(B({0xFF, 0xA2, 0x10, 0x11, 0x31, 0x52, 0x58, 0x40, 0x06, 0x6C}));
+    const auto result = h.Run(SsmVariant::kKlineSsm2);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->init_response, kShortEcuInit);
+    EXPECT_THAT(h.link.calls, ElementsAre(kKlineOpen, "write 80 10 F0 01 BF 40", "read 200", "read 50"));
+}
+
 TEST(IdentifyKlineSsm2, NoAnswerIsTimeoutAfterTheLegacyReadBudget)
 {
     Harness h;
