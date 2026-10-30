@@ -163,12 +163,7 @@ Result<NumericEditResult> BuildPatch(const DefinitionBytes& rom, const MapElemen
                                      std::span<const NumericCell> cells, const SelectionRange& range,
                                      Candidate candidate)
 {
-    const auto valid = ValidateSelection(width, cells.size(), range);
-    if (!valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto limits = LimitsFor(spec);
+    const auto limits = ValidateSelection(width, cells.size(), range).and_then([&] { return LimitsFor(spec); });
     if (!limits.has_value())
     {
         return std::unexpected(limits.error());
@@ -331,26 +326,25 @@ Result<NumericEditResult> CalculateAssignment(const DefinitionBytes& rom, const 
                                               std::uint32_t width, std::span<const NumericCell> cells,
                                               const SelectionRange& range, std::string_view formula)
 {
-    const auto needs_input = UsesCurrentValue(formula);
-    if (!needs_input.has_value())
-    {
-        return std::unexpected(needs_input.error());
-    }
-    return BuildPatch(rom, spec, width, cells, range,
-                      [&](std::uint32_t index, std::uint64_t, std::uint64_t) -> Result<double>
-                      {
-                          const auto current = *needs_input ? CurrentValue(cells, index) : Result<double>(0.0);
-                          if (!current.has_value())
-                          {
-                              return current;
-                          }
-                          const auto value = expression::EvaluateChecked(formula, *current);
-                          if (!value.has_value())
-                          {
-                              return Fail(ErrorKind::kInvalidConfig, value.error().detail);
-                          }
-                          return *value;
-                      });
+    return UsesCurrentValue(formula).and_then(
+        [&](bool needs_input)
+        {
+            return BuildPatch(rom, spec, width, cells, range,
+                              [&](std::uint32_t index, std::uint64_t, std::uint64_t) -> Result<double>
+                              {
+                                  const auto current = needs_input ? CurrentValue(cells, index) : Result<double>(0.0);
+                                  if (!current.has_value())
+                                  {
+                                      return current;
+                                  }
+                                  const auto value = expression::EvaluateChecked(formula, *current);
+                                  if (!value.has_value())
+                                  {
+                                      return Fail(ErrorKind::kInvalidConfig, value.error().detail);
+                                  }
+                                  return *value;
+                              });
+        });
 }
 
 Result<NumericEditResult> CalculateInterpolation(const DefinitionBytes& rom, const MapElementSpec& spec,
@@ -365,12 +359,8 @@ Result<NumericEditResult> CalculatePaste(const DefinitionBytes& rom, const MapEl
                                          std::uint32_t height, const SelectionRange& range,
                                          std::span<const std::vector<double>> values)
 {
-    const auto valid = ValidateSelection(width, std::uint64_t(width) * height, range);
-    if (!valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    const auto limits = LimitsFor(spec);
+    const auto limits =
+        ValidateSelection(width, std::uint64_t(width) * height, range).and_then([&] { return LimitsFor(spec); });
     if (!limits.has_value())
     {
         return std::unexpected(limits.error());
