@@ -18,15 +18,9 @@
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
+#include "src/backend/ports/logged_step.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
-// Every protocol exchange below is transcribed from
-// src/platform/desktop/common/flash/legacy/tcu/
-// flash_tcu_subaru_denso_sh705x_can_operation.cpp at revision 59f4e442:
-// connect_bootloader (93-364), upload_kernel (369-627), read_mem (632-779),
-// write_mem (784-900), CRC/init/reflash/flash (905-1517), seed/crypto
-// (1522-1577), and request_kernel_id (1583-1647).
-//
 // ISO-15765 is only the envelope transport here. Strict UDS exchanges use
 // uds::UdsClient; the tolerant 0xAA/0x09 identity queries and all BEEF
 // kernel commands are sent through the channel directly because they are
@@ -40,13 +34,13 @@ namespace
 using bytes::ComposeBe;
 using namespace std::chrono_literals;
 
-constexpr std::chrono::milliseconds kProbeDelay{100}; // request_kernel_id(), lines 1608-1609
+constexpr std::chrono::milliseconds kProbeDelay{100}; // request_kernel_id()
 constexpr std::chrono::milliseconds kExtraShortTimeout{50};
 constexpr std::chrono::milliseconds kShortTimeout{200};
 constexpr std::chrono::milliseconds kLongTimeout{800};
 constexpr std::chrono::milliseconds kReadTimeout{2000};
 constexpr std::chrono::milliseconds kExtraLongTimeout{3000};
-constexpr std::chrono::milliseconds kPostUploadDelay{500}; // upload_kernel(), lines 595-595
+constexpr std::chrono::milliseconds kPostUploadDelay{500}; // upload_kernel()
 
 constexpr bytes::Byte kKernelId = 0x41;
 
@@ -125,7 +119,7 @@ Result<std::optional<std::string>> Malformed(bool tolerate_malformed, Error erro
     return std::unexpected(std::move(error));
 }
 
-// Legacy lines 1621-1625 keep reading at the short timeout and append every
+// Legacy keeps reading at the short timeout and appends every
 // returned continuation. ICanFlashTransport replaces the legacy adapter's
 // two-byte prefix with a four-byte arbitration-id envelope, so each accepted
 // continuation contributes every byte after that envelope. The drain is
@@ -216,8 +210,7 @@ Result<std::optional<std::string>> ParseKernelIdReply(Context& context, const by
 
 Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolerate_malformed)
 {
-    // request_kernel_id(), revision 59f4e442 lines 1583-1647. The literal
-    // PDU is intentionally kept here instead of deriving it from BEEF
+    // The literal PDU is intentionally kept here instead of deriving it from BEEF
     // constants: 0x7A 0xA0 is the legacy kernel probe, not a BEEF command.
     const bytes::Bytes request{0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     for (int attempt = 0; attempt < 5; ++attempt)
@@ -273,7 +266,7 @@ Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expe
     return {};
 }
 
-// The ECU/CAL identity queries (lines 137-214) are intentionally non-fatal.
+// The ECU/CAL identity queries are intentionally non-fatal.
 // Their successful values form the legacy read ROM id.
 Status RequestIdentity(Context& context, bool read_operation, std::optional<std::string>& rom_id)
 {
@@ -325,7 +318,7 @@ Status RequestIdentity(Context& context, bool read_operation, std::optional<std:
             });
 }
 
-// Strict UDS session/security exchanges, lines 216-359. Oracle line 230
+// Strict UDS session/security exchanges. Oracle
 // joins its two mismatches with && and therefore accepts 50 02 or 51 03;
 // requiring both fields is the documented automated-only safety fix.
 Status EnterProgrammingSession(Context& context)
@@ -353,14 +346,12 @@ Status EnterProgrammingSession(Context& context)
                 return StrictPayload(context, ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
                                      bytes::Bytes{0x02}, "seed key");
             })
-        .and_then(
-            [&]
-            {
-                LogInfo(context, "Seed key ok");
-                LogInfo(context, "Set session mode");
-                return context.uds.Request(bytes::Bytes{uds::kSidDiagnosticSessionControl, 0x02}, kStrictPolicy,
-                                           context.cancellation);
-            })
+        .and_then(LogThen(context.events, "Seed key ok", "Set session mode",
+                          [&]
+                          {
+                              return context.uds.Request(bytes::Bytes{uds::kSidDiagnosticSessionControl, 0x02},
+                                                         kStrictPolicy, context.cancellation);
+                          }))
         .and_then(
             [&](const bytes::Bytes& reply) -> Status
             {
@@ -377,14 +368,11 @@ Status EnterProgrammingSession(Context& context)
 Status UploadKernel(Context& context, const KernelImage& kernel)
 {
     return context.kernel.TransferPayload(kernel, {kStrictPolicy, kReadTimeout})
-        .and_then(
-            [&]
-            {
-                LogInfo(context, "Kernel uploaded, starting...");
-                return StrictPayload(context, bytes::Bytes{uds::kSidRequestTransferExit}, {}, "kernel transfer exit");
-            })
-        // upload_kernel(), revision 59f4e442 lines 546-577 checks only the
-        // positive service id, so an echoed routine is optional.
+        .and_then(LogThen(
+            context.events, "Kernel uploaded, starting...", [&]
+            { return StrictPayload(context, bytes::Bytes{uds::kSidRequestTransferExit}, {}, "kernel transfer exit"); }))
+        // Only the positive service id is checked, so an echoed routine is
+        // optional.
         .and_then(
             [&]
             {
@@ -395,8 +383,7 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
             [&]
             {
                 LogInfo(context, "Kernel started, initializing...");
-                // upload_kernel(), revision 59f4e442 lines 581-595 resets the adapter
-                // and reapplies the TCU's ISO-15765 configuration before its quiet
+                // Reset the adapter and reapply the TCU's ISO-15765 configuration before its quiet
                 // period and strict post-upload probe. This is protocol-owned inner
                 // lifecycle; BoundAttempt retains the initial configure/open and final
                 // close ownership.
@@ -407,12 +394,7 @@ Status UploadKernel(Context& context, const KernelImage& kernel)
                                                          context.cancellation);
             })
         .and_then([&] { return context.clock.Sleep(kPostUploadDelay, context.cancellation); })
-        .and_then(
-            [&]
-            {
-                LogInfo(context, "Requesting kernel ID");
-                return RequestKernelId(context, false);
-            })
+        .and_then(LogThen(context.events, "Requesting kernel ID", [&] { return RequestKernelId(context, false); }))
         .and_then(
             [&](const std::optional<std::string>& kernel_id) -> Status
             {
