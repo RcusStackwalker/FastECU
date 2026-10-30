@@ -91,27 +91,24 @@ void NonFatalQuery(Ctx& ctx, bytes::ByteView pdu, std::optional<bytes::Byte> exp
 // it). Legacy logs the reply, or its absence, before failing.
 Status RawExpect(Ctx& ctx, bytes::ByteView request, bytes::ByteView expected, std::string_view failure)
 {
-    if (const Status sent = ctx.channel.Send(request, ctx.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> reply = ctx.channel.Receive(2000ms, ctx.cancellation);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    if (!reply->has_value())
-    {
-        LogError(ctx, "No valid response from ECU");
-        return Fail(ErrorKind::kBadResponse, std::string(failure));
-    }
-    if (reply->value().size() < expected.size() ||
-        !std::ranges::equal(bytes::ByteView(**reply).first(expected.size()), expected))
-    {
-        LogError(ctx, std::format("Wrong response from TCU: {}", bytes::ToHex(**reply)));
-        return Fail(ErrorKind::kBadResponse, std::string(failure));
-    }
-    return {};
+    return ctx.channel.Send(request, ctx.cancellation)
+        .and_then([&] { return ctx.channel.Receive(2000ms, ctx.cancellation); })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& reply) -> Status
+            {
+                if (!reply.has_value())
+                {
+                    LogError(ctx, "No valid response from ECU");
+                    return Fail(ErrorKind::kBadResponse, std::string(failure));
+                }
+                if (reply->size() < expected.size() ||
+                    !std::ranges::equal(bytes::ByteView(*reply).first(expected.size()), expected))
+                {
+                    LogError(ctx, std::format("Wrong response from TCU: {}", bytes::ToHex(*reply)));
+                    return Fail(ErrorKind::kBadResponse, std::string(failure));
+                }
+                return {};
+            });
 }
 
 // True once one of `attempts` tries of `request` succeeds.
@@ -230,30 +227,29 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
     // ctx.uds either -- routed through the channel directly, mirroring the
     // alive-check exchange's own necessity in connect_bootloader.
     LogInfo(ctx, "Settting dump start & length...");
-    if (const Status setup =
-            RawExpect(ctx, bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
-                      bytes::Bytes{0x74, 0x20, 0x01, 0x04}, "dump start & length setup rejected");
-        !setup.has_value())
-    {
-        return std::unexpected(setup.error());
-    }
-    Result<bytes::Bytes> rom =
-        ReadEncryptedB7Pages(ExchangeContext(ctx), kRejectionPrefix, kReadRegion, TcuCvtMitsuDecryptPage, progress);
-    if (!rom.has_value())
-    {
-        return rom;
-    }
-    LogInfo(ctx, "ROM read complete");
-    if (const Status stopped = SendStop(ctx); !stopped.has_value())
-    {
-        return std::unexpected(stopped.error());
-    }
-    // Legacy pads the unread low 0x8000 region with 0xFF (lines 531-538 --
-    // the comment above the loop says "pad ... with 0x00" but the loop body
-    // writes 0xFF; the code, not the misleading comment, is preserved),
-    // unlike SubaruTcuCvtHitachiM32rCan, which pads with 0x00.
-    rom->insert(rom->begin(), kReadRegion.start, 0xFF);
-    return rom;
+    return RawExpect(ctx, bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
+                     bytes::Bytes{0x74, 0x20, 0x01, 0x04}, "dump start & length setup rejected")
+        .and_then(
+            [&]
+            {
+                return ReadEncryptedB7Pages(ExchangeContext(ctx), kRejectionPrefix, kReadRegion, TcuCvtMitsuDecryptPage,
+                                            progress);
+            })
+        .and_then(
+            [&](bytes::Bytes rom)
+            {
+                LogInfo(ctx, "ROM read complete");
+                return SendStop(ctx).transform(
+                    [&]
+                    {
+                        // Legacy pads the unread low 0x8000 region with 0xFF (lines 531-538 --
+                        // the comment above the loop says "pad ... with 0x00" but the loop body
+                        // writes 0xFF; the code, not the misleading comment, is preserved),
+                        // unlike SubaruTcuCvtHitachiM32rCan, which pads with 0x00.
+                        rom.insert(rom.begin(), kReadRegion.start, 0xFF);
+                        return std::move(rom);
+                    });
+            });
 }
 
 // Legacy erase_mem, lines 833-892. The literal legacy loop never resends
