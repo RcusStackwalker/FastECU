@@ -798,6 +798,11 @@ void EnqueueFullRead(ScriptedKlineFlashTransport& transport)
 std::size_t CountCalls(FaultOp op)
 {
     auto plan = ValidKlinePlan();
+    if (!plan.has_value())
+    {
+        ADD_FAILURE() << "plan rejected";
+        return 0;
+    }
     FaultingTransport transport{ScriptedTransportInitialState::kOpen};
     transport.op = op;
     EnqueueFullRead(transport);
@@ -821,10 +826,11 @@ TEST(DensoSh705xEepromKlineExecutorTest, EveryTransportFaultInAFullReadPropagate
     };
     for (const auto& [op, count] : ops)
     {
+        SCOPED_TRACE(::testing::Message() << "op " << static_cast<int>(op));
         ASSERT_GT(count, 0U);
         for (std::size_t k = 1; k <= count; ++k)
         {
-            SCOPED_TRACE(::testing::Message() << "op " << static_cast<int>(op) << " call " << k);
+            SCOPED_TRACE(::testing::Message() << "call " << k);
             auto plan = ValidKlinePlan();
             ASSERT_THAT(plan, fastecu::testing::IsOk());
             FaultingTransport transport{ScriptedTransportInitialState::kOpen};
@@ -846,6 +852,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, EveryCancellationCheckInAFullReadStops)
     std::size_t checks = 0;
     {
         auto plan = ValidKlinePlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
         EnqueueFullRead(transport);
         FakeClock clock;
@@ -864,6 +871,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, EveryCancellationCheckInAFullReadStops)
     {
         SCOPED_TRACE(n);
         auto plan = ValidKlinePlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
         EnqueueFullRead(transport);
         FakeClock clock;
