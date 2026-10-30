@@ -6,6 +6,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
+#include "src/backend/ports/logged_step.h"
 
 namespace fastecu::flash
 {
@@ -78,28 +79,26 @@ Status UnlockAndKernelJump(const UdsExchangeContext& ctx, std::string_view rejec
                            bytes::Bytes (*seed_key)(bytes::ByteView seed))
 {
     constexpr bytes::Byte kSessionKernelJump = 0x42;
-    const auto log = [&](std::string_view message) { ctx.events.Log(LogLevel::kInfo, message); };
-    log("Requesting seed");
+    LogInfo(ctx, "Requesting seed");
     return FatalQuery(ctx, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
                       bytes::Bytes{uds::kSecurityAccessRequestSeed}, rejection_prefix, "seed request", 5)
         .and_then(
             [&](const bytes::Bytes& seed_reply)
             {
-                log("Seed request ok");
+                LogInfo(ctx, "Seed request ok");
                 const bytes::Bytes key = seed_key(uds::Payload(seed_reply).subspan(1, 4));
-                log("Sending seed key");
+                LogInfo(ctx, "Sending seed key");
                 return FatalQuery(ctx, bytes::ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
                                   bytes::Bytes{uds::kSecurityAccessSendKey}, rejection_prefix, "seed key");
             })
-        .and_then(
-            [&](const bytes::Bytes&)
-            {
-                log("Seed key ok");
-                log("Jumping to onboard kernel...");
-                return FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
-                                  bytes::Bytes{kSessionKernelJump}, rejection_prefix, "kernel jump");
-            })
-        .transform([&](const bytes::Bytes&) { log("Jump to kernel ok"); });
+        .and_then(LogThen(ctx.events, "Seed key ok", "Jumping to onboard kernel...",
+                          [&]
+                          {
+                              return FatalQuery(ctx,
+                                                bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionKernelJump},
+                                                bytes::Bytes{kSessionKernelJump}, rejection_prefix, "kernel jump");
+                          }))
+        .transform([&](const bytes::Bytes&) { LogInfo(ctx, "Jump to kernel ok"); });
 }
 
 Result<bytes::Bytes> ReadEncryptedB7Pages(const UdsExchangeContext& ctx, std::string_view rejection_prefix,
