@@ -19,6 +19,7 @@ cc_library(
         "event_sink.h",
         "file_repository.h",
         "file_system.h",
+        "logged_step.h",
         "manual_cancellation_token.h",
         "resource_bundle.h",
         "result.h",
@@ -49,6 +50,17 @@ fastecu_portable_gtest(
     srcs = ["duration_cast_test.cpp"],
     deps = [
         ":ports",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "logged_step_test",
+    srcs = ["logged_step_test.cpp"],
+    deps = [
+        ":ports",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

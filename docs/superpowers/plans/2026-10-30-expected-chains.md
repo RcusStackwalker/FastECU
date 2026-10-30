@@ -6,6 +6,8 @@ in #944 and phase 3 (the rest of `src/backend`, `src/algorithms`, `src/ui`)
 in #945: 147 candidate runs and 23 review items across 70 files. Nothing in
 those trees is left to inventory. New code follows the rule below; the
 recipe and inventories stay as the record of what was kept and why.
+Phase 4 ([logged steps](#phase-4-logged-steps)) folds log-only lambdas
+into `LogThen`/`LogDone`.
 
 **Goal:** Convert straight-line runs of `if (!r.has_value()) { return ...; }`
 early returns into `std::expected` `and_then` / `transform` chains, following the shape PRs #912, #913, #919, #921, #923 and
@@ -154,6 +156,17 @@ What each PR in the series did; reuse it for any later conversion.
 | `config/catalog.cpp` | #945 | -4 | 0 |
 | `algorithms/expression/expression.cpp` (under `src/`) | #945 | -5 | 0 |
 | `calibration/session/calibration_session.cpp` | #945 | -2 | 0 |
+| `ports/logged_step.h` (shared, new) | #TBD | +23 | +60 |
+| `ecu/subaru_denso_sh705x_kline_executor.cpp` | #TBD | -18 | 0 |
+| `ecu/subaru_hitachi_sh72543r_can_executor.cpp` | #TBD | -18 | 0 |
+| `ecu/subaru_mitsu_m32r_kline_executor.cpp` | #TBD | -18 | 0 |
+| `ecu/subaru_tcu_denso_sh705x_can_executor.cpp` | #TBD | -9 | 0 |
+| `ecu/subaru_unisia_jecs_m32r_bootmode_program_executor.cpp` | #TBD | -8 | 0 |
+| `ecu/subaru_unisia_jecs_m32r_kline_executor.cpp` | #TBD | -8 | 0 |
+| `eeprom/denso_sh705x_eeprom_kline_executor.cpp` | #TBD | -7 | 0 |
+| `ecu/subaru_denso_mc68hc16y5_02_executor.cpp` | #TBD | -5 | 0 |
+| `ecu/subaru_denso_sh7055_02_executor.cpp` | #TBD | -3 | 0 |
+| `ecu/uds_client_exchange_common.cpp` | #TBD | -1 | 0 |
 
 The rest of phase 1 landed in one PR (#943), one commit per file. Kept on
 purpose: `ecu/subaru_hitachi_sh7058_can_executor.cpp`'s `Exchange` (its read
@@ -796,3 +809,34 @@ changes between steps), `logging/logger_conf.cpp`, `logging/logging_conversion.c
 `algorithms/memory/*` (single steps before loops), `algorithms/crypto/subaru_key_recovery.cpp`
 (two earlier values), `algorithms/checksum/*`, and every file under `src/ui`
 (single calls; failure branches show notices).
+
+## Phase 4: logged steps
+
+A grilling on 2026-10-30 found many `and_then` lambdas that only log and then
+return one step: the previous step's "X ok", the next step's "Doing Y", then
+the call. `src/backend/ports/logged_step.h` folds them:
+
+- `LogThen(events, messages..., step)` returns an `and_then` callable that
+  ignores the previous value, logs each message at info level, then returns
+  `step()`. Messages are captured by value when the chain is built.
+- `LogDone(events, messages...)` is the `.transform` tail: it logs at info
+  level and drops the value.
+
+**Qualifying lambda:** the body is only info logs (constant text, or text from
+values fixed before the chain, since messages are captured when the chain is
+built) and one `return <step>;` that does not use the lambda's parameter;
+for `LogDone`, only info logs. Lambdas that compute, branch, use the incoming
+value or log at another level stay hand-written. Log text, level and order
+stay byte-identical.
+
+**NLOC:** a site is converted only if it gets shorter after `clang-format`,
+so one-line `.transform` tails stay; a file joins only if its production NLOC
+drops (the new include counts). `denso_iso15765_can_common.cpp` and
+`subaru_denso_mc68hc16y5_02_bdm_executor.cpp` broke even and stayed out.
+
+**Legacy line references** (`// :302-321`, `read_mem():503-640`,
+`lines 199/329`) are removed from every converted file: the legacy sources
+were deleted in #361, so the numbers point nowhere. Prose that explains a
+legacy behavior stays.
+
+One PR: the helper, its tests and these docs first, then one commit per file.
