@@ -4,10 +4,18 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <optional>
+#include <string_view>
+#include <vector>
+
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
 #include "src/backend/ports/manual_cancellation_token.h"
+#include "src/backend/flash/testing/faulting_kline_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
@@ -52,10 +60,10 @@ bytes::Bytes IdResponse()
     return {0x80, 0xf0, 0x10, 0x09, 0xff, 0, 0, 0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0};
 }
 
-void ScriptReadChunks(ScriptedKlineFlashTransport& transport)
+void ScriptReadChunks(ScriptedKlineFlashTransport& transport, std::uint32_t end = 0x80000)
 {
     const auto section = transport.Section("read chunks");
-    for (std::uint32_t logical = 0; logical < 0x80000; logical += 0x80)
+    for (std::uint32_t logical = 0; logical < end; logical += 0x80)
     {
         const std::uint32_t address = logical + 0x100000;
         bytes::Bytes response(134, 0xc7);
@@ -97,13 +105,30 @@ bytes::Bytes EncryptedImage(bytes::ByteView image)
     return ssm_protocol::CalculatePayload(image, kIndex, ssm_protocol::kStockPairTable);
 }
 
-void ScriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView image)
+// EncryptedImage for the last image seen: encrypting 512 KiB per script would
+// dominate the sweeps, which script the same image hundreds of times.
+const bytes::Bytes& CachedEncryptedImage(bytes::ByteView image)
+{
+    static bytes::Bytes input;
+    static bytes::Bytes output;
+    if (!std::ranges::equal(input, image))
+    {
+        input.assign(image.begin(), image.end());
+        output = EncryptedImage(image);
+    }
+    return output;
+}
+
+// Scripts the chunks below `end`; the final checksum follows only when
+// `checksum` is set and every chunk is scripted.
+void ScriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView image, bool checksum = true,
+                     std::uint32_t end = 0x80000)
 {
     const auto section = transport.Section("write body");
     transport.Exchange(Frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}), bytes::Bytes{0, 0, 0, 0, 0x74});
     transport.Exchange(Frame({0x31, 0x02, 0x0f, 0xff, 0xff, 0xff}), bytes::Bytes{0, 0, 0, 0, 0x71, 0x02});
-    const bytes::Bytes encrypted = EncryptedImage(image);
-    for (std::uint32_t address = 0; address < 0x80000; address += 0x80)
+    const bytes::Bytes& encrypted = CachedEncryptedImage(image);
+    for (std::uint32_t address = 0; address < end; address += 0x80)
     {
         bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
                              static_cast<bytes::Byte>(address)};
@@ -118,7 +143,10 @@ void ScriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView ima
             transport.QueueRead(bytes::Bytes{0xde, 0xad});
         }
     }
-    transport.Exchange(Frame({0x31, 0x01, 0x02}), bytes::Bytes{0x01});
+    if (checksum && end == 0x80000)
+    {
+        transport.Exchange(Frame({0x31, 0x01, 0x02}), bytes::Bytes{0x01});
+    }
 }
 
 TEST(SubaruHitachiM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
@@ -426,5 +454,303 @@ TEST(SubaruHitachiM32rKlineExecutor, PreservesExchangeReadFailure)
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("read fault")));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 1U);
+}
+
+const bytes::Bytes& SweepImage()
+{
+    static const bytes::Bytes kImage(0x80000, 0xa5);
+    return kImage;
+}
+
+struct Scenario
+{
+    std::string_view name;
+    std::string_view protocol;
+    FlashOperation operation;
+    void (*script)(ScriptedKlineFlashTransport&, std::uint32_t end);
+};
+
+Result<FlashPlan> PlanFor(const Scenario& scenario)
+{
+    return BuildSubaruHitachiM32rKlinePlan(
+        scenario.operation, scenario.protocol, "M32R_512KB_1block",
+        scenario.operation == FlashOperation::kRead ? std::nullopt : std::optional<bytes::Bytes>(SweepImage()));
+}
+
+void ScriptFallbackRead(ScriptedKlineFlashTransport& transport, std::uint32_t end)
+{
+    transport.Exchange(Frame({0xbf}));
+    transport.QueueNoFrame();
+    transport.Exchange(Frame({0xbf}), IdResponse());
+    transport.Exchange(Frame({0xb8, 0, 0, 0, 0x75}), bytes::Bytes{0, 0, 0, 0, 0xf8});
+    transport.Exchange(Frame({0xbf}), IdResponse());
+    ScriptReadChunks(transport, end);
+}
+
+void ScriptActiveObkWrite(ScriptedKlineFlashTransport& transport, std::uint32_t end)
+{
+    transport.Exchange(Frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}), bytes::Bytes{0, 0, 0, 0, 0x74, 0x84});
+    ScriptWriteBody(transport, SweepImage(), true, end);
+}
+
+void ScriptFallbackWrite(ScriptedKlineFlashTransport& transport, std::uint32_t end)
+{
+    transport.Exchange(Frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}));
+    transport.QueueNoFrame();
+    transport.Exchange(Frame({0xbf}), IdResponse());
+    transport.Exchange(Frame({0x81}), bytes::Bytes{0, 0, 0, 0, 0xc1});
+    transport.Exchange(Frame({0x83, 0x00}), bytes::Bytes{0, 0, 0, 0, 0xc3});
+    transport.Exchange(Frame({0x27, 0x01}), bytes::Bytes{0, 0, 0, 0, 0x67, 0x01, 0x12, 0x34, 0x56, 0x78});
+    transport.Exchange(Frame({0x27, 0x02, 0x6c, 0xf8, 0x3a, 0x6a}), bytes::Bytes{0, 0, 0, 0, 0x67, 0x02});
+    transport.Exchange(Frame({0x10, 0x85, 0x02}), bytes::Bytes{0, 0, 0, 0, 0x50});
+    ScriptWriteBody(transport, SweepImage(), true, end);
+}
+
+void ScriptRecoveryWrite(ScriptedKlineFlashTransport& transport, std::uint32_t end)
+{
+    transport.Exchange(Frame({0x81}));
+    transport.QueueNoFrame();
+    transport.Exchange(Frame({0x81}), bytes::Bytes{0, 0, 0, 0, 0xc1});
+    ScriptAuthenticatedTail(transport);
+    ScriptWriteBody(transport, SweepImage(), true, end);
+}
+
+const std::vector<Scenario>& Scenarios()
+{
+    static const std::vector<Scenario> kScenarios{
+        {"fallback read", "sub_ecu_hitachi_m32r_kline", FlashOperation::kRead, &ScriptFallbackRead},
+        {"active OBK write", "sub_ecu_hitachi_m32r_kline", FlashOperation::kWrite, &ScriptActiveObkWrite},
+        {"fallback write", "sub_ecu_hitachi_m32r_kline", FlashOperation::kWrite, &ScriptFallbackWrite},
+        {"recovery write", "sub_ecu_hitachi_m32r_kline_recovery", FlashOperation::kWrite, &ScriptRecoveryWrite},
+    };
+    return kScenarios;
+}
+
+// Session setup ends well inside these many calls or checks; the chunk loops
+// after it repeat one exchange shape. Sweeps script only the chunks below kSweptEnd:
+// a run that gets past them never reaches its fault.
+constexpr std::size_t kSessionPrefix = 40;
+constexpr std::uint32_t kSweptEnd = 64 * 0x80;
+constexpr std::uint32_t kRomEnd = 0x80000;
+
+// Fails the `fail_at`-th Sleep (1-based); with 0 it only counts them.
+class FaultingClock final : public FakeClock
+{
+  public:
+    std::size_t fail_at = 0;
+    std::size_t sleeps = 0;
+
+    Status Sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
+    {
+        if (++sleeps == fail_at)
+        {
+            return Fail(ErrorKind::kDisconnected, "sleep failed");
+        }
+        return FakeClock::Sleep(duration, cancellation);
+    }
+};
+
+TEST(SubaruHitachiM32rKlineExecutor, EveryEarlyTransportFaultPropagates)
+{
+    for (const Scenario& scenario : Scenarios())
+    {
+        SCOPED_TRACE(scenario.name);
+        auto plan = PlanFor(scenario);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        for (const KlineFaultOp op :
+             {KlineFaultOp::kWrite, KlineFaultOp::kRead, KlineFaultOp::kSetBaud, KlineFaultOp::kHeaderMode})
+        {
+            SCOPED_TRACE(::testing::Message() << "op " << static_cast<int>(op));
+            for (std::size_t k = 1; k <= kSessionPrefix; ++k)
+            {
+                SCOPED_TRACE(::testing::Message() << "call " << k);
+                FaultingKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+                transport.op = op;
+                transport.fail_at = k;
+                scenario.script(transport, kSweptEnd);
+                FakeClock clock;
+                ManualCancellationToken cancellation;
+                RecordingEventSink events;
+                const auto result =
+                    SubaruHitachiM32rKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events);
+                if (!transport.writes_at_fault.has_value())
+                {
+                    // Every `op` call of the swept prefix has been failed once.
+                    EXPECT_GT(k, 1U);
+                    break;
+                }
+                EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+                EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>{transport.WritesConsumed()});
+            }
+        }
+    }
+}
+
+TEST(SubaruHitachiM32rKlineExecutor, EveryEarlyCancellationCheckStops)
+{
+    for (const Scenario& scenario : Scenarios())
+    {
+        SCOPED_TRACE(scenario.name);
+        auto plan = PlanFor(scenario);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        for (std::size_t n = 1; n <= kSessionPrefix; ++n)
+        {
+            SCOPED_TRACE(n);
+            ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+            scenario.script(transport, kSweptEnd);
+            FakeClock clock;
+            FakeCancellationToken cancellation;
+            std::size_t seen = 0;
+            std::optional<std::size_t> writes_at_cancel;
+            cancellation.SetPredicate(
+                [&]
+                {
+                    if (++seen == n)
+                    {
+                        writes_at_cancel = transport.WritesConsumed();
+                    }
+                    return seen >= n;
+                });
+            RecordingEventSink events;
+            EXPECT_THAT(SubaruHitachiM32rKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                        fastecu::testing::IsErr(ErrorKind::kCancelled));
+            EXPECT_EQ(writes_at_cancel, std::optional<std::size_t>{transport.WritesConsumed()});
+        }
+    }
+}
+
+TEST(SubaruHitachiM32rKlineExecutor, EverySleepFailureInAWritePropagates)
+{
+    for (const Scenario& scenario : Scenarios())
+    {
+        SCOPED_TRACE(scenario.name);
+        auto plan = PlanFor(scenario);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        std::size_t count = 0;
+        {
+            ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+            scenario.script(transport, kRomEnd);
+            FaultingClock clock;
+            ManualCancellationToken cancellation;
+            RecordingEventSink events;
+            ASSERT_THAT(SubaruHitachiM32rKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                        fastecu::testing::IsOk());
+            count = clock.sleeps;
+        }
+        for (std::size_t k = 1; k <= count; ++k)
+        {
+            SCOPED_TRACE(::testing::Message() << "sleep " << k);
+            ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+            scenario.script(transport, kRomEnd);
+            FaultingClock clock;
+            clock.fail_at = k;
+            ManualCancellationToken cancellation;
+            RecordingEventSink events;
+            EXPECT_THAT(SubaruHitachiM32rKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                        fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("sleep failed")));
+        }
+    }
+}
+
+TEST(SubaruHitachiM32rKlineExecutor, FinalChecksumMustAnswer)
+{
+    struct Case
+    {
+        std::string_view name;
+        void (*reply)(ScriptedKlineFlashTransport&);
+        ErrorKind kind;
+        std::string_view detail;
+    };
+    const std::vector<Case> cases{
+        {"no frame", [](ScriptedKlineFlashTransport& t) { t.QueueNoFrame(); }, ErrorKind::kTimeout,
+         "no final checksum response"},
+        {"empty frame", [](ScriptedKlineFlashTransport& t) { t.QueueRead(bytes::Bytes{}); }, ErrorKind::kTimeout,
+         "no final checksum response"},
+        {"read error",
+         [](ScriptedKlineFlashTransport& t) { t.QueueError(ErrorKind::kDisconnected, "checksum read failed"); },
+         ErrorKind::kDisconnected, "checksum read failed"},
+    };
+    const Scenario& scenario = Scenarios()[1];
+    auto plan = PlanFor(scenario);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (const Case& c : cases)
+    {
+        SCOPED_TRACE(c.name);
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        transport.Exchange(Frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}), bytes::Bytes{0, 0, 0, 0, 0x74, 0x84});
+        ScriptWriteBody(transport, SweepImage(), /*checksum=*/false);
+        transport.ExpectWrite(Frame({0x31, 0x01, 0x02}));
+        c.reply(transport);
+        FakeClock clock;
+        ManualCancellationToken cancellation;
+        RecordingEventSink events;
+        EXPECT_THAT(SubaruHitachiM32rKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErrWith(c.kind, Eq(c.detail)));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
+TEST(SubaruHitachiM32rKlineExecutor, ShortEcuIdStopsTheReadAndWriteFallbacks)
+{
+    const bytes::Bytes short_id{0x80, 0xf0, 0x10, 0x08, 0xff, 0, 0, 0, 0x12, 0x34, 0x56, 0x78};
+    {
+        SCOPED_TRACE("read");
+        auto plan = PlanFor(Scenarios()[0]);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        transport.Exchange(Frame({0xbf}));
+        transport.QueueNoFrame();
+        transport.Exchange(Frame({0xbf}), short_id);
+        FakeClock clock;
+        ManualCancellationToken cancellation;
+        RecordingEventSink events;
+        EXPECT_THAT(SubaruHitachiM32rKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse, Eq("ECU ID response is too short")));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+    {
+        SCOPED_TRACE("write");
+        auto plan = PlanFor(Scenarios()[2]);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        transport.Exchange(Frame({0x34, 0, 0, 0, 0x04, 0x08, 0, 0}));
+        transport.QueueNoFrame();
+        transport.Exchange(Frame({0xbf}), short_id);
+        FakeClock clock;
+        ManualCancellationToken cancellation;
+        RecordingEventSink events;
+        EXPECT_THAT(SubaruHitachiM32rKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse, Eq("ECU ID response is too short")));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
+TEST(SubaruHitachiM32rKlineExecutor, BadSeedRepliesStopBeforeTheKey)
+{
+    struct Case
+    {
+        bytes::Bytes reply;
+        std::string_view detail;
+    };
+    const std::vector<Case> cases{
+        {bytes::Bytes{0, 0, 0, 0, 0x67, 0x02, 0x12, 0x34, 0x56, 0x78}, "wrong response from ECU"},
+        {bytes::Bytes{0, 0, 0, 0, 0x67, 0x01, 0x12, 0x34, 0x56}, "seed response is too short"},
+    };
+    auto plan = PlanFor(Scenarios()[3]);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (const Case& c : cases)
+    {
+        SCOPED_TRACE(c.reply.size());
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        transport.Exchange(Frame({0x81}), bytes::Bytes{0, 0, 0, 0, 0xc1});
+        transport.Exchange(Frame({0x83, 0x00}), bytes::Bytes{0, 0, 0, 0, 0xc3});
+        transport.Exchange(Frame({0x27, 0x01}), c.reply);
+        FakeClock clock;
+        ManualCancellationToken cancellation;
+        RecordingEventSink events;
+        EXPECT_THAT(SubaruHitachiM32rKlineExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse, Eq(c.detail)));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
 }
 } // namespace
