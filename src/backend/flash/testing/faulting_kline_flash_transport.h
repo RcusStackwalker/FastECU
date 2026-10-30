@@ -14,6 +14,8 @@ enum class KlineFaultOp
     kRead,
     kSetBaud,
     kHeaderMode,
+    kDisableLecLines,
+    kPulseLec2Line,
 };
 
 // A scripted K-Line transport that fails the `fail_at`-th call (1-based) of
@@ -62,6 +64,22 @@ class FaultingKlineFlashTransport final : public ScriptedKlineFlashTransport
             return Fail(ErrorKind::kDisconnected, "injected");
         }
         return ScriptedKlineFlashTransport::SetAddIso14230Header(add_header);
+    }
+    Status DisableLecLines() override
+    {
+        if (Fault(KlineFaultOp::kDisableLecLines))
+        {
+            return Fail(ErrorKind::kDisconnected, "injected");
+        }
+        return ScriptedKlineFlashTransport::DisableLecLines();
+    }
+    Status PulseLec2Line(std::chrono::milliseconds timeout) override
+    {
+        if (Fault(KlineFaultOp::kPulseLec2Line))
+        {
+            return Fail(ErrorKind::kDisconnected, "injected");
+        }
+        return ScriptedKlineFlashTransport::PulseLec2Line(timeout);
     }
 
   private:
