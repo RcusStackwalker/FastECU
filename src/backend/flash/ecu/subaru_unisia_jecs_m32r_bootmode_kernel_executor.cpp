@@ -65,20 +65,17 @@ Status Upload(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& cl
     // upload_kernel() :338-340: legacy slept, read once with the short
     // timeout, and discarded whatever came back. Nothing here proves the
     // kernel runs; attempt 2's first gated reply does.
-    if (Status settled = clock.Sleep(kSettle, cancellation); !settled.has_value())
-    {
-        return settled;
-    }
-    auto trailing = transport.Read(kSettleRead, cancellation);
-    if (!trailing.has_value())
-    {
-        return std::unexpected(trailing.error());
-    }
-    if (trailing->has_value())
-    {
-        events.Log(LogLevel::kDebug, std::format("Discarded after kernel upload: {}", bytes::ToHex(**trailing)));
-    }
-    return {};
+    return clock.Sleep(kSettle, cancellation)
+        .and_then([&] { return transport.Read(kSettleRead, cancellation); })
+        .transform(
+            [&](const std::optional<bytes::Bytes>& trailing)
+            {
+                if (trailing.has_value())
+                {
+                    events.Log(LogLevel::kDebug,
+                               std::format("Discarded after kernel upload: {}", bytes::ToHex(*trailing)));
+                }
+            });
 }
 } // namespace
 
@@ -95,11 +92,7 @@ Status SubaruUnisiaJecsM32rBootModeKernelExecutor::BeforeTransportConfigure(IKli
                                                                             const ICancellationToken&) const
 {
     // execute() :52-53.
-    if (Status reset = transport.ResetConnection(); !reset.has_value())
-    {
-        return reset;
-    }
-    return transport.SetAddIso14230Header(false);
+    return transport.ResetConnection().and_then([&] { return transport.SetAddIso14230Header(false); });
 }
 
 Result<FlashExecutionResult>
