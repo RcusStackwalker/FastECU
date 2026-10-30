@@ -350,11 +350,6 @@ std::expected<double, EvaluationError> CompiledExpression::Evaluate(double x) co
 
 std::expected<double, EvaluationError> EvaluateChecked(std::string_view expression, double x)
 {
-    const auto compiled = Compile(expression);
-    if (!compiled.has_value())
-    {
-        return std::unexpected(compiled.error());
-    }
-    return compiled->Evaluate(x);
+    return Compile(expression).and_then([&](const CompiledExpression& compiled) { return compiled.Evaluate(x); });
 }
 } // namespace fastecu::expression
