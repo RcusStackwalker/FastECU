@@ -10,18 +10,21 @@ tracked in
 [technical debt](../tech-debt.md#p3-flash-protocol-behaviors-awaiting-external-evidence).
 Nothing here establishes hardware qualification.
 
-## Colt cancellation ownership
+## CAN cancellation ownership
 
 [GuardedCanFlashTransport](../../src/backend/flash/guarded_can_flash_transport.h)
-borrows the existing CAN port. Read and Write refuse delegation when their
-supplied token is cancelled at entry; otherwise bytes, timeout, token and the
-delegate's outcome pass unchanged. There is no post-call check, final sweep,
+borrows the existing `ICanFlashTransport` port and gates Read and Write.
+[GuardedMixedCanFlashTransport](../../src/backend/flash/guarded_mixed_can_flash_transport.h)
+borrows `IMixedCanFlashTransport` and gates WriteIso15765, ReadIso15765,
+WriteRaw and ReadRaw. Each refuses delegation when its supplied token is
+cancelled at entry; otherwise bytes/frame, timeout, token and the delegate's
+outcome pass unchanged. There is no post-call check, final sweep,
 error remapping or persistent stopped state. Cancellation after an accepted
 operation can leave that operation successful.
 
-Lifecycle, the inner RestartIso15765 override and RequestUnblock forward without
-a new gate. BoundAttempt constructs the executor's nested CancellationGuard
-only around Execute, after Open. Preparation, configuration, Open, Close and
+Lifecycle, the CAN inner RestartIso15765 override, mixed-CAN mode transitions,
+buffer control and RequestUnblock forward without a new gate. BoundAttempt
+constructs the executor's nested CancellationGuard only around Execute, after Open. Preparation, configuration, Open, Close and
 unblock remain on the owned transport. Execution failure wins over Close
 failure; a Close-only failure is returned. Non-opted-in families retain their
 existing path. Direct Execute callers of opted-in executors must supply the guard. Shared CAN
@@ -30,6 +33,8 @@ test runners use the executor-selected
 The [migration results](can-cancellation-migration-results.md#shared-test-support)
 record its opt-in and cancellation-blind runner proofs; this support alone does
 not migrate another executor.
+
+### Colt cancellation ownership
 
 Colt's read and comparison loops report cancellation through the next exchange,
 including its address in the warning. A precancelled direct Execute call is
@@ -46,6 +51,27 @@ retained checkpoints are recorded in the
 sets the requirements for explicit opt-in by additional CAN and mixed-CAN
 executors; it does not opt them in. Test compression needs separate assessment,
 and hardware status remains unchanged.
+
+### Other CAN family boundaries
+
+Denso SH7058 BEEF petrol explicitly selects the same CAN guard. Its raw upload
+reply discard newly refuses a Read after cancellation from an accepted B6 Write;
+all shared polls and family error/tolerance policy remain. The
+[petrol migration evidence](can-cancellation-migration-results.md#denso-sh7058-beef-petrol)
+records the boundary, measurements and outstanding bench work.
+
+Denso SH7058 BEEF diesel also selects the CAN guard. Its raw B6 discard and
+pending UDS Read refuse new delegation after cancellation; the existing CRC
+pre-drain checkpoint remains. The
+[diesel evidence](can-cancellation-migration-results.md#denso-sh7058-beef-diesel)
+records the exact delegated timeout prefix and unchanged pending timeout policy.
+
+Denso SH705x BEEF TCU explicitly selects the CAN guard. Its B6 raw discard
+refuses delegation after cancellation from an accepted Write. Kernel-ID drain
+bounds/polls, exact session validation, UI preflight and the executor-owned
+inner restart keep their existing owners. The
+[TCU migration evidence](can-cancellation-migration-results.md#denso-sh705x-beef-tcu)
+records the real boundary proof and retained restart integration.
 
 The Denso ISO-15765 bootloader template selects cancellation through an empty
 default policy with explicit plan specializations in its shared definition
@@ -75,8 +101,7 @@ its acknowledgment Read. The
 [EEPROM evidence](can-cancellation-migration-results.md#denso-sh705x-can-eeprom)
 records the measured predecessor boundary and separate upload characterizations.
 
-Subaru Denso SH705x DensoCAN explicitly selects
-[GuardedMixedCanFlashTransport](../../src/backend/flash/guarded_mixed_can_flash_transport.h).
+Subaru Denso SH705x DensoCAN explicitly selects the mixed-CAN guard.
 Its four raw/ISO-15765 I/O methods refuse cancellation at entry and preserve
 accepted delegate outcomes. Reset, configuration, Open/Close, buffer control,
 mode transitions and unblock forward without a new gate. The executor retains
@@ -118,25 +143,6 @@ of their plan (kernel fit, image rules, transfer, erase-all, build and family
 validation) through `BuildWholeRomKernelPlan`, and their validators re-check the
 derived parts through `ValidateWholeRomKernelPlan`; family upload padding still
 differs (six versus 128 bytes) and is the template argument of both.
-
-Denso SH7058 BEEF petrol explicitly selects the same CAN guard. Its raw upload
-reply discard newly refuses a Read after cancellation from an accepted B6 Write;
-all shared polls and family error/tolerance policy remain. The
-[petrol migration evidence](can-cancellation-migration-results.md#denso-sh7058-beef-petrol)
-records the boundary, measurements and outstanding bench work.
-
-Denso SH7058 BEEF diesel also selects the CAN guard. Its raw B6 discard and
-pending UDS Read refuse new delegation after cancellation; the existing CRC
-pre-drain checkpoint remains. The
-[diesel evidence](can-cancellation-migration-results.md#denso-sh7058-beef-diesel)
-records the exact delegated timeout prefix and unchanged pending timeout policy.
-
-Denso SH705x BEEF TCU explicitly selects the CAN guard. Its B6 raw discard
-refuses delegation after cancellation from an accepted Write. Kernel-ID drain
-bounds/polls, exact session validation, UI preflight and the executor-owned
-inner restart keep their existing owners. The
-[TCU migration evidence](can-cancellation-migration-results.md#denso-sh705x-beef-tcu)
-records the real boundary proof and retained restart integration.
 
 ## Denso BEEF CAN kernel
 

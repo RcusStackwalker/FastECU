@@ -1,5 +1,13 @@
 # CAN Cancellation Ownership Implementation Plan
 
+Status (2026-10-31): Tasks 1–17 implemented; final delivery gates and whole-branch
+review remain delivery-owned. The [migration results](../../reference/can-cancellation-migration-results.md)
+record audits, verification and measured growth. Retained task instructions and
+unchecked step lists below describe the original procedure, not unfinished
+implementation. This completed implementation plan stays in this PR until its
+original contents are delivered in retained history; delete only in a later
+change.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Extend guarded cancellation refusal to all CAN flash executors through individually reviewed opt-in, including CAN EEPROM and mixed raw-CAN/ISO-15765.
@@ -287,6 +295,8 @@ The adapter borrows the transport and constructs `Executor::CancellationGuard` a
 ### Task 17: Implement mixed-CAN guarding and opt in DensoCAN
 
 **Files:** Create `src/backend/flash/guarded_mixed_can_flash_transport.h`, `.cpp`, `_test.cpp`; modify `src/backend/flash/ecu/subaru_denso_sh705x_densocan_executor.h` and `_test.cpp`, generated BUILD dependencies, the evidence record and current contract/navigation. Audit the existing DensoCAN `.cpp`; preserve all its checks and mode sequencing.
+The two stale no-production-consumer comments in `flash_executor.h` are also
+corrected to name the existing DensoCAN consumer; no runner behavior changes.
 
 **Interfaces:** Produce `GuardedMixedCanFlashTransport final : public IMixedCanFlashTransport`, constructed as `explicit GuardedMixedCanFlashTransport(IMixedCanFlashTransport& inner) noexcept`. Implement every existing port method with its exact signature from `flash_executor.h`: ResetConnection, Configure, Open, Close, EnterRawBootloaderMode, ClearReceiveBuffer, EnterIso15765KernelMode, RequestUnblock, WriteIso15765, ReadIso15765, WriteRaw and ReadRaw. The four I/O methods alone check their supplied token before delegation. Add `SubaruDensoSh705xDensoCanExecutor::CancellationGuard = GuardedMixedCanFlashTransport`.
 

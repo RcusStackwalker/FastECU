@@ -1,10 +1,13 @@
 # Size-reduction strategy
 
 Status: accepted direction. Phase 1 is done (−1,437 NLOC); phase 3's Colt
-cancellation ownership change is merged. Its separate compression assessment
-and bench exit gate remain outstanding. CAN expansion now follows the explicit
-per-executor migration requirements in
-[ADR 0025](../../adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements).
+cancellation ownership change is merged. Explicit CAN and mixed-CAN migration
+is implemented under [ADR 0025](../../adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements),
+with retained family polls and measured production/test support growth in the
+[CAN results](../../reference/can-cancellation-migration-results.md).
+Final delivery validation is recorded there. Separate compression assessment
+and the Colt bench exit gate remain outstanding. This status update authorizes
+no other strategy direction.
 Baseline: `136ad0fa` (master, 2026-10-18), 150,494 NLOC (70,746 production,
 79,748 test) by `python3 scripts/nloc_loop.py measure`.
 
@@ -68,7 +71,7 @@ rolling out.
 | 1. Delete remote mode | ~1.1k + remote branches in callers | Done: −1,437 (1,248 production, 189 test) |
 | 2. QHexEdit to first-party standards, and tooling | 2.1k | Measured per PR; may grow tests |
 | 3. Colt cancellation ownership, then separate test compression | 1.9k Colt executor + tests | Report initial support cost; assess compression separately |
-| 4. Roll out per family | ~35k remaining executor code and tests | Extrapolated only after phase 3 |
+| 4. Roll out per family | ~35k remaining executor code and tests | Explicit CAN/mixed-CAN ownership implemented; measured growth, no compression claim |
 | 5. Thin main-window tests | 4.7k | Measured per coordinator |
 | 6. Android | Adds code | Kept small by reusing the Qt UI and portable drivers |
 
@@ -174,7 +177,10 @@ framework, error normalization, or cancellation-deferral mechanism.
 The expanded [ADR 0025](../../adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements)
 sets the requirements for explicit per-executor migration of CAN and mixed-CAN
 families. It replaces the blanket Colt compression and bench prerequisites;
-those Colt tasks remain outstanding. Review the recorded net/cumulative cost
+those Colt tasks remain outstanding. The explicit CAN/mixed-CAN rollout is
+implemented; the [migration results](../../reference/can-cancellation-migration-results.md)
+record its audits, preserved checkpoints and measured growth. Review the
+recorded net/cumulative cost
 before extrapolating savings. Each migration must inventory cancellation
 boundaries and retain family abort/continue decisions and wire behavior under the
 [sharing decision](../../design-notes.md#share-only-proven-protocol-equivalence).

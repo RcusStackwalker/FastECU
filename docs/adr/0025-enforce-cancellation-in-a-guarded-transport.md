@@ -8,14 +8,18 @@ explicit per-executor migration. The
 established the narrower cancellation-refusal contract retained here.
 The original Colt pilot in [PR #756](https://github.com/RcusStackwalker/FastECU/pull/756)
 had not merged or completed its bench exit gate at the 2026-10-19 design review.
-The replacement Colt-only implementation now has a guarded CAN port, executor
-opt-in at BoundAttempt, and four fewer explicit Colt polls. The
-[pilot results](../reference/colt-cancellation-centralization-results.md) record
-verification and delivery CI; the
-[flash contract](../reference/flash-contracts.md#colt-cancellation-ownership)
-owns its implemented boundaries. Colt remains the only opted-in executor;
-this revision establishes migration requirements for additional CAN executors,
-not evidence that they have migrated or gained hardware qualification.
+The replacement Colt pilot introduced the guarded CAN port, executor opt-in
+at BoundAttempt, and four fewer explicit Colt polls. Explicit migration is now
+implemented for 16 additional CAN and mixed-CAN executors, including CAN EEPROM
+and DensoCAN. Both guarded port interfaces are implemented; no blanket runner
+switch was introduced. The [CAN migration results](../reference/can-cancellation-migration-results.md)
+own per-task audits, preservation evidence, measured growth and pending delivery
+gates; the [pilot results](../reference/colt-cancellation-centralization-results.md)
+retain historical Colt measurements and delivery CI. The
+[flash contract](../reference/flash-contracts.md#can-cancellation-ownership)
+owns the implemented boundaries. Separate compression assessment and a recorded
+Colt bench run remain outstanding. Software migration establishes no hardware
+qualification.
 
 ## Context
 
@@ -40,10 +44,10 @@ runner switch.
 - A **guarded transport** centralizes refusal of new I/O when cancellation is
   observed before delegation. This decision covers CAN flash executors using
   `ICanFlashTransport` and mixed raw-CAN/ISO-15765 executors using
-  `IMixedCanFlashTransport`. The existing guard implements the former for Colt;
-  mixed CAN requires a separate decorator covering both raw and ISO-15765
-  Read/Write paths under the same contract. Executor signatures and caller-owned
-  transport lifetime remain unchanged
+  `IMixedCanFlashTransport`. The CAN guard and
+  separate mixed-CAN decorator implement these interfaces, covering both raw
+  and ISO-15765 Read/Write paths under the same contract. Executor signatures and
+  caller-owned transport lifetime remain unchanged
   ([ADR 0015](0015-caller-owns-flash-transport-lifetime.md)).
 - Migration is explicit per executor through the existing `CancellationGuard`
   opt-in at BoundAttempt. The runner constructs the borrowed guard only around
@@ -130,8 +134,8 @@ Each migration must:
   Neither a transcript framework nor a generated-scenario framework is required
   for migration, which retains existing family behavior tests.
   Initial measured support growth is permitted and must not be called savings.
-- The flash contract owns implemented runner opt-in; the pilot results retain
-  historical preservation evidence, measurements and delivery gates. This
+- The flash contract owns implemented runner opt-in; the pilot and CAN migration
+  results retain their respective preservation evidence, measurements and delivery gates. This
   revision replaces the blanket requirement to complete Colt compression and a
   Colt bench run before any expansion with the per-executor requirements above.
   Those outstanding Colt tasks remain outstanding; they are not evidence for

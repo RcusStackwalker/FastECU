@@ -1,9 +1,35 @@
 # CAN cancellation migration results
 
 [ADR 0025](../adr/0025-enforce-cancellation-in-a-guarded-transport.md) sets the
-migration requirements. The [flash contract](flash-contracts.md#colt-cancellation-ownership)
+migration requirements. The [flash contract](flash-contracts.md#can-cancellation-ownership)
 owns implemented boundaries; the [Colt results](colt-cancellation-centralization-results.md)
 retain the original pilot evidence.
+
+Status (2026-10-31): all 17 implementation tasks are delivered on the feature
+branch, including 16 explicit executor migrations beyond the Colt pilot. Final
+whole-branch review and full release, analysis, coverage and platform delivery
+validation remain pending; focused task results below do not establish those
+gates. Hardware status is unchanged.
+
+## Evidence provenance
+
+Task sections are dated observations at their recorded source revisions, not
+claims that old paths, counts or commands describe the current tree. The
+planning source `23b16c128ef068c888a50014a66bd6533fc870b4` was byte-identical
+to the published parent `9bee2e77`; own task commits were rebased onto that
+parent before publication with an unchanged tree. Source references below use
+the reachable published revisions. Historical `scripts/nloc_loop.py` commands
+were valid at their task revisions. The current equivalent is
+`python3 scripts/dedup_loop.py measure --json`, using the same pinned Lizard
+1.24.1 and NLOC exclusions. Measurements from different upstream baselines
+must not be subtracted as though they were one unchanged source tree.
+
+Historical BEEF helper audit paths and target names refer to the recorded task
+revisions. Current shared ownership is documented by
+[BeefCanKernel](flash-contracts.md#denso-beef-can-kernel) and the
+[ECU execution module](../../src/backend/flash/ecu/denso_beef_can_ecu_execution.h).
+The records below preserve the observed commands, assertions and results;
+transient local logs are not a delivered evidence archive.
 
 ## Shared test support
 
@@ -16,7 +42,7 @@ accepted Write. Attempts are counted before delegation. The proof requires one
 accepted Write, zero inner Reads, a remaining queued reply, `kCancelled`, and
 exactly one Configure/Open/Close. The mixed-CAN template repeats that contract
 independently in raw and ISO-15765 modes and checks forwarded mode transitions;
-its instantiation remains for the mixed-CAN migration.
+its production-family instantiation was subsequently delivered in Task 17.
 
 This is synthetic selection/wiring evidence, not a family's protocol execution.
 No production executor, checkpoint, transport, clock, UdsClient, wire byte,
@@ -27,8 +53,8 @@ family's existing post-operation checkpoints are redundant.
 
 ### Verification and preservation
 
-Source baseline: `24b0db79b3e0dd0ee86425343186a38dd0561fa2`; implementation review
-base: `c28be51f615f7cfc409d46dbf13dae5f29f21f37` (intervening documentation only).
+Source baseline: `ec114418438deb0b573624877614c378509bcb1d`; implementation review
+base: `abdc6dc196a92648adff3aa540987d331449beb7` (intervening documentation only).
 The controller's baseline flash gate passed 87/87 targets; full baseline passed
 303 targets with 20 skipped. Task 1 retained all predecessor test cases and
 assertions. Its focused candidate XML has 1,186 cases in 70 predecessor targets,
@@ -57,7 +83,7 @@ captured for this task.
 153,180 total / 68,434 production / 84,746 test. Delta from the source baseline:
 production **0**, test **+369**. Of the added test cost, 284 NLOC is support
 (19 adapter, 257 bounded expectations, 8 shared-runner growth) and 85 is the new
-regression suite. The initial implementation at `0331d650` had added 405 test
+regression suite. The initial implementation at `205e5185` had added 405 test
 NLOC; consolidating its duplicated CAN exchange and blind transport removed
 36 NLOC. The direct and bound proofs now share those fixtures while retaining
 all three cases and assertions. Overall support growth remains; no family test
@@ -79,7 +105,7 @@ per-task focused checks.
 
 ## Subaru Hitachi M32R ECU CAN
 
-Task 2, 2026-10-25; source baseline `0e5ac306`. The concrete executor now selects
+Task 2, 2026-10-25; source baseline `8e2943cd`. The concrete executor now selects
 `GuardedCanFlashTransport`; direct suite callers use the adapter. Audit covered
 its executor, CanFlashUdsChannel, UdsClient and shared UDS exchange wrappers.
 Production composition in `flash_workflow.cpp` binds the concrete executor;
@@ -132,8 +158,8 @@ windows and hardware status are unchanged.
 
 ## Subaru TCU Hitachi M32R CAN
 
-Task 3, 2026-10-25; source revision `5bebe882` (family source unchanged from
-`0e5ac306`). Concrete public guard opt-in and direct-call adapter routing are
+Task 3, 2026-10-25; source revision `4bf6caad` (family source unchanged from
+`8e2943cd`). Concrete public guard opt-in and direct-call adapter routing are
 the only source behavior changes. Audit covered the executor, both UDS clients,
 raw kernel channel, shared exchange wrappers and all Execute callers: local
 suite helpers and KernelFreeCanWorkflow composition in `flash_workflow.cpp`.
@@ -178,8 +204,8 @@ Cancellation-boundary bench evidence also remains outstanding.
 
 ## Subaru TCU CVT Hitachi M32R CAN
 
-Task 4, 2026-10-25; source revision `9588c637`, family source still at the
-`0e5ac306` baseline. The concrete alias opts in; direct suite calls use the
+Task 4, 2026-10-25; source revision `44c5102f`, family source still at the
+`8e2943cd` baseline. The concrete alias opts in; direct suite calls use the
 adapter. Audit covered the executor, both channel/UDS instances, shared UDS
 wrappers, ExchangeCvtB6Chunk and callers (family/conformance suites plus
 KernelFreeCanWorkflow in `flash_workflow.cpp`).
@@ -220,8 +246,8 @@ from this matrix row.
 
 ## Subaru TCU CVT Mitsubishi MH8111 CAN
 
-Task 5, 2026-10-25; source revision `f2f9caa5`, family source unchanged from
-`0e5ac306`. Header alias/include and direct-suite adapter routing opt in this
+Task 5, 2026-10-25; source revision `97340d9a`, family source unchanged from
+`8e2943cd`. Header alias/include and direct-suite adapter routing opt in this
 family. Audit covered the executor, shared CVT B6 exchange and crypto, UDS
 wrappers, raw channel paths and callers: family/conformance suites and the
 KernelFreeCanWorkflow binding in `flash_workflow.cpp`.
@@ -262,8 +288,8 @@ no dedicated family checklist.
 
 ## Subaru TCU CVT Mitsubishi MH8104 CAN
 
-Task 6, 2026-10-25; source revision `0e582641`, family source unchanged from
-`0e5ac306`. The concrete header selects the guard and suite direct calls use
+Task 6, 2026-10-25; source revision `5402ada4`, family source unchanged from
+`8e2943cd`. The concrete header selects the guard and suite direct calls use
 the adapter. Audit covered the local raw exchange/retry helpers, CAN envelope
 channel, shared pure CVT crypto and callers (family/conformance suites and
 KernelFreeCanWorkflow in `flash_workflow.cpp`). This family does not use
@@ -323,7 +349,7 @@ Final combined `bazel test --config=release` over these five family targets and
 Self-review confirmed no direct-call bypass, no production body/poll changes,
 no removed predecessor assertions and no unrelated files staged.
 
-Relative to `0e5ac306`, measured production growth is **+15 NLOC** and test
+Relative to `8e2943cd`, measured production growth is **+15 NLOC** and test
 growth **+279 NLOC**. The test support fixture accounts for **36 NLOC**; family
 suite changes account for **243 NLOC**. This is explicit support growth, with
 no claimed savings or compression. Full repository delivery gates remain
@@ -332,7 +358,7 @@ does not change any hardware qualification status.
 
 ## Denso ISO-15765 N83M 1.5M
 
-Task 7, 2026-10-25; source revision `00d4125d`. Production executor bodies,
+Task 7, 2026-10-25; source revision `b1adfbde`. Production executor bodies,
 profiles, both shared loop polls, UdsClient and clocks remain unchanged.
 
 The shared definition header has an empty default cancellation policy and an
@@ -396,7 +422,7 @@ Full repository delivery gates remain controller-owned.
 
 ## Denso ISO-15765 N83M 4M
 
-Task 8, 2026-10-25; source revision `541ad561`. Production executor bodies,
+Task 8, 2026-10-25; source revision `28fe8da0`. Production executor bodies,
 profiles, both shared loop polls, UdsClient and clocks remain unchanged.
 
 The preceding shared boundary audit applies. This profile's tolerant setup
@@ -440,7 +466,7 @@ Full repository delivery gates remain controller-owned.
 
 ## Denso ISO-15765 SH72531
 
-Task 9, 2026-10-25; source revision `2ee97d33`. Production executor bodies,
+Task 9, 2026-10-25; source revision `29bab74b`. Production executor bodies,
 profiles, both shared loop polls, UdsClient and clocks remain unchanged.
 
 The shared boundary audit applies, including the bench's discarded first reply
@@ -484,7 +510,7 @@ Full repository delivery gates remain controller-owned.
 
 ## Denso ISO-15765 SH72543 diesel
 
-Task 10, 2026-10-25; source revision `79556b32`. Production executor bodies,
+Task 10, 2026-10-25; source revision `61b82a37`. Production executor bodies,
 profiles, both shared loop polls, UdsClient and clocks remain unchanged.
 
 The shared boundary audit applies. DID F182 keeps exactly five identity bytes,
@@ -563,7 +589,7 @@ Final Gazelle/buildifier, scoped clang-format, XML preservation review and
 
 Final NLOC: 153705 total / 68475 production /
 85230 test versus 153474 / 68449 / 85025 at
-`00d4125d`. Batch growth: production **+26**,
+`b1adfbde`. Batch growth: production **+26**,
 test **+205** (including **+1 test NLOC** from self-review).
 Existing shared support is reused; no support fixture or test compression was
 introduced. Full repository/platform delivery gates remain controller-owned.
@@ -571,7 +597,7 @@ No hardware qualification status changed; all recorded bench gaps remain open.
 
 ## Denso SH7058 BEEF petrol
 
-Task 11, 2026-10-25; source revision `5b5dd5e8`. The concrete executor now
+Task 11, 2026-10-25; source revision `88bbbd4f`. The concrete executor now
 selects `GuardedCanFlashTransport`; all direct suite Execute calls use the
 conditional adapter. Production executor/helper bodies and all polls remain.
 
@@ -602,9 +628,8 @@ of classname/name sets lost no predecessor case. Raw-discard regression RED
 failed with one extra delegated Read; missing-alias RED failed compilation with
 `no type named CancellationGuard`. Removing the alias reproduced that failure;
 bypassing BoundAttempt guarding failed both new family proofs and the shared
-bound probe. Restored sources passed all six targets. Logs/XML are under
-`/private/tmp/beef11-*`; Gazelle and scoped formatting passed, followed by scoped
-self-review and `git diff --check`.
+bound probe. Restored sources passed all six targets. Gazelle and scoped
+formatting passed, followed by scoped self-review and `git diff --check`.
 
 `python3 scripts/nloc_loop.py measure --json`: baseline
 153705 total / 68475 production / 85230 test; final
@@ -618,7 +643,7 @@ static analysis and platform delivery gates remain controller-owned.
 
 ## Denso SH7058 BEEF diesel
 
-Task 12, 2026-10-25; source revision `fb6c3450`. The diesel header explicitly
+Task 12, 2026-10-25; source revision `d1b922a1`. The diesel header explicitly
 selects the CAN guard; direct suite calls use the adapter. No production body,
 shared helper, startup or execution poll changed.
 
@@ -655,7 +680,6 @@ shared bound probe. Sources restored, family plus `beef_can_session_test`,
 `bound_flash_attempt_test` and `guarded_can_flash_transport_test` pass **6/6**
 using `bazel test --config=release`; exact-prefix follow-up also passes.
 Gazelle, scoped formatting, scoped diff review and `git diff --check` pass.
-Evidence: `/private/tmp/beef12-*`.
 
 `python3 scripts/nloc_loop.py measure --json`: baseline
 153753 total / 68477 production / 85276 test; final
@@ -668,7 +692,7 @@ static and platform gates remain controller-owned.
 
 ## Denso SH705x BEEF TCU
 
-Task 13, 2026-10-25; source revision `450e97a3`. Explicit public CAN guard
+Task 13, 2026-10-25; source revision `7ad516b4`. Explicit public CAN guard
 selection and direct-call adapter routing are the only production interface/test
 execution changes. Production bodies, shared helpers, polls, clocks, UdsClient
 and actual TCU restart integration remain intact.
@@ -699,7 +723,7 @@ family proofs and the shared bound probe. Restored family and shared targets
 `guarded_attempt_expectations_test`, `bound_flash_attempt_test`,
 `guarded_can_flash_transport_test`) pass **6/6** with
 `bazel test --config=release`. Final Gazelle/buildifier, scoped formatting,
-scoped diff review and `git diff --check` pass. Evidence: `/private/tmp/beef13-*`.
+scoped diff review and `git diff --check` pass.
 
 `python3 scripts/nloc_loop.py measure --json`: baseline
 153841 total / 68479 production / 85362 test; final
@@ -714,12 +738,12 @@ were consulted. Full repository/static/platform gates remain controller-owned.
 Final formatted diesel measurement correction: its exact-prefix assertion
 formats to one fewer NLOC than the intermediate measurement. Task 12 final is
 153841 / 68479 / 85362, for production **+2**, test **+86**. The three-task batch
-therefore grows production **+7**, test **+176** from `5b5dd5e8`; this is support
+therefore grows production **+7**, test **+176** from `88bbbd4f`; this is support
 and regression coverage growth, not savings.
 
 ## Hitachi SH7058 CAN
 
-Task 14, 2026-10-25; source revision `24265031`. The public alias explicitly
+Task 14, 2026-10-25; source revision `fadbf634`. The public alias explicitly
 selects `GuardedCanFlashTransport`; all direct suite Execute calls use the
 existing adapter. Production `.cpp` and helper bodies and every poll remain
 unchanged. Workflow callers use `KernelFreeCanWorkflow` and BoundAttempt.
@@ -752,8 +776,7 @@ bypass fails the family selection case and shared probes on the extra inner Read
 After restoration, `bazel test --config=release` passes the family and
 `guarded_attempt_expectations_test`, `bound_flash_attempt_test` and
 `guarded_can_flash_transport_test` (**4/4**). Gazelle regeneration, scoped
-clang-format and diff review pass. Logs/XML: `/private/tmp/postop14-*` and
-`/private/tmp/postop-subaru_hitachi_sh7058_can-baseline.xml`.
+clang-format and diff review pass.
 
 `python3 scripts/nloc_loop.py measure --json`: baseline
 153888 / 68482 production / 85406 test; candidate 153948 / 68485 / 85463.
@@ -766,7 +789,7 @@ Full repository/static/coverage/platform gates remain controller-owned.
 
 ## Hitachi SH72543R CAN
 
-Task 15, 2026-10-25; source revision `320fd021`. Public guard opt-in and
+Task 15, 2026-10-25; source revision `896fab94`. Public guard opt-in and
 adapter routing retain every production body, checkpoint, clock and validation.
 Workflow callers use `KernelFreeCanWorkflow`/BoundAttempt; all direct suite
 Execute calls use the shared adapter.
@@ -796,9 +819,7 @@ Verification uses `bazel test --config=release` for the family plus
 XML **38**, candidate **41**; no predecessor classname/name pair lost.
 Missing-alias RED and declaration mutation fail compilation; temporary runner
 bypass fails family selection and shared probes on one extra delegated Read.
-Sources restored; Gazelle, scoped clang-format and diff review pass. Evidence:
-`/private/tmp/postop15-*` and
-`/private/tmp/postop-subaru_hitachi_sh72543r_can-baseline.xml`.
+Sources restored; Gazelle, scoped clang-format and diff review pass.
 
 `python3 scripts/nloc_loop.py measure --json`: baseline
 153948 / 68485 production / 85463 test; final 154000 / 68488 / 85512.
@@ -811,7 +832,7 @@ static, coverage and platform gates remain controller-owned.
 
 ## Denso SH705x CAN EEPROM
 
-Task 16, 2026-10-25; source revision `4e1a8220`. Explicit public guard alias
+Task 16, 2026-10-25; source revision `e928e3ba`. Explicit public guard alias
 and adapter routing retain all production `.cpp`/helper bodies and polls.
 The suite's test-only invocation helper now borrows `const ICancellationToken&`
 so ManualCancellationToken works alongside the existing default fake; no
@@ -835,8 +856,7 @@ and was reported before reconciliation. The controller authorized preserving
 the measured boundary. The predecessor name and eleven-Write assertion remain;
 ManualCancellationToken now cancels at that accepted session-set Write and
 pins the trigger, exact reply/error/log prefix and absence of SID34/B6.
-Observation log: `/private/tmp/postop16-observe.log`; temporary instrumentation
-was removed without changing production.
+Temporary observation instrumentation was removed without changing production.
 
 Separate deterministic preservation cases cancel after the accepted SID34 reply
 (**12 Writes / 12 Reads**, `cancelled after read`, no first B6) and after an
@@ -857,9 +877,7 @@ After restoration the family and three shared targets pass **4/4** using
 EEPROM, `guarded_attempt_expectations_test`, `bound_flash_attempt_test`,
 `guarded_can_flash_transport_test`, actual
 `subaru_tcu_denso_sh705x_can_executor_test` and `flash_workflow_test`: **8/8** pass.
-Final Gazelle, scoped clang-format and diff review pass. Evidence:
-`/private/tmp/postop16-*`, `/private/tmp/postop-final-combined.log` and
-`/private/tmp/postop-denso_sh705x_eeprom_can-baseline.xml`.
+Final Gazelle, scoped clang-format and diff review pass.
 
 `python3 scripts/nloc_loop.py measure --json`: baseline
 154000 / 68488 production / 85512 test; final 154105 / 68491 / 85614.
@@ -890,7 +908,7 @@ stale mixed-interface comments now name the existing production consumer.
 | ISO read/CRC/programming | Page and comparison/flash-buffer loop checks remain. BEEF envelope, lengths, addresses, raw caller bytes, timing, CRC drain, flash mode, voltage, erase/commit and test-write validation retain their owners. All I/O uses the audited wrappers and retains pre/post checks. |
 | Results/events/cleanup | Phase/progress and operator logs remain; execution error wins over Close error, and one Close follows each opened attempt. A failure/cancellation after successful destructive erase still emits the recovery warning; before-erase failures do not. No final cancellation sweep was added. |
 
-The executor `.cpp` is byte-identical to `origin/master`; all **18** explicit
+The executor `.cpp` is byte-identical to master `c078e458`; all **18** explicit
 CheckCancelled sites, waits and protocol decisions are retained. This changes
 refusal only at raw/ISO guard entry, including the concurrent interval after a
 retained executor poll. No unmasked deterministic real-family Read boundary was
@@ -937,8 +955,8 @@ Verification commands and local evidence:
   `//src/backend/flash:flash_executor_test`, and
   `//src/backend/flash/testing:scripted_flash_transports_test`: **7/7** pass,
   including invalid-plan-before-precancel admission and family abort checks.
-- Evidence logs/XML: `/private/tmp/task17-*`; scoped clang-format and diff review
-  pass. Full repository/static/platform delivery gates remain controller-owned.
+- Scoped clang-format and diff review pass. Full repository/static/platform
+  delivery gates remain controller-owned.
 
 `python3 scripts/dedup_loop.py measure --json` uses the upstream-renamed tool
 and the same pinned Lizard hook. Merged baseline `0f44b89f`:
@@ -955,3 +973,148 @@ Named ECU/adapter traces for raw wake/upload/checksum/jump, ISO handoff,
 read/test-write/write and operator cancellation/recovery, plus programmed-image
 readback and confirmation of supported geometries remain bench gaps. No hardware
 qualification is claimed and no address-window guard is relaxed.
+
+## Master-update reconciliation
+
+On 2026-10-31, master `c078e45845f73c047ddd8c413e862199d8f9d06b` was merged
+into published feature parent `eb18acecc1309c99a98f8e07c52675647579823d` as
+`0f44b89fb6fed68efc7bc1de75f983e5bc5bc937`. Published history was preserved
+rather than rebased again. Upstream extraction of `BeefCanKernel`, BEEF ECU
+execution and `UnlockAndKernelJump`, and intentional log spelling corrections
+were retained. Every non-test flash `.cpp` body at the merge is byte-identical
+to incoming master; the merge introduced no cancellation poll removal or new
+protocol policy. Newly added upstream direct Execute tests were routed through
+the selected-guard adapter. The existing Colt helper constructs its guard
+explicitly; no other opted-in concrete-family direct caller bypasses selection.
+
+Conflicting suites retain both parents' named cases:
+
+| Suite | Feature-parent source cases | Master source cases | Merged source and executed XML cases |
+| --- | ---: | ---: | ---: |
+| Denso SH7058 diesel | 38 | 39 | 43 |
+| Hitachi M32R TCU | 60 | 60 | 63 |
+| Denso SH705x EEPROM CAN | 16 | 24 | 27 |
+
+Diesel retains both `ShortSecurityKeyReplyIsRefused` and upstream's expanded
+`ShortOrWrongSecurityKeyReplyIsRefused`, with the extracted implementation's
+`invalid seed response` expectation. Keeping the overlapping predecessor costs
+**38 test NLOC** and preserves both histories' explicit assertions. No
+predecessor case name from either merge stage was lost in these suites.
+
+At `0f44b89f`, `python3 scripts/gazelle_check.py --fix` passed without additional
+BUILD drift. `bazel test --config=release //src/backend/flash/...` passed all
+**88 targets** (10 executed and 78 valid cached results in the final run).
+`prek run --files` on the ten resolved/adapted paths, `git diff --check`,
+`git diff --cached --check` and the unmerged-index check passed. Initial global
+namespace lookup errors in adapted test callers were corrected before that
+passing run. These are merge-scoped results, not final whole-branch gates.
+
+### CI convention cleanup
+
+After Task 17 (`8aab26ab`), commit `631cb067` corrected 13 actual Ubuntu
+clang-tidy findings across 11 suites. Diagnosed test locals now follow
+`readability-identifier-naming`; the EEPROM empty-container assertion follows
+`fastecu-container-assertion`, with its `Not` import. The replacements preserve
+every trigger, count, literal, case and assertion outcome. No production code,
+warning suppression or qualification status changes. The 11 affected existing
+family targets passed with `bazel test --config=release --test_output=errors`;
+scoped `prek run --files` and `git diff --check` passed. Full clang-tidy remains
+a final delivery gate. The import adds **1 test NLOC** beyond Task 17's recorded
+measurement.
+
+## Rollout decisions and costs
+
+The following implementation rulings resolve plan assumptions or preserve
+behavior without treating guard adoption as compression:
+
+- **Retain all existing rollout polls.** ADR 0025 permits adoption before
+  proving any poll redundant. Only the earlier Colt pilot removed four polls.
+  This avoids unapproved diagnostics or precedence changes; the cost is
+  overlapping observers and a later measured assessment if simplification is
+  desired.
+- **Separate synthetic and real-family evidence.** The small selection probes
+  use each actual executor's alias and BoundAttempt without another token
+  observer. They detect bypass even when retained family polls mask it.
+  Characterizations must pass unguarded; newly refused Read regressions must
+  fail there on extra I/O. Confusing those classes would overstate preservation
+  or bypass evidence; the measured support cost buys that distinction.
+- **Share narrow test fixtures.** Tasks 2–6 reuse one cancellation-blind port
+  with accepted-operation hooks and attempt counters. Tasks 14–15 add only an
+  optional failed-Read hook, leaving accepted-Read behavior intact. This avoids
+  copied fixtures; any helper regression could affect several families, so
+  focused family and shared gates were run.
+- **Keep Denso opt-in explicit per instantiation.** One shared definition header
+  owns the empty default policy and four explicit plan specializations. Shared
+  polls, profile values, late best-effort stop results and SH pacing remain.
+  The default does not opt in future instantiations; weakening that distinction
+  would introduce unaudited adoption or ODR risk.
+- **Strengthen the existing late-stop test.** Task 7 retains the predecessor
+  case and its assertions rather than duplicating its obligation. A separate
+  assertion-strengthening commit remains visible instead of autosquashing
+  already-recorded task evidence; cost is one additional reviewable commit.
+- **Preserve diesel's exact delegated prefix.** Guard entry refuses the
+  cancelled pending Read before it reaches the recorder. The previous
+  delegated Read still uses 2000 ms; the configured pending timeout remains
+  3000 ms. The retained result/no-resend and queued-reply assertions distinguish
+  this intentional observation change from a timeout-policy change. Treating
+  the refused attempt as delegated would give false protocol evidence.
+- **Correct the EEPROM boundary from measurement.** An initial assumption put
+  the predecessor after SID34. That assumption was superseded: the unchanged
+  `CancelOnCheck(75)` trace stops after the eleventh session-set Write, with
+  ten Reads, before its reply or upload. The deterministic replacement pins
+  that exact boundary and retains the predecessor name/assertion. Separate
+  SID34 and B6 cases cover actual upload checkpoints. The source trace resolves
+  the mistaken comment and initial brief; using the mistaken boundary would
+  weaken preservation.
+- **Do not invent an EEPROM restart.** The family never invokes restart.
+  Forwarding belongs to the guard owner and actual restart integration to
+  BEEF TCU Task 13. A duplicate EEPROM fixture would assert a fictional path
+  and add test cost without production evidence.
+- **Match the actual mixed port.** Raw `CanFrame` has id and payload, without
+  an extended flag. Owner tests preserve those real fields. Two stale
+  no-production-consumer comments were corrected for the existing DensoCAN
+  consumer; no runner logic changes were needed. Inventing fields or behavior
+  would misstate the unchanged port contract.
+- **Preserve upstream and published history.** The pre-publication rebase kept
+  an identical tree and mapped own revision citations to reachable commits.
+  The later requested master update used a merge, kept extracted module bodies
+  and log corrections, adapted upstream tests and retained both diesel key
+  cases. Costs are merge review noise and the 38-NLOC overlapping case;
+  discarding either side would lose intended coverage or upstream contracts.
+- **Accept and report measured support growth.** This rollout adds explicit
+  ownership and coverage; it proves neither net savings nor redundant tests.
+  Test compression and the Colt bench run remain separate work. Calling this
+  a size reduction would conceal the cost recorded below.
+
+Implementation batches (Tasks 2–6, 7–10, 11–13 and 14–16) remained sequential,
+with separate task commits/audits and scoped batch review. Shared Denso policy
+and evidence files were not edited concurrently. Bazel/prek cache access used
+the existing host setup; no dependency version or warning policy changed.
+Those administrative choices added review batching, not runtime behavior.
+
+## Final source measurement and delivery status
+
+Measured on 2026-10-31 with `python3 scripts/dedup_loop.py measure --json`, pinned
+Lizard 1.24.1 and unchanged exclusions:
+
+| Source | Total NLOC | Production | Test |
+| --- | ---: | ---: | ---: |
+| Incoming master `c078e458` | 155002 | 66151 | 88851 |
+| Pre-Task-17 merged baseline `0f44b89f` | 156334 | 66208 | 90126 |
+| Task 17 `8aab26ab` | 156784 | 66308 | 90476 |
+| Final code candidate `631cb067` | 156785 | 66308 | 90477 |
+| Final candidate minus incoming master | **+1783** | **+157** | **+1626** |
+
+The production delta comprises Tasks 2–6 **+15**, 7–10 **+26**, 11–13 **+7**,
+14–16 **+9** and mixed-CAN **+100**. Test growth comprises shared support
+**+369**, Tasks 2–6 **+279**, 7–10 **+205**, 11–13 **+176**, 14–16 **+208**,
+the preserved merge case **+38**, mixed-CAN **+350**, and CI cleanup **+1**.
+This is measured ownership/coverage growth; no savings or test compression is
+claimed. Historical task totals remain pinned to their own upstream source.
+
+Final whole-branch review and full release build/tests, static analysis,
+coverage, repository hooks and platform CI/packaging results are pending
+controller reconciliation. Earlier draft platform or focused gates establish
+only their recorded revisions and scope. No final delivery or hardware
+qualification is claimed. All family bench gaps above, separate compression
+assessment and the recorded Colt bench run remain outstanding.
