@@ -88,6 +88,7 @@ style guide.
 | `ecu/subaru_hitachi_sh72543r_can_executor.cpp` | #938 | -31 | +133 |
 | `ecu/subaru_hitachi_m32r_kline_executor.cpp` | #939 | -45 | +298 |
 | `workflow/flash_workflow.cpp` | #940 | -7 | 0 |
+| `ecu/subaru_unisia_jecs_m32r_bootmode_program_executor.cpp` | #942 | -17 | +86 |
 
 ## Inventory
 

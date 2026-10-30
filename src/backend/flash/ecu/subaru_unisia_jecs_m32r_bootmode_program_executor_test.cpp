@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -14,6 +16,7 @@
 #include <vector>
 
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_plan.h"
+#include "src/backend/flash/testing/faulting_kline_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -494,6 +497,97 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, WriteFailureStopsBeforeReceivi
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(transport.control_line_trace,
                 ::testing::ElementsAre(Line::kEnableProgrammingVoltageLine, Line::kDisableLecLines));
+}
+
+TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, AResetFailureSkipsTheHeaderChange)
+{
+    ScriptedKlineFlashTransport transport;
+    transport.reset_result = Fail(ErrorKind::kDisconnected, "reset");
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    EXPECT_THAT(SubaruUnisiaJecsM32rBootModeProgramExecutor{}.BeforeTransportConfigure(transport, clock, cancellation),
+                IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("reset")));
+    EXPECT_THAT(transport.header_mode_calls, IsEmpty());
+}
+
+TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, AVoltageFailureNeverErases)
+{
+    auto built_plan = ProgramPlan();
+    ASSERT_THAT(built_plan, IsOk());
+    ScriptedKlineFlashTransport transport;
+    transport.enable_programming_voltage_line_result = Fail(ErrorKind::kDisconnected, "vpp");
+    RunContext context;
+    EXPECT_THAT(RunScripted(*built_plan, transport, context),
+                IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("vpp")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+    EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
+}
+
+class FaultingClock final : public FakeClock
+{
+  public:
+    std::size_t fail_at = 0;
+    std::size_t sleeps = 0;
+
+    Status Sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
+    {
+        if (++sleeps == fail_at)
+        {
+            return Fail(ErrorKind::kDisconnected, "sleep failed");
+        }
+        return FakeClock::Sleep(duration, cancellation);
+    }
+};
+
+TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, EverySleepFailureStopsTheWrite)
+{
+    auto built_plan = ProgramPlan();
+    ASSERT_THAT(built_plan, IsOk());
+    // Sleeps: AF 31 settle, start poll, done poll, post-erase, block 0 pacing.
+    for (const auto& [fail_at, writes] : std::to_array<std::pair<std::size_t, std::size_t>>({
+             {1, 1},
+             {2, 1},
+             {3, 1},
+             {4, 1},
+             {5, 2},
+         }))
+    {
+        SCOPED_TRACE(::testing::PrintToString(fail_at));
+        ScriptedKlineFlashTransport transport;
+        ScriptErase(transport);
+        ScriptBlocks(transport, *built_plan, 1);
+        FaultingClock clock;
+        clock.fail_at = fail_at;
+        FakeCancellationToken cancellation;
+        RecordingEventSink events;
+        EXPECT_THAT(
+            SubaruUnisiaJecsM32rBootModeProgramExecutor{}.Execute(*built_plan, transport, clock, cancellation, events),
+            IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("sleep failed")));
+        EXPECT_EQ(transport.WritesConsumed(), writes);
+        EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
+    }
+}
+
+TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ABlockWriteFailureStopsBeforeReceiving)
+{
+    auto built_plan = ProgramPlan();
+    ASSERT_THAT(built_plan, IsOk());
+    // Write 1 is AF 31; writes 2 and 3 are blocks 0 and 1, after four erase polls.
+    for (const std::size_t fail_at : {2U, 3U})
+    {
+        SCOPED_TRACE(::testing::PrintToString(fail_at));
+        FaultingKlineFlashTransport transport;
+        transport.op = KlineFaultOp::kWrite;
+        transport.fail_at = fail_at;
+        ScriptErase(transport);
+        ScriptBlocks(transport, *built_plan, 2);
+        RunContext context;
+        EXPECT_THAT(RunScripted(*built_plan, transport, context),
+                    IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("injected")));
+        EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>(transport.WritesConsumed()));
+        EXPECT_EQ(transport.read_timeouts.size(), fail_at + 2);
+        EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
+    }
 }
 
 } // namespace
