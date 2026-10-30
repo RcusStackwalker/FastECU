@@ -156,17 +156,17 @@ What each PR in the series did; reuse it for any later conversion.
 | `config/catalog.cpp` | #945 | -4 | 0 |
 | `algorithms/expression/expression.cpp` (under `src/`) | #945 | -5 | 0 |
 | `calibration/session/calibration_session.cpp` | #945 | -2 | 0 |
-| `ports/logged_step.h` (shared, new) | #TBD | +23 | +60 |
-| `ecu/subaru_denso_sh705x_kline_executor.cpp` | #TBD | -18 | 0 |
-| `ecu/subaru_hitachi_sh72543r_can_executor.cpp` | #TBD | -18 | 0 |
-| `ecu/subaru_mitsu_m32r_kline_executor.cpp` | #TBD | -18 | 0 |
-| `ecu/subaru_tcu_denso_sh705x_can_executor.cpp` | #TBD | -9 | 0 |
-| `ecu/subaru_unisia_jecs_m32r_bootmode_program_executor.cpp` | #TBD | -8 | 0 |
-| `ecu/subaru_unisia_jecs_m32r_kline_executor.cpp` | #TBD | -8 | 0 |
-| `eeprom/denso_sh705x_eeprom_kline_executor.cpp` | #TBD | -7 | 0 |
-| `ecu/subaru_denso_mc68hc16y5_02_executor.cpp` | #TBD | -5 | 0 |
-| `ecu/subaru_denso_sh7055_02_executor.cpp` | #TBD | -3 | 0 |
-| `ecu/uds_client_exchange_common.cpp` | #TBD | -1 | 0 |
+| `ports/logged_step.h` (shared, new) | #947 | +23 | +60 |
+| `ecu/subaru_denso_sh705x_kline_executor.cpp` | #947 | -18 | 0 |
+| `ecu/subaru_hitachi_sh72543r_can_executor.cpp` | #947 | -18 | 0 |
+| `ecu/subaru_mitsu_m32r_kline_executor.cpp` | #947 | -18 | 0 |
+| `ecu/subaru_tcu_denso_sh705x_can_executor.cpp` | #947 | -9 | 0 |
+| `ecu/subaru_unisia_jecs_m32r_bootmode_program_executor.cpp` | #947 | -8 | 0 |
+| `ecu/subaru_unisia_jecs_m32r_kline_executor.cpp` | #947 | -8 | 0 |
+| `eeprom/denso_sh705x_eeprom_kline_executor.cpp` | #947 | -7 | 0 |
+| `ecu/subaru_denso_mc68hc16y5_02_executor.cpp` | #947 | -5 | 0 |
+| `ecu/subaru_denso_sh7055_02_executor.cpp` | #947 | -3 | 0 |
+| `ecu/uds_client_exchange_common.cpp` | #947 | -1 | 0 |
 
 The rest of phase 1 landed in one PR (#943), one commit per file. Kept on
 purpose: `ecu/subaru_hitachi_sh7058_can_executor.cpp`'s `Exchange` (its read
