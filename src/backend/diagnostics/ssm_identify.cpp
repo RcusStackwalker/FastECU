@@ -277,7 +277,7 @@ Result<SsmIdentity> IdentifySsm1(IDiagnosticLink& link, const ICancellationToken
                     return Fail(ErrorKind::kTimeout, "no SSM1 init response");
                 }
                 // Pinned: the length is the only check on SSM1.
-                if (frame.size() < 4 || frame.size() != frame[3] + kSsmFrameOverhead)
+                if (frame.size() < kSsmFrameOverhead || frame.size() != frame[3] + kSsmFrameOverhead)
                 {
                     return BadFrame("length does not match its length byte", frame);
                 }
