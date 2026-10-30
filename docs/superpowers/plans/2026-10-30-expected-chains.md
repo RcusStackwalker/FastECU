@@ -137,6 +137,19 @@ style guide.
 | `platform/.../service_functions/serial_facade_configurator.cpp` | #944 | -5 | 0 |
 | `platform/.../transport/desktop_transport_factory.cpp` | #944 | -6 | +15 |
 | `platform/.../service_functions/worker/service_function_worker.cpp` | #944 | -4 | +22 |
+| `logging/protocols/portable_ssm_logging_protocol.cpp` | #TBD | -14 | +15 |
+| `protocol/mitsu_colt_can_cdbg_driver.cpp` | #TBD | -2 | +123 |
+| `protocol/testing/scripted_can_transport.h` (shared, gains `ExpectShortWrite`) | #TBD | 0 | +4 |
+| `logging/logger_definition_service.cpp` | #TBD | -14 | 0 |
+| `calibration/numeric_map_edit.cpp` | #TBD | -10 | +19 |
+| `logging/protocols/portable_cdbg_logging_protocol.cpp` | #TBD | 0 | +13 |
+| `logging/protocols/portable_mut_dma_logging_protocol.cpp` | #TBD | -2 | +15 |
+| `calibration/session/numeric_target_internal.cpp` | #TBD | -8 | 0 |
+| `protocol/mut_dma_driver.cpp` | #TBD | -10 | +66 |
+| `calibration/session/map_operations.cpp` | #TBD | -3 | 0 |
+| `config/catalog.cpp` | #TBD | -4 | 0 |
+| `algorithms/expression/expression.cpp` (under `src/`) | #TBD | -5 | 0 |
+| `calibration/session/calibration_session.cpp` | #TBD | -2 | 0 |
 
 The rest of phase 1 landed in one PR (#943), one commit per file. Kept on
 purpose: `ecu/subaru_hitachi_sh7058_can_executor.cpp`'s `Exchange` (its read
@@ -159,6 +172,15 @@ mixed CAN transitions and `ServiceFunctionWorker::run` chain their steps
 into the one shared failure branch. Kept: `romraider_parser.cpp`'s
 `ParseScaling` (the owner fallback is a conditional single read; chaining
 saves nothing).
+
+Phase 3 (`src/backend/{logging,calibration,protocol,service_functions,config}`,
+`src/algorithms`, `src/ui`) landed in one PR the same way. Its review item,
+`calibration_session.cpp`'s `DecodeMap`, nests the read inside the placement
+lambda, so the decode sees both the extent and the window. Uncovered by
+design: `DecodeMap`'s and `PreparedNumericTarget::Apply`'s read failures (the
+placement check already proved the range readable) and the CDBG logging
+protocol's frame-bounds guard (the driver's frames come from the same
+channels).
 
 ## Inventory
 
