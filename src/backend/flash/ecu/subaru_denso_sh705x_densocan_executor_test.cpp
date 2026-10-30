@@ -926,7 +926,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, AcceptedWriteCancellationKeepsAfterWrite
     EXPECT_THAT(attempt->Run(clock, cancellation, events),
                 IsErrWith(ErrorKind::kCancelled, "cancelled after kernel ID write"));
     EXPECT_TRUE(cancellation.Cancelled());
-    EXPECT_TRUE(inner->iso_read_timeouts.empty());
+    EXPECT_THAT(inner->iso_read_timeouts, IsEmpty());
     EXPECT_FALSE(inner->scripted.ScriptConsumed());
     EXPECT_THAT(inner->lifecycle, ElementsAre("reset_connection", "configure", "open", "close"));
 }
