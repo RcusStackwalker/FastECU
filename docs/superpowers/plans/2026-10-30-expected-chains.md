@@ -53,9 +53,9 @@ style guide.
   surviving mutants.
 - **Order:** one PR per file, or per small same-family group for files with
   two or fewer candidates, highest candidate count first (table below).
-- **Phase 2** (`src/backend/diagnostics`, `definition`, `src/platform`) is
-  decided after phase 1. A `/loop` skill was offered after #935; the series
-  stays manual, run in user-sized batches.
+- **Phase 2** (`src/backend/definition`, `src/backend/diagnostics`,
+  `src/platform`) lands in one PR, one commit per file, tests first (user
+  decision, 2026-10-30). Its inventory is at the end of this plan.
 
 ## Per-PR steps
 
@@ -487,3 +487,146 @@ Totals: 90 candidate runs, 14 to review, 52 excluded, across 44 files.
 ### `src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp`
 
 - 74-83 (2 steps): excluded — `entry` used after a later step; a prefix ending at `entry` may qualify
+
+## Phase 2 inventory
+
+Read by hand on 2026-10-30 from `master` at `06fe4a27`: every non-test file
+under `src/backend/definition`, `src/backend/diagnostics` and `src/platform`
+that checks a `Result`. Labels as in phase 1, plus `not a run` for one
+fallible call followed only by checks or a value construction. Files with
+nothing but loops or single calls are listed once at the end.
+
+Totals: 35 candidate runs, 8 to review, across 14 files.
+
+| # | File | Candidate | Review |
+|---|---|---|---|
+| 1 | `definition/parser_utils.cpp` | 7 | 2 |
+| 2 | `platform/.../transport/desktop_mixed_can_flash_transport.cpp` | 5 | 2 |
+| 3 | `diagnostics/ssm_identify.cpp` | 5 | 0 |
+| 4 | `diagnostics/dtc_session.cpp` | 3 | 2 |
+| 5 | `definition/definition_resolver.cpp` | 3 | 0 |
+| 6 | `definition/ecuflash_parser.cpp` | 2 | 0 |
+| 7 | `definition/definition_service.cpp` | 2 | 0 |
+| 8 | `definition/definition_writer.cpp` | 2 | 0 |
+| 9 | `platform/.../service_functions/serial_facade_configurator.cpp` | 2 | 0 |
+| 10 | `definition/romraider_parser.cpp` | 1 | 1 |
+| 11 | `definition/parser_utils.h` | 1 | 0 |
+| 12 | `definition/definition_header_fields.cpp` | 1 | 0 |
+| 13 | `platform/.../transport/desktop_transport_factory.cpp` | 1 | 0 |
+| 14 | `platform/.../service_functions/worker/service_function_worker.cpp` | 0 | 1 |
+
+`platform/...` is `src/platform/desktop/common`. Nothing under
+`src/platform/desktop/unix` or `windows` propagates a `Result`, so every
+phase 2 file builds and tests on macOS.
+
+### `src/backend/definition/parser_utils.cpp`
+
+- 114-119 `ValidateHeaderStructure` (2 steps, tail): candidate
+- 234-239 `DefinitionIdForRom` (2 steps, tail): candidate
+- 244-261 `ParseRomHeader` (2 steps, tail): candidate — `definition_id` is used after the address step; nest
+- 375-390 `OptionalAddress` (2 steps, tail): candidate — an absent attribute returns early inside the lambda
+- 484-512 `PopulateCommonAxisAttributes` (3 steps): review — out-parameter assignments between steps
+- 553-574 `PopulateCommonMapAttributes` (3 steps): review — out-parameter assignments between steps
+- 629-643 `PopulateMapHeader` (2 steps + name check, tail): candidate
+- 649-653 `PopulateMapSize` (2 steps, tail): candidate
+- 659-667 `PopulateMapOrientation` (3 steps, tail): candidate
+- not a run: `ParseHeaderAddress`, `IdentityElement`, `ParseRoot`, `OptionalHexAttribute`, `OptionalHexAttribute32`, `PopulateOptional{Dimension,HexDimension,Boolean}`
+
+### `src/backend/definition/parser_utils.h`
+
+- 130-144 `ParseAxisDefinition` (2 steps + name check, partial): candidate
+- 113-119 `ParseMapScaling`, 160-166 inline scaling: not a run
+- 221-231 `PopulateAxes`: excluded — loop
+
+### `src/backend/definition/romraider_parser.cpp`
+
+- 84-98 `ParseScaling` (2 steps): review — the owner's storage type is a fallback read only when the node has none
+- 121-141 `ParseTable` (4 steps, partial): candidate — the scaling is used after the run
+- 166-170 `ParseTable` axes: not a run
+- `ParseRomraiderIndex`, `ParseRomraiderDefinition`: excluded — one step before a loop, the rest in loops
+
+### `src/backend/definition/ecuflash_parser.cpp`
+
+- 196-217 `ParseTable` (5 steps, tail): candidate
+- 237-242 `ParseHeader` (2 steps, tail): candidate
+- not a run: `ParseScaling`, `PopulateDimensions`, `AddMapScaling`, `ParseEcuflashIndex`
+- `ParseEcuflashDefinition`: excluded — one step before loops
+
+### `src/backend/definition/definition_service.cpp`
+
+- 370-375 `CreateDefinition` (2 steps, tail): candidate
+- 381-391 `ImportDefinition` (3 steps, tail): candidate
+- 315-343 `Load` loader: excluded — the read failure branch records `repository_error`
+- 346-356 `Load`: excluded — the resolve failure branch swaps in the repository error
+- `IdentifierCandidates`, `BuildEcuflashCatalog`: not a run; `DiscoverXml`, `BuildCatalog`: excluded — loop, skipped failures
+
+### `src/backend/definition/definition_resolver.cpp`
+
+- 533-548 `ApplyAxisScaling` (2 steps + check, tail): candidate — the scaling is used after the agreement check; nest
+- 601-617 `ApplyMapScaling` (2 steps, tail): candidate — likewise
+- 630-651 `ValidateMap` (3 steps + checks, tail): candidate
+- 743-759 `ResolveRoot`, 793-829 `Resolve`, 846-868 `ResolveParent`: excluded — failure branches rewrap the error with chain context
+- `ResolveScaling`, `Materialize`, `ValidateAndResolveMaps`: excluded — loop
+
+### `src/backend/definition/definition_header_fields.cpp`
+
+- 17-44 `ReadHeader` (2 steps + root check, tail): candidate — `rom` is used after the structure check; nest
+- 60-71 `BuildDefinitionHeaderInput`: not a run (`NormalizeHeaderInput` cannot fail)
+
+### `src/backend/definition/definition_writer.cpp`
+
+- 210-214 `CreateEcuflashXml` (2 steps, tail): candidate
+- 240-244 `RewriteEcuflashXml` (2 steps, tail): candidate
+- not a run: `ValidateInput`, `UpdateHeader`, `SerializeAndValidate`
+
+### `src/backend/diagnostics/ssm_identify.cpp`
+
+- 142-168 `ReadSsm2InitFrame` (3 steps + checks, tail): candidate
+- 176-204 `IdentifyKlineSsm2` (5 steps + ID parse, tail): candidate — the frame is used after validation; nest
+- 233-244 `WakeSsm1` (3 steps, tail): candidate
+- 283-311 `IdentifySsm1` (4 steps + checks, tail): candidate
+- 317-345 `IdentifyIso15765Uds` (3 steps + checks, tail): candidate
+- not a run: `ReadInto`, `CheckWritten`; excluded — loop: `ReadUpTo`, `WriteThenDiscard`, `AdoptTrailingFrame`
+
+### `src/backend/diagnostics/dtc_session.cpp`
+
+- 76-84 `Body` (3 steps, tail): candidate
+- 109-140 `FiveBaud` (2 steps + check, tail): review — an ignored `SetP1Max` sits between the steps
+- 146-172 `FastInit` (3 steps + check, tail): candidate
+- 177-214 `CanInit` (3 steps + checks, tail): candidate
+- 324-333 `ClearDtcs` (2 steps, partial, before the read loop): review — the `index` local sits between steps
+- `Execute`: not a run (the epilogue runs on failure); `VehicleInfo`, `ReadDtcs`, `Request`: excluded — loop
+
+### `src/platform/desktop/common/transport/desktop_mixed_can_flash_transport.cpp`
+
+- 102-119 `ClearReceiveBuffer` (2 steps, tail): candidate
+- 151-155 `WriteIso15765` (2 steps, tail): candidate
+- 161-165 `ReadIso15765` (2 steps, tail): candidate
+- 170-182 `WriteRaw` (2 steps + check, tail): candidate
+- 188-220 `ReadRaw` (2 steps + checks, tail): candidate
+- 84-95 `EnterRawBootloaderMode`, 133-144 `EnterIso15765KernelMode` (3 steps): review — every failure branch calls `TransitionFailure`, so one branch after the chain would do the same
+- 35-40 `Configure`: not a run
+
+### `src/platform/desktop/common/service_functions/serial_facade_configurator.cpp`
+
+- 55-71 `ConfigureIso15765` (2 steps, tail): candidate
+- 79-103 `ConfigureKLine` (3 steps + checks, tail): candidate — already a hand-written chain over `status`
+
+### `src/platform/desktop/common/transport/desktop_transport_factory.cpp`
+
+- 109-117 `OpenDesktopCanFlashTransport` (2 steps, tail): candidate — `transport` is returned after both steps
+- `ListDesktopSerialPorts`, `MakeSerial` prefix: not a run
+
+### `src/platform/desktop/common/service_functions/worker/service_function_worker.cpp`
+
+- 80-91 `run` (2 steps): review — both failure branches emit `finished(FailureResult(...))`, so one branch after the chain would do the same
+
+### No runs
+
+`definition/definition_model.cpp` (loop), `definition/definition_catalog_session.cpp`
+(failure branches log), `definition/mappack_converter.cpp` (`AppendMap` and
+`ConvertMappackCsv` need two earlier values; the rest are loops),
+`diagnostics/terminal_script.cpp` (loop), `diagnostics/obd_frames.cpp`, and in
+`platform/...`: `qt_resource_bundle.cpp`, `logging/logging_csv_file.cpp`,
+`logging/logging_value_adapter.cpp`, `transport/desktop_logging_protocol_registration.cpp`,
+`diagnostics/serial_diagnostic_link.cpp` and the Qt workers (single calls).
