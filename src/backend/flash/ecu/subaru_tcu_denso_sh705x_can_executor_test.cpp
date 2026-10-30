@@ -430,7 +430,9 @@ void ScriptIdentityQueries(ScriptedCanFlashTransport& transport)
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x49, 0x04, 0x00, 0x43, 0x41, 0x4C});
 }
 
-void ScriptStrictSessionAndSecurity(ScriptedCanFlashTransport& transport, bytes::Byte programming_echo = 0x42)
+// The strict exchanges up to and including the programming session request;
+// the caller scripts its reply.
+void ScriptStrictSessionUntilProgramming(ScriptedCanFlashTransport& transport)
 {
     // connect_bootloader(), r59f4e442 lines 216-359. Seed 11 22 33 44 maps
     // to 35 B6 83 BF; the literal is fixed independently of executor code.
@@ -441,6 +443,11 @@ void ScriptStrictSessionAndSecurity(ScriptedCanFlashTransport& transport, bytes:
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x67, 0x02});
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x02});
+}
+
+void ScriptStrictSessionAndSecurity(ScriptedCanFlashTransport& transport, bytes::Byte programming_echo = 0x42)
+{
+    ScriptStrictSessionUntilProgramming(transport);
     transport.QueueRead(Response(bytes::Bytes{0x50, programming_echo}));
 }
 
@@ -2317,5 +2324,73 @@ TEST_F(SubaruTcuDensoSh705xCanCold, MinimalCalIdAndProgrammingSessionRepliesRema
                 ElementsAre(Pair(LogLevel::kInfo, "CAL ID: ")));
 }
 
+// Runs a kCases[1] read through the probe timeout and identity queries, then
+// `script`, and returns the outcome.
+template <typename Script> Result<FlashExecutionResult> RunAfterIdentity(Script script)
+{
+    auto plan = ReadPlan(kCases[1]);
+    if (!plan.has_value())
+    {
+        return std::unexpected(plan.error());
+    }
+    SubaruTcuDensoSh705xCanExecutor executor;
+    ScriptedCanFlashTransport transport;
+    ConfigureAndOpen(executor, *plan, transport);
+    ScriptKernelProbeTimeout(transport);
+    ScriptIdentityQueries(transport);
+    script(transport);
+    FakeCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    EXPECT_TRUE(transport.ScriptConsumed());
+    return result;
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, AShortOrWrongSeedIsRejected)
+{
+    for (const bytes::Bytes& seed :
+         {bytes::Bytes{0x67, 0x01, 0x11, 0x22, 0x33}, bytes::Bytes{0x67, 0x03, 0x11, 0x22, 0x33, 0x44}})
+    {
+        SCOPED_TRACE(bytes::ToHex(seed));
+        EXPECT_THAT(RunAfterIdentity(
+                        [&](ScriptedCanFlashTransport& transport)
+                        {
+                            transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+                            transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
+                            transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x01});
+                            transport.QueueRead(Response(seed));
+                        }),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("invalid TCU seed response")));
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, AnEmptyOrWrongProgrammingSessionReplyIsRejected)
+{
+    for (const bytes::Bytes& reply : {bytes::Bytes{0x50}, bytes::Bytes{0x50, 0x03}})
+    {
+        SCOPED_TRACE(bytes::ToHex(reply));
+        EXPECT_THAT(RunAfterIdentity(
+                        [&](ScriptedCanFlashTransport& transport)
+                        {
+                            ScriptStrictSessionUntilProgramming(transport);
+                            transport.QueueRead(Response(reply));
+                        }),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
+                                                ::testing::Eq("unexpected programming session response")));
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, ASilentKernelAfterUploadTimesOut)
+{
+    EXPECT_THAT(RunAfterIdentity(
+                    [](ScriptedCanFlashTransport& transport)
+                    {
+                        ScriptStrictSessionAndSecurity(transport);
+                        ScriptKernelUpload(transport, kCases[1]);
+                        ScriptKernelProbeTimeout(transport);
+                    }),
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, ::testing::Eq("kernel did not answer after upload")));
+}
 } // namespace
 } // namespace fastecu::flash
