@@ -698,6 +698,16 @@ TEST_F(BeefCanKernelWrite, CompareBeefBlocksStopsOnQueryFailureAndOnCancellation
     EXPECT_THAT(RunWrite(*plan), IsErrWith(ErrorKind::kCancelled, "ROM compare cancelled"));
 }
 
+TEST_F(BeefCanKernelWrite, ASendFailureStopsTheExchangeBeforeReceiving)
+{
+    const auto plan = SmallPlan(bytes::Bytes(4), 0x1000, {{0x1000, 4}});
+    ASSERT_THAT(plan, IsOk());
+    channel_.ExpectSend(bytes::Bytes{0xBE, 0xEF, 0x00, 0x09, 0x02, 0, 0, 0x10, 0, 0, 0, 0, 4},
+                        Fail(ErrorKind::kDisconnected, "send failed"));
+    EXPECT_THAT(RunWrite(*plan), IsErrWith(ErrorKind::kDisconnected, "send failed"));
+    EXPECT_TRUE(channel_.ScriptConsumed());
+}
+
 TEST_F(BeefCanKernelWrite, InitializeBeefFlashSelectsTheModeAndStopsAtTheFirstFailingExchange)
 {
     for (const bool test_write : {false, true})
