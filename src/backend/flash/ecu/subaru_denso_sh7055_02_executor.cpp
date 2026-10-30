@@ -103,7 +103,7 @@ Result<std::string> ReadEcuId(IKlineFlashTransport& transport, const ICancellati
                     return Fail(ErrorKind::kTimeout, "no response from ECU during ID read");
                 }
                 const bytes::Bytes& response = *received;
-                if (response.size() <= 4 || response[4] != 0xFF)
+                if (response.size() < 5 || response[4] != 0xFF)
                 {
                     return Fail(ErrorKind::kBadResponse, "wrong response from ECU during ID read");
                 }

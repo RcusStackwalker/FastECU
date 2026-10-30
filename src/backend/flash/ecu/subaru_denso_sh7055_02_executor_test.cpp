@@ -1595,7 +1595,9 @@ TEST(SubaruDensoSh7055_02Executor, BadEcuIdRepliesStopBeforeTheBootloader)
     };
     const std::vector<Case> cases{
         {std::nullopt, ErrorKind::kTimeout, "no response from ECU during ID read"},
+        {bytes::Bytes{0x80, 0xF0, 0x10, 0x01}, ErrorKind::kBadResponse, "wrong response from ECU during ID read"},
         {bytes::Bytes{0x80, 0xF0, 0x10, 0x01, 0x7F}, ErrorKind::kBadResponse, "wrong response from ECU during ID read"},
+        {bytes::Bytes{0x80, 0xF0, 0x10, 0x01, 0xFF}, ErrorKind::kBadResponse, "ECU ID response is too short"},
         {bytes::Bytes{0x80, 0xF0, 0x10, 0x01, 0xFF, 0x00}, ErrorKind::kBadResponse, "ECU ID response is too short"},
     };
     for (const Case& c : cases)
@@ -1623,6 +1625,24 @@ TEST(SubaruDensoSh7055_02Executor, BadEcuIdRepliesStopBeforeTheBootloader)
         EXPECT_TRUE(transport.ScriptConsumed());
         EXPECT_THAT(transport.baud_calls, ElementsAre(4800));
     }
+}
+
+TEST(SubaruDensoSh7055_02Executor, ThirteenByteEcuIdReplyIsLongEnough)
+{
+    auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    transport.QueueNoFrame();
+    ScriptFailedProbe(transport);
+    transport.Exchange(bytes::Bytes{0x80, 0x10, 0xF0, 0x01, 0xBF, 0x40},
+                       bytes::Bytes{0x80, 0x10, 0xF0, 0x08, 0xFF, 0x00, 0x00, 0x00, 0x41, 0x42, 0x43, 0x44, 0x45});
+    transport.QueueError(ErrorKind::kDisconnected, "stop after ECU ID"); // the pre-countdown drain
+    RecordingClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+    EXPECT_THAT(SubaruDensoSh7055_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("stop after ECU ID")));
+    EXPECT_TRUE(HasLog(events, "ECU ID: 4142434445"));
 }
 
 TEST(SubaruDensoSh7055_02Executor, BadUploadOrKernelIdRepliesFailTheUpload)
