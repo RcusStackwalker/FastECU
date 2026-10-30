@@ -118,22 +118,17 @@ Result<UnresolvedCalibrationMap> ParseTable(pugi::xml_node table, std::string_vi
                                             std::string_view definition_id, std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedCalibrationMap map;
-    if (auto status = PopulateMapHeader(table, map, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = PopulateMapSize(table, map, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = PopulateMapOrientation(table, map, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-
     auto parsed_scaling =
-        ParseMapScaling(table, map, [&](pugi::xml_node scaling_node, std::string fallback_name)
+        PopulateMapHeader(table, map, source, definition_id)
+            .and_then([&] { return PopulateMapSize(table, map, source, definition_id); })
+            .and_then([&] { return PopulateMapOrientation(table, map, source, definition_id); })
+            .and_then(
+                [&]
+                {
+                    return ParseMapScaling(
+                        table, map, [&](pugi::xml_node scaling_node, std::string fallback_name)
                         { return ParseScaling(scaling_node, std::move(fallback_name), table, source, definition_id); });
+                });
     if (!parsed_scaling.has_value())
     {
         return std::unexpected(parsed_scaling.error());
