@@ -16,6 +16,12 @@ model line over one transport.
 _Avoid_: Wave, step, protocol (a protocol id such as `sub_ecu_denso_1n83m_1_5m_can`
 names one flash family's catalog entry)
 
+**Flash route**:
+The exact protocol ids that select one flash workflow, and how that workflow is
+created. Every protocol the catalog can flash (one that reads, test-writes or
+writes) has exactly one flash route; a protocol id is never matched by prefix.
+_Avoid_: Route pattern, prefix route, dispatch entry
+
 **Plan admission**:
 The checks an executor makes before any family code runs: the plan belongs
 to this family, passes its family validator, and the run has not been
