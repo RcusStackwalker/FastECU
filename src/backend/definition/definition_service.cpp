@@ -367,28 +367,17 @@ Status DefinitionService::CreateDefinition(std::string_view destination, const D
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("definition destination '{}' already exists", destination));
     }
-    auto contents = CreateEcuflashXml(input);
-    if (!contents.has_value())
-    {
-        return std::unexpected(contents.error());
-    }
-    return writer_.Replace(destination, *contents);
+    return CreateEcuflashXml(input).and_then([&](const std::vector<std::uint8_t>& contents)
+                                             { return writer_.Replace(destination, contents); });
 }
 
 Status DefinitionService::ImportDefinition(std::string_view source, std::string_view destination,
                                            const DefinitionHeaderInput& input)
 {
-    auto source_contents = repository_.Read(source);
-    if (!source_contents.has_value())
-    {
-        return std::unexpected(source_contents.error());
-    }
-    auto rewritten = RewriteEcuflashXml(*source_contents, input);
-    if (!rewritten.has_value())
-    {
-        return std::unexpected(rewritten.error());
-    }
-    return writer_.Replace(destination, *rewritten);
+    return repository_.Read(source)
+        .and_then([&](const std::vector<std::uint8_t>& source_contents)
+                  { return RewriteEcuflashXml(source_contents, input); })
+        .and_then([&](const std::vector<std::uint8_t>& rewritten) { return writer_.Replace(destination, rewritten); });
 }
 
 } // namespace fastecu::definition
