@@ -1,8 +1,14 @@
 # Expected Chains Plan
 
+**Status:** complete (2026-10-30). Phase 1 (`src/backend/flash`) landed in
+#930-#943, phase 2 (`src/backend/{definition,diagnostics}`, `src/platform`)
+in #944 and phase 3 (the rest of `src/backend`, `src/algorithms`, `src/ui`)
+in #945: 147 candidate runs and 23 review items across 70 files. Nothing in
+those trees is left to inventory. New code follows the rule below; the
+recipe and inventories stay as the record of what was kept and why.
+
 **Goal:** Convert straight-line runs of `if (!r.has_value()) { return ...; }`
-early returns in `src/backend/flash/` into `std::expected` `and_then` /
-`transform` chains, following the shape PRs #912, #913, #919, #921, #923 and
+early returns into `std::expected` `and_then` / `transform` chains, following the shape PRs #912, #913, #919, #921, #923 and
 #929 introduced (`UnlockAndKernelJump` in
 `src/backend/flash/ecu/uds_client_exchange_common.cpp` is the reference).
 
@@ -51,31 +57,29 @@ style guide.
   This series is not an ADR 0029 loop PR and has no NLOC-drop floor.
 - **Label:** `expected-chains`. Auto-merge after CI's Mull run shows no new
   surviving mutants.
-- **Order:** one PR per file, or per small same-family group for files with
-  two or fewer candidates, highest candidate count first (table below).
-- **Phase 2** (`src/backend/definition`, `src/backend/diagnostics`,
-  `src/platform`) lands in one PR, one commit per file, tests first (user
-  decision, 2026-10-30). Its inventory is at the end of this plan.
-- **Phase 3** (`src/backend/{logging,calibration,protocol,service_functions,config}`,
-  `src/algorithms`, `src/ui`) lands in one PR the same way (user decision,
-  2026-10-30). Its inventory follows phase 2's.
+- **Batching:** phase 1 started at one PR per file, highest candidate count
+  first, then landed its last 33 files in one PR (#943). Phases 2 and 3 each
+  landed as one PR, one commit per file, tests first (user decisions,
+  2026-10-30).
 
-## Per-PR steps
+## Per-PR recipe
 
-- [ ] Re-read the file; confirm each listed run against the rule (line numbers
-      drift as earlier PRs merge) and resolve every `review` entry.
-- [ ] Check failure-branch coverage for each run; add missing failing-path
-      tests first and see them pass against the unconverted code.
-- [ ] Convert; `clang-format`; build and run the package's tests.
-- [ ] Measure NLOC before and after; open the PR with the `expected-chains`
-      label; hold auto-merge until Mull is clean ("No mutants found" on the
-      changed lines counts as clean).
-- [ ] After each push, confirm `git ls-remote origin <branch>` matches
-      `HEAD` (SSH pushes fail intermittently and quietly); after `gh pr
-      create`, confirm the label landed.
-- [ ] Tick the file off below. PRs prepared in parallel all add a row at the
-      same spot: land them one at a time, leaving `#TBD` until the rebase
-      onto the previous merge.
+What each PR in the series did; reuse it for any later conversion.
+
+- Re-read the file; confirm each run against the rule and resolve every
+  `review` entry.
+- Check failure-branch coverage for each run; add missing failing-path tests
+  first and see them pass against the unconverted code.
+- Convert; `clang-format`; build and run the package's tests.
+- Run Mull on the changed lines locally before the first push
+  ([tooling](../../tooling.md#mutation-testing)); kill each survivor or, if
+  it is equivalent, suppress it as the coding style describes.
+- Measure NLOC before and after; open the PR with the `expected-chains`
+  label; hold auto-merge until CI's Mull is clean ("No mutants found" on the
+  changed lines counts as clean).
+- After each push, confirm `git ls-remote origin <branch>` matches `HEAD`
+  (SSH pushes fail intermittently and quietly); after `gh pr create`,
+  confirm the label landed.
 
 ## Progress
 
@@ -182,7 +186,7 @@ placement check already proved the range readable) and the CDBG logging
 protocol's frame-bounds guard (the driver's frames come from the same
 channels).
 
-## Inventory
+## Phase 1 inventory
 
 Generated on 2026-10-30 from `master` at `0dbaa7b4` by a brace-aware scan for
 propagate-only checks (`return r;`, `return std::unexpected(r.error());`)
