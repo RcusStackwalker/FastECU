@@ -22,6 +22,17 @@ namespace fastecu::flash::detail
 {
 bool FixedShapeDeviceMatches(const FlashDevice *device, std::uint32_t rom_size, unsigned block_count);
 bool OperationImageShapeMatches(const FlashPlan& plan, std::uint32_t rom_size);
+// Projects the protocol-id column of a family table, in table order.
+template <auto Member, typename Entry, std::size_t N>
+consteval std::array<std::string_view, N> ProtocolIdsOf(const std::array<Entry, N>& table)
+{
+    std::array<std::string_view, N> ids{};
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        ids[i] = table[i].*Member;
+    }
+    return ids;
+}
 // Looks `protocol` up in a family's catalog of exact protocol ids, whose rows
 // carry `protocol` and `mcu`: an unknown protocol or another MCU is
 // kInvalidConfig, worded with the family's `name`.
