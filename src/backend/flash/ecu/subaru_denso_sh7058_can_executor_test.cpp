@@ -21,6 +21,7 @@
 #include "src/backend/flash/ecu/testing/recording_can_flash_transport.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -1816,6 +1817,22 @@ TEST_F(SubaruDensoSh7058CanCold, UppercaseHexCompactHasNoSeparators)
     ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting CVN", "Requesting session mode"),
                 ElementsAre(Pair(LogLevel::kInfo, "CVN: 0AFF00")));
+}
+
+TEST(SubaruDensoSh7058CanExecutor, AFailedKernelProbeSendStopsBeforeAnyRead)
+{
+    auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    SubaruDensoSh7058CanExecutor executor;
+    FaultingCanFlashTransport transport;
+    transport.fail_write_at = 1;
+    ConfigureAndOpen(executor, *plan, transport);
+    FakeCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+    EXPECT_EQ(transport.Reads(), 0U);
 }
 
 } // namespace
