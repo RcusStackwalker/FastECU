@@ -133,26 +133,22 @@ std::string StartAndLengthLine(const MemoryRegion& region)
 Status TolerantSetup(const Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                      std::chrono::milliseconds timeout)
 {
-    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.Receive(timeout, ctx.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (!received->has_value() || received->value().size() < 4)
-    {
-        LogError(ctx, "No valid response from ECU");
-        return {};
-    }
-    if (const bytes::Bytes& frame = **received;
-        !std::equal(expected_prefix.begin(), expected_prefix.end(), frame.begin()))
-    {
-        LogError(ctx, std::format("{}{}", kDensoIso15765RejectionPrefix, bytes::ToHex(frame)));
-    }
-    return {};
+    return ctx.channel.Send(pdu, ctx.cancellation)
+        .and_then([&] { return ctx.channel.Receive(timeout, ctx.cancellation); })
+        .transform(
+            [&](const std::optional<bytes::Bytes>& received)
+            {
+                if (!received.has_value() || received->size() < 4)
+                {
+                    LogError(ctx, "No valid response from ECU");
+                    return;
+                }
+                if (const bytes::Bytes& frame = *received;
+                    !std::equal(expected_prefix.begin(), expected_prefix.end(), frame.begin()))
+                {
+                    LogError(ctx, std::format("{}{}", kDensoIso15765RejectionPrefix, bytes::ToHex(frame)));
+                }
+            });
 }
 
 // One of read_memory's two dump-setup exchanges, expecting `20 01 <tail>` after
@@ -185,22 +181,20 @@ Result<bytes::Bytes> ReadMemory(const Ctx& ctx, const Profile& profile, const Pl
 {
     LogInfo(ctx, profile.region_log == DensoRegionLog::kStartAndLength ? StartAndLengthLine(region)
                                                                        : "Settting dump start & length");
-    if (const Status download =
-            DumpSetup(ctx, profile, DensoIso15765DownloadSetupPdu(region),
-                      static_cast<bytes::Byte>(uds::kSidRequestDownload + 0x40), 0x05, "dump start & length setup");
-        !download.has_value())
-    {
-        return std::unexpected(download.error());
-    }
-    if (const Status upload =
-            DumpSetup(ctx, profile, DensoIso15765UploadSetupPdu(region),
-                      static_cast<bytes::Byte>(uds::kSidRequestUpload + 0x40), 0x01, "dump upload setup");
-        !upload.has_value())
-    {
-        return std::unexpected(upload.error());
-    }
-
-    return DensoIso15765ReadDump(ctx, region, family.lead_pad_len, family.tail_pad_len, progress, profile.pace_pages);
+    return DumpSetup(ctx, profile, DensoIso15765DownloadSetupPdu(region),
+                     static_cast<bytes::Byte>(uds::kSidRequestDownload + 0x40), 0x05, "dump start & length setup")
+        .and_then(
+            [&]
+            {
+                return DumpSetup(ctx, profile, DensoIso15765UploadSetupPdu(region),
+                                 static_cast<bytes::Byte>(uds::kSidRequestUpload + 0x40), 0x01, "dump upload setup");
+            })
+        .and_then(
+            [&]
+            {
+                return DensoIso15765ReadDump(ctx, region, family.lead_pad_len, family.tail_pad_len, progress,
+                                             profile.pace_pages);
+            });
 }
 
 // Legacy reflash_block, lines 1167-1350, called for the profile's one block.
