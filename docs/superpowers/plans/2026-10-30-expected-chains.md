@@ -54,6 +54,7 @@ style guide.
 | `ecu/subaru_denso_sh705x_kline_executor.cpp` | #931 | -75 | +195 |
 | `eeprom/denso_sh705x_eeprom_kline_executor.cpp` (+ shared `CheckCancelled`) | #932 | -77 | +163 |
 | `ecu/subaru_unisia_jecs_m32r_kline_executor.cpp` (+ shared `FaultingKlineFlashTransport`) | #933 | -33 | +88 |
+| `ecu/denso_iso15765_can_common.cpp` | #934 | -47 | +154 |
 
 ## Inventory
 
