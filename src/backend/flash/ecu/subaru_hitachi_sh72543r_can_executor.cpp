@@ -4,6 +4,7 @@
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 #include "src/backend/flash/transfer_progress.h"
+#include "src/backend/ports/logged_step.h"
 
 #include <algorithm>
 #include <array>
@@ -17,8 +18,6 @@ namespace
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 using bytes::Bytes;
-// Legacy citations below refer to flash_ecu_subaru_hitachi_sh72543r_can_operation.cpp
-// at 5dc86672. Header lines 45-52 define 200/2000/800 ms read timeouts.
 constexpr std::array<std::uint16_t, 16> kSeedTable{0x794B, 0x3CAF, 0x3019, 0x8B57, 0x52A0, 0xA77C, 0x38C9, 0xB0B5,
                                                    0x6520, 0x3B66, 0xA09D, 0x2877, 0x479F, 0xB685, 0x7568, 0x84D7};
 bool HasPrefix(bytes::ByteView reply, std::initializer_list<bytes::Byte> prefix)
@@ -109,7 +108,7 @@ class Session
     }
     Status TolerantSession(bytes::Byte service)
     {
-        // Legacy read_mem:345-365 (10 03), erase_mem:889-918 (10 43).
+        // 10 03 for reads, 10 43 for erases.
         auto r = Optional(Bytes{0x10, service}, 200ms);
         if (!r.has_value())
         {
@@ -123,7 +122,7 @@ class Session
     }
     Status Access()
     {
-        // Legacy read_mem:372-447 and erase_mem:923-997. Bounds correction:
+        // Bounds correction:
         // prefix 67 01 alone is insufficient to read the four-byte seed.
         events_.Log(LogLevel::kInfo, "Starting seed request...");
         return Required(Bytes{0x27, 1}, 200ms, {0x67, 1})
@@ -144,7 +143,7 @@ class Session
                 })
             .transform([&](const Bytes&) { events_.Log(LogLevel::kInfo, "Seed key ok"); });
     }
-    // Legacy 126-166: five ECU-ID bytes start at framed offset 8. Returns the
+    // Five ECU-ID bytes start at framed offset 8. Returns the
     // ROM id prefix, empty when the ECU did not answer.
     Result<std::string> RequestEcuId()
     {
@@ -163,7 +162,7 @@ class Session
         events_.Log(LogLevel::kInfo, std::format("ECU ID: {}", id));
         return id + "_";
     }
-    // Legacy 170-200, 202-237, 239-274: identity queries remain optional. A
+    // Identity queries remain optional. A
     // CAL ID prefixes the ROM id.
     Status RequestVehicleInfo(std::string& id)
     {
@@ -200,7 +199,7 @@ class Session
     }
     Result<std::optional<std::string>> Connect()
     {
-        // Legacy connect_bootloader:103-124. Vendor negative response is its alive marker.
+        // Vendor negative response is its alive marker.
         events_.Log(LogLevel::kInfo, "Checking if OBK is already running...");
         auto alive = Optional(Bytes{0xb7}, 50ms, 200ms);
         if (!alive.has_value())
@@ -220,7 +219,7 @@ class Session
         {
             return std::unexpected(id.error());
         }
-        // Legacy 276-310: both A8 replies are intentionally uninterpreted.
+        // Both A8 replies are intentionally uninterpreted.
         events_.Log(LogLevel::kInfo, "Initializing bootloader...");
         for (auto request : {Bytes{0xa8, 0, 0, 0, 0xd7}, Bytes{0xa8, 0, 0, 1, 0x3b}})
         {
@@ -243,7 +242,7 @@ class Session
         Bytes image;
         image.reserve(0x200000);
         auto last = clock_.Now();
-        // Legacy read_mem:449-546: literal 2 MiB sweep, 0x400 bytes per 23 24 request.
+        // Literal 2 MiB sweep, 0x400 bytes per 23 24 request.
         for (std::uint32_t address = 0; address < 0x200000; address += 0x400)
         {
             const auto request = bytes::ComposeBe(0x23_b, 0x24_b, address, std::uint16_t{0x400});
@@ -266,7 +265,7 @@ class Session
             last = now;
             progress.Update(static_cast<int>(image.size()));
         }
-        // Legacy read_mem:549-580. Stop is nonfatal, up to six requests; any response ends retry.
+        // Stop is nonfatal, up to six requests; any response ends retry.
         events_.Log(LogLevel::kInfo, "ROM read complete");
         events_.Log(LogLevel::kInfo, "Sending stop command...");
         for (int attempt = 0; attempt < 6; ++attempt)
@@ -291,32 +290,24 @@ class Session
 
     Status Erase()
     {
-        // Legacy erase_mem:889-997: tolerated programming session, required access.
-        if (auto s = TolerantSession(0x43)
-                         .and_then([&] { return Access(); })
-                         .and_then(
-                             [&]
-                             {
-                                 // Legacy erase_mem:999-1027.
-                                 events_.Log(LogLevel::kInfo, "Jumping to onboad kernel...");
-                                 return Required(Bytes{0x10, 0x42}, 200ms, {0x50, 0x42});
-                             })
-                         .and_then(
-                             [&](const Bytes&)
-                             {
-                                 // Legacy erase_mem:1030-1066, exactly the programming window in the flash table.
-                                 events_.Log(LogLevel::kInfo, "Settting flash start & length...");
-                                 return Required(Bytes{0x34, 4, 0x33, 0, 0x60, 0, 0x1f, 0xa0, 0}, 200ms, {0x74, 0x20});
-                             })
-                         .and_then(
-                             [&](const Bytes&)
-                             {
-                                 // Legacy erase_mem:1069-1123. Correction: inspect the first read too.
-                                 // Send erase once; never retransmit it while polling for completion.
-                                 events_.Log(LogLevel::kInfo, "Erasing ECU ROM...");
-                                 return Sleep(100ms);
-                             })
-                         .and_then([&] { return Send(Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}); });
+        // Tolerated programming session, required access.
+        if (auto s =
+                TolerantSession(0x43)
+                    .and_then([&] { return Access(); })
+                    .and_then(LogThen(events_, "Jumping to onboad kernel...",
+                                      [&] { return Required(Bytes{0x10, 0x42}, 200ms, {0x50, 0x42}); }))
+                    .and_then(LogThen(
+                        events_, "Settting flash start & length...",
+                        [&] { return Required(Bytes{0x34, 4, 0x33, 0, 0x60, 0, 0x1f, 0xa0, 0}, 200ms, {0x74, 0x20}); }))
+                    .and_then(
+                        [&](const Bytes&)
+                        {
+                            // Correction: inspect the first read too.
+                            // Send erase once; never retransmit it while polling for completion.
+                            events_.Log(LogLevel::kInfo, "Erasing ECU ROM...");
+                            return Sleep(100ms);
+                        })
+                    .and_then([&] { return Send(Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}); });
             !s.has_value())
         {
             return s;
@@ -353,8 +344,8 @@ class Session
     {
         events_.Log(LogLevel::kInfo, "--- Start writing ROM file to ECU flash memory ---");
         auto last = clock_.Now();
-        // Legacy write_mem:599-667 selects only block 1 (0x6000..0x200000).
-        // Legacy reflash_block:720-784 constructs B6 with an absolute image offset.
+        // Legacy selects only block 1 (0x6000..0x200000).
+        // Legacy constructs B6 with an absolute image offset.
         // Correction: append data instead of indexing beyond QByteArray's size.
         for (std::uint32_t address = 0x6000; address < 0x200000; address += 0x100)
         {
@@ -409,28 +400,14 @@ class Session
     }
     Status Finish()
     {
-        // Legacy reflash_block:787-829: close may be sent up to 20 times.
+        // Close may be sent up to 20 times.
         events_.Log(LogLevel::kInfo, "Closing out Flashing of this block...");
         return Retry(Bytes{0x37}, {0x77}, 800ms, "Flashing block close failed")
-            .and_then(
-                [&]
-                {
-                    events_.Log(LogLevel::kInfo, "Flashing of block closed");
-                    return Sleep(100ms);
-                })
-            .and_then(
-                [&]
-                {
-                    // Legacy reflash_block:831-869: checksum is a second independent retry sequence.
-                    events_.Log(LogLevel::kInfo, "Verifying checksum...");
-                    return Retry(Bytes{0x31, 1, 2, 2, 1}, {0x71, 1, 2}, 2000ms, "Checksum verification failed");
-                })
-            .and_then(
-                [&]
-                {
-                    events_.Log(LogLevel::kInfo, "Checksum verified...");
-                    return Checkpoint();
-                });
+            .and_then(LogThen(events_, "Flashing of block closed", [&] { return Sleep(100ms); }))
+            .and_then(LogThen(
+                events_, "Verifying checksum...",
+                [&] { return Retry(Bytes{0x31, 1, 2, 2, 1}, {0x71, 1, 2}, 2000ms, "Checksum verification failed"); }))
+            .and_then(LogThen(events_, "Checksum verified...", [&] { return Checkpoint(); }));
     }
 
   private:
@@ -461,7 +438,7 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::Run(const SubaruH
     connecting.Complete();
     if (plan.Operation() == FlashOperation::kWrite)
     {
-        // Legacy encrypt_payload:1165-1179. Keep the family's own schedule.
+        // Keep the family's own schedule.
         constexpr std::array<std::uint16_t, 4> kKeys{0xb740, 0x42da, 0xa7ca, 0x5fb1};
         if (auto status = session.Checkpoint(); !status.has_value())
         {
