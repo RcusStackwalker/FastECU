@@ -156,7 +156,8 @@ value (or nothing), and every failure branch only propagates the error, write
 one `and_then` chain instead of an early return per step. Step logging goes
 inside the lambdas; a reply check is an `and_then` lambda that returns
 `Fail(...)`; `transform` is only for an infallible last step. Capture with
-`[&]`, and spell the return type (`-> Result<T>`, `-> Status`) when a lambda
+`[&]` (the lambdas never outlive the call, so Sonar's explicit-capture rule
+cpp:S3608 is disabled), and spell the return type (`-> Result<T>`, `-> Status`) when a lambda
 has more than one `return`:
 
 ```cpp
