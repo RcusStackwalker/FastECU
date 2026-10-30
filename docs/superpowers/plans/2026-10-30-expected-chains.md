@@ -58,6 +58,7 @@ style guide.
 | `ecu/subaru_denso_sh7055_02_executor.cpp` | #935 | -30 | +217 |
 | `ecu/subaru_denso_mc68hc16y5_02_executor.cpp` | #936 | -23 | +182 |
 | `ecu/subaru_denso_mc68hc16y5_02_bdm_executor.cpp` (+ raw ops in `FaultingKlineFlashTransport`) | #937 | -22 | +117 |
+| `ecu/subaru_hitachi_sh72543r_can_executor.cpp` | #938 | -31 | +133 |
 
 ## Inventory
 
