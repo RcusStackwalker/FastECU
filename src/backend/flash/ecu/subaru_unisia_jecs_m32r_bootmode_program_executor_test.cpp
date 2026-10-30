@@ -20,6 +20,7 @@
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/faulting_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -522,22 +523,6 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, AVoltageFailureNeverErases)
     EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
 }
-
-class FaultingClock final : public FakeClock
-{
-  public:
-    std::size_t fail_at = 0;
-    std::size_t sleeps = 0;
-
-    Status Sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-    {
-        if (++sleeps == fail_at)
-        {
-            return Fail(ErrorKind::kDisconnected, "sleep failed");
-        }
-        return FakeClock::Sleep(duration, cancellation);
-    }
-};
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, EverySleepFailureStopsTheWrite)
 {
