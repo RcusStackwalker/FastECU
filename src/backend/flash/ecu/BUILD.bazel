@@ -445,6 +445,7 @@ cc_library(
         "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/ports",
         "//src/backend/protocol/uds:uds_client",
     ],
     deps = [
@@ -1072,6 +1073,7 @@ cc_library(
         ":m32r_ssm_exchange",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/ports",
     ],
     deps = [
         ":subaru_unisia_jecs_m32r_bootmode_plan",
@@ -1871,6 +1873,7 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:transfer_progress",
+        "//src/backend/ports",
     ],
     deps = [
         ":subaru_hitachi_sh72543r_can_plan",
