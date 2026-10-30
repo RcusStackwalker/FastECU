@@ -6,8 +6,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <optional>
 #include <ranges>
 #include <span>
+#include <string_view>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -20,6 +24,7 @@
 #include "src/backend/flash/ecu/testing/mc68_rom_images.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/testing/faulting_kline_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -1522,6 +1527,201 @@ TEST(SubaruDensoMc68hc16y5_02Executor, PrecancelledRunIsRefusedInAdmission)
     EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_THAT(transport.control_line_trace, IsEmpty());
     EXPECT_THAT(events.logs, IsEmpty());
+}
+
+// Every page of a stock read, after the connect and upload or the kernel-alive
+// fallback.
+void ScriptReadPages(ScriptedKlineFlashTransport& transport)
+{
+    const FlashDevice *device = FindFlashDevice("MC68HC16Y5");
+    for (unsigned block_no = 0; block_no < device->numblocks; ++block_no)
+    {
+        const auto& block = device->fblocks[block_no];
+        for (std::uint32_t offset = 0; offset < block.len; offset += 0x400)
+        {
+            ScriptReadPage(transport, block.start + offset, 0x5A);
+        }
+    }
+}
+
+// A cold read connects to the bootloader and uploads the kernel.
+void ScriptColdRead(ScriptedKlineFlashTransport& transport)
+{
+    ScriptStockConnectAndUpload(transport);
+    ScriptReadPages(transport);
+}
+
+// A warm read finds the kernel already running after a bad bootloader reply.
+void ScriptWarmRead(ScriptedKlineFlashTransport& transport)
+{
+    transport.QueueNoFrame();
+    transport.Exchange(bytes::Bytes{0x4D, 0xFF, 0xB4}, bytes::Bytes{0x00, 0x00, 0x00});
+    transport.Exchange(Framed(0x01), Framed(0x41, bytes::Bytes{'K'}));
+    ScriptReadPages(transport);
+}
+
+using ReadScript = void (*)(ScriptedKlineFlashTransport&);
+
+// The connect and upload phases end well inside these many calls or checks;
+// the page loop after them repeats one exchange shape.
+constexpr std::size_t kSessionPrefix = 40;
+
+// Fails the `fail_at`-th Sleep (1-based); with 0 it only counts them.
+class FaultingClock final : public FakeClock
+{
+  public:
+    std::size_t fail_at = 0;
+    std::size_t sleeps = 0;
+
+    Status Sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
+    {
+        if (++sleeps == fail_at)
+        {
+            return Fail(ErrorKind::kDisconnected, "sleep failed");
+        }
+        return FakeClock::Sleep(duration, cancellation);
+    }
+};
+
+TEST(SubaruDensoMc68hc16y5_02Executor, EveryEarlyTransportFaultInAReadPropagates)
+{
+    for (const ReadScript script : {&ScriptColdRead, &ScriptWarmRead})
+    {
+        SCOPED_TRACE(script == &ScriptColdRead ? "cold" : "warm");
+        for (const KlineFaultOp op : {KlineFaultOp::kWrite, KlineFaultOp::kRead, KlineFaultOp::kSetBaud,
+                                      KlineFaultOp::kDisableLecLines, KlineFaultOp::kPulseLec2Line})
+        {
+            SCOPED_TRACE(::testing::Message() << "op " << static_cast<int>(op));
+            auto plan = StockPlan();
+            ASSERT_THAT(plan, fastecu::testing::IsOk());
+            std::size_t count = 0;
+            {
+                FaultingKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+                transport.op = op;
+                script(transport);
+                FakeClock clock;
+                FakeCancellationToken cancellation;
+                RecordingEventSink events;
+                ASSERT_THAT(SubaruDensoMc68hc16y5_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                            fastecu::testing::IsOk());
+                count = std::min(transport.calls, kSessionPrefix);
+            }
+            ASSERT_GT(count, 0U);
+            for (std::size_t k = 1; k <= count; ++k)
+            {
+                SCOPED_TRACE(::testing::Message() << "call " << k);
+                FaultingKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+                transport.op = op;
+                transport.fail_at = k;
+                script(transport);
+                FakeClock clock;
+                FakeCancellationToken cancellation;
+                RecordingEventSink events;
+                EXPECT_THAT(SubaruDensoMc68hc16y5_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                            fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+                EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>{transport.WritesConsumed()});
+            }
+        }
+    }
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, EveryEarlySleepFailureInAReadPropagates)
+{
+    for (const ReadScript script : {&ScriptColdRead, &ScriptWarmRead})
+    {
+        SCOPED_TRACE(script == &ScriptColdRead ? "cold" : "warm");
+        auto plan = StockPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        std::size_t count = 0;
+        {
+            OpenScriptedKlineFlashTransport transport;
+            script(transport);
+            FaultingClock clock;
+            FakeCancellationToken cancellation;
+            RecordingEventSink events;
+            ASSERT_THAT(SubaruDensoMc68hc16y5_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                        fastecu::testing::IsOk());
+            count = std::min(clock.sleeps, kSessionPrefix);
+        }
+        ASSERT_GT(count, 0U);
+        for (std::size_t k = 1; k <= count; ++k)
+        {
+            SCOPED_TRACE(::testing::Message() << "sleep " << k);
+            OpenScriptedKlineFlashTransport transport;
+            script(transport);
+            FaultingClock clock;
+            clock.fail_at = k;
+            FakeCancellationToken cancellation;
+            RecordingEventSink events;
+            EXPECT_THAT(SubaruDensoMc68hc16y5_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                        fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("sleep failed")));
+        }
+    }
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, EveryEarlyCancellationCheckInAReadStops)
+{
+    for (const ReadScript script : {&ScriptColdRead, &ScriptWarmRead})
+    {
+        SCOPED_TRACE(script == &ScriptColdRead ? "cold" : "warm");
+        auto plan = StockPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        for (std::size_t n = 1; n <= kSessionPrefix; ++n)
+        {
+            SCOPED_TRACE(n);
+            OpenScriptedKlineFlashTransport transport;
+            script(transport);
+            FakeClock clock;
+            FakeCancellationToken cancellation;
+            std::size_t seen = 0;
+            std::optional<std::size_t> writes_at_cancel;
+            cancellation.SetPredicate(
+                [&]
+                {
+                    if (++seen == n)
+                    {
+                        writes_at_cancel = transport.WritesConsumed();
+                    }
+                    return seen >= n;
+                });
+            RecordingEventSink events;
+            EXPECT_THAT(SubaruDensoMc68hc16y5_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                        fastecu::testing::IsErr(ErrorKind::kCancelled));
+            EXPECT_EQ(writes_at_cancel, std::optional<std::size_t>{transport.WritesConsumed()});
+        }
+    }
+}
+
+TEST(SubaruDensoMc68hc16y5_02Executor, BadKernelIdRepliesAfterUploadFailTheRead)
+{
+    struct Case
+    {
+        bytes::Bytes reply;
+        std::string_view detail;
+    };
+    const std::vector<Case> cases{
+        {bytes::Bytes{0xBE, 0xEF, 0x00, 0x01}, "No valid response from ECU"},
+        {bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x41}, "Wrong response from ECU"},
+        {Framed(0x7F, bytes::Bytes{'K'}), "Wrong response from ECU"},
+    };
+    for (const Case& c : cases)
+    {
+        SCOPED_TRACE(::testing::Message() << c.reply.size() << " bytes");
+        auto plan = StockPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        OpenScriptedKlineFlashTransport transport;
+        transport.QueueNoFrame();
+        transport.Exchange(bytes::Bytes{0x4D, 0xFF, 0xB4}, bytes::Bytes{0x4D, 0x00, 0xB3});
+        transport.Exchange(StockUploadRequest());
+        transport.QueueNoFrame();
+        transport.Exchange(Framed(0x01), c.reply);
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        RecordingEventSink events;
+        EXPECT_THAT(SubaruDensoMc68hc16y5_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse, Eq(c.detail)));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
 }
 
 } // namespace
