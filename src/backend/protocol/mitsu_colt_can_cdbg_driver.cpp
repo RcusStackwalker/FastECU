@@ -18,25 +18,25 @@ fastecu::Result<bytes::Bytes> SendAndReceive(cdbg::ICanTransport& transport, byt
                                              const fastecu::ICancellationToken& cancellation,
                                              std::string_view failure_detail)
 {
-    auto written = transport.Write(kRequestCanId, command);
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (*written != command.size())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kInternal, "partial CAN write");
-    }
-    auto reply = transport.Read(250ms, cancellation);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    if (!reply->has_value() || reply->value().id != kReplyCanId || reply->value().payload.empty())
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kBadResponse, std::string(failure_detail));
-    }
-    return std::move(reply->value().payload);
+    return transport.Write(kRequestCanId, command)
+        .and_then(
+            [&](std::size_t written) -> fastecu::Result<std::optional<cdbg::CanFrame>>
+            {
+                if (written != command.size())
+                {
+                    return fastecu::Fail(fastecu::ErrorKind::kInternal, "partial CAN write");
+                }
+                return transport.Read(250ms, cancellation);
+            })
+        .and_then(
+            [&](std::optional<cdbg::CanFrame> reply) -> fastecu::Result<bytes::Bytes>
+            {
+                if (!reply.has_value() || reply->id != kReplyCanId || reply->payload.empty())
+                {
+                    return fastecu::Fail(fastecu::ErrorKind::kBadResponse, std::string(failure_detail));
+                }
+                return std::move(reply->payload);
+            });
 }
 
 fastecu::Status Send(cdbg::ICanTransport& transport, bytes::ByteView command,
@@ -52,27 +52,28 @@ fastecu::Status Send(cdbg::ICanTransport& transport, bytes::ByteView command,
 // Opens a session and passes seed/key security access.
 fastecu::Status Unlock(cdbg::ICanTransport& transport, const fastecu::ICancellationToken& cancellation)
 {
-    if (auto init = Send(transport, BuildInitFrame(), cancellation, "CDBG session init failed"); !init.has_value())
-    {
-        return init;
-    }
-    auto seed =
-        SendAndReceive(transport, BuildSecuritySeedRequestFrame(), cancellation, "CDBG security seed request failed");
-    if (!seed.has_value())
-    {
-        return std::unexpected(seed.error());
-    }
-    auto granted = SendAndReceive(transport, BuildSecurityKeyFrame(SeedToKey(ExtractSeed(*seed))), cancellation,
-                                  "CDBG security key request failed");
-    if (!granted.has_value())
-    {
-        return std::unexpected(granted.error());
-    }
-    if (!SecurityGranted(*granted))
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "CDBG security access denied");
-    }
-    return {};
+    return Send(transport, BuildInitFrame(), cancellation, "CDBG session init failed")
+        .and_then(
+            [&]
+            {
+                return SendAndReceive(transport, BuildSecuritySeedRequestFrame(), cancellation,
+                                      "CDBG security seed request failed");
+            })
+        .and_then(
+            [&](const bytes::Bytes& seed)
+            {
+                return SendAndReceive(transport, BuildSecurityKeyFrame(SeedToKey(ExtractSeed(seed))), cancellation,
+                                      "CDBG security key request failed");
+            })
+        .and_then(
+            [](const bytes::Bytes& granted) -> fastecu::Status
+            {
+                if (!SecurityGranted(granted))
+                {
+                    return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "CDBG security access denied");
+                }
+                return {};
+            });
 }
 
 // Resets log `instance` and defines each of its frames.
@@ -115,26 +116,23 @@ fastecu::Status CdbgLogDriver::StartFreeFormLog(const std::vector<CdbgChannel>& 
     {
         return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "CDBG log parameter has unsupported byte length");
     }
-    if (auto unlocked = Unlock(t_, cancellation); !unlocked.has_value())
-    {
-        return unlocked;
-    }
-    if (!BatchChannelsIntoFrames(channels, frames_))
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "too many CDBG log parameters selected");
-    }
-    if (auto configured = ConfigureFrames(t_, instance, frames_, cancellation); !configured.has_value())
-    {
-        return configured;
-    }
-    if (auto started = Send(t_, BuildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), interval_ms),
+    return Unlock(t_, cancellation)
+        .and_then(
+            [&]() -> fastecu::Status
+            {
+                if (!BatchChannelsIntoFrames(channels, frames_))
+                {
+                    return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "too many CDBG log parameters selected");
+                }
+                return ConfigureFrames(t_, instance, frames_, cancellation);
+            })
+        .and_then(
+            [&]
+            {
+                return Send(t_, BuildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), interval_ms),
                             cancellation, "CDBG log start failed");
-        !started.has_value())
-    {
-        return started;
-    }
-    streaming_ = true;
-    return {};
+            })
+        .transform([&] { streaming_ = true; });
 }
 
 fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::PollOnce(std::chrono::milliseconds timeout,
