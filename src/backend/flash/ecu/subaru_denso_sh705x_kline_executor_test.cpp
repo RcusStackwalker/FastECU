@@ -701,6 +701,38 @@ TEST(SubaruDensoSh705xKlineExecutor, CancellationBeforeAnySessionWriteSendsNothi
     }
 }
 
+TEST(SubaruDensoSh705xKlineExecutor, FourByteProbeReplyIsNoValidResponse)
+{
+    // :134 -- `> 4`: four bytes is "no valid response", not a wrong one.
+    Harness h;
+    {
+        auto s = h.transport.Section("probe");
+        h.transport.Exchange(kKernelIdRequest, bytes::Bytes{0xBE, 0xEF, 0x00, 0x01});
+    }
+    h.transport.ExpectWrite(Ssm(bytes::Bytes{0xBF}));
+    h.transport.QueueError(ErrorKind::kDisconnected, "stop after probe");
+    auto plan = MakePlan(FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_THAT(h.Run(std::move(*plan)), IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(h.events.logs,
+                ::testing::Contains(std::pair{LogLevel::kError, std::string{"No valid response from ECU"}}));
+    EXPECT_THAT(h.events.logs,
+                Not(::testing::Contains(::testing::Pair(LogLevel::kError, HasSubstr("Wrong response")))));
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, FourByteKernelIdAfterUploadIsTooShort)
+{
+    Harness h;
+    ScriptProbeDead(h.transport);
+    ScriptHandshake(h.transport, StockKey(kSeed));
+    ScriptUploadFrames(h.transport, 0xFFFF6004);
+    h.transport.Exchange(kKernelIdRequest, bytes::Bytes{0xBE, 0xEF, 0x00, 0x01});
+    auto plan = MakePlan(FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_THAT(h.Run(std::move(*plan)),
+                IsErrWith(ErrorKind::kBadResponse, Eq("kernel ID reply too short after upload")));
+}
+
 TEST(SubaruDensoSh705xKlineExecutor, ShortKlineWriteIsADisconnect)
 {
     struct ShortWrite final : ScriptedKlineFlashTransport

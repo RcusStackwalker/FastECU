@@ -404,6 +404,29 @@ Status TransferKernel(IKlineFlashTransport& transport, IClock& clock, const ICan
     return {};
 }
 
+// upload_kernel():465-495 -- the kernel ID that proves the upload started.
+Status RequireUploadedKernelId(IEventSink& events, const OptionalBytes& id)
+{
+    if (!id.has_value())
+    {
+        events.Log(LogLevel::kError, "No valid response from ECU"); // :492
+        return Fail(ErrorKind::kTimeout, "no kernel ID after upload");
+    }
+    const bytes::Bytes& reply = *id;
+    if (reply.size() <= 4)
+    {
+        events.Log(LogLevel::kError, "No valid response from ECU"); // :492
+        return Fail(ErrorKind::kBadResponse, "kernel ID reply too short after upload");
+    }
+    if (!KernelReplyOk(reply, kOpId, 5)) // :470-472
+    {
+        LogWrongResponse(events, reply, 8); // :474-476, mid(8)
+        return Fail(ErrorKind::kBadResponse, "kernel did not start after upload");
+    }
+    events.Log(LogLevel::kInfo, std::format("Kernel ID: {}", KernelIdText(reply))); // :482-484
+    return {};
+}
+
 // upload_kernel():331-496.
 Status UploadKernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                     IEventSink& events, const SubaruDensoSh705xKlinePlan& plan, const KernelImage& kernel)
@@ -460,28 +483,7 @@ Status UploadKernel(IKlineFlashTransport& transport, IClock& clock, const ICance
                 events.Log(LogLevel::kInfo, "Requesting kernel ID");
                 return RequestKernelId(transport, clock, cancellation);
             })
-        .and_then(
-            [&](const OptionalBytes& id) -> Status
-            {
-                if (!id.has_value())
-                {
-                    events.Log(LogLevel::kError, "No valid response from ECU"); // :492
-                    return Fail(ErrorKind::kTimeout, "no kernel ID after upload");
-                }
-                const bytes::Bytes& reply = *id;
-                if (reply.size() <= 4)
-                {
-                    events.Log(LogLevel::kError, "No valid response from ECU"); // :492
-                    return Fail(ErrorKind::kBadResponse, "kernel ID reply too short after upload");
-                }
-                if (!KernelReplyOk(reply, kOpId, 5)) // :470-472
-                {
-                    LogWrongResponse(events, reply, 8); // :474-476, mid(8)
-                    return Fail(ErrorKind::kBadResponse, "kernel did not start after upload");
-                }
-                events.Log(LogLevel::kInfo, std::format("Kernel ID: {}", KernelIdText(reply))); // :482-484
-                return {};
-            });
+        .and_then([&](const OptionalBytes& id) { return RequireUploadedKernelId(events, id); });
 }
 
 // execute():79-87 -- probe, then handshake and upload unless the kernel is
