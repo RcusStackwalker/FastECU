@@ -90,7 +90,7 @@ TEST(DensoIso15765BootloaderDialect, DumpAndBlockReadLogsTheLegacyDumpSetupLine)
     const auto run = ExecutorRun<SubaruDensoSh72531CanExecutor>(*plan, transport);
 
     EXPECT_THAT(run.result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
-    EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "Settting dump start & length")));
+    EXPECT_THAT(run.events.logs, Contains(Pair(LogLevel::kInfo, "Setting dump start & length")));
 }
 
 // The write stops at its first chunk, after both block lines have been logged.

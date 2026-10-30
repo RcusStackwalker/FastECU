@@ -130,7 +130,7 @@ class DtcRun
                         return Fail(ErrorKind::kBadResponse, std::format("{} five baud init failed", name));
                     }
                     std::ignore = link_.SetHeader(*header);
-                    Info(name + " five baud init succesfully completed.");
+                    Info(name + " five baud init successfully completed.");
                     return {};
                 });
     }
@@ -161,7 +161,7 @@ class DtcRun
                         Error("iso14230 fast init mode failed.");
                         return Fail(ErrorKind::kBadResponse, "iso14230 fast init mode failed");
                     }
-                    Info("iso14230 fast init mode succesfully completed.");
+                    Info("iso14230 fast init mode successfully completed.");
                     return {};
                 });
     }
@@ -200,7 +200,7 @@ class DtcRun
                         Error("Wrong response from ECU: " + FormatHex(f));
                         return Fail(ErrorKind::kBadResponse, "iso15765 init wrong response");
                     }
-                    Info("iso15765 init mode succesfully completed.");
+                    Info("iso15765 init mode successfully completed.");
                     return {};
                 });
     }
@@ -306,7 +306,7 @@ class DtcRun
                 return slept;
             }
         }
-        Info("Diagnostic trouble codes succesfully read!");
+        Info("Diagnostic trouble codes successfully read!");
         return {};
     }
 
@@ -358,7 +358,7 @@ class DtcRun
             return Fail(ErrorKind::kBadResponse, "clear DTCs not acknowledged");
         }
         report_.cleared = true;
-        Info("Diagnostic trouble codes succesfully cleared!");
+        Info("Diagnostic trouble codes successfully cleared!");
         return {};
     }
 

@@ -221,7 +221,7 @@ void ScriptFullConnect(ScriptedCanFlashTransport& transport)
     ScriptAliveRecheck(transport);
 }
 
-// Scripts the "Settting dump start & length..." exchange (legacy read_mem):
+// Scripts the "Setting dump start & length..." exchange (legacy read_mem):
 // sent 0x35-prefixed, checked against a 0x75-prefixed reply, content-blind.
 void ScriptDumpSetup(ScriptedCanFlashTransport& transport)
 {

@@ -798,7 +798,7 @@ std::vector<LogRecord> ExpectedWriteLogs(std::span<const BlockFixture> blocks)
     logs.emplace_back(LogLevel::kInfo, "Check flashblock size");
     logs.emplace_back(LogLevel::kInfo, ": 0x10BC");
     logs.emplace_back(LogLevel::kInfo, "Test write mode off, perform actual flash write");
-    logs.emplace_back(LogLevel::kError, "Flash mode succesfully set");
+    logs.emplace_back(LogLevel::kError, "Flash mode successfully set");
     logs.emplace_back(LogLevel::kInfo, "Flash block addr: 0x00000000 len: 0x00001000");
     logs.emplace_back(LogLevel::kInfo, "Check flash voltage");
     logs.emplace_back(LogLevel::kInfo, ": 2V");

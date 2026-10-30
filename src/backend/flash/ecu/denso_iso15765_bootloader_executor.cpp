@@ -177,7 +177,7 @@ Result<bytes::Bytes> ReadMemory(const Ctx& ctx, const Profile& profile, const Pl
                                 PhaseReporter& progress)
 {
     LogInfo(ctx, profile.region_log == DensoRegionLog::kStartAndLength ? StartAndLengthLine(region)
-                                                                       : "Settting dump start & length");
+                                                                       : "Setting dump start & length");
     return DumpSetup(ctx, profile, DensoIso15765DownloadSetupPdu(region),
                      static_cast<bytes::Byte>(uds::kSidRequestDownload + 0x40), 0x05, "dump start & length setup")
         .and_then(

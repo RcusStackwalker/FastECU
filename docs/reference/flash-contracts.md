@@ -229,8 +229,8 @@ citations, are listed side by side in
 - Programming indexes whole-image encrypted bytes by wire address minus image
   base, including the N83M nonzero bases.
 - Transfer exit swallows every returned error, including cancellation; its
-  re-sends are distinct from erase's receive-only continuations. It keeps the
-  legacy `Closed succesfully` spelling.
+  re-sends are distinct from erase's receive-only continuations. It logs
+  `Closed successfully`.
 - Bench jumps: 4M and SH72531 discard even a matching first reply, wait and read
   again; N83M 1.5M and SH72543 diesel read once. The diesel reads its first
   reply at 2000 ms and continues at 2000 ms in car; everything else reads at

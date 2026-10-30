@@ -336,7 +336,7 @@ TEST(DensoIso15765CanCommon, TransferExitRetriesSixTimesAndSwallowsReturnedError
         {
             EXPECT_THAT(f.events.logs,
                         ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Closing out Flashing of this block"),
-                                               ::testing::Pair(LogLevel::kInfo, "Closed succesfully: 77 ")));
+                                               ::testing::Pair(LogLevel::kInfo, "Closed successfully: 77 ")));
         }
         else
         {
@@ -361,7 +361,7 @@ TEST(DensoIso15765CanCommon, TransferExitPendingRereadsWithinOneRequestAndStopsO
         f.events.logs,
         ::testing::ElementsAre(::testing::Pair(LogLevel::kInfo, "Closing out Flashing of this block"),
                                ::testing::Pair(LogLevel::kDebug, "ECU reported responsePending for SID 0x37; waiting"),
-                               ::testing::Pair(LogLevel::kInfo, "Closed succesfully: 77 12 ")));
+                               ::testing::Pair(LogLevel::kInfo, "Closed successfully: 77 12 ")));
 }
 
 TEST(DensoIso15765CanCommon, TransferExitWithCancelledTokenDoesNoLaterIo)
@@ -414,7 +414,7 @@ TEST(DensoIso15765CanCommon, CloseAndVerifyChecksumRejectionReturnsErrorWithoutV
 TEST(DensoIso15765CanCommon, CloseAndVerifyChecksumCancelledSettleSendsNoChecksum)
 {
     CommonFixture f;
-    CancellingEventSink events(f.cancellation, "Closed succesfully: 77 ");
+    CancellingEventSink events(f.cancellation, "Closed successfully: 77 ");
     CanExecutorContext ctx{f.cancellation, events, f.clock, f.client, f.channel};
     f.transport.Exchange(Request({0x37}), Response({0x77}));
 

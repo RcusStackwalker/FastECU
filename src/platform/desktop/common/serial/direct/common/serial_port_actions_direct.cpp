@@ -514,7 +514,7 @@ QString SerialPortActionsDirect::OpenSerialPort()
 
         if (result == kSerialSuccess)
         {
-            emit logD("J2534: Interface opened succesfully!", true, true);
+            emit logD("J2534: Interface opened successfully!", true, true);
             use_openport2_adapter = true;
             j2534_init_ok_ = true;
             j2534_->j2534_init_ok = true;
@@ -621,7 +621,7 @@ void SerialPortActionsDirect::CloseJ2534SerialPort()
         }
         else
         {
-            emit logD("J2534 interface disconnected succesfully!", true, true);
+            emit logD("J2534 interface disconnected successfully!", true, true);
         }
         for (int i = 0; i < 5; i++)
         {
@@ -638,7 +638,7 @@ void SerialPortActionsDirect::CloseJ2534SerialPort()
         }
         else
         {
-            emit logD("J2534 interface closed succesfully!", true, true);
+            emit logD("J2534 interface closed successfully!", true, true);
         }
     }
     use_openport2_adapter = false;

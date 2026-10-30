@@ -27,7 +27,7 @@ GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
     if (result == kStatusSuccess)
     {
         QMessageBox::information(this, tr("Get Key Operation"),
-                                 "Get Key operation completed succesfully, press OK to exit");
+                                 "Get Key operation completed successfully, press OK to exit");
         this->accept();
         // this->close();
     }

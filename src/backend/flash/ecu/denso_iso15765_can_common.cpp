@@ -267,7 +267,7 @@ void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx)
                 ctx.uds.Request(bytes::Bytes{uds::kSidRequestTransferExit}, kClosePolicy, ctx.cancellation);
             closed.has_value())
         {
-            ctx.events.Log(LogLevel::kInfo, std::format("Closed succesfully: {}", bytes::ToHex(*closed)));
+            ctx.events.Log(LogLevel::kInfo, std::format("Closed successfully: {}", bytes::ToHex(*closed)));
             break;
         }
     }

@@ -372,11 +372,11 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 {
     constexpr std::uint32_t kPageSize = 0x100;
 
-    // "Settting dump start & length...": single-shot, content-blind (its `//
+    // "Setting dump start & length...": single-shot, content-blind (its `//
     // return STATUS_ERROR;` is commented out). The trailing 6 bytes are a
     // hardcoded literal, NOT derived from kReadRegion.start/length, matching
     // the sibling MH8111 family's own dump-setup exchange exactly.
-    LogInfo(ctx, "Settting dump start & length...");
+    LogInfo(ctx, "Setting dump start & length...");
     Result<bytes::Bytes> setup =
         SingleShot(ctx, bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}, 200ms,
                    "dump start & length setup");
@@ -487,7 +487,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
     const bytes::ByteView block_plain = image.subspan(kWriteRegion.start, kWriteRegion.length);
     constexpr std::uint32_t kChunkSize = 128;
 
-    // "Settting flash start & length...": retried up to 6 times, content-blind
+    // "Setting flash start & length...": retried up to 6 times, content-blind
     // for retry purposes (`if (received != "")`) and non-fatal even after
     // exhausting every attempt (its `// return STATUS_ERROR;` is commented
     // out). Unlike MH8111's own setup packet (whose declared data_len is halved
@@ -497,7 +497,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
     // 128`), and pl_len (0x78000) divides evenly by 128, so data_len == pl_len
     // == kWriteRegion.length exactly -- confirmed directly against the source,
     // not assumed from the sibling family's own halving quirk.
-    LogInfo(ctx, "Settting flash start & length...");
+    LogInfo(ctx, "Setting flash start & length...");
     Result<std::optional<bytes::Bytes>> setup = RetryUntilAnyReply(
         ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{kWriteRegion.start}, U24{kWriteRegion.length}), 6,
         200ms);

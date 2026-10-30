@@ -165,7 +165,7 @@ TEST(DtcSession, Iso9141DirectReadRunsTheFullSequence)
     EXPECT_THAT(info_lines, Contains("Stored DTCs: 01 33 00 00 00 00 "));
     EXPECT_THAT(info_lines, Contains("DTC: " + DtcDescription(0x0133)));
     EXPECT_THAT(info_lines, Contains("Pending DTCs: 00 00 00 00 00 00 "));
-    EXPECT_THAT(info_lines, Contains("Diagnostic trouble codes succesfully read!"));
+    EXPECT_THAT(info_lines, Contains("Diagnostic trouble codes successfully read!"));
     EXPECT_TRUE(h.link.ScriptConsumed());
 }
 
@@ -222,7 +222,7 @@ TEST(DtcSession, Iso14230FastInitSuccess)
     EXPECT_THAT(std::vector<std::string>(h.link.calls.begin(), h.link.calls.begin() + 4),
                 ElementsAre("open kline header=Iso14230 iso14230=true baud=10400 start=C0 tester=F1 target=33",
                             "fast_init 81", "read_obd 200", "write 01 00"));
-    EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Contains("iso14230 fast init mode succesfully completed."));
+    EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Contains("iso14230 fast init mode successfully completed."));
 }
 
 TEST(DtcSession, RejectedFastInitFallsBackToFiveBaud)
@@ -349,7 +349,7 @@ TEST(DtcSession, ClearSucceedsOnPositiveAcknowledgement)
     const auto report = h.Run(ObdProtocol::kIso9141, DtcOperation::kClear);
     ASSERT_THAT(report, IsOk());
     EXPECT_TRUE(report->cleared);
-    EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Contains("Diagnostic trouble codes succesfully cleared!"));
+    EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Contains("Diagnostic trouble codes successfully cleared!"));
     EXPECT_THAT(h.link.calls, Contains("write 04"));
 }
 
@@ -394,7 +394,7 @@ TEST(DtcSession, ClearShortFrameThenAckSucceeds)
     ASSERT_THAT(report, IsOk());
     EXPECT_TRUE(report->cleared);
     EXPECT_THAT(Lines(h.events, LogLevel::kError), IsEmpty());
-    EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Contains("Diagnostic trouble codes succesfully cleared!"));
+    EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Contains("Diagnostic trouble codes successfully cleared!"));
     EXPECT_THAT(h.link.calls, ElementsAreArray(ClearCalls(2)));
     EXPECT_TRUE(h.link.ScriptConsumed());
 }
@@ -408,7 +408,7 @@ TEST(DtcSession, ClearShortFrameThenSilenceFails)
 
     EXPECT_THAT(h.Run(ObdProtocol::kIso9141, DtcOperation::kClear), IsErr(ErrorKind::kBadResponse));
     EXPECT_THAT(Lines(h.events, LogLevel::kError), IsEmpty());
-    EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Not(Contains("Diagnostic trouble codes succesfully cleared!")));
+    EXPECT_THAT(Lines(h.events, LogLevel::kInfo), Not(Contains("Diagnostic trouble codes successfully cleared!")));
     EXPECT_THAT(h.link.calls, ElementsAreArray(ClearCalls(2)));
     EXPECT_TRUE(h.link.ScriptConsumed());
 }

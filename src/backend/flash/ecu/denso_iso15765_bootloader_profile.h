@@ -43,7 +43,7 @@ enum class DensoIdentityQuery
 };
 
 // The wording of the read-setup and write-block log lines: legacy's
-// "Settting dump start & length" / "Flash block addr: ..." pair, or
+// "Setting dump start & length" / "Flash block addr: ..." pair, or
 // "Setting flash start: ... and length: ..." for both.
 enum class DensoRegionLog
 {

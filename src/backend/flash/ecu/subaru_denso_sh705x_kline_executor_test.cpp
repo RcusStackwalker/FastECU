@@ -1318,7 +1318,7 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteLogsTheLegacyStrings)
         {L::kInfo, "Check flashblock size"},
         {L::kInfo, ": 0x1000"},
         {L::kInfo, "Test write mode off, perform actual flash write"},
-        {L::kError, "Flash mode succesfully set"}, // legacy emits this through LOG_E
+        {L::kError, "Flash mode successfully set"}, // legacy emits this through LOG_E
         {L::kInfo, "Flash block addr: 0x00000000 len: 0x00001000"},
         {L::kInfo, "Check flash voltage"},
         {L::kInfo, ": 18V"},
