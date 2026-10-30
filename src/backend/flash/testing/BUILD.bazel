@@ -10,6 +10,7 @@ cc_library(
     name = "scripted_flash_transports",
     testonly = True,
     hdrs = [
+        "faulting_kline_flash_transport.h",
         "scripted_can_flash_transport.h",
         "scripted_flash_transport_state.h",
         "scripted_kline_flash_transport.h",
