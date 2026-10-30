@@ -119,25 +119,29 @@ const cdbg::CanFrame kFrame{.id = 0x1ABCDE, .payload = kBytes};
 // Normalize only the test's result shape; delegated values are checked below.
 Status Invoke(GuardedMixedCanFlashTransport& guard, int operation, const ICancellationToken& token)
 {
-    switch (operation)
+    if (operation == 0)
     {
-    case 0:
         return guard.WriteIso15765(kBytes, token);
-    case 1:
-        if (auto result = guard.ReadIso15765(37ms, token); !result.has_value())
+    }
+    if (operation == 1)
+    {
+        const auto result = guard.ReadIso15765(37ms, token);
+        if (result.has_value())
         {
-            return std::unexpected(result.error());
+            return {};
         }
-        return {};
-    case 2:
+        return std::unexpected(result.error());
+    }
+    if (operation == 2)
+    {
         return guard.WriteRaw(kFrame, token);
-    default:
-        if (auto result = guard.ReadRaw(37ms, token); !result.has_value())
-        {
-            return std::unexpected(result.error());
-        }
+    }
+    const auto result = guard.ReadRaw(37ms, token);
+    if (result.has_value())
+    {
         return {};
     }
+    return std::unexpected(result.error());
 }
 
 class GuardedMixedCanIo : public ::testing::TestWithParam<int>
@@ -160,6 +164,7 @@ TEST_P(GuardedMixedCanIo, DelegatedOutcomeAndArgumentsAreUnchanged)
 {
     for (const bool cancel : {false, true})
     {
+        SCOPED_TRACE(::testing::Message() << "cancel=" << cancel);
         for (int outcome = 0; outcome < 10; ++outcome)
         {
             SCOPED_TRACE(::testing::Message() << "outcome=" << outcome << " cancel=" << cancel);
@@ -238,12 +243,19 @@ TEST_P(GuardedMixedCanIo, FailureDoesNotPoisonNextCall)
     EXPECT_THAT(Invoke(guard, GetParam(), token), IsOk());
     EXPECT_EQ(inner.attempts, 2);
 }
-INSTANTIATE_TEST_SUITE_P(GuardedMixedCanFlashTransport, GuardedMixedCanIo, ::testing::Values(0, 1, 2, 3));
+INSTANTIATE_TEST_SUITE_P(GuardedMixedCanFlashTransport, GuardedMixedCanIo, ::testing::Values(0, 1, 2, 3),
+                         (
+                             [](const auto& param_info)
+                             {
+                                 const std::array<std::string, 4> names{"IsoWrite", "IsoRead", "RawWrite", "RawRead"};
+                                 return names.at(static_cast<std::size_t>(param_info.param));
+                             }));
 
 TEST(GuardedMixedCanFlashTransport, ControlOperationsStillDelegateAfterCancellation)
 {
     for (int outcome = -1; outcome < 7; ++outcome)
     {
+        SCOPED_TRACE(::testing::Message() << "outcome=" << outcome);
         BlindMixedTransport inner;
         GuardedMixedCanFlashTransport guard(inner);
         ManualCancellationToken token;
@@ -256,15 +268,17 @@ TEST(GuardedMixedCanFlashTransport, ControlOperationsStillDelegateAfterCancellat
         const std::array<Status, 7> results{
             guard.ResetConnection(),    guard.Configure(config),         guard.Open(), guard.EnterRawBootloaderMode(),
             guard.ClearReceiveBuffer(), guard.EnterIso15765KernelMode(), guard.Close()};
-        for (const auto& result : results)
+        for (std::size_t index = 0; index < results.size(); ++index)
         {
+            SCOPED_TRACE(inner.controls.at(index));
             if (outcome < 0)
             {
-                EXPECT_THAT(result, IsOk());
+                EXPECT_THAT(results.at(index), IsOk());
             }
             else
             {
-                EXPECT_THAT(result, IsErrWith(kErrorKinds.at(static_cast<std::size_t>(outcome)), "control detail"));
+                EXPECT_THAT(results.at(index),
+                            IsErrWith(kErrorKinds.at(static_cast<std::size_t>(outcome)), "control detail"));
             }
         }
         guard.RequestUnblock();
