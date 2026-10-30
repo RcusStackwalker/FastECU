@@ -3,20 +3,13 @@
 #include <format>
 #include <utility>
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/backend/ports/cancellation.h"
 
 namespace fastecu::flash
 {
 namespace
 {
 using namespace std::chrono_literals;
-Status CheckCancelled(const ICancellationToken& cancellation, std::string detail)
-{
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, std::move(detail));
-    }
-    return {};
-}
 
 } // namespace
 
