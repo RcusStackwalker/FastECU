@@ -49,6 +49,7 @@
 using ::testing::_;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
+using ::testing::Not;
 using ::testing::Optional;
 
 namespace fastecu::flash
@@ -815,7 +816,7 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
     EXPECT_EQ(last_write, SessionSetRequestBothConnected());
     EXPECT_EQ(last_reply, SeedKeyAckResponse());
     EXPECT_EQ(upload_writes, 0);
-    ASSERT_FALSE(events.logs.empty());
+    ASSERT_THAT(events.logs, Not(IsEmpty()));
     EXPECT_EQ(events.logs.back().second, "Set session mode");
     EXPECT_THAT(events.progress_calls, IsEmpty());
     EXPECT_THAT(events.phase_progress_calls, IsEmpty());

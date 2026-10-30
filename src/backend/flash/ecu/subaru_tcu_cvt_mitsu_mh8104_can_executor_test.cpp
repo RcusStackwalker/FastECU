@@ -741,8 +741,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, AcceptedB6WriteCancellationDoesNotDeleg
     RecordingEventSink events;
     EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(cancellation.Cancelled());
-    const int chunkReplyReadAttempts = inner->read_attempts;
-    EXPECT_EQ(chunkReplyReadAttempts, 0);
+    const int chunk_reply_read_attempts = inner->read_attempts;
+    EXPECT_EQ(chunk_reply_read_attempts, 0);
     EXPECT_FALSE(inner->ScriptConsumed());
 }
 

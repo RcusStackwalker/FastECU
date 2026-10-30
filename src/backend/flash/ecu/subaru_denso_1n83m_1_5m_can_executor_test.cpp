@@ -584,13 +584,13 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationAtTheReadStopIsSwallowed)
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const int readsBeforeStop = 3 + static_cast<int>(kBlockLength / kPageSize);
-    int stopWriteAttempts = 0;
+    const int reads_before_stop = 3 + static_cast<int>(kBlockLength / kPageSize);
+    int stop_write_attempts = 0;
     transport.on_write = [&](bytes::ByteView data)
     {
         if (data.size() > 4 && data[4] == 0x37)
         {
-            ++stopWriteAttempts;
+            ++stop_write_attempts;
         }
     };
     const auto result =
@@ -603,9 +603,9 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationAtTheReadStopIsSwallowed)
     expected.insert(expected.end(), kBlockLength, 0xA5);
     expected.insert(expected.end(), 0x100, 0xFF);
     EXPECT_THAT(*result->read_bytes, test_bytes::BytesEq(expected));
-    EXPECT_EQ(stopWriteAttempts, 0);
-    EXPECT_EQ(transport.write_attempts, readsBeforeStop);
-    EXPECT_EQ(transport.read_attempts, readsBeforeStop);
+    EXPECT_EQ(stop_write_attempts, 0);
+    EXPECT_EQ(transport.write_attempts, reads_before_stop);
+    EXPECT_EQ(transport.read_attempts, reads_before_stop);
     EXPECT_TRUE(cancellation.Cancelled());
     EXPECT_TRUE(transport.ScriptConsumed());
 }

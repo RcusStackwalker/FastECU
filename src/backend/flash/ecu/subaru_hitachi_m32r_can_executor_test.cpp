@@ -339,8 +339,8 @@ TEST(SubaruHitachiM32rCanExecutor, PendingReadCancellationDoesNotDelegateAnother
     FakeClock clock;
     RecordingEventSink events;
     EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    const int readAttempts = inner->read_attempts;
-    EXPECT_EQ(readAttempts, 1);
+    const int read_attempts = inner->read_attempts;
+    EXPECT_EQ(read_attempts, 1);
     EXPECT_EQ(inner->write_attempts, expected_writes);
     EXPECT_FALSE(inner->ScriptConsumed());
 }

@@ -642,8 +642,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CrcReplyCancellationStopsBeforeRawStale
 
     EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_GT(reads_before_cancel, 0);
-    const int staleReadAttempts = transport.read_attempts - reads_before_cancel;
-    EXPECT_EQ(staleReadAttempts, 0);
+    const int stale_read_attempts = transport.read_attempts - reads_before_cancel;
+    EXPECT_EQ(stale_read_attempts, 0);
     EXPECT_FALSE(transport.ScriptConsumed());
 }
 

@@ -691,12 +691,12 @@ TEST(SubaruDensoSh72543CanDieselExecutor, CancellationAfterPendingIdentityRefuse
     inner->Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
     inner->Exchange(Request({0x22, 0xF1, 0x82}), Response({0x7F, 0x22, 0x78}));
     inner->QueueRead(Response({0x62, 0xF1, 0x82, 1, 2, 3, 4, 5}));
-    int readsAtPending = 0;
+    int reads_at_pending = 0;
     inner->on_read = [&](bytes::ByteView data)
     {
         if (data.size() > 6 && data[4] == 0x7F && data[6] == 0x78)
         {
-            readsAtPending = inner->read_attempts;
+            reads_at_pending = inner->read_attempts;
             cancellation.Cancel();
         }
     };
@@ -707,7 +707,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, CancellationAfterPendingIdentityRefuse
     RecordingClock clock;
     RecordingEventSink events;
     EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(inner->read_attempts - readsAtPending, 0);
+    EXPECT_EQ(inner->read_attempts - reads_at_pending, 0);
     EXPECT_TRUE(cancellation.Cancelled());
     EXPECT_FALSE(inner->ScriptConsumed());
     EXPECT_THAT(events.logs, ::testing::Contains(::testing::Pair(fastecu::LogLevel::kInfo, "Requesting VIN")));

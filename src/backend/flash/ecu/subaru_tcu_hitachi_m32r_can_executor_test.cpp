@@ -2379,14 +2379,14 @@ TEST(SubaruTcuHitachiM32rCanExecutor, AcceptedEraseCancellationStopsBeforeData)
     auto *inner = transport.get();
     ScriptFullConnect(*inner);
     ScriptErase(*inner);
-    int dataWriteAttempts = 0;
+    int data_write_attempts = 0;
     RecordingEventSink events;
     std::size_t accepted_erase_logs = 0;
-    inner->on_write = [&dataWriteAttempts](bytes::ByteView data)
+    inner->on_write = [&data_write_attempts](bytes::ByteView data)
     {
         if (data.size() > 4 && data[4] == 0xB6)
         {
-            ++dataWriteAttempts;
+            ++data_write_attempts;
         }
     };
     inner->on_read = [&cancellation, &events, &accepted_erase_logs](bytes::ByteView data)
@@ -2401,7 +2401,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, AcceptedEraseCancellationStopsBeforeData)
                                                     std::move(transport));
     FakeClock clock;
     EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(dataWriteAttempts, 0);
+    EXPECT_EQ(data_write_attempts, 0);
     EXPECT_EQ(inner->write_attempts, kConnectFrames + 1);
     ASSERT_GT(accepted_erase_logs, 0U);
     const auto tail = std::ranges::subrange(events.logs.begin() + static_cast<std::ptrdiff_t>(accepted_erase_logs),

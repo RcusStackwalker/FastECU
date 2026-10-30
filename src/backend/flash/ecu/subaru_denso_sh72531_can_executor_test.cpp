@@ -593,12 +593,12 @@ TEST(SubaruDensoSh72531CanExecutor, CancellationDuringFinalPagePacingRetainsCloc
     RecordingEventSink events;
     fastecu::MockClock clock;
     int pages = 0;
-    int stopWriteAttempts = 0;
+    int stop_write_attempts = 0;
     transport.on_write = [&](bytes::ByteView data)
     {
         if (data.size() > 4 && data[4] == 0x37)
         {
-            ++stopWriteAttempts;
+            ++stop_write_attempts;
         }
     };
     EXPECT_CALL(clock, Sleep(1ms, ::testing::_))
@@ -618,7 +618,7 @@ TEST(SubaruDensoSh72531CanExecutor, CancellationDuringFinalPagePacingRetainsCloc
     EXPECT_THAT(
         fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
         fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(stopWriteAttempts, 0);
+    EXPECT_EQ(stop_write_attempts, 0);
     EXPECT_EQ(transport.write_attempts, 3 + static_cast<int>(kBlockLength / kPageSize));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
