@@ -409,5 +409,19 @@ TEST(SubaruUnisiaJecsExecutor, CancellationAfterOneBytePreventsNextAddressWrite)
     ASSERT_EQ(events.progress_calls.size(), 1U);
     EXPECT_EQ(events.progress_calls.front(), std::pair(1, 2));
 }
+
+TEST(SubaruUnisiaJecsExecutor, CancellationAfterTheWakeFlushPreventsTheFirstAddressWrite)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    ScriptWakeup(transport);
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    cancellation.SetPredicate([&transport] { return transport.ScriptConsumed(); });
+    RecordingEventSink events;
+    EXPECT_THAT(
+        ExecuteRead(transport, clock, cancellation, events),
+        fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled while reading Unisia Jecs ROM")));
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
+}
 } // namespace
 } // namespace fastecu::flash
