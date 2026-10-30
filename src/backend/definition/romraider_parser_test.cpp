@@ -370,6 +370,76 @@ TEST(RomRaiderParserTest, UnrecognizedStorageTypeIsInvalidConfigWithAttributeCon
     ExpectInvalidWithContext(result, "bad-storagetype.xml", "storagetype");
 }
 
+struct RejectedAttribute
+{
+    std::string attribute;
+    std::string detail;
+};
+
+TEST(RomRaiderParserTest, InvalidAxisAttributeIsInvalidConfigWithAttributeContext)
+{
+    const std::vector<RejectedAttribute> cases{
+        {"storagetype=\"nibble\"", "attribute 'storagetype': unrecognized storage type 'nibble'"},
+        {"startpos=\"not-hex\"", "attribute 'startpos': invalid hexadecimal unsigned value 'not-hex'"},
+        {"interval=\"not-hex\"", "attribute 'interval': invalid hexadecimal unsigned value 'not-hex'"},
+    };
+    for (const auto& [attribute, detail] : cases)
+    {
+        SCOPED_TRACE(attribute);
+        const std::string xml = "<roms><rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" type=\"3D\">"
+                                "<table type=\"X Axis\" name=\"RPM\" " +
+                                attribute + "/></table></rom></roms>";
+
+        auto result = ParseRomraiderDefinition(Bytes(xml), "bad-axis.xml", "A");
+
+        EXPECT_THAT(result,
+                    fastecu::testing::IsErrWith(
+                        ErrorKind::kInvalidConfig,
+                        Eq("EcuFlash/RomRaider source 'bad-axis.xml', definition 'A': element <table> " + detail)));
+    }
+}
+
+TEST(RomRaiderParserTest, InvalidMapDimensionIsInvalidConfigWithAttributeContext)
+{
+    for (const std::string attribute : {"sizex", "sizey"})
+    {
+        SCOPED_TRACE(attribute);
+        const std::string xml =
+            "<roms><rom><romid><xmlid>A</xmlid></romid><table name=\"Fuel\" " + attribute + "=\"0\"/></rom></roms>";
+
+        auto result = ParseRomraiderDefinition(Bytes(xml), "bad-dimension.xml", "A");
+
+        EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                        Eq("EcuFlash/RomRaider source 'bad-dimension.xml', definition "
+                                                           "'A': element <table> attribute '" +
+                                                           attribute + "': invalid positive dimension '0'")));
+    }
+}
+
+TEST(RomRaiderParserTest, InvalidInlineScalingIsInvalidConfigWithScalingContext)
+{
+    const auto xml = Bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
+                           "<table name=\"Fuel\"><scaling storagetype=\"nibble\"/></table></rom></roms>");
+
+    auto result = ParseRomraiderDefinition(xml, "bad-scaling.xml", "A");
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                    Eq("EcuFlash/RomRaider source 'bad-scaling.xml', definition 'A': "
+                                                       "element <scaling> attribute 'storagetype': unrecognized "
+                                                       "storage type 'nibble'")));
+}
+
+TEST(RomRaiderParserTest, MapWithoutANameIsInvalidConfigWithAttributeContext)
+{
+    const auto xml = Bytes("<roms><rom><romid><xmlid>A</xmlid></romid><table storageaddress=\"0x10\"/></rom></roms>");
+
+    auto result = ParseRomraiderDefinition(xml, "unnamed.xml", "A");
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                    Eq("EcuFlash/RomRaider source 'unnamed.xml', definition 'A': "
+                                                       "element <table> attribute 'name': missing or empty map name")));
+}
+
 TEST(RomRaiderParserTest, InvalidBooleanIsInvalidConfigWithAttributeContext)
 {
     const auto xml = Bytes("<roms><rom><romid><xmlid>A</xmlid></romid>"
