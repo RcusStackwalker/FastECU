@@ -16,6 +16,7 @@
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/transfer_progress.h"
+#include "src/backend/ports/cancellation.h"
 
 namespace fastecu::flash
 {
@@ -45,15 +46,6 @@ constexpr std::chrono::milliseconds kFlashTimeout{3000};
 constexpr std::string_view kReflashRecoveryWarning =
     "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most likely still running and "
     "receiving commands!";
-
-Status CheckCancelled(const ICancellationToken& cancellation, std::string detail)
-{
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, std::move(detail));
-    }
-    return {};
-}
 
 std::uint64_t ElapsedMilliseconds(std::chrono::steady_clock::time_point start,
                                   std::chrono::steady_clock::time_point end)

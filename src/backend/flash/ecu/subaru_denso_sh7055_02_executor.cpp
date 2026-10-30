@@ -15,6 +15,7 @@
 #include "src/backend/flash/ecu/denso_beef_kline_common.h"
 #include "src/backend/flash/ecu/plan_primitives.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/backend/ports/cancellation.h"
 
 namespace fastecu::flash
 {
@@ -30,15 +31,6 @@ constexpr std::uint32_t kReadPageSize = 0x400;
 // Legacy flash_block(), lines 969 and 980.
 constexpr std::uint32_t kWriteChunkSize = 0x200;
 constexpr std::uint32_t kCommitBlockSize = 0x1000;
-
-Status CheckCancelled(const ICancellationToken& cancellation, std::string detail)
-{
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, std::move(detail));
-    }
-    return {};
-}
 
 // Read-only drain used where legacy intentionally discarded stale/echo bytes.
 // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:69-70,

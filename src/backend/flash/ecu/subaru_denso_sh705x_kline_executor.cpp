@@ -18,6 +18,7 @@
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/transfer_progress.h"
+#include "src/backend/ports/cancellation.h"
 
 namespace fastecu::flash
 {
@@ -65,15 +66,6 @@ constexpr std::uint32_t kReadPageSize = 0x400;     // read_mem() pagesize
 constexpr std::uint32_t kWriteChunkSize = 0x200;   // flash_block() blocksize
 constexpr std::uint32_t kCommitBlockSize = 0x1000; // flash_block() flashblocksize
 constexpr std::uint32_t kUploadChunkBytes = 0x80;  // send_sid_36_transferdata() blocksize
-
-Status CheckCancelled(const ICancellationToken& cancellation, std::string detail)
-{
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, std::move(detail));
-    }
-    return {};
-}
 
 // Every kernel request, e.g. request_kernel_id() and check_romcrc():
 // BE EF, u16 length (opcode + payload), opcode, payload, sum8.
