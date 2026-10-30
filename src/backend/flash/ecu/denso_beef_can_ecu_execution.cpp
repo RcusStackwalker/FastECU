@@ -9,6 +9,7 @@
 #include <format>
 #include <iterator>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -68,17 +69,10 @@ struct Context
     const ICancellationToken& cancellation;
     IEventSink& events;
     IClock& clock;
-    ICanFlashTransport& transport;
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
     const DensoBeefCanProfile& profile;
     BeefCanKernel kernel;
-};
-
-struct AcceptedSessionModes
-{
-    bool mode_03;
-    bool mode_43;
 };
 
 std::string UppercaseHexCompact(bytes::ByteView data)
@@ -124,22 +118,6 @@ ChannelRequestOptional(Context& ctx, bytes::ByteView pdu, std::chrono::milliseco
     return ctx.channel.Receive(timeout, ctx.cancellation);
 }
 
-// ChannelRequestOptional where silence is a timeout error.
-Result<bytes::Bytes> ChannelRequest(Context& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout,
-                                    std::chrono::milliseconds delay = std::chrono::milliseconds{0})
-{
-    Result<std::optional<bytes::Bytes>> received = ChannelRequestOptional(ctx, pdu, timeout, delay);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (!received->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
-    }
-    return std::move(**received);
-}
-
 constexpr std::chrono::milliseconds kNonfatalReadTimeout{2000};
 constexpr std::chrono::milliseconds kNonfatalSendDelay{50};
 
@@ -172,11 +150,6 @@ Result<std::string> ParseKernelId(bytes::ByteView pdu)
     return std::string(pdu.begin() + 5, pdu.begin() + declared + 4);
 }
 
-void LogWrongReply(const Context& context, const Error& failure)
-{
-    LogError(context, std::format("Wrong response from {}: {}", context.profile.device, failure.detail));
-}
-
 void LogWrongPdu(const Context& context, bytes::ByteView pdu)
 {
     const std::string rendered =
@@ -192,7 +165,7 @@ void LogFailure(const Context& context, const Error& failure)
     }
     else if (failure.kind == ErrorKind::kBadResponse)
     {
-        LogWrongReply(context, failure);
+        LogError(context, std::format("Wrong response from {}: {}", context.profile.device, failure.detail));
     }
 }
 
@@ -207,14 +180,9 @@ Result<std::optional<bytes::Bytes>> NonfatalQuery(Context& context, bytes::ByteV
         {
             return std::unexpected(failure);
         }
-        if (failure.kind == ErrorKind::kTimeout)
-        {
-            LogError(context, "No valid response from ECU");
-        }
-        else
-        {
-            LogWrongReply(context, failure);
-        }
+        LogError(context, failure.kind == ErrorKind::kTimeout
+                              ? "No valid response from ECU"
+                              : std::format("Wrong response from {}: {}", context.profile.device, failure.detail));
         return std::optional<bytes::Bytes>{};
     }
     if (!received->has_value())
@@ -224,37 +192,32 @@ Result<std::optional<bytes::Bytes>> NonfatalQuery(Context& context, bytes::ByteV
     return received;
 }
 
-Result<bool> RequestSession(Context& context, bytes::Byte subfunction)
-{
-    Result<std::optional<bytes::Bytes>> reply =
-        NonfatalQuery(context, bytes::Bytes{uds::kSidDiagnosticSessionControl, subfunction});
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    if (!reply->has_value())
-    {
-        return false;
-    }
-    const bytes::Bytes& pdu = **reply;
-    if (pdu.size() >= 2 && pdu[0] == 0x50 && pdu[1] == subfunction)
-    {
-        return true;
-    }
-    LogWrongPdu(context, pdu);
-    return false;
-}
-
-Result<AcceptedSessionModes> RequestBootloaderSessions(Context& context)
+Result<bytes::Bytes> RequestBootloaderSessions(Context& context)
 {
     LogInfo(context, "Requesting session mode");
-    return RequestSession(context, 0x03)
-        .and_then(
-            [&context](bool mode_03)
-            {
-                return RequestSession(context, 0x43)
-                    .transform([mode_03](bool mode_43) { return AcceptedSessionModes{mode_03, mode_43}; });
-            });
+    bytes::Bytes programming{uds::kSidDiagnosticSessionControl};
+    for (const bytes::Byte session : std::array<bytes::Byte, 2>{0x03, 0x43})
+    {
+        const auto reply = NonfatalQuery(context, bytes::Bytes{uds::kSidDiagnosticSessionControl, session});
+        if (!reply.has_value())
+        {
+            return std::unexpected(reply.error());
+        }
+        if (!reply->has_value())
+        {
+            continue;
+        }
+        const auto& pdu = **reply;
+        if (pdu.size() >= 2 && pdu[0] == 0x50 && pdu[1] == session)
+        {
+            programming.push_back(static_cast<bytes::Byte>(session - 1));
+        }
+        else
+        {
+            LogWrongPdu(context, pdu);
+        }
+    }
+    return programming;
 }
 
 Result<std::optional<std::string>> RunningKernelId(Context& context)
@@ -335,54 +298,6 @@ Status RequestEcuId(Context& context, bool read_operation, std::optional<std::st
     return {};
 }
 
-Status RequestCvn(Context& context)
-{
-    LogInfo(context, "Requesting CVN");
-    Result<std::optional<bytes::Bytes>> cvn_reply =
-        NonfatalQuery(context, bytes::Bytes{uds::kSidVehicleInfoRequest, 0x06});
-    if (!cvn_reply.has_value())
-    {
-        return std::unexpected(cvn_reply.error());
-    }
-    if (!cvn_reply->has_value())
-    {
-        return {};
-    }
-    const bytes::Bytes& pdu = **cvn_reply;
-    if (pdu.size() >= 3 && pdu[0] == 0x49 && pdu[1] == 0x06)
-    {
-        LogInfo(context, std::format("CVN: {}", UppercaseHexCompact(bytes::ByteView(pdu).subspan(3))));
-    }
-    else
-    {
-        LogWrongPdu(context, pdu);
-    }
-    return {};
-}
-
-Result<std::optional<std::string>> IdentityString(Context& context, bytes::ByteView request, bytes::Byte first,
-                                                  bytes::Byte second, std::string_view label)
-{
-    Result<std::optional<bytes::Bytes>> reply = NonfatalQuery(context, request);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    if (!reply->has_value())
-    {
-        return std::optional<std::string>{};
-    }
-    const bytes::Bytes& pdu = **reply;
-    if (pdu.size() < 3 || pdu[0] != first || pdu[1] != second)
-    {
-        LogWrongPdu(context, pdu);
-        return std::optional<std::string>{};
-    }
-    const std::string value(pdu.begin() + 3, pdu.end());
-    LogInfo(context, std::format("{}: {}", label, value));
-    return std::optional<std::string>{value};
-}
-
 // UdsClient requires the positive service id; neither ECU requires a payload
 // echo for transfer exit or routine start. Diesel additionally logs failures.
 template <typename Family>
@@ -439,16 +354,21 @@ Result<std::uint32_t> ReadRamLocation(Context& context, std::uint32_t address)
         const auto encoded = bytes::ComposeBe(bytes::U24{address + offset});
         request.insert(request.end(), encoded.begin(), encoded.end());
     }
-    Result<bytes::Bytes> reply = ChannelRequest(context, request, kReadTimeout);
+    auto reply = ChannelRequestOptional(context, request, kReadTimeout);
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
     }
-    if (reply->size() < 5 || (*reply)[0] != 0xE8)
+    if (!reply->has_value())
+    {
+        return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
+    }
+    const auto& pdu = **reply;
+    if (pdu.size() < 5 || pdu[0] != 0xE8)
     {
         return Fail(ErrorKind::kBadResponse, "invalid RaceRom-alt RAM response");
     }
-    return bytes::ReadU32Be(*reply, 1);
+    return bytes::ReadU32Be(pdu, 1);
 }
 
 struct RaceRomAltAddresses
@@ -524,12 +444,8 @@ template <> struct EcuFamilyTraits<SubaruDensoSh7058CanPlan>
     }
 
     static Result<bytes::Bytes> SecurityKey(Context& context, const SubaruDensoSh7058CanPlan& family,
-                                            const SecurityState& alt, bytes::ByteView seed)
+                                            const SecurityState& alt, std::span<const bytes::Byte, 4> seed)
     {
-        if (seed.size() != 4)
-        {
-            return Fail(ErrorKind::kBadResponse, "petrol security seed must contain four bytes");
-        }
         switch (family.security)
         {
         case SubaruDensoSh7058CanSecurity::kStock:
@@ -591,30 +507,16 @@ template <> struct EcuFamilyTraits<SubaruDensoSh7058CanDieselPlan>
     }
 
     static Result<bytes::Bytes> SecurityKey(Context&, const SubaruDensoSh7058CanDieselPlan&, const SecurityState&,
-                                            bytes::ByteView seed)
+                                            std::span<const bytes::Byte, 4> seed)
     {
-        if (seed.size() != 4)
-        {
-            return Fail(ErrorKind::kBadResponse, "diesel security seed must contain four bytes");
-        }
         return DensoSeedKey(seed);
     }
 };
 
-Status EnterProgrammingSession(Context& ctx, bool session_03_accepted, bool session_43_accepted,
-                               const uds::ExchangePolicy& policy)
+Status EnterProgrammingSession(Context& ctx, bytes::ByteView request)
 {
     LogInfo(ctx, "Set session mode");
-    bytes::Bytes request{uds::kSidDiagnosticSessionControl};
-    if (session_03_accepted)
-    {
-        request.push_back(0x02);
-    }
-    if (session_43_accepted)
-    {
-        request.push_back(0x42);
-    }
-    Result<bytes::Bytes> reply = ctx.uds.Request(request, policy, ctx.cancellation);
+    Result<bytes::Bytes> reply = ctx.uds.Request(request, kStrictPolicy, ctx.cancellation);
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
@@ -657,7 +559,7 @@ Status UnlockSecurity(Context& ctx, const Family& family,
                     return Fail(ErrorKind::kBadResponse, "invalid seed response");
                 }
                 LogInfo(ctx, "Seed request ok");
-                return EcuFamilyTraits<Family>::SecurityKey(ctx, family, security, payload.subspan(1, 4));
+                return EcuFamilyTraits<Family>::SecurityKey(ctx, family, security, payload.subspan<1, 4>());
             })
         .and_then(
             [&](const bytes::Bytes& key)
@@ -687,27 +589,40 @@ Result<std::optional<std::string>> RequestIdentity(Context& context, bool read_o
     {
         return std::unexpected(ecu_id.error());
     }
-    LogInfo(context, "Requesting VIN");
-    Result<std::optional<std::string>> vin =
-        IdentityString(context, bytes::Bytes{uds::kSidVehicleInfoRequest, 0x02}, 0x49, 0x02, "VIN");
-    if (!vin.has_value())
+    // These three fields share the 09/PID request and 49/PID/record envelope.
+    // The order is fixed; only CVN renders binary bytes instead of text.
+    constexpr std::array<std::pair<bytes::Byte, std::string_view>, 3> kFields{
+        {{0x02, "VIN"}, {uds::kVehicleInfoPidCalId, "CAL ID"}, {0x06, "CVN"}}};
+    std::optional<std::string> cal_id;
+    for (const auto& [pid, label] : kFields)
     {
-        return std::unexpected(vin.error());
-    }
-    LogInfo(context, "Requesting CAL ID");
-    Result<std::optional<std::string>> cal_id = IdentityString(
-        context, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId}, 0x49, 0x04, "CAL ID");
-    if (!cal_id.has_value())
-    {
-        return std::unexpected(cal_id.error());
-    }
-    if (read_operation && cal_id->has_value())
-    {
-        rom_id = **cal_id + "_" + rom_id.value_or(std::string{});
-    }
-    if (const Status cvn = RequestCvn(context); !cvn.has_value())
-    {
-        return std::unexpected(cvn.error());
+        LogInfo(context, std::format("Requesting {}", label));
+        const auto reply = NonfatalQuery(context, bytes::Bytes{uds::kSidVehicleInfoRequest, pid});
+        if (!reply.has_value())
+        {
+            return std::unexpected(reply.error());
+        }
+        if (!reply->has_value())
+        {
+            continue;
+        }
+        const auto& pdu = **reply;
+        if (pdu.size() < 3 || pdu[0] != 0x49 || pdu[1] != pid)
+        {
+            LogWrongPdu(context, pdu);
+            continue;
+        }
+        const std::string value = pid == 0x06 ? UppercaseHexCompact(bytes::ByteView(pdu).subspan(3))
+                                              : std::string(pdu.begin() + 3, pdu.end());
+        LogInfo(context, std::format("{}: {}", label, value));
+        if (pid == uds::kVehicleInfoPidCalId)
+        {
+            cal_id = value;
+            if (read_operation)
+            {
+                rom_id = value + "_" + rom_id.value_or(std::string{});
+            }
+        }
     }
     return cal_id;
 }
@@ -757,7 +672,6 @@ Result<FlashExecutionResult> RunEcuExecution(const Family& family, const FlashPl
     Context context{cancellation,
                     events,
                     clock,
-                    transport,
                     uds_client,
                     channel,
                     Traits::kProfile,
@@ -803,9 +717,7 @@ Result<FlashExecutionResult> RunEcuExecution(const Family& family, const FlashPl
         {
             return std::unexpected(unlocked.error());
         }
-        if (const Status entered =
-                EnterProgrammingSession(context, sessions->mode_03, sessions->mode_43, kStrictPolicy);
-            !entered.has_value())
+        if (const Status entered = EnterProgrammingSession(context, *sessions); !entered.has_value())
         {
             return std::unexpected(entered.error());
         }

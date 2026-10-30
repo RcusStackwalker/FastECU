@@ -1600,7 +1600,7 @@ class SubaruDensoSh7058CanColdTest : public ::testing::Test
         }
     }
 
-    Result<FlashExecutionResult> Run(FlashOperation operation = FlashOperation::kRead)
+    Result<FlashExecutionResult> ExecuteCold(FlashOperation operation = FlashOperation::kRead)
     {
         bytes::Bytes kernel(129);
         kernel.back() = 1;
@@ -1659,7 +1659,7 @@ class SubaruDensoSh7058CanColdTest : public ::testing::Test
 TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryTimeoutLogsNoValidResponse)
 {
     identity_[0] = Fail(ErrorKind::kTimeout, "");
-    const auto reply = Run();
+    const auto reply = ExecuteCold();
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(reply->rom_id, Eq(std::nullopt));
     EXPECT_THAT(EcuLogs(), ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
@@ -1667,7 +1667,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryTimeoutLogsNoValidResponse)
 
 TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryNoFrameLogsNoValidResponse)
 {
-    const auto reply = Run();
+    const auto reply = ExecuteCold();
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(reply->rom_id, Eq(std::nullopt));
     EXPECT_THAT(EcuLogs(), ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
@@ -1676,7 +1676,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryNoFrameLogsNoValidResponse)
 TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDeviceName)
 {
     identity_[0] = Fail(ErrorKind::kBadResponse, "boom");
-    const auto reply = Run();
+    const auto reply = ExecuteCold();
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(reply->rom_id, Eq(std::nullopt));
     EXPECT_THAT(EcuLogs(), ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: boom")));
@@ -1704,7 +1704,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryReturnsTheFrame)
 {
     // Returning the literal 50 03 is observable as both selected programming
     // bytes 02 and 42, rather than only the always-accepted 43 -> 42.
-    ASSERT_THAT(Run(), IsOk());
+    ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting session mode", "Requesting seed"), IsEmpty());
 }
 
@@ -1730,7 +1730,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryUsesTheReadTimeoutAndPostSendD
 
 TEST_F(SubaruDensoSh7058CanColdTest, RequestSessionAcceptsThePositiveReply)
 {
-    ASSERT_THAT(Run(), IsOk());
+    ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting session mode", "Requesting seed"), IsEmpty());
 }
 
@@ -1738,7 +1738,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestSessionStepsOverSilence)
 {
     session_03_ = std::nullopt;
     programming_ = {0x10, 0x42};
-    ASSERT_THAT(Run(), IsOk());
+    ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting session mode", "Requesting seed"),
                 ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
@@ -1747,7 +1747,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, WrongRepliesRenderInTheProfilePduFormat)
 {
     session_03_ = bytes::Bytes{0x7F, 0x10, 0x22};
     programming_ = {0x10, 0x42};
-    ASSERT_THAT(Run(), IsOk());
+    ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting session mode", "Requesting seed"),
                 ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 7f 10 22 ")));
 }
@@ -1755,10 +1755,10 @@ TEST_F(SubaruDensoSh7058CanColdTest, WrongRepliesRenderInTheProfilePduFormat)
 TEST_F(SubaruDensoSh7058CanColdTest, RequestEcuIdParsesFiveBytesAndNamesAReadImage)
 {
     identity_[0] = bytes::Bytes{0xEA, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
-    const auto written = Run(FlashOperation::kWrite);
+    const auto written = ExecuteCold(FlashOperation::kWrite);
     ASSERT_THAT(written, IsOk());
     EXPECT_THAT(written->rom_id, Eq(std::nullopt));
-    const auto read = Run();
+    const auto read = ExecuteCold();
     ASSERT_THAT(read, IsOk());
     EXPECT_THAT(read->rom_id, Optional(Eq("0102030405_")));
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "ECU ID: 0102030405")));
@@ -1768,7 +1768,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestEcuIdParsesFiveBytesAndNamesAReadIma
 TEST_F(SubaruDensoSh7058CanColdTest, RequestEcuIdStepsOverAShortReply)
 {
     identity_[0] = bytes::Bytes{0xEA, 0x01};
-    const auto reply = Run();
+    const auto reply = ExecuteCold();
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(reply->rom_id, Eq(std::nullopt));
     EXPECT_THAT(Section("Requesting ECU ID", "Requesting VIN"),
@@ -1779,7 +1779,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestEcuIdStepsOverAShortReply)
 TEST_F(SubaruDensoSh7058CanColdTest, RequestCvnLogsUppercaseCompactHex)
 {
     identity_[3] = bytes::Bytes{0x49, 0x06, 0x01, 0xAB, 0xCD};
-    ASSERT_THAT(Run(), IsOk());
+    ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting CVN", "Requesting session mode"), ElementsAre(Pair(LogLevel::kInfo, "CVN: ABCD")));
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting CVN")));
 }
@@ -1787,7 +1787,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestCvnLogsUppercaseCompactHex)
 TEST_F(SubaruDensoSh7058CanColdTest, RequestCvnLogsAWrongReply)
 {
     identity_[3] = bytes::Bytes{0x7F, 0x09};
-    ASSERT_THAT(Run(), IsOk());
+    ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting CVN", "Requesting session mode"),
                 ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 7f 09 ")));
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting CVN")));
@@ -1796,14 +1796,14 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestCvnLogsAWrongReply)
 TEST_F(SubaruDensoSh7058CanColdTest, IdentityStringReturnsTheTail)
 {
     identity_[1] = bytes::Bytes{0x49, 0x02, 0x01, 'V', '1'};
-    ASSERT_THAT(Run(), IsOk());
+    ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting VIN", "Requesting CAL ID"), ElementsAre(Pair(LogLevel::kInfo, "VIN: V1")));
 }
 
 TEST_F(SubaruDensoSh7058CanColdTest, IdentityStringStepsOverAMismatch)
 {
     identity_[1] = bytes::Bytes{0x49, 0x04, 0x01, 'V'};
-    const auto reply = Run();
+    const auto reply = ExecuteCold();
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(reply->rom_id, Eq(std::nullopt));
     EXPECT_THAT(Section("Requesting VIN", "Requesting CAL ID"),
@@ -1813,7 +1813,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, IdentityStringStepsOverAMismatch)
 TEST_F(SubaruDensoSh7058CanColdTest, UppercaseHexCompactHasNoSeparators)
 {
     identity_[3] = bytes::Bytes{0x49, 0x06, 0x01, 0x0A, 0xFF, 0x00};
-    ASSERT_THAT(Run(), IsOk());
+    ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting CVN", "Requesting session mode"),
                 ElementsAre(Pair(LogLevel::kInfo, "CVN: 0AFF00")));
 }

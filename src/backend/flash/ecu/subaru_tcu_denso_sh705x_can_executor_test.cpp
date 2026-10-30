@@ -2193,11 +2193,11 @@ TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecu
 class SubaruTcuDensoSh705xCanColdTest : public ::testing::Test
 {
   protected:
-    using Outcome = Result<std::optional<bytes::Bytes>>;
+    using Outcome = Result<bytes::Bytes>;
     using Logs = std::vector<std::pair<LogLevel, std::string>>;
 
-    Result<FlashExecutionResult> Run(const Outcome& ecu_reply,
-                                     bytes::Bytes cal_reply = {0x49, 0x04, 0x01, 'C', 'A', 'L'})
+    Result<FlashExecutionResult> ExecuteCold(const Outcome& ecu_reply,
+                                             bytes::Bytes cal_reply = {0x49, 0x04, 0x01, 'C', 'A', 'L'})
     {
         auto plan = ReadPlan(kCases.front());
         if (!plan.has_value())
@@ -2211,13 +2211,9 @@ class SubaruTcuDensoSh705xCanColdTest : public ::testing::Test
         {
             transport_.QueueError(ecu_reply.error().kind, ecu_reply.error().detail);
         }
-        else if (ecu_reply->has_value())
-        {
-            transport_.QueueRead(Response(**ecu_reply));
-        }
         else
         {
-            transport_.QueueNoFrame();
+            transport_.QueueRead(Response(*ecu_reply));
         }
         const bool terminal = !ecu_reply.has_value() && (ecu_reply.error().kind == ErrorKind::kCancelled ||
                                                          ecu_reply.error().kind == ErrorKind::kDisconnected);
@@ -2252,7 +2248,7 @@ class SubaruTcuDensoSh705xCanColdTest : public ::testing::Test
 
 TEST_F(SubaruTcuDensoSh705xCanColdTest, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDeviceName)
 {
-    const auto reply = Run(Fail(ErrorKind::kBadResponse, "boom"));
+    const auto reply = ExecuteCold(Fail(ErrorKind::kBadResponse, "boom"));
     ASSERT_THAT(reply, IsOk());
     EXPECT_THAT(reply->rom_id, Optional(Eq("CAL_")));
     EXPECT_THAT(Section("Requesting ECU ID", "Requesting CAL ID"),
@@ -2267,7 +2263,7 @@ TEST_F(SubaruTcuDensoSh705xCanColdTest, LogFailureNamesTimeoutsAndBadRepliesAndS
                     std::pair{ErrorKind::kCancelled, "stop"}, std::pair{ErrorKind::kDisconnected, "gone"}})
     {
         SCOPED_TRACE(detail);
-        const auto reply = Run(Fail(kind, detail));
+        const auto reply = ExecuteCold(Fail(kind, detail));
         if (kind == ErrorKind::kCancelled || kind == ErrorKind::kDisconnected)
         {
             EXPECT_THAT(reply, fastecu::testing::IsErrWith(kind, _));
@@ -2288,7 +2284,7 @@ TEST_F(SubaruTcuDensoSh705xCanColdTest, IdentityWrongReplyKeepsTcuPduWording)
     // The former session-only CVN case combined CVN parsing and TCU wording.
     // Real TCU operations request CAL ID; the same negative vector preserves
     // the TCU assertion here while petrol covers the actual CVN request.
-    ASSERT_THAT(Run(bytes::Bytes{0xEA, 0, 0, 0, 1, 2, 3, 4, 5}, {0x7F, 0x09}), IsOk());
+    ASSERT_THAT(ExecuteCold(bytes::Bytes{0xEA, 0, 0, 0, 1, 2, 3, 4, 5}, {0x7F, 0x09}), IsOk());
     EXPECT_THAT(Section("Requesting CAL ID", "Requesting session mode"),
                 ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: 7f 09 ")));
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting CAL ID")));
