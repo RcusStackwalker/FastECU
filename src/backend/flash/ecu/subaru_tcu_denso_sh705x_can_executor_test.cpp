@@ -321,8 +321,8 @@ bytes::Bytes Response(bytes::ByteView pdu)
     return ComposeBe(kResponseId, pdu);
 }
 
-// Legacy request_kernel_id(), r59f4e442 lines 1583-1647. This is the initial
-// ISO-15765 probe's exact twelve-byte wire buffer, not a UDS PDU.
+// This is the initial ISO-15765 probe's exact twelve-byte wire buffer, not a
+// UDS PDU.
 bytes::Bytes KernelIdRequest()
 {
     return {0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -422,8 +422,8 @@ void ScriptRawReadPagesWithBoundarySentinels(ScriptedCanFlashTransport& transpor
 
 void ScriptIdentityQueries(ScriptedCanFlashTransport& transport)
 {
-    // connect_bootloader(), r59f4e442 lines 137-214: both identity queries
-    // are non-fatal, but successful read identity contributes to rom_id.
+    // Both identity queries are non-fatal, but successful read identity
+    // contributes to rom_id.
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xAA});
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xEA, 0x00, 0x00, 0x00, 0x45, 0x43, 0x55, 0x30, 0x31});
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x09, 0x04});
@@ -434,8 +434,8 @@ void ScriptIdentityQueries(ScriptedCanFlashTransport& transport)
 // the caller scripts its reply.
 void ScriptStrictSessionUntilProgramming(ScriptedCanFlashTransport& transport)
 {
-    // connect_bootloader(), r59f4e442 lines 216-359. Seed 11 22 33 44 maps
-    // to 35 B6 83 BF; the literal is fixed independently of executor code.
+    // Seed 11 22 33 44 maps to 35 B6 83 BF; the literal is fixed independently
+    // of executor code.
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x01});
@@ -488,10 +488,9 @@ void QueueUploadB6Reply(ScriptedCanFlashTransport& transport, UploadB6Reply repl
 void ScriptKernelUploadUntilStart(ScriptedCanFlashTransport& transport, const Case& test_case,
                                   UploadB6Reply b6_reply = UploadB6Reply::kNoFrame)
 {
-    // upload_kernel(), r59f4e442 lines 369-627. Four kernel bytes pad to one
-    // 128-byte transfer. The checksum word is 59 A3 A2 56, and the first and
-    // last encrypted words are fixed here so the test never calls production
-    // crypto helpers.
+    // Four kernel bytes pad to one 128-byte transfer. The checksum word is 59
+    // A3 A2 56, and the first and last encrypted words are fixed here so the
+    // test never calls production crypto helpers.
     transport.ExpectWrite(Request(ComposeBe(0x34_b, 0x04_b, 0x33_b, U24{test_case.kernel_address}, U24{0x80})));
     transport.QueueRead(Response(bytes::Bytes{0x74, 0x20}));
 
@@ -966,7 +965,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdContinuationAppendsTheEntireAccept
         bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
     transport.scripted.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x07, 0x41, 0x41});
     // These bytes happen to begin with BEEF, but this is a continuation
-    // payload, not a second envelope. Legacy lines 1621-1625 append it whole.
+    // payload, not a second envelope. Legacy append it whole.
     transport.scripted.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x03, 0x41, 0x42, 0x43});
     transport.scripted.QueueNoFrame();
     ScriptCompare(transport.scripted, BlocksFor(kCases[1]), false);
@@ -1156,8 +1155,8 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeKeepsCancellationAndDisc
 
 TEST(SubaruTcuDensoSh705xCanExecutor, SessionSafetyCorrectionRejectsBothLegacyPartialMatchesAndAcceptsExactMatch)
 {
-    // Oracle line 230 uses `sid != 0x50 && subfunction != 0x03`; its truth
-    // table accepts either 50 02 or 51 03 because one inequality is false.
+    // Oracle uses `sid != 0x50 && subfunction != 0x03`; its truth table accepts
+    // either 50 02 or 51 03 because one inequality is false.
     const std::array<bytes::Bytes, 2> partial_matches{{bytes::Bytes{0x50, 0x02}, bytes::Bytes{0x51, 0x03}}};
     for (const bytes::Bytes& reply : partial_matches)
     {

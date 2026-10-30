@@ -15,15 +15,14 @@ namespace
 {
 constexpr std::string_view kProtocol = "sub_ecu_denso_mc68hc16y5_02_bdm";
 constexpr std::string_view kMcu = "MC68HC16Y5";
-// Legacy execute() :54.
 constexpr int kBaud = 115200;
-// Legacy read_mem() walks the whole 0x0-0x2FFFF address space, filling the
-// RAM block with 0xFF (:116-144), so the read image is physical, not packed.
+// Legacy read_mem() walks the whole 0x0-0x2FFFF address space, filling the RAM
+// block with 0xFF, so the read image is physical, not packed.
 constexpr MemoryRegion kReadRegion{0, 0x30000};
 constexpr MemoryRegion kRam{0x20000, 0x8000};
 constexpr std::uint32_t kRomSize = 0x28000;
-// Legacy write_mem() pads the kernel to a multiple of the shared upload
-// chunk (:247-250); the executor uploads in chunks of the same size (:361).
+// Legacy write_mem() pads the kernel to a multiple of the shared upload chunk;
+// the executor uploads in chunks of the same size.
 constexpr std::size_t kUploadChunk = kSubaruDensoMc68hc16y5_02BdmUploadChunk;
 
 Status ValidateIdentity(std::string_view protocol, std::string_view mcu)

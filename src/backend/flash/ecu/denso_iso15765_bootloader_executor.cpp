@@ -25,9 +25,8 @@
 
 // Every exchange below was transcribed from the legacy
 // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_*_can*_operation.cpp
-// files as of 20892df, the last commit before they were deleted. Line
-// citations for a family's deviations sit on its profile; the ones here are
-// SH72531's, which the flow follows.
+// files as of 20892df, the last commit before they were deleted. The flow
+// follows SH72531's; a family's deviations sit on its profile.
 namespace fastecu::flash
 {
 namespace
@@ -63,11 +62,11 @@ void DidF182Query(const Ctx& ctx)
         return;
     }
     // Legacy trims the raw frame with remove(0, 7) -- the 4-byte envelope plus
-    // `62 F1 82` (line 149) -- and although its remove(5, len-5) truncation is
-    // commented out at line 150, the loop that builds the logged string runs
-    // `for (int i = 0; i < 5; i++)` (lines 153-156), so exactly five bytes are
-    // logged. Take the same five. Fewer are taken only if the reply is short,
-    // where legacy would index past the end instead.
+    // `62 F1 82` -- and although its remove(5, len-5) truncation is commented
+    // out, the loop that builds the logged string runs `for (int i = 0; i < 5;
+    // i++)`, so exactly five bytes are logged. Take the same five. Fewer are
+    // taken only if the reply is short, where legacy would index past the end
+    // instead.
     constexpr std::size_t kEcuIdBytes = 5;
     const bytes::ByteView rest = payload.subspan(expected_did.size());
     LogInfo(ctx, std::format("{}: {}", kLabel, bytes::ToHex(rest.subspan(0, std::min(kEcuIdBytes, rest.size())))));
@@ -84,14 +83,13 @@ void IdentityQuery(const Ctx& ctx, DensoIdentityQuery query)
     DensoEcuIdQuery(ctx);
 }
 
-// Legacy connect_bootloader, lines 91-808. The legacy `is_serial_port_open()`
-// guard has no equivalent: Execute() opens the transport through the port and
-// propagates that Status, so an unopened bus fails earlier and with a typed
-// error.
+// The legacy `is_serial_port_open()` guard has no equivalent: Execute() opens
+// the transport through the port and propagates that Status, so an unopened bus
+// fails earlier and with a typed error.
 Status ConnectBootloader(const Ctx& ctx, ICanFlashTransport& can, const Profile& profile)
 {
-    // OBK-already-active probe (lines 107-128). A match short-circuits the
-    // whole sequence; a mismatch or an empty read falls through.
+    // OBK-already-active probe. A match short-circuits the whole sequence; a
+    // mismatch or an empty read falls through.
     Result<bool> obk_active = DensoObkIsActive(ctx, profile.obk_active_log);
     if (!obk_active.has_value())
     {
@@ -102,11 +100,11 @@ Status ConnectBootloader(const Ctx& ctx, ICanFlashTransport& can, const Profile&
         return {};
     }
 
-    // Lines 131-281: four non-fatal identity queries.
+    // Four non-fatal identity queries.
     IdentityQuery(ctx, profile.identity_query);
     DensoVehicleInfoQueries(ctx);
 
-    // Lines 283-341: the tolerant access-method probe and branch selector.
+    // The tolerant access-method probe and branch selector.
     Result<bool> in_car = DensoProgrammingBranchIsInCar(ctx, profile.probe_timeout);
     if (!in_car.has_value())
     {
@@ -123,13 +121,13 @@ std::string StartAndLengthLine(const MemoryRegion& region)
 }
 
 // A tolerant-reply dump setup (1N83M 4M, whose legacy read_memory has all four
-// `return STATUS_ERROR` statements at lines 876 / 883 / 917 / 924 commented
-// out): a wrong or absent (or too-short) reply is logged and stepped over.
-// Legacy requires received.length() > 7, i.e. four bytes past the 4-byte
-// envelope, before it inspects the reply at all. A transport-level failure is
-// still propagated: legacy's read_serial_data has no error channel at all, so a
-// broken bus has no legacy behaviour to preserve and must surface rather than
-// be mistaken for an empty reply.
+// `return STATUS_ERROR` statements at commented out): a wrong or absent (or
+// too-short) reply is logged and stepped over. Legacy requires
+// received.length() > 7, i.e. four bytes past the 4-byte envelope, before it
+// inspects the reply at all. A transport-level failure is still propagated:
+// legacy's read_serial_data has no error channel at all, so a broken bus has no
+// legacy behaviour to preserve and must surface rather than be mistaken for an
+// empty reply.
 Status TolerantSetup(const Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
                      std::chrono::milliseconds timeout)
 {
@@ -170,11 +168,10 @@ Status DumpSetup(const Ctx& ctx, const Profile& profile, bytes::ByteView pdu, by
     return {};
 }
 
-// Legacy read_memory, lines 815-1073. Legacy overwrites start_addr and length
-// with the family's literal region regardless of the caller's arguments
-// (SH72543 diesel has that overwrite commented out and passes the same region
-// as arguments); the plan carries exactly that region, so `region`
-// reproduces it.
+// Legacy overwrites start_addr and length with the family's literal region
+// regardless of the caller's arguments (SH72543 diesel has that overwrite
+// commented out and passes the same region as arguments); the plan carries
+// exactly that region, so `region` reproduces it.
 template <typename Plan>
 Result<bytes::Bytes> ReadMemory(const Ctx& ctx, const Profile& profile, const Plan& family, const MemoryRegion& region,
                                 PhaseReporter& progress)
@@ -197,7 +194,7 @@ Result<bytes::Bytes> ReadMemory(const Ctx& ctx, const Profile& profile, const Pl
             });
 }
 
-// Legacy reflash_block, lines 1167-1350, called for the profile's one block.
+// Called for the profile's one block.
 Status ReflashBlock(const Ctx& ctx, const Profile& profile, bytes::ByteView image, const MemoryRegion& block,
                     PhaseReporter& progress)
 {
@@ -208,10 +205,10 @@ Status ReflashBlock(const Ctx& ctx, const Profile& profile, bytes::ByteView imag
                                                     profile.checksum_policy);
 }
 
-// Legacy write_memory, lines 1081-1160. block_modified marks exactly one block
-// -- the plan's transfer region -- so one block is erased and reflashed. The
-// log lines carry the profile's block index: 1 of a three-block table on the
-// N83M and SH72531 families, 0 of SH72543 diesel's one-block table.
+// block_modified marks exactly one block -- the plan's transfer region -- so
+// one block is erased and reflashed. The log lines carry the profile's block
+// index: 1 of a three-block table on the N83M and SH72531 families, 0 of
+// SH72543 diesel's one-block table.
 } // namespace
 
 template <typename Plan> Result<Iso15765Config> DensoIso15765BootloaderExecutor<Plan>::Setup(const Plan& family) const

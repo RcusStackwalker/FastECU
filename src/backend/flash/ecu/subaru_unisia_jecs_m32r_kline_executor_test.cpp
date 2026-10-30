@@ -63,7 +63,7 @@ bytes::Bytes Reply(const bytes::Bytes& payload)
 }
 
 // FF, three capability bytes, the five ECU ID bytes at frame offset 8, then
-// trailing capability bytes legacy discarded (read_mem() :162-163).
+// trailing capability bytes legacy discarded (read_mem()).
 bytes::Bytes InitReply()
 {
     return Reply({0xff, 0xa1, 0xa2, 0xa3, 0x12, 0x34, 0x56, 0x78, 0x9a, 0xb1, 0xb2});
@@ -138,10 +138,10 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, TransportSetupIs4800BaudPlainSsm)
     ASSERT_THAT(built_plan_1, fastecu::testing::IsOk());
     const auto setup = SubaruUnisiaJecsM32rKlineExecutor{}.TransportSetup(std::move(*built_plan_1));
     ASSERT_THAT(setup, IsOk());
-    EXPECT_EQ(setup->baud, 4800);      // execute() :57
-    EXPECT_FALSE(setup->iso14230);     // execute() :51
-    EXPECT_EQ(setup->tester_id, 0xf0); // execute() :55
-    EXPECT_EQ(setup->target_id, 0x10); // execute() :56
+    EXPECT_EQ(setup->baud, 4800);
+    EXPECT_FALSE(setup->iso14230);
+    EXPECT_EQ(setup->tester_id, 0xf0);
+    EXPECT_EQ(setup->target_id, 0x10);
     EXPECT_EQ(setup->parity, KlineParity::kNone);
 }
 
@@ -185,7 +185,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsTheRomWhenAlreadyInReadMode)
     EXPECT_EQ(transport.read_timeouts.front(), 2000ms);
     EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
     EXPECT_EQ(context.events.progress_calls.back(), (std::pair<int, int>{1024, 1024}));
-    EXPECT_EQ(context.clock.Elapsed(), 1024 * 1ms); // read_mem() :314
+    EXPECT_EQ(context.clock.Elapsed(), 1024 * 1ms);
 }
 
 TEST(SubaruUnisiaJecsM32rKlineExecutor, ColdInitSwitchesBaudBeforeReading)
@@ -262,7 +262,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ColdInitReplyTooShortForTheEcuIdFails)
 {
     // expect_ssm_init() gates the cold BF reply on carrying the full five-byte
     // ECU ID; a valid FF frame that is too short is rejected rather than
-    // accepted with whatever bytes were present (read_mem() :162-163).
+    // accepted with whatever bytes were present (read_mem()).
     ScriptedKlineFlashTransport transport;
     transport.ExpectWrite(Request({0xbf}));
     transport.QueueNoFrame();
@@ -538,7 +538,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, WritesWhenTheKernelIsAlreadyRunning)
     EXPECT_EQ(transport.baud_calls, std::vector<int>{19200});
     EXPECT_EQ(transport.control_line_trace,
               (std::vector<Line>{Line::kEnableProgrammingVoltageLine, Line::kDisableLecLines}));
-    // After the OBK probe, before AF 31 (write_mem() :441-444).
+    // After the OBK probe, before AF 31 (write_mem()).
     EXPECT_EQ(transport.programming_voltage_line_write_index, std::optional<std::size_t>(1));
     // One 500 ms sleep after each empty erase poll.
     EXPECT_EQ(context.clock.Elapsed(), 1000ms);
@@ -562,7 +562,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, EntersFlashModeFromCold)
 }
 
 // A probe answer that is not EF means no kernel is running: legacy went on to
-// the cold flash-mode entry (write_mem() :355-373).
+// the cold flash-mode entry (write_mem()).
 TEST(SubaruUnisiaJecsM32rKlineExecutor, NonEfObkProbeReplyFallsBackToColdFlashMode)
 {
     ScriptedKlineFlashTransport transport;
@@ -611,7 +611,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, WriteFailsWhenTheInitialBaudChangeFails)
     ASSERT_THAT(built_plan_23, fastecu::testing::IsOk());
     EXPECT_THAT(RunScripted(std::move(*built_plan_23), transport, context), IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
-    // execute() :71-72 still drops the LEC line on this early exit.
+    // execute() still drops the LEC line on this early exit.
     EXPECT_EQ(transport.control_line_trace, std::vector<Line>{Line::kDisableLecLines});
 }
 
@@ -622,8 +622,8 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationBeforeRaisingProgrammingVolt
     RunContext context;
     // Plan admission is check 1; the OBK probe checks cancellation before its
     // send, in the transport read, and after the read (calls 2-4). Trip on the
-    // fifth check, which is write_rom()'s own "before programming voltage"
-    // gate (write_mem() :440-441).
+    // fifth check, which is write_rom()'s own "before programming voltage" gate
+    // (write_mem()).
     context.cancellation.CancelOnCheck(5);
 
     auto built_plan_24 = WritePlan();
@@ -992,7 +992,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, EveryEarlyTransportFaultInAColdWriteProp
 
 TEST(SubaruUnisiaJecsM32rKlineExecutor, FrameAfterEraseIsLoggedAndDiscarded)
 {
-    // write_mem() :517 read once more after the erase and dropped the result.
+    // write_mem() read once more after the erase and dropped the result.
     ScriptedKlineFlashTransport transport;
     ScriptObkRunning(transport);
     {

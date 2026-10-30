@@ -69,7 +69,7 @@ Result<FlashPlan> ProgramPlan(std::string_view protocol = "sub_ecu_unisia_jecs_2
     return BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation::kWrite, protocol, mcu, Rom(size));
 }
 
-// write_mem() :485-512: AF 61|69 <addr24> <128 bytes as-is>.
+// AF 61|69 <addr24> <128 bytes as-is>.
 bytes::Bytes BlockRequest(const FlashPlan& plan, std::uint32_t block, bool last)
 {
     const std::uint32_t address = block * 0x80;
@@ -124,8 +124,8 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, TransportSetupIs19200BaudNoPar
     ASSERT_THAT(built_plan_1, fastecu::testing::IsOk());
     const auto setup = SubaruUnisiaJecsM32rBootModeProgramExecutor{}.TransportSetup(std::move(*built_plan_1));
     ASSERT_THAT(setup, IsOk());
-    EXPECT_EQ(setup->baud, 19200);                // write_mem() :364
-    EXPECT_EQ(setup->parity, KlineParity::kNone); // write_mem() :362
+    EXPECT_EQ(setup->baud, 19200);
+    EXPECT_EQ(setup->parity, KlineParity::kNone);
     EXPECT_FALSE(setup->iso14230);
 }
 
@@ -136,7 +136,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, BeforeConfigureResetsThenClear
     FakeCancellationToken cancellation;
     ASSERT_THAT(SubaruUnisiaJecsM32rBootModeProgramExecutor{}.BeforeTransportConfigure(transport, clock, cancellation),
                 IsOk());
-    EXPECT_EQ(transport.lifecycle_calls, std::vector<std::string>{"reset_connection"}); // write_mem() :361
+    EXPECT_EQ(transport.lifecycle_calls, std::vector<std::string>{"reset_connection"});
     EXPECT_EQ(transport.header_mode_calls, std::vector<bool>{false});
 }
 
@@ -163,7 +163,7 @@ TEST_P(ProgramsTheWholeRom, ErasesThenWritesEveryBlock)
     EXPECT_EQ(transport.control_line_trace, (std::vector{Line::kEnableProgrammingVoltageLine, Line::kDisableLecLines}));
     EXPECT_EQ(transport.programming_voltage_line_write_index, std::optional<std::size_t>(0));
     // AF 31 settle 500, one empty start poll 500, one empty done poll 1000,
-    // post-erase 1000, then 10 ms after every AF 61 (:370-465, :539).
+    // post-erase 1000, then 10 ms after every AF 61.
     EXPECT_EQ(context.clock.Elapsed(), 500ms + 500ms + 1000ms + 1000ms + 10ms * (blocks - 1));
     EXPECT_EQ(std::ranges::count(transport.operation_trace, Op::kRead10), 4);
     EXPECT_EQ(context.events.progress_calls.back(),
@@ -349,9 +349,9 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, BlockRepliesWaitThreeSeconds)
     transport.QueueNoFrame();
     RunContext context;
     EXPECT_THAT(RunScripted(plan, transport, context), IsErr(ErrorKind::kTimeout));
-    // The four erase polls (write_mem() :400, :442) use the 10 ms kPollRead
-    // budget; every read after the first block write uses the 3000 ms
-    // serial_read_extra_long_timeout (:518).
+    // The four erase polls (write_mem()) use the 10 ms kPollRead budget; every
+    // read after the first block write uses the 3000 ms
+    // serial_read_extra_long_timeout.
     ASSERT_EQ(transport.read_timeouts.size(), 5U);
     for (std::size_t i = 0; i < 4; ++i)
     {
@@ -363,14 +363,14 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, BlockRepliesWaitThreeSeconds)
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancellationDuringEraseDropsTheLines)
 {
-    // ICancellationToken::cancelled() call count at which cancellation lands:
-    // 3 is the 500 ms post-AF-31 settle sleep (write_mem() :389), 4 is the
+    // ICancellationToken::cancelled() call count at which cancellation lands: 3
+    // is the 500 ms post-AF-31 settle sleep (write_mem()), 4 is the
     // erase-started poll's first read, 9 is the erase-complete poll's first
-    // read. (Full call sequence: 1 plan admission, 2 before the AF 31
-    // write, 3 the settle sleep, 4/5 the erase-started poll's first read and
-    // its post-read check, 6 that poll's retry sleep, 7/8 its second read and
-    // post-read check, 9/10 the erase-complete poll's first read and
-    // post-read check.)
+    // read. (Full call sequence: 1 plan admission, 2 before the AF 31 write, 3
+    // the settle sleep, 4/5 the erase-started poll's first read and its
+    // post-read check, 6 that poll's retry sleep, 7/8 its second read and
+    // post-read check, 9/10 the erase-complete poll's first read and post-read
+    // check.)
     for (const std::size_t checkpoint : {3U, 4U, 9U})
     {
         SCOPED_TRACE(::testing::PrintToString(checkpoint));

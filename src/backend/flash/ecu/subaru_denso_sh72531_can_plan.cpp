@@ -13,8 +13,7 @@ namespace
 constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_sh72531_can"}};
 
 // kFlashBlocksSH72531[1], the window legacy read_memory hardcodes over its own
-// arguments (lines 828-830) and the 0x34/0x35 setup PDUs spell out literally
-// (lines 844-854, 881-891).
+// arguments and the 0x34/0x35 setup PDUs spell out literally.
 constexpr MemoryRegion kMainBlock{0x00008000, 0x00137F00};
 constexpr std::uint32_t kImageStart =
     DensoIso15765BootloaderProfileOf<SubaruDensoSh72531CanPlan>::kValue.image_start; // fblocks[0].start

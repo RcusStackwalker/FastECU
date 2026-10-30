@@ -18,9 +18,8 @@ Result<Iso15765Config> SubaruDensoSh7058CanDieselExecutor::Setup(const SubaruDen
 Status SubaruDensoSh7058CanDieselExecutor::BeforeTransportConfigure(ICanFlashTransport& transport, IClock& clock,
                                                                     const ICancellationToken& cancellation) const
 {
-    // The legacy execute() sequence (revision 59f4e442:64-78) resets the
-    // serial connection, waits exactly 500 ms, then applies the ISO-15765
-    // setters and opens the port.
+    // The legacy execute() sequence resets the serial connection, waits exactly
+    // 500 ms, then applies the ISO-15765 setters and opens the port.
     // BoundAttempt owns the lifecycle; this hook preserves the family-specific
     // pre-config ordering without exposing desktop serial details here.
     return CheckCancelled(cancellation, "cancelled before CAN reset")

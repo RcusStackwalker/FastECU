@@ -3,11 +3,8 @@
 // Equivalence tests for SubaruDensoSh72531CanExecutor, the portable
 // replacement for FlashEcuSubaruDensoSH72531CanOperation's
 // connect_bootloader(), read_memory(), write_memory(), reflash_block() and
-// erase_memory(). Every scripted exchange cites the line of
-// src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh72531_can_operation.cpp
-// it was transcribed from, as of 20892df -- this branch's base, and the last
-// commit before the file was deleted here. Master later reflowed one line in
-// three of the four (S1117, #240), so resolve citations against 20892df.
+// erase_memory(), as transcribed from the legacy
+// flash_ecu_subaru_denso_sh72531_can_operation.cpp.
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_executor.h"
 
 #include <gmock/gmock.h>
@@ -411,10 +408,9 @@ struct Sh72531CanTraits
     static constexpr std::uint32_t kBlockStart = ::kBlockStart;
     static constexpr std::uint32_t kBlockLength = ::kBlockLength;
     static constexpr std::uint32_t kPageSize = ::kPageSize;
-    // serial_read_short_timeout (header lines 45-48): the timeout the
-    // TolerantProbe exchanges in ConnectBootloader read with, and the one
-    // every other short-timeout read in this family's connect/read path
-    // shares.
+    // serial_read_short_timeout: the timeout the TolerantProbe exchanges in
+    // ConnectBootloader read with, and the one every other short-timeout read
+    // in this family's connect/read path shares.
     static constexpr std::chrono::milliseconds kProbeTimeout{200};
     // The dump sweep's own reads use receive_timeout, not this one.
     static constexpr int kProbeCount = 6; // seed and key now read at 2000ms

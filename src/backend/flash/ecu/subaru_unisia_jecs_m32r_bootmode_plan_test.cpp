@@ -46,7 +46,7 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, KernelPlanPadsToWholeChunks)
         const auto plan = BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation::kWrite, variant.protocol,
                                                                       variant.mcu, bytes::Bytes(200, 0x5a));
         ASSERT_THAT(plan, IsOk()) << variant.protocol;
-        bytes::Bytes expected(256, 0x00); // upload_kernel() :312-315 pads to 256
+        bytes::Bytes expected(256, 0x00); // upload_kernel() pads to 256
         std::fill_n(expected.begin(), 200, bytes::Byte{0x5a});
         EXPECT_EQ(plan->Image(), std::optional<bytes::Bytes>(expected));
         EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0, 256}));

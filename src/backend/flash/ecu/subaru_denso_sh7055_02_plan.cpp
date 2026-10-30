@@ -30,8 +30,8 @@ Status ValidateIdentity(std::string_view protocol, std::string_view mcu)
 
 SubaruDensoSh7055_02Plan WireParams(FlashOperation operation)
 {
-    // connect_bootloader():133-168 gates the SSM ECU-ID request on cmd_type
-    // being "read". The selected suffix never changes these parameters.
+    // connect_bootloader() gates the SSM ECU-ID request on cmd_type being
+    // "read". The selected suffix never changes these parameters.
     return {.tester_id = 0xf0, .target_id = 0x10, .read_ecu_id = operation == FlashOperation::kRead};
 }
 

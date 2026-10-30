@@ -23,8 +23,8 @@ struct CatalogEntry
 };
 
 // Exact identities from the revision-59f4e442 legacy wrapper/configuration.
-// Security selection replaces the legacy suffix chain at operation.cpp:458-477;
-// the executor consumes only this enum and never reinterprets target_id().
+// Security selection replaces the legacy suffix chain; the executor consumes
+// only this enum and never reinterprets target_id().
 constexpr auto kCatalog = std::to_array<CatalogEntry>({
     {"sub_ecu_denso_sh7058_can", SubaruDensoSh7058CanSecurity::kStock},
     {"sub_ecu_denso_sh7058_can_ecutek", SubaruDensoSh7058CanSecurity::kEcuTek},

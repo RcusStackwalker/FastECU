@@ -35,10 +35,9 @@ constexpr auto kVariants = std::to_array<Variant>({
     {"sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", 0x20000, false},
     {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000, false},
 });
-// Legacy read_mem() :219 reads fblocks[0].start + 0x100000, and every M32R
-// variant above starts at 0; write_mem() :522 programs from flash address 0.
+// Legacy read_mem() reads fblocks[0].start + 0x100000, and every M32R variant
+// above starts at 0; write_mem() programs from flash address 0.
 constexpr std::uint32_t kReadBase = 0x100000;
-// Legacy execute() :55-57.
 constexpr SubaruUnisiaJecsM32rKlinePlan kWire{.initial_baud = 4800, .tester_id = 0xf0, .target_id = 0x10};
 
 Result<Variant> FindVariant(std::string_view protocol, std::string_view mcu)

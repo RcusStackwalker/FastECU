@@ -541,7 +541,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll
     auto plan = StockPlan(FlashOperation::kWrite);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
-    transport.QueueNoFrame(); // legacy operation.cpp:69-70 initial drain
+    transport.QueueNoFrame(); // Initial drain
     transport.Exchange(bytes::Bytes{0x4D, 0xFF, 0xB4});
     // Legacy connect_bootloader treats an empty read as a bad/missing init
     // response and falls through to the 62500-baud kernel-ID probe.
@@ -565,7 +565,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelW
     auto plan = EcutekPlan(FlashOperation::kWrite);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
-    transport.QueueNoFrame(); // legacy operation.cpp:69-70 initial drain
+    transport.QueueNoFrame(); // Initial drain
     transport.Exchange(bytes::Bytes{0x4D, 0xFF, 0xB4}, bytes::Bytes{0x4C, 0x00, 0xB4});
     transport.Exchange(bytes::Bytes{
         0x53, 0x02, 0x00, 0x00, 0x00, 0x10, 0x60, 0x63, 0x39, 0x40, 0x61, 0x61,
@@ -591,7 +591,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFailsWithNoValidResponseAtAll)
     auto plan = StockPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
-    transport.QueueNoFrame(); // legacy operation.cpp:69-70 initial drain
+    transport.QueueNoFrame(); // Initial drain
     transport.Exchange(bytes::Bytes{0x4D, 0xFF, 0xB4}, bytes::Bytes{0x00, 0x00, 0x00});
     transport.Exchange(Framed(0x01));
     transport.QueueNoFrame();
@@ -630,7 +630,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ShortKlineWriteFailsBeforeRead)
     auto plan = StockPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     ShortWriteTransport transport;
-    transport.QueueNoFrame(); // legacy operation.cpp:69-70 initial drain
+    transport.QueueNoFrame(); // Initial drain
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;

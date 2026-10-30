@@ -6,8 +6,8 @@ in #944 and phase 3 (the rest of `src/backend`, `src/algorithms`, `src/ui`)
 in #945: 147 candidate runs and 23 review items across 70 files. Nothing in
 those trees is left to inventory. New code follows the rule below; the
 recipe and inventories stay as the record of what was kept and why.
-Phase 4 ([logged steps](#phase-4-logged-steps)) folds log-only lambdas
-into `LogThen`/`LogDone`.
+Phase 4 ([logged steps](#phase-4-logged-steps)) folded log-only lambdas
+into `LogThen`/`LogDone` in #947.
 
 **Goal:** Convert straight-line runs of `if (!r.has_value()) { return ...; }`
 early returns into `std::expected` `and_then` / `transform` chains, following the shape PRs #912, #913, #919, #921, #923 and

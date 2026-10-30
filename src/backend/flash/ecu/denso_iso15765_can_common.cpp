@@ -18,10 +18,7 @@ namespace fastecu::flash
 namespace
 {
 
-// Legacy setup-PDU provenance (operation sources at 20892df): N83M 1.5M
-// lines 837-852, 878-893, 1379-1394; N83M 4M lines 845-860, 886-901,
-// 1390-1405; SH72531 lines 844-854, 881-891, 1378-1388; SH72543 diesel
-// lines 827-843, 866-882, 1400-1413. Diesel computes the fields while its
+// Legacy setup PDUs: diesel computes the fields while its
 // siblings spell out literals; all encode the supplied region identically.
 constexpr bytes::Byte kDataFormatIdentifier = 0x04;
 constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
@@ -69,7 +66,7 @@ constexpr std::array<InCarExchange, 10> kN83mInCarSequence{{
 }};
 
 // The SH72531 and SH72543 diesel run: the N83M run with session 0x03, not
-// 0x63, on 0x7E1 (SH72531 legacy 409-419, diesel 408-416).
+// 0x63, on 0x7E1 (SH72531 and diesel legacy).
 constexpr std::array<InCarExchange, 10> kShInCarSequence{{
     {0x7A2, {uds::kSidDiagnosticSessionControl, 0xC0, 0}, 2},
     {0x7E0, {uds::kSidDiagnosticSessionControl, 0x63, 0}, 2},
@@ -166,9 +163,8 @@ Status DensoIso15765WriteChunk(const CanExecutorContext& ctx, std::uint32_t addr
     return {};
 }
 
-// Legacy reflash_block write loops: N83M 1.5M 1205-1227, N83M 4M 1206-1242,
-// SH72531 1205-1227 and SH72543 diesel 1197-1218, after write_memory encrypts
-// the whole ROM once (1096, 1109, 1095, 1084). Legacy's stopRequested()
+// Legacy reflash_block write loops run after write_memory encrypts the
+// whole ROM once. Legacy's stopRequested()
 // returns 0 -- success -- to write_memory, which reports a completed block;
 // a cancellation mid-write must never read as a successful ROM write, so it
 // fails here instead, as subaru_hitachi_m32r_can_executor.cpp does. Each
@@ -200,16 +196,13 @@ Status DensoIso15765WriteImage(const CanExecutorContext& ctx, bytes::ByteView im
     return {};
 }
 
-// Legacy read_memory after setup: page loops at N83M 1.5M 922-979,
-// N83M 4M 929-991, SH72531 916-1007 and SH72543 diesel 907-1001, each with
-// stopRequested() at the top; stop loops at 1027-1057, 1040-1070, 1025-1056
-// and 1019-1045, all at receive_timeout; padding at 1061-1068, 1072-1078,
-// 1058-1069 and 1047-1058. The SH page pacing (SH72531 1007, diesel 1001)
+// Legacy read_memory after setup: page loops with stopRequested() at the
+// top, then stop loops at receive_timeout, then padding. The SH page pacing
 // precedes the next B7 write, so no read timeout subsumes it. Every family
 // logs the stop response: N83M 4M's legacy logs only an empty continuation
-// line there (line 1066), a log-only difference dropped on purpose.
-// Legacy decrypts the whole accumulated dump in one call (1059, 1072, 1058,
-// 1047); SsmProtocol::calculatePayload transforms independent 4-byte words, so
+// line there, a log-only difference dropped on purpose.
+// Legacy decrypts the whole accumulated dump in one call;
+// SsmProtocol::calculatePayload transforms independent 4-byte words, so
 // decrypting each page as it arrives is byte-identical without a second
 // full-ROM buffer.
 Result<bytes::Bytes> DensoIso15765ReadDump(const CanExecutorContext& ctx, const MemoryRegion& region,
@@ -261,8 +254,7 @@ Result<bytes::Bytes> DensoIso15765ReadDump(const CanExecutorContext& ctx, const 
     return image;
 }
 
-// Legacy close-block loops: N83M 1.5M 1255-1289, N83M 4M 1269-1303,
-// SH72531 1261-1293 and SH72543 diesel 1282-1311. Each re-sends 37;
+// Legacy close-block loops each re-send 37;
 // failures, including returned cancellation, are deliberately ignored.
 // Success hex remains the envelope-stripped PDU used by the existing port.
 void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx)
@@ -281,13 +273,12 @@ void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx)
     }
 }
 
-// Legacy settle and checksum verify: N83M 1.5M 1291-1352, N83M 4M 1305-1362,
-// SH72531 1295-1347 and SH72543 diesel 1313-1365; the request bytes and the
-// settle are identical in all four. The settle precedes a write, so no read
+// Legacy settle and checksum verify: the request bytes and the settle are
+// identical in all four families. The settle precedes a write, so no read
 // timeout subsumes it. Legacy also required the 7F 31 78 pending answer
 // before the result; UdsClient absorbs that NRC and accepts an immediate
 // positive answer too. Legacy's SH-only "Checksum not verified" line after a
-// rejection (SH72531 1315/1325, diesel 1333/1343) is dropped on purpose:
+// rejection is dropped on purpose:
 // FatalQuery already logs the rejection and the error propagates.
 Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const uds::ExchangePolicy& checksum_policy)
 {
@@ -341,10 +332,8 @@ Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte se
     return {};
 }
 
-// Legacy kernel jumps and their bounded re-read loops: N83M 1.5M bench
-// 770-802 / in car 625-655, N83M 4M 776-806 / 631-659, SH72531 770-804 /
-// 625-655, SH72543 diesel 755-790 / 617-648. The bench discard is N83M 4M
-// lines 788-791 and SH72531 782-785: read, delay(50), read again. The loop's
+// Legacy kernel jumps and their bounded re-read loops. The N83M 4M and
+// SH72531 bench discard is: read, delay(50), read again. The loop's
 // `init_ready` flag is never read after the loop and every arm falls through
 // to `return STATUS_SUCCESS`, so an unacknowledged jump is logged but is not
 // an error -- deliberately not "fixed".
@@ -557,16 +546,15 @@ Status N83mInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport&
     return RunInCarSequence(ctx, can, kN83mInCarSequence, kInCarTimeout);
 }
 
-// SH72531 legacy 373-492 reads every reply at serial_read_short_timeout; the
-// diesel (375-483) reads the 0x7E0 reply at serial_read_timeout (line 394).
+// SH72531 legacy reads every reply at serial_read_short_timeout; the diesel
+// reads the 0x7E0 reply at serial_read_timeout.
 Status ShInCarFireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can,
                             std::chrono::milliseconds primary_timeout)
 {
     return RunInCarSequence(ctx, can, kShInCarSequence, primary_timeout);
 }
 
-// Legacy in-car arms: N83M 1.5M 341-656, N83M 4M 345-661, SH72531 341-656,
-// SH72543 diesel 341-648. The probe logs a mismatch and aborts only on an
+// Legacy in-car arms: the probe logs a mismatch and aborts only on an
 // absent or short reply; unlike it, the session confirmation is fatal on a
 // mismatch and expects 0x63 rather than 0x01; the selector re-read is fatal
 // and its content past 62 10 is not inspected.
@@ -609,8 +597,6 @@ Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTranspo
             });
 }
 
-// Legacy bench arms: N83M 1.5M 657-803, N83M 4M 663-808, SH72531 657-805,
-// SH72543 diesel 649-791.
 Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBenchArm& arm)
 {
     LogInfo(ctx, "Bench programming: accessing, please wait...");

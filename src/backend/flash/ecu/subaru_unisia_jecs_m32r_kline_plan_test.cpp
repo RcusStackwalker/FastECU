@@ -127,9 +127,8 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, RejectsEveryOtherIdentity)
     }
 }
 
-// Bootmode Read is byte-identical to this family's Read
-// (flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp:112-275); bootmode
-// Write belongs to the bootmode family.
+// Bootmode Read is byte-identical to this family's Read; bootmode Write belongs
+// to the bootmode family.
 TEST(SubaruUnisiaJecsM32rKlinePlan, AcceptsBootmodeProtocolsForReadOnly)
 {
     struct Bootmode
@@ -185,8 +184,8 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, WriteImageMustBeExactlyTheRomSize)
 {
     constexpr std::string_view kProtocol = "sub_ecu_unisia_jecs_20";
     constexpr std::string_view kMcu = "M32R_128KB";
-    // Legacy write_mem() :524 computed blocks = size / 0x80 and silently
-    // dropped any tail; one byte over is exactly that trailing partial block.
+    // Legacy write_mem() computed blocks = size / 0x80 and silently dropped any
+    // tail; one byte over is exactly that trailing partial block.
     for (const std::size_t size : {std::size_t{0x20000 - 1}, std::size_t{0x20000 + 1}, std::size_t{0x10000}})
     {
         SCOPED_TRACE(::testing::PrintToString(size));

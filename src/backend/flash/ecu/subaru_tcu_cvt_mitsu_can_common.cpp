@@ -10,13 +10,13 @@ namespace fastecu::flash
 namespace
 {
 // Tables confirmed byte-identical between both legacy families; citations
-// establish provenance only, not hardware qualification.
-// Seed key: mh8111 generate_seed_key lines 908-913; mh8104 lines 903-907.
+// establish provenance only, not hardware qualification. Seed key: generate_seed_key
+// in both mh8111 and mh8104.
 constexpr std::array<std::uint16_t, 16> kSeedKeyTable{0x9E99, 0x685C, 0x874D, 0xF11E, 0x27D4, 0xA967, 0xB63B, 0x7A37,
                                                       0xE23B, 0xA8D0, 0x9B82, 0xAC43, 0xE874, 0x7FC5, 0x7141, 0x8B44};
-// Write encryption: mh8111 encrypt_payload lines 947-948; mh8104 lines 935-936.
+// Write encryption: encrypt_payload in both.
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0x7bf2, 0xa8b4, 0x4492, 0x6587};
-// Read decryption: mh8111 decrypt_payload lines 965-966; mh8104 lines 953-954.
+// Read decryption: decrypt_payload in both.
 constexpr std::array<std::uint16_t, 4> kDecryptTable{0x6587, 0x4492, 0xa8b4, 0x7bf2};
 } // namespace
 

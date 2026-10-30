@@ -28,29 +28,28 @@ namespace
 using namespace std::chrono_literals;
 
 constexpr std::uint32_t kDiagnosticRequestId = 0x7E0;
-// Legacy serial_read_timeout (operation.h:46): every connect_bootloader() and
-// read_mem() read, and the per-block 0x34 window setup in reflash_block.
+// Legacy serial_read_timeout: every connect_bootloader() and read_mem() read,
+// and the per-block 0x34 window setup in reflash_block.
 constexpr auto kResponseTimeout = 2000ms;
-// Legacy receive_timeout (operation.h:45): the 0xB6 data-frame read only
-// (operation.cpp:809).
+// Legacy receive_timeout: the 0xB6 data-frame read only.
 constexpr auto kDataFrameTimeout = 500ms;
-// Legacy serial_read_long_timeout (operation.h:50): the retried 0x37 close and
-// 0x31 02 02 01 checksum reads (operation.cpp:846, 893).
+// Legacy serial_read_long_timeout: the retried 0x37 close and 0x31 02 02 01
+// checksum reads.
 constexpr auto kRetryTimeout = 800ms;
-// Legacy erase_mem reads with a literal 200 ms (operation.cpp:956).
+// Legacy erase_mem reads with a literal 200 ms.
 constexpr auto kEraseTimeout = 200ms;
 constexpr auto kShortDelay = 50ms;
 constexpr auto kJumpDelay = 200ms;
-// Legacy read_mem's delay(1) after every dumped page (operation.cpp:553).
+// Legacy read_mem's delay(1) after every dumped page.
 constexpr auto kPageDelay = 1ms;
-// Legacy reflash_block's delay(200) before every 0xB6 read (operation.cpp:808)
-// and its delay(100) between a closed block and its checksum (line 875).
+// Legacy reflash_block's delay(200) before every 0xB6 read and its delay(100)
+// between a closed block and its checksum.
 constexpr auto kDataFrameDelay = 200ms;
 constexpr auto kChecksumDelay = 100ms;
-// Legacy erase_mem's delay(500) before the erase read (operation.cpp:952).
+// Legacy erase_mem's delay(500) before the erase read.
 constexpr auto kEraseDelay = 500ms;
-// Legacy reflash_block retries both the close and the checksum 20 times
-// (operation.cpp:842, 889); exhausting either fails the block.
+// Legacy reflash_block retries both the close and the checksum 20 times;
+// exhausting either fails the block.
 constexpr int kRetryAttempts = 20;
 
 // Directly compared against legacy generate_seed_key(): the 32-entry index
@@ -60,17 +59,16 @@ constexpr std::array<std::uint16_t, 16> kSeedKeyTable{
     0xBC63, 0x5988, 0x2845, 0x9846, 0xEB97, 0x99DE, 0xC7DB, 0xEFAE,
 };
 
-// Legacy decrypt_payload (operation.cpp:1021): encrypt_payload's four words in
-// reverse order. The read path decrypts what the kernel dumps; the write path
-// encrypts the image before the first frame goes out.
+// Legacy decrypt_payload: encrypt_payload's four words in reverse order. The
+// read path decrypts what the kernel dumps; the write path encrypts the image
+// before the first frame goes out.
 constexpr std::array<std::uint16_t, 4> kDecryptTable{0x1075, 0x9E51, 0x8BEF, 0x3B61};
-// Legacy encrypt_payload (operation.cpp:1002).
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
 
-// Legacy write_mem's block_modified table (operation.cpp:632-633): 16 entries
-// for an 11-block M32R_512KB, so entries 11-15 are never consulted. Blocks 0-2
-// (0x0000, 0x4000, 0x6000) hold the bootloader and are deliberately left
-// alone; only blocks 3-10 (0x8000 through 0x80000) are reflashed.
+// Legacy write_mem's block_modified table: 16 entries for an 11-block
+// M32R_512KB, so entries 11-15 are never consulted. Blocks 0-2 (0x0000, 0x4000,
+// 0x6000) hold the bootloader and are deliberately left alone; only blocks 3-10
+// (0x8000 through 0x80000) are reflashed.
 constexpr std::array<bool, 16> kBlockModified{
     false, false, false, true, true, true, true, true, true, true, true, false, false, false, false, false,
 };
@@ -80,15 +78,14 @@ bytes::Bytes SeedKey(bytes::ByteView seed)
     return ssm_protocol::CalculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kStockPairTable);
 }
 
-// Legacy composes ecuCalDef->RomId as "<CALID>_<TCUID>_" (operation.cpp:170,
-// 207): the TCU ID step sets RomId = "<TCUID>_" and the CAL ID step then
-// INSERTS "<CALID>_" at the front, giving "<CALID>_<TCUID>_". Both legacy
-// steps are non-fatal on a short or mismatched response and could leave a
-// partial "<TCUID>_"-only or "<CALID>_"-only id; the port only reports a
-// rom_id when BOTH decoded cleanly (matched prefix and long enough), so a
-// caller either gets the well-formed identifier legacy's success path
-// produces or none at all -- never a half-built one that could still end up
-// naming a saved dump.
+// Legacy composes ecuCalDef->RomId as "<CALID>_<TCUID>_": the TCU ID step sets
+// RomId = "<TCUID>_" and the CAL ID step then INSERTS "<CALID>_" at the front,
+// giving "<CALID>_<TCUID>_". Both legacy steps are non-fatal on a short or
+// mismatched response and could leave a partial "<TCUID>_"-only or
+// "<CALID>_"-only id; the port only reports a rom_id when BOTH decoded cleanly
+// (matched prefix and long enough), so a caller either gets the well-formed
+// identifier legacy's success path produces or none at all -- never a
+// half-built one that could still end up naming a saved dump.
 struct Ctx
 {
     const ICancellationToken& cancellation;
@@ -313,8 +310,8 @@ Result<std::optional<std::string>> ConnectBootloader(const Ctx& ctx)
         {
             if (alive)
             {
-                // Legacy returns here too, before ever requesting the TCU/CAL ID
-                // (line 128), so RomId is never set on this path either.
+                // Legacy returns here too, before ever requesting the TCU/CAL
+                // ID, so RomId is never set on this path either.
                 return std::optional<std::string>{};
             }
             return RequestRomId(ctx).and_then(
@@ -323,19 +320,18 @@ Result<std::optional<std::string>> ConnectBootloader(const Ctx& ctx)
         });
 }
 
-// Legacy read_mem (operation.cpp:395-616).
 Result<bytes::Bytes> ReadRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, const MemoryRegion& region)
 {
     const ICancellationToken& cancellation = ctx.cancellation;
     IEventSink& events = ctx.events;
     // Deliberate divergence 2: legacy subtracted 0x00100000 from a start
-    // address of 0 (line 408), underflowing uint32_t to 0xFFF00000, which is
-    // not less than 0x8000 and so walked straight past its own floor clamp
-    // (line 409). The live path therefore asked the kernel for 0x80000 bytes
-    // from 0xFFF00000 and then prepended a further 0x8000 zeros -- a
-    // 0x88000-byte image for a 0x80000 ROM, which cannot be a valid dump. The
-    // port asks for the window the clamp evidently intended: region.length
-    // (0x78000) bytes from region.start (0x8000).
+    // address of 0, underflowing uint32_t to 0xFFF00000, which is not less than
+    // 0x8000 and so walked straight past its own floor clamp. The live path
+    // therefore asked the kernel for 0x80000 bytes from 0xFFF00000 and then
+    // prepended a further 0x8000 zeros -- a 0x88000-byte image for a 0x80000
+    // ROM, which cannot be a valid dump. The port asks for the window the clamp
+    // evidently intended: region.length (0x78000) bytes from region.start
+    // (0x8000).
     events.Log(LogLevel::kInfo, "Setting dump start & length...");
     bytes::Bytes window_request{uds::kSidRequestDownload, 0x04, 0x33};
     bytes::AppendU24Be(window_request, region.start);
@@ -353,7 +349,7 @@ Result<bytes::Bytes> ReadRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& 
     dumped.reserve(region.length);
     for (std::uint32_t offset = 0; offset < region.length; offset += plan.page_size)
     {
-        // Legacy's stopRequested() check at the top of the dump loop (line 480).
+        // Legacy's stopRequested() check at the top of the dump loop.
         if (cancellation.Cancelled())
         {
             return Fail(ErrorKind::kCancelled, "cancelled during ROM read");
@@ -378,8 +374,8 @@ Result<bytes::Bytes> ReadRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& 
         }
         dumped.insert(dumped.end(), page->begin() + 1, page->end());
         events.Progress(static_cast<int>(offset + plan.page_size), static_cast<int>(region.length));
-        // Legacy's delay(1) (line 553): after the page is in hand, before the
-        // next request goes out.
+        // Legacy's delay(1): after the page is in hand, before the next request
+        // goes out.
         if (const Status slept = ctx.clock.Sleep(kPageDelay, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
@@ -389,7 +385,7 @@ Result<bytes::Bytes> ReadRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& 
     events.Log(LogLevel::kInfo, "ROM read complete");
     events.Log(LogLevel::kInfo, "Sending stop command...");
     // Legacy logs a bad or missing stop answer and carries on: both of its
-    // `return STATUS_ERROR` lines are commented out (lines 590 and 597).
+    // `return STATUS_ERROR` lines are commented out.
     Result<std::optional<bytes::Bytes>> stop = Tolerant(ctx, ctx.kernel, bytes::Bytes{uds::kSidRequestTransferExit},
                                                         Policy(0ms, kResponseTimeout), bytes::Bytes{0x77}, "dump stop");
     if (!stop.has_value())
@@ -399,7 +395,7 @@ Result<bytes::Bytes> ReadRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& 
 
     // Deliberate divergence 4: a sized zero buffer. Legacy filled a
     // default-constructed, empty QByteArray through padBytes[i] for i in
-    // 0..0x7FFF (lines 605-609), which does not extend under Qt 6.
+    // 0..0x7FFF, which does not extend under Qt 6.
     bytes::Bytes image(region.start, bytes::Byte{0x00});
     const bytes::Bytes decrypted = ssm_protocol::CalculatePayload(dumped, kDecryptTable, ssm_protocol::kStockPairTable);
     image.insert(image.end(), decrypted.begin(), decrypted.end());
@@ -437,26 +433,24 @@ Status Erase(const Ctx& ctx)
             });
 }
 
-// Legacy erase_mem (operation.cpp:925-966).
 Status EraseFlash(const Ctx& ctx)
 {
     ctx.events.Log(LogLevel::kInfo, "Erasing TCU ROM...");
     // Deliberate divergence 5, the most dangerous defect in the family: legacy
     // waited 500 ms, read with a 200 ms timeout for a multi-second erase, then
     // indexed received.at(4), at(5) and at(6) with no length guard, and its
-    // `return STATUS_ERROR` was commented out (operation.cpp:963). A failed,
-    // short or absent erase was logged and reflash proceeded onto
-    // possibly-unerased flash. Here any of the three stops the operation
-    // before a single 0x34 or 0xB6 frame is sent. The delay, the timeout and
-    // the expected bytes are legacy's.
+    // `return STATUS_ERROR` was commented out. A failed, short or absent erase
+    // was logged and reflash proceeded onto possibly-unerased flash. Here any
+    // of the three stops the operation before a single 0x34 or 0xB6 frame is
+    // sent. The delay, the timeout and the expected bytes are legacy's.
     if (const Status erased = Erase(ctx); !erased.has_value())
     {
         // T4a: scoped to the three divergence-5 shapes (short, wrong content,
         // silent) that all mirror legacy's single, undifferentiated content
-        // check (operation.cpp:958-962) -- not to cancellation, where the
-        // operator already knows they stopped it, and not to a port/transport
-        // error, which is a comms fault rather than TCU-state ambiguity.
-        // Legacy had no equivalent of either of those cases at this point.
+        // check -- not to cancellation, where the operator already knows they
+        // stopped it, and not to a port/transport error, which is a comms fault
+        // rather than TCU-state ambiguity. Legacy had no equivalent of either
+        // of those cases at this point.
         if (erased.error().kind == ErrorKind::kBadResponse || erased.error().kind == ErrorKind::kTimeout)
         {
             ctx.events.Log(LogLevel::kError,
@@ -468,7 +462,6 @@ Status EraseFlash(const Ctx& ctx)
     return {};
 }
 
-// Legacy reflash_block (operation.cpp:712-923).
 Status ReflashBlock(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, const FlashBlock& block,
                     bytes::ByteView encrypted, std::uint32_t& written, std::uint32_t total)
 {
@@ -476,7 +469,7 @@ Status ReflashBlock(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, con
     IEventSink& events = ctx.events;
     const std::uint32_t frame_size = plan.write_frame_size;
     const std::uint32_t frames = block.len / frame_size;
-    // Legacy end_addr - start_address: whole frames only (operation.cpp:739).
+    // Legacy end_addr - start_address: whole frames only.
     const std::uint32_t data_len = frames * frame_size;
     // No test pins this line -- mutation M36, which deletes it, survives by
     // design -- but it must stay: it is the only thing standing between an
@@ -484,12 +477,11 @@ Status ReflashBlock(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, con
     // get written to flash hardware. Deleting it re-opens mutation M09 (block
     // range widened past the 11-entry table), which without this guard reads
     // device->fblocks[11] off the end of a constexpr array and then indexes
-    // encrypted[0x804000] on a 0x80000-byte vector. On the validated
-    // M32R_512KB geometry -- the plan validator pins both the MCU and the
-    // 0x80000 image size -- this guard cannot fire; it exists so a future
-    // geometry change fails cleanly with InvalidConfig instead of reading out
-    // of bounds. Legacy indexed newdata[i + blockaddr] with no such check
-    // (operation.cpp:803).
+    // encrypted[0x804000] on a 0x80000-byte vector. On the validated M32R_512KB
+    // geometry -- the plan validator pins both the MCU and the 0x80000 image
+    // size -- this guard cannot fire; it exists so a future geometry change
+    // fails cleanly with InvalidConfig instead of reading out of bounds. Legacy
+    // indexed newdata[i + blockaddr] with no such check.
     if (block.start > encrypted.size() || data_len > encrypted.size() - block.start)
     {
         return Fail(ErrorKind::kInvalidConfig,
@@ -510,9 +502,9 @@ Status ReflashBlock(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, con
 
     for (std::uint32_t frame = 0; frame < frames; ++frame)
     {
-        // Legacy's stopRequested() check at the top of the frame loop
-        // (operation.cpp:785), which returned STATUS_SUCCESS and so reported a
-        // cancelled block as reflashed.
+        // Legacy's stopRequested() check at the top of the frame loop, which
+        // returned STATUS_SUCCESS and so reported a cancelled block as
+        // reflashed.
         if (cancellation.Cancelled())
         {
             return Fail(ErrorKind::kCancelled, "cancelled during block write");
@@ -536,9 +528,9 @@ Status ReflashBlock(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, con
 
     events.Log(LogLevel::kInfo, "Closing out flashing of this block...");
     // Legacy retries the close up to 20 times; one non-0x77 or absent reply is
-    // logged and retried (both `return STATUS_ERROR` lines are commented out,
-    // operation.cpp:861), but exhausting the 20 attempts fails the block
-    // before the checksum is ever asked for (operation.cpp:870-873).
+    // logged and retried (both `return STATUS_ERROR` lines are commented out),
+    // but exhausting the 20 attempts fails the block before the checksum is
+    // ever asked for.
     bool closed = false;
     for (int attempt = 0; attempt < kRetryAttempts && !closed; ++attempt)
     {
@@ -565,7 +557,7 @@ Status ReflashBlock(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, con
     events.Log(LogLevel::kInfo, "Verifying checksum...");
     // The 0x71 02 02 answer is the block's only success condition: legacy
     // returns STATUS_SUCCESS from inside this loop and STATUS_ERROR from below
-    // it (operation.cpp:889-917). A short, wrong or absent answer is retried.
+    // it. A short, wrong or absent answer is retried.
     for (int attempt = 0; attempt < kRetryAttempts; ++attempt)
     {
         Result<std::optional<bytes::Bytes>> checksum =
@@ -585,7 +577,6 @@ Status ReflashBlock(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, con
                 std::format("block at 0x{:08X} checksum failed after {} attempts", block.start, kRetryAttempts));
 }
 
-// Legacy write_mem (operation.cpp:624-705).
 Status WriteRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, const FlashPlan& flash_plan)
 {
     IEventSink& events = ctx.events;
@@ -599,9 +590,9 @@ Status WriteRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, const F
         return Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN write plan carries no ROM image");
     }
 
-    // Legacy encrypts the whole image before the first frame leaves
-    // (operation.cpp:640) and then indexes it by absolute flash address
-    // (operation.cpp:803, newdata[i + blockaddr] over fblocks[0].start == 0).
+    // Legacy encrypts the whole image before the first frame leaves and then
+    // indexes it by absolute flash address (newdata[i + blockaddr] over
+    // fblocks[0].start == 0).
     const bytes::Bytes& image = *flash_plan.Image();
     const bytes::Bytes encrypted = ssm_protocol::CalculatePayload(image, kEncryptTable, ssm_protocol::kStockPairTable);
     // A second defensive guard, same treatment as the one in reflash_block above:
@@ -706,10 +697,9 @@ Result<FlashExecutionResult> ExecuteTransfer(const FlashPlan& plan, const Ctx& c
     return FlashExecutionResult{
         .operation = FlashOperation::kWrite,
         .read_bytes = std::nullopt,
-        // Legacy only assigns ecuCalDef->RomId when cmd_type == "read"
-        // (operation.cpp:168, 205); the decoded id is discarded here too,
-        // even though connect_bootloader() decodes it on every connect
-        // regardless of operation.
+        // Legacy only assigns ecuCalDef->RomId when cmd_type == "read"; the
+        // decoded id is discarded here too, even though connect_bootloader()
+        // decodes it on every connect regardless of operation.
         .rom_id = std::nullopt,
     };
 }
