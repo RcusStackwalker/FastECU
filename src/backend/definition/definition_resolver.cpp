@@ -530,22 +530,18 @@ Result<void> ApplyAxisScaling(AxisDefinition& axis, std::string_view axis_contex
     {
         return {};
     }
-    auto scaling = FindScaling(scalings, axis.scaling_name, axis_context);
-    if (!scaling.has_value())
-    {
-        return std::unexpected(scaling.error());
-    }
-    if (!(*scaling)->selections.empty())
-    {
-        return Fail(ErrorKind::kInvalidConfig,
-                    std::format("{} cannot use selectable scaling '{}'", axis_context, axis.scaling_name));
-    }
-    if (auto agrees = CheckScalingAgrees(axis.storage_type, axis.endian, **scaling, axis_context); !agrees.has_value())
-    {
-        return agrees;
-    }
-    OverlayAxisScaling(axis, **scaling);
-    return {};
+    return FindScaling(scalings, axis.scaling_name, axis_context)
+        .and_then(
+            [&](const UnresolvedScaling *scaling) -> Status
+            {
+                if (!scaling->selections.empty())
+                {
+                    return Fail(ErrorKind::kInvalidConfig,
+                                std::format("{} cannot use selectable scaling '{}'", axis_context, axis.scaling_name));
+                }
+                return CheckScalingAgrees(axis.storage_type, axis.endian, *scaling, axis_context)
+                    .transform([&] { OverlayAxisScaling(axis, *scaling); });
+            });
 }
 
 Result<void> ValidateAxis(AxisDefinition& axis, std::string_view axis_context, std::uint32_t required_size,
@@ -598,23 +594,24 @@ Result<bool> ApplyMapScaling(CalibrationMap& map, std::string_view subject, cons
     {
         return false;
     }
-    auto scaling = FindScaling(scalings, map.scaling_name, subject);
-    if (!scaling.has_value())
-    {
-        return std::unexpected(scaling.error());
-    }
-    if (auto agrees = CheckScalingAgrees(map.storage_type, map.endian, **scaling, subject); !agrees.has_value())
-    {
-        return std::unexpected(agrees.error());
-    }
-    OverlayOptional(map.storage_type, (*scaling)->storage_type);
-    OverlayString(map.endian, (*scaling)->endian);
-    if ((*scaling)->selections.empty())
-    {
-        return false;
-    }
-    map.type = "Selectable";
-    return true;
+    return FindScaling(scalings, map.scaling_name, subject)
+        .and_then(
+            [&](const UnresolvedScaling *scaling)
+            {
+                return CheckScalingAgrees(map.storage_type, map.endian, *scaling, subject)
+                    .transform(
+                        [&]() -> bool
+                        {
+                            OverlayOptional(map.storage_type, scaling->storage_type);
+                            OverlayString(map.endian, scaling->endian);
+                            if (scaling->selections.empty())
+                            {
+                                return false;
+                            }
+                            map.type = "Selectable";
+                            return true;
+                        });
+            });
 }
 
 Result<void> ValidateMap(CalibrationMap& map, const std::string& key, const ScalingIndex& scalings)
@@ -627,28 +624,26 @@ Result<void> ValidateMap(CalibrationMap& map, const std::string& key, const Scal
     {
         return Fail(ErrorKind::kInvalidConfig, std::format("zero start position for map '{}'", key));
     }
-    const auto selection_scaling = ApplyMapScaling(map, std::format("map '{}'", key), scalings);
-    if (!selection_scaling.has_value())
-    {
-        return std::unexpected(selection_scaling.error());
-    }
-    // Selectable and bloblist go together, and need selections to choose from.
-    const bool bloblist = map.storage_type == StorageType::kBloblist;
-    if (map.type == "Selectable" && (!bloblist || !*selection_scaling))
-    {
-        return Fail(ErrorKind::kInvalidConfig,
-                    std::format("selectable map '{}' requires a bloblist selection scaling", key));
-    }
-    if (bloblist && map.type != "Selectable")
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("bloblist map '{}' must be selectable", key));
-    }
-    if (auto x_axis = ValidateAxis(map.x_axis, std::format("x axis for map '{}'", key), map.x_size, true, scalings);
-        !x_axis.has_value())
-    {
-        return x_axis;
-    }
-    return ValidateAxis(map.y_axis, std::format("y axis for map '{}'", key), map.y_size, false, scalings);
+    return ApplyMapScaling(map, std::format("map '{}'", key), scalings)
+        .and_then(
+            [&](bool selection_scaling) -> Status
+            {
+                // Selectable and bloblist go together, and need selections to choose from.
+                const bool bloblist = map.storage_type == StorageType::kBloblist;
+                if (map.type == "Selectable" && (!bloblist || !selection_scaling))
+                {
+                    return Fail(ErrorKind::kInvalidConfig,
+                                std::format("selectable map '{}' requires a bloblist selection scaling", key));
+                }
+                if (bloblist && map.type != "Selectable")
+                {
+                    return Fail(ErrorKind::kInvalidConfig, std::format("bloblist map '{}' must be selectable", key));
+                }
+                return ValidateAxis(map.x_axis, std::format("x axis for map '{}'", key), map.x_size, true, scalings);
+            })
+        .and_then(
+            [&]
+            { return ValidateAxis(map.y_axis, std::format("y axis for map '{}'", key), map.y_size, false, scalings); });
 }
 
 Result<void> ValidateAndResolveMaps(RomDefinition& definition, const UnresolvedDefinition& unresolved)
