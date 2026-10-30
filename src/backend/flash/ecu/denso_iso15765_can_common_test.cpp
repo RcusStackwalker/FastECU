@@ -1156,6 +1156,24 @@ TEST(DensoIso15765CanCommon, ProgrammingBranchSelectorShorterThanFourBytesIsBadR
     EXPECT_TRUE(f.transport.ScriptConsumed());
 }
 
+// The tolerant probe logs a reply whose service byte alone is wrong, and
+// stays silent on an exact one.
+TEST(DensoIso15765CanCommon, TolerantProbeLogsOnlyAMismatchedServiceOrSubfunction)
+{
+    for (const bool wrong_service : {false, true})
+    {
+        SCOPED_TRACE(wrong_service);
+        CommonFixture f;
+        f.transport.Exchange(Request({0x10, 0x5F}), wrong_service ? Response({0x51, 0x01}) : Response({0x50, 0x01}));
+        f.transport.Exchange(Request({0x22, 0x10, 0x1D}), Response({0x62, 0x10, 0x1D, 0x00}));
+
+        EXPECT_THAT(DensoProgrammingBranchIsInCar(f.ctx, 200ms), ::testing::Optional(true));
+        const auto errors =
+            std::ranges::count(f.events.logs, LogLevel::kError, [](const auto& entry) { return entry.first; });
+        EXPECT_EQ(errors, wrong_service ? 1 : 0);
+    }
+}
+
 TEST(DensoIso15765CanCommon, EraseTriggerSendFailureStopsBeforeTheSettle)
 {
     FaultFixture f;
