@@ -293,5 +293,14 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadRejectsLengthOutsideThreeByteWireFiel
     EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("24-bit")));
 }
 
+TEST(SubaruDensoSh7055_02Plan, BuildPropagatesTheGenericPlanValidation)
+{
+    KernelImage unnamed = TestKernel();
+    unnamed.id.clear();
+    EXPECT_THAT(BuildSubaruDensoSh705502Plan(FlashOperation::kRead, "sub_ecu_denso_sh7055_02", "SH7055", std::nullopt,
+                                             std::move(unnamed)),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("kernel id must not be empty")));
+}
+
 } // namespace
 } // namespace fastecu::flash
