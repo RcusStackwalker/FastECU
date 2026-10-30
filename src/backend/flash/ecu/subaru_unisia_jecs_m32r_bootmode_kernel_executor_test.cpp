@@ -3,15 +3,21 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <chrono>
+#include <cstddef>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_plan.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/testing/faulting_kline_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/faulting_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -215,6 +221,58 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CancelledAtEntryTouchesNoContro
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_THAT(transport.control_line_trace, IsEmpty());
     EXPECT_EQ(transport.WritesConsumed(), 0U);
+}
+
+TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, EveryUploadTransportFaultStillDropsTheLines)
+{
+    auto plan = KernelPlan();
+    ASSERT_THAT(plan, IsOk());
+    for (const auto& [op, count] :
+         std::to_array<std::pair<KlineFaultOp, std::size_t>>({{KlineFaultOp::kWrite, 2}, {KlineFaultOp::kRead, 1}}))
+    {
+        SCOPED_TRACE(::testing::PrintToString(static_cast<int>(op)));
+        for (std::size_t k = 1; k <= count; ++k)
+        {
+            SCOPED_TRACE(::testing::PrintToString(std::pair{static_cast<int>(op), k}));
+            FaultingKlineFlashTransport transport;
+            transport.op = op;
+            transport.fail_at = k;
+            ScriptUpload(transport, *plan);
+            RunContext context;
+            EXPECT_THAT(RunScripted(*plan, transport, context),
+                        fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("injected")));
+            EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>(transport.WritesConsumed()));
+            EXPECT_EQ(transport.control_line_trace, (std::vector{Line::kEnableBootModeLines, Line::kDisableLecLines}));
+        }
+    }
+}
+
+TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, ASettleSleepFailureSkipsTheReadAndDropsTheLines)
+{
+    auto plan = KernelPlan();
+    ASSERT_THAT(plan, IsOk());
+    ScriptedKlineFlashTransport transport;
+    ScriptUpload(transport, *plan);
+    FaultingClock clock;
+    clock.fail_at = 1;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+    EXPECT_THAT(SubaruUnisiaJecsM32rBootModeKernelExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("sleep failed")));
+    EXPECT_EQ(transport.WritesConsumed(), 2U);
+    EXPECT_THAT(transport.read_timeouts, IsEmpty());
+    EXPECT_EQ(transport.control_line_trace, (std::vector{Line::kEnableBootModeLines, Line::kDisableLecLines}));
+}
+
+TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, AResetFailureSkipsTheHeader)
+{
+    ScriptedKlineFlashTransport transport;
+    transport.reset_result = Fail(ErrorKind::kDisconnected, "reset");
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    EXPECT_THAT(SubaruUnisiaJecsM32rBootModeKernelExecutor{}.BeforeTransportConfigure(transport, clock, cancellation),
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("reset")));
+    EXPECT_THAT(transport.header_mode_calls, IsEmpty());
 }
 
 } // namespace
