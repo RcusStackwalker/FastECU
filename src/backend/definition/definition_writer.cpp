@@ -207,11 +207,7 @@ DefinitionHeaderInput NormalizeHeaderInput(DefinitionHeaderInput input)
 Result<std::vector<std::uint8_t>> CreateEcuflashXml(const DefinitionHeaderInput& input)
 {
     pugi::xml_document document;
-    if (auto updated = UpdateHeader(CreateRoot(document), input); !updated.has_value())
-    {
-        return std::unexpected(updated.error());
-    }
-    return SerializeAndValidate(document);
+    return UpdateHeader(CreateRoot(document), input).and_then([&] { return SerializeAndValidate(document); });
 }
 
 Result<std::vector<std::uint8_t>> RewriteEcuflashXml(std::span<const std::uint8_t> source,
@@ -237,11 +233,7 @@ Result<std::vector<std::uint8_t>> RewriteEcuflashXml(std::span<const std::uint8_
     {
         return Fail(ErrorKind::kInvalidConfig, "EcuFlash source element <rom>: duplicate top-level <romid> elements");
     }
-    if (auto updated = UpdateHeader(root, input); !updated.has_value())
-    {
-        return std::unexpected(updated.error());
-    }
-    return SerializeAndValidate(document);
+    return UpdateHeader(root, input).and_then([&] { return SerializeAndValidate(document); });
 }
 
 } // namespace fastecu::definition

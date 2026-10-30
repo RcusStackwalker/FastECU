@@ -81,17 +81,12 @@ Status DesktopMixedCanFlashTransport::EnterRawBootloaderMode()
         return Fail(ErrorKind::kInvalidConfig, "mixed CAN transport has no stored configuration");
     }
     const MixedCanConfig config = *stored_config_;
-    if (const Status reset = ResetConnection(); !reset.has_value())
+    if (const Status transitioned = ResetConnection()
+                                        .and_then([&] { return ConfigureRaw(config.bootloader); })
+                                        .and_then([&] { return Open(); });
+        !transitioned.has_value())
     {
-        return TransitionFailure(reset);
-    }
-    if (const Status configured = ConfigureRaw(config.bootloader); !configured.has_value())
-    {
-        return TransitionFailure(configured);
-    }
-    if (const Status opened = Open(); !opened.has_value())
-    {
-        return TransitionFailure(opened);
+        return TransitionFailure(transitioned);
     }
     mode_ = Mode::kRaw;
     return {};
@@ -99,24 +94,26 @@ Status DesktopMixedCanFlashTransport::EnterRawBootloaderMode()
 
 Status DesktopMixedCanFlashTransport::ClearReceiveBuffer()
 {
-    if (const Status ready = IoReady(Mode::kRaw, "receive-buffer clear"); !ready.has_value())
-    {
-        return ready;
-    }
-    return fastecu::desktop::detail::GuardedDriverCall<Status>(
-        ErrorKind::kInternal, "clear_rx_buffer exception",
-        [&]() -> Status
-        {
-            if (!serial_->IsSerialPortOpen())
+    return IoReady(Mode::kRaw, "receive-buffer clear")
+        .and_then(
+            [&]
             {
-                return Fail(ErrorKind::kDisconnected, "mixed CAN adapter disconnected before receive-buffer clear");
-            }
-            if (serial_->ClearRxBuffer() != kSerialSuccess)
-            {
-                return Fail(ErrorKind::kInternal, "clear_rx_buffer failed");
-            }
-            return {};
-        });
+                return fastecu::desktop::detail::GuardedDriverCall<Status>(
+                    ErrorKind::kInternal, "clear_rx_buffer exception",
+                    [&]() -> Status
+                    {
+                        if (!serial_->IsSerialPortOpen())
+                        {
+                            return Fail(ErrorKind::kDisconnected,
+                                        "mixed CAN adapter disconnected before receive-buffer clear");
+                        }
+                        if (serial_->ClearRxBuffer() != kSerialSuccess)
+                        {
+                            return Fail(ErrorKind::kInternal, "clear_rx_buffer failed");
+                        }
+                        return {};
+                    });
+            });
 }
 
 Status DesktopMixedCanFlashTransport::EnterIso15765KernelMode()
@@ -130,17 +127,11 @@ Status DesktopMixedCanFlashTransport::EnterIso15765KernelMode()
         return Fail(ErrorKind::kInvalidConfig, "mixed CAN transport has no stored configuration");
     }
     const MixedCanConfig config = *stored_config_;
-    if (const Status reset = ResetConnection(); !reset.has_value())
+    if (const Status transitioned =
+            ResetConnection().and_then([&] { return ConfigureIso(config); }).and_then([&] { return Open(); });
+        !transitioned.has_value())
     {
-        return TransitionFailure(reset);
-    }
-    if (const Status configured = ConfigureIso(config); !configured.has_value())
-    {
-        return TransitionFailure(configured);
-    }
-    if (const Status opened = Open(); !opened.has_value())
-    {
-        return TransitionFailure(opened);
+        return TransitionFailure(transitioned);
     }
     mode_ = Mode::kIso15765;
     return {};
@@ -148,76 +139,66 @@ Status DesktopMixedCanFlashTransport::EnterIso15765KernelMode()
 
 Status DesktopMixedCanFlashTransport::WriteIso15765(bytes::ByteView data, const ICancellationToken& cancellation)
 {
-    if (const Status ready = IoReady(Mode::kIso15765, "ISO-15765 write"); !ready.has_value())
-    {
-        return ready;
-    }
-    return WriteSerial(data, cancellation);
+    return IoReady(Mode::kIso15765, "ISO-15765 write").and_then([&] { return WriteSerial(data, cancellation); });
 }
 
 Result<std::optional<bytes::Bytes>> DesktopMixedCanFlashTransport::ReadIso15765(std::chrono::milliseconds timeout,
                                                                                 const ICancellationToken& cancellation)
 {
-    if (const Status ready = IoReady(Mode::kIso15765, "ISO-15765 read"); !ready.has_value())
-    {
-        return std::unexpected(ready.error());
-    }
-    return ReadSerial(timeout, cancellation);
+    return IoReady(Mode::kIso15765, "ISO-15765 read").and_then([&] { return ReadSerial(timeout, cancellation); });
 }
 
 Status DesktopMixedCanFlashTransport::WriteRaw(const cdbg::CanFrame& frame, const ICancellationToken& cancellation)
 {
-    if (const Status ready = IoReady(Mode::kRaw, "raw CAN write"); !ready.has_value())
-    {
-        return ready;
-    }
-    if (frame.payload.size() > 8)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "raw CAN payload exceeds 8 bytes");
-    }
-    // Contract: the frame is sent exactly as composed, so DLC equals
-    // frame.payload.size() -- unlike the legacy DensoCAN path, which always
-    // wrote 8 zero-filled payload bytes. A caller whose target expects a
-    // fixed 8-byte DLC must pad frame.payload itself before calling this.
-    return WriteSerial(bytes::ComposeBe(frame.id, frame.payload), cancellation);
+    return IoReady(Mode::kRaw, "raw CAN write")
+        .and_then(
+            [&]() -> Status
+            {
+                if (frame.payload.size() > 8)
+                {
+                    return Fail(ErrorKind::kInvalidConfig, "raw CAN payload exceeds 8 bytes");
+                }
+                // Contract: the frame is sent exactly as composed, so DLC equals
+                // frame.payload.size() -- unlike the legacy DensoCAN path, which always
+                // wrote 8 zero-filled payload bytes. A caller whose target expects a
+                // fixed 8-byte DLC must pad frame.payload itself before calling this.
+                return WriteSerial(bytes::ComposeBe(frame.id, frame.payload), cancellation);
+            });
 }
 
 Result<std::optional<cdbg::CanFrame>> DesktopMixedCanFlashTransport::ReadRaw(std::chrono::milliseconds timeout,
                                                                              const ICancellationToken& cancellation)
 {
-    if (const Status ready = IoReady(Mode::kRaw, "raw CAN read"); !ready.has_value())
-    {
-        return std::unexpected(ready.error());
-    }
-    const auto raw = ReadSerial(timeout, cancellation);
-    if (!raw.has_value())
-    {
-        return std::unexpected(raw.error());
-    }
-    if (!raw->has_value())
-    {
-        return std::optional<cdbg::CanFrame>{};
-    }
-    if (raw->value().size() < 4)
-    {
-        return Fail(ErrorKind::kBadResponse, "raw CAN response lacks a four-byte arbitration ID");
-    }
-    const std::uint32_t id = bytes::ReadU32Be(raw->value());
-    if (!stored_config_.has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, "mixed CAN transport has no stored configuration");
-    }
-    if (id != stored_config_->bootloader.receive_id)
-    {
-        return Fail(ErrorKind::kBadResponse, std::format("expected raw CAN reply id 0x{:x}, got 0x{:x}",
-                                                         stored_config_->bootloader.receive_id, id));
-    }
-    bytes::Bytes payload(raw->value().begin() + 4, raw->value().end());
-    if (payload.size() > 8)
-    {
-        return Fail(ErrorKind::kBadResponse, "raw CAN response payload exceeds 8 bytes");
-    }
-    return std::optional<cdbg::CanFrame>{cdbg::CanFrame{.id = id, .payload = std::move(payload)}};
+    return IoReady(Mode::kRaw, "raw CAN read")
+        .and_then([&] { return ReadSerial(timeout, cancellation); })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& raw) -> Result<std::optional<cdbg::CanFrame>>
+            {
+                if (!raw.has_value())
+                {
+                    return std::optional<cdbg::CanFrame>{};
+                }
+                if (raw->size() < 4)
+                {
+                    return Fail(ErrorKind::kBadResponse, "raw CAN response lacks a four-byte arbitration ID");
+                }
+                const std::uint32_t id = bytes::ReadU32Be(*raw);
+                if (!stored_config_.has_value())
+                {
+                    return Fail(ErrorKind::kInvalidConfig, "mixed CAN transport has no stored configuration");
+                }
+                if (id != stored_config_->bootloader.receive_id)
+                {
+                    return Fail(ErrorKind::kBadResponse, std::format("expected raw CAN reply id 0x{:x}, got 0x{:x}",
+                                                                     stored_config_->bootloader.receive_id, id));
+                }
+                bytes::Bytes payload(raw->begin() + 4, raw->end());
+                if (payload.size() > 8)
+                {
+                    return Fail(ErrorKind::kBadResponse, "raw CAN response payload exceeds 8 bytes");
+                }
+                return std::optional<cdbg::CanFrame>{cdbg::CanFrame{.id = id, .payload = std::move(payload)}};
+            });
 }
 
 void DesktopMixedCanFlashTransport::RequestUnblock() noexcept

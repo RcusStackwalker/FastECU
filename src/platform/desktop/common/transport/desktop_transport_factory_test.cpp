@@ -149,6 +149,24 @@ TEST(TestDesktopTransportFactory, reportsDisconnectedWhenTheOpenFails)
     EXPECT_THAT(transport, IsErr(ErrorKind::kDisconnected));
 }
 
+TEST(TestDesktopTransportFactory, reportsAConfigureFailureWithoutOpening)
+{
+    DesktopCanTransportConfig config;
+    config.backend_factory = []() -> SerialBackend *
+    {
+        auto *fake = new NiceFakeBackend();
+        EXPECT_CALL(*fake, CheckSerialPorts()).WillRepeatedly(::testing::Return(QStringList{kOpenPort0}));
+        EXPECT_CALL(*fake, SetIsIso15765Connection(true)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(*fake, OpenSerialPort()).Times(0);
+        return fake;
+    };
+
+    const auto transport = OpenDesktopCanFlashTransport(config, kColtCan);
+
+    EXPECT_THAT(transport, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                       ::testing::Eq("set_is_iso15765_connection failed")));
+}
+
 TEST(TestDesktopTransportFactory, refusesAConfigWithoutABackendFactory)
 {
     const DesktopCanTransportConfig config;

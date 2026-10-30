@@ -4,6 +4,8 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <functional>
 #include <iterator>
 #include <ranges>
 #include <string>
@@ -28,10 +30,12 @@ using fastecu::FakeClock;
 using fastecu::LogLevel;
 using fastecu::RecordingEventSink;
 using fastecu::testing::IsErr;
+using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::Contains;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
+using ::testing::Eq;
 using ::testing::IsEmpty;
 using ::testing::Not;
 
@@ -491,4 +495,78 @@ TEST(DtcSession, FastInitCancellationDoesNotFallBack)
                 ElementsAre("open kline header=Iso14230 iso14230=true baud=10400 start=C0 tester=F1 target=33",
                             "fast_init 81", "read_obd 200", "set_header None", "reset"));
     EXPECT_TRUE(h.link.ScriptConsumed());
+}
+
+namespace
+{
+bool IsFallibleCall(const std::string& call)
+{
+    return !call.starts_with("p1 ") && !call.starts_with("set_header ") && call != "reset";
+}
+
+// Fails each fallible link call of a successful session in turn: the injected
+// error comes back unchanged, nothing runs after the failed call, and the
+// epilogue still restores the link.
+void ExpectEveryLinkFaultPassesThrough(ObdProtocol protocol, DtcOperation operation,
+                                       const std::function<void(Harness&)>& script)
+{
+    Harness reference;
+    script(reference);
+    ASSERT_THAT(reference.Run(protocol, operation), IsOk());
+    for (std::size_t call = 1; call <= reference.link.calls.size(); ++call)
+    {
+        SCOPED_TRACE(reference.link.calls.at(call - 1));
+        if (!IsFallibleCall(reference.link.calls.at(call - 1)))
+        {
+            continue;
+        }
+        Harness h;
+        script(h);
+        h.link.fail_call = call;
+        EXPECT_THAT(h.Run(protocol, operation), IsErrWith(ErrorKind::kDisconnected, Eq("injected fault")));
+        std::vector<std::string> expected(reference.link.calls.begin(),
+                                          reference.link.calls.begin() + static_cast<std::ptrdiff_t>(call));
+        expected.insert(expected.end(), {"set_header None", "reset"});
+        EXPECT_THAT(h.link.calls, ElementsAreArray(expected));
+    }
+}
+} // namespace
+
+TEST(DtcSession, EveryLinkFaultInAFiveBaudClearPassesThrough)
+{
+    ExpectEveryLinkFaultPassesThrough(ObdProtocol::kIso9141, DtcOperation::kClear,
+                                      [](Harness& h)
+                                      {
+                                          QueueClearSetup(h);
+                                          h.link.QueueRead(B({0x48, 0x6B, 0x10, 0x44, 0xCC}));
+                                      });
+}
+
+TEST(DtcSession, EveryLinkFaultInACanReadPassesThrough)
+{
+    ExpectEveryLinkFaultPassesThrough(ObdProtocol::kIso15765, DtcOperation::kRead,
+                                      [](Harness& h)
+                                      {
+                                          h.link.j2534 = true;
+                                          h.link.QueueRead(B({0x00, 0x00, 0x07, 0xE8, 0x41, 0x00}));
+                                          for (int i = 0; i < 14; ++i)
+                                          {
+                                              h.link.QueueNoFrame();
+                                          }
+                                          h.link.QueueRead(B({0x00, 0x00, 0x07, 0xE8, 0x43, 0x01, 0x01, 0x33}));
+                                          h.link.QueueNoFrame();
+                                          h.link.QueueRead(B({0x00, 0x00, 0x07, 0xE8, 0x47, 0x00, 0x00, 0x00}));
+                                          h.link.QueueNoFrame();
+                                      });
+}
+
+TEST(DtcSession, FastInitOpenFailureFallsBackToFiveBaud)
+{
+    Harness h;
+    h.link.QueueOpen(fastecu::Fail(ErrorKind::kDisconnected, "adapter did not open a port"));
+    h.link.QueueFiveBaud(B({0x55, 0x08, 0x08}));
+    std::ignore = h.Run(ObdProtocol::kIso14230, DtcOperation::kRead);
+    EXPECT_THAT(std::vector<std::string>(h.link.calls.begin(), h.link.calls.begin() + 3),
+                ElementsAre("open kline header=Iso14230 iso14230=true baud=10400 start=C0 tester=F1 target=33",
+                            "open kline header=None iso14230=false baud=10400 start=C0 tester=F1 target=33", "p1 35"));
 }

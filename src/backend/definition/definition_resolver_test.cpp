@@ -846,6 +846,80 @@ TEST(DefinitionResolverTest, RejectsContradictorySelectionStorageWithoutMutating
     ExpectInvalidConfigLeavingInputUntouched(root, {"modes", "bloblist"});
 }
 
+TEST(DefinitionResolverTest, RejectsBloblistMapThatIsNotSelectable)
+{
+    auto root = Doc("ROOT");
+    auto fuel = Map("fuel", "Fuel");
+    fuel.storage_type = StorageType::kBloblist;
+    root.maps.push_back(fuel);
+    ExpectInvalidConfigLeavingInputUntouched(root, {"bloblist map 'fuel' must be selectable"});
+}
+
+TEST(DefinitionResolverTest, RejectsMapStorageThatContradictsItsScaling)
+{
+    auto root = Doc("ROOT");
+    root.scalings.push_back(Scaling("value"));
+    auto fuel = Map("fuel", "Fuel");
+    fuel.scaling_name = "value";
+    fuel.storage_type = StorageType::kUint8;
+    root.maps.push_back(fuel);
+    ExpectInvalidConfigLeavingInputUntouched(root, {"contradictory storage type for map 'fuel' and scaling 'value'"});
+}
+
+UnresolvedDefinition AxisScalingRoot(std::string scaling_name)
+{
+    auto root = Doc("ROOT");
+    auto value = Scaling("value");
+    auto modes = Scaling("modes", StorageType::kBloblist);
+    modes.selections = {{"off", "00"}, {"on", "01"}};
+    root.scalings = {value, modes};
+    auto fuel = Map("fuel", "Fuel");
+    fuel.x_size = 4;
+    fuel.x_axis = UnresolvedAxisDefinition{
+        .type = "X Axis",
+        .name = "Engine Speed",
+        .size = 4,
+        .scaling_name = std::move(scaling_name),
+    };
+    root.maps.push_back(fuel);
+    return root;
+}
+
+TEST(DefinitionResolverTest, RejectsUnresolvedAxisScaling)
+{
+    ExpectInvalidConfigLeavingInputUntouched(AxisScalingRoot("missing"),
+                                             {"unresolved scaling 'missing' for x axis for map 'fuel'"});
+}
+
+TEST(DefinitionResolverTest, RejectsSelectableAxisScaling)
+{
+    ExpectInvalidConfigLeavingInputUntouched(AxisScalingRoot("modes"),
+                                             {"x axis for map 'fuel' cannot use selectable scaling 'modes'"});
+}
+
+TEST(DefinitionResolverTest, RejectsAxisStorageThatContradictsItsScaling)
+{
+    auto root = AxisScalingRoot("value");
+    root.maps.front().x_axis.storage_type = StorageType::kUint8;
+    ExpectInvalidConfigLeavingInputUntouched(
+        root, {"contradictory storage type for x axis for map 'fuel' and scaling 'value'"});
+}
+
+TEST(DefinitionResolverTest, SelectionScalingMakesTheMapSelectable)
+{
+    auto root = AxisScalingRoot("value");
+    root.maps.front().scaling_name = "modes";
+    DefinitionSet definitions{};
+
+    auto result = ResolveDefinition(root, definitions.Loader());
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps[0].type, "Selectable");
+    EXPECT_EQ(result->maps[0].storage_type, StorageType::kBloblist);
+    EXPECT_EQ(result->maps[0].x_axis.storage_type, StorageType::kUint16);
+}
+
 UnresolvedDefinition SelectableRoot(std::vector<std::pair<std::string, std::string>> selections)
 {
     auto root = Doc("ROOT");

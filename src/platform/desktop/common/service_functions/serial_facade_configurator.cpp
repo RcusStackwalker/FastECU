@@ -52,23 +52,21 @@ Status OpenPort(SerialPortActions& serial, const char *not_open)
 // self-framed requests.
 Status ConfigureIso15765(SerialPortActions& serial, const SsmTransportConfig& config)
 {
-    const Status mode = ApplySetters({
-        {"set_is_iso14230_connection", [&] { return serial.SetIsIso14230Connection(false); }},
-        {"set_is_can_connection", [&] { return serial.SetIsCanConnection(false); }},
-        {"set_is_iso15765_connection", [&] { return serial.SetIsIso15765Connection(true); }},
-        {"set_is_29_bit_id", [&] { return serial.SetIs29BitId(false); }},
-        {"set_add_iso14230_header", [&] { return serial.SetAddIso14230Header(config.add_iso14230_header); }},
-        {"set_can_speed", [&] { return serial.SetCanSpeed(QString::number(config.bitrate_or_baud)); }},
-        {"set_iso15765_source_address", [&] { return serial.SetIso15765SourceAddress(config.request_id); }},
-        {"set_iso15765_destination_address", [&] { return serial.SetIso15765DestinationAddress(config.response_id); }},
-        {"set_can_source_address", [&] { return serial.SetCanSourceAddress(config.request_id); }},
-        {"set_can_destination_address", [&] { return serial.SetCanDestinationAddress(config.response_id); }},
-    });
-    if (!mode.has_value())
-    {
-        return mode;
-    }
-    return OpenPort(serial, "serial port is not open after ISO-15765 setup");
+    return ApplySetters(
+               {
+                   {"set_is_iso14230_connection", [&] { return serial.SetIsIso14230Connection(false); }},
+                   {"set_is_can_connection", [&] { return serial.SetIsCanConnection(false); }},
+                   {"set_is_iso15765_connection", [&] { return serial.SetIsIso15765Connection(true); }},
+                   {"set_is_29_bit_id", [&] { return serial.SetIs29BitId(false); }},
+                   {"set_add_iso14230_header", [&] { return serial.SetAddIso14230Header(config.add_iso14230_header); }},
+                   {"set_can_speed", [&] { return serial.SetCanSpeed(QString::number(config.bitrate_or_baud)); }},
+                   {"set_iso15765_source_address", [&] { return serial.SetIso15765SourceAddress(config.request_id); }},
+                   {"set_iso15765_destination_address",
+                    [&] { return serial.SetIso15765DestinationAddress(config.response_id); }},
+                   {"set_can_source_address", [&] { return serial.SetCanSourceAddress(config.request_id); }},
+                   {"set_can_destination_address", [&] { return serial.SetCanDestinationAddress(config.response_id); }},
+               })
+        .and_then([&] { return OpenPort(serial, "serial port is not open after ISO-15765 setup"); });
 }
 
 // legacy :141-152 -- "CAN 0xb8 command is disabled, so switch to K-Line
@@ -76,31 +74,27 @@ Status ConfigureIso15765(SerialPortActions& serial, const SsmTransportConfig& co
 // and after the baud call so a drop never falls through into live service I/O.
 Status ConfigureKLine(SerialPortActions& serial, const SsmTransportConfig& config)
 {
-    Status status = ApplySetters({
-        {"set_is_can_connection", [&] { return serial.SetIsCanConnection(false); }},
-        {"set_is_iso15765_connection", [&] { return serial.SetIsIso15765Connection(false); }},
-        {"set_is_iso14230_connection", [&] { return serial.SetIsIso14230Connection(true); }},
-    });
-    if (status.has_value())
-    {
-        status = OpenPort(serial, "serial port is not open before K-Line baud change");
-    }
-    if (!status.has_value())
-    {
-        return status;
-    }
-
-    const int baud_result = serial.ChangePortSpeed(QString::number(config.bitrate_or_baud));
-    if (!serial.IsSerialPortOpen())
-    {
-        return Fail(ErrorKind::kDisconnected, "serial port closed during K-Line baud change");
-    }
-    if (baud_result != 0)
-    {
-        return Fail(ErrorKind::kInternal, "K-Line driver rejected baud change");
-    }
-    return ApplySetters(
-        {{"set_add_iso14230_header", [&] { return serial.SetAddIso14230Header(config.add_iso14230_header); }}});
+    return ApplySetters({
+                            {"set_is_can_connection", [&] { return serial.SetIsCanConnection(false); }},
+                            {"set_is_iso15765_connection", [&] { return serial.SetIsIso15765Connection(false); }},
+                            {"set_is_iso14230_connection", [&] { return serial.SetIsIso14230Connection(true); }},
+                        })
+        .and_then([&] { return OpenPort(serial, "serial port is not open before K-Line baud change"); })
+        .and_then(
+            [&]() -> Status
+            {
+                const int baud_result = serial.ChangePortSpeed(QString::number(config.bitrate_or_baud));
+                if (!serial.IsSerialPortOpen())
+                {
+                    return Fail(ErrorKind::kDisconnected, "serial port closed during K-Line baud change");
+                }
+                if (baud_result != 0)
+                {
+                    return Fail(ErrorKind::kInternal, "K-Line driver rejected baud change");
+                }
+                return ApplySetters({{"set_add_iso14230_header",
+                                      [&] { return serial.SetAddIso14230Header(config.add_iso14230_header); }}});
+            });
 }
 
 } // namespace

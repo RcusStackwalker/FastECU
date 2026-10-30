@@ -14,34 +14,37 @@ namespace
 Result<DefinitionHeaderDraft> ReadHeader(std::span<const std::uint8_t> bytes, pugi::xml_encoding encoding)
 {
     pugi::xml_document document;
-    const auto parsed = ParseDocumentRoot(document, bytes, "authoring header", encoding);
-    if (!parsed.has_value())
-    {
-        return std::unexpected(parsed.error());
-    }
-    const std::string_view root_name{parsed->name()};
-    const auto rom = root_name == "rom" ? *parsed : root_name == "roms" ? parsed->child("rom") : pugi::xml_node{};
-    if (!rom)
-    {
-        return Invalid("authoring header", "XML document", "expected <rom> or a direct <rom> child of <roms>");
-    }
-    if (auto status = ValidateHeaderStructure(rom, "authoring header"); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    const auto rom_id = rom.child("romid");
-    RomMetadata metadata;
-    for (const auto& field : kEditableMetadataFields)
-    {
-        metadata.*field.member = HeaderChildText(rom_id, field.xml_name);
-    }
-    return DefinitionHeaderDraft{.xml_id = HeaderChildText(rom_id, "xmlid"),
-                                 .internal_id = HeaderChildText(rom_id, "internalidstring"),
-                                 .ecu_id = HeaderChildText(rom_id, "ecuid"),
-                                 .internal_id_address_text = HeaderChildText(rom_id, "internalidaddress"),
-                                 .metadata = std::move(metadata),
-                                 .include = HeaderChildText(rom, "include"),
-                                 .notes = HeaderChildText(rom, "notes")};
+    return ParseDocumentRoot(document, bytes, "authoring header", encoding)
+        .and_then(
+            [&](pugi::xml_node root) -> Result<DefinitionHeaderDraft>
+            {
+                const std::string_view root_name{root.name()};
+                const auto rom = root_name == "rom" ? root : root_name == "roms" ? root.child("rom") : pugi::xml_node{};
+                if (!rom)
+                {
+                    return Invalid("authoring header", "XML document",
+                                   "expected <rom> or a direct <rom> child of <roms>");
+                }
+                return ValidateHeaderStructure(rom, "authoring header")
+                    .transform(
+                        [&]
+                        {
+                            const auto rom_id = rom.child("romid");
+                            RomMetadata metadata;
+                            for (const auto& field : kEditableMetadataFields)
+                            {
+                                metadata.*field.member = HeaderChildText(rom_id, field.xml_name);
+                            }
+                            return DefinitionHeaderDraft{.xml_id = HeaderChildText(rom_id, "xmlid"),
+                                                         .internal_id = HeaderChildText(rom_id, "internalidstring"),
+                                                         .ecu_id = HeaderChildText(rom_id, "ecuid"),
+                                                         .internal_id_address_text =
+                                                             HeaderChildText(rom_id, "internalidaddress"),
+                                                         .metadata = std::move(metadata),
+                                                         .include = HeaderChildText(rom, "include"),
+                                                         .notes = HeaderChildText(rom, "notes")};
+                        });
+            });
 }
 } // namespace
 

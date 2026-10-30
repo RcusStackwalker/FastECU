@@ -139,33 +139,32 @@ Status ReadUpTo(IDiagnosticLink& link, bytes::Bytes& frame, std::size_t size, co
 Result<bytes::Bytes> ReadSsm2InitFrame(IDiagnosticLink& link, const ICancellationToken& cancellation)
 {
     bytes::Bytes frame;
-    if (auto got = ReadInto(link, frame, 200ms, cancellation); !got.has_value())
-    {
-        return std::unexpected(got.error());
-    }
-    if (auto read = ReadUpTo(link, frame, 4, cancellation); !read.has_value())
-    {
-        return std::unexpected(read.error());
-    }
-    if (frame.empty())
-    {
-        return Fail(ErrorKind::kTimeout, "no SSM init response");
-    }
-    if (frame.size() < 4)
-    {
-        return BadFrame("header incomplete", frame);
-    }
-    const std::size_t declared = frame[3] + kSsmFrameOverhead;
-    if (auto read = ReadUpTo(link, frame, declared, cancellation); !read.has_value())
-    {
-        return std::unexpected(read.error());
-    }
-    if (frame.size() < declared)
-    {
-        return BadFrame("truncated", frame);
-    }
-    frame.resize(declared);
-    return frame;
+    return ReadInto(link, frame, 200ms, cancellation)
+        .and_then([&](bool) { return ReadUpTo(link, frame, 4, cancellation); })
+        .and_then(
+            [&]() -> Result<bytes::Bytes>
+            {
+                if (frame.empty())
+                {
+                    return Fail(ErrorKind::kTimeout, "no SSM init response");
+                }
+                if (frame.size() < 4)
+                {
+                    return BadFrame("header incomplete", frame);
+                }
+                const std::size_t declared = frame[3] + kSsmFrameOverhead;
+                return ReadUpTo(link, frame, declared, cancellation)
+                    .and_then(
+                        [&]() -> Result<bytes::Bytes>
+                        {
+                            if (frame.size() < declared)
+                            {
+                                return BadFrame("truncated", frame);
+                            }
+                            frame.resize(declared);
+                            return std::move(frame);
+                        });
+            });
 }
 
 Result<SsmIdentity> IdentifyKlineSsm2(IDiagnosticLink& link, IClock& clock, const ICancellationToken& cancellation,
@@ -173,35 +172,25 @@ Result<SsmIdentity> IdentifyKlineSsm2(IDiagnosticLink& link, IClock& clock, cons
 {
     // The state ssm_kline_init inherited from connect_to_ecu and
     // log_transport_changed, now set explicitly.
-    if (auto opened = link.Open(KlineLinkConfig{.header = KlineHeader::kNone, .baud = 4800, .parity = Parity::kNone});
-        !opened.has_value())
-    {
-        return std::unexpected(opened.error());
-    }
-    if (auto written = CheckWritten(link, SsmFrame(std::array<bytes::Byte, 1>{kSsmInitCommand}, target));
-        !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (auto slept = clock.Sleep(200ms, cancellation); !slept.has_value())
-    {
-        return std::unexpected(slept.error());
-    }
-    auto frame = ReadSsm2InitFrame(link, cancellation);
-    if (!frame.has_value())
-    {
-        return std::unexpected(frame.error());
-    }
-    if (auto valid = ValidateSsm2Init(*frame, target); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    auto ecu_id = ParseSsmEcuId(*frame);
-    if (!ecu_id.has_value())
-    {
-        return BadFrame("is too short for an ECU ID", *frame);
-    }
-    return SsmIdentity{std::move(*ecu_id), *std::move(frame)};
+    return link.Open(KlineLinkConfig{.header = KlineHeader::kNone, .baud = 4800, .parity = Parity::kNone})
+        .and_then([&] { return CheckWritten(link, SsmFrame(std::array<bytes::Byte, 1>{kSsmInitCommand}, target)); })
+        .and_then([&] { return clock.Sleep(200ms, cancellation); })
+        .and_then([&] { return ReadSsm2InitFrame(link, cancellation); })
+        .and_then(
+            [&](bytes::Bytes frame)
+            {
+                return ValidateSsm2Init(frame, target)
+                    .and_then(
+                        [&]() -> Result<SsmIdentity>
+                        {
+                            auto ecu_id = ParseSsmEcuId(frame);
+                            if (!ecu_id.has_value())
+                            {
+                                return BadFrame("is too short for an ECU ID", frame);
+                            }
+                            return SsmIdentity{std::move(*ecu_id), std::move(frame)};
+                        });
+            });
 }
 
 constexpr int kSsm1MaxDrainReads = 100;
@@ -230,18 +219,14 @@ Status WriteThenDiscard(IDiagnosticLink& link, bytes::ByteView request, int coun
 // legacy ssm_init sent the second and third without the echo check.
 Status WakeSsm1(IDiagnosticLink& link, const ICancellationToken& cancellation)
 {
-    if (auto woken =
-            WriteThenDiscard(link, std::array<bytes::Byte, 4>{0x78, 0x12, 0x34, 0x00}, 10, 500ms, cancellation);
-        !woken.has_value())
-    {
-        return woken;
-    }
-    if (auto woken = WriteThenDiscard(link, std::array<bytes::Byte, 4>{0x00, 0x46, 0x48, 0x49}, 2, 500ms, cancellation);
-        !woken.has_value())
-    {
-        return woken;
-    }
-    return CheckWritten(link, std::array<bytes::Byte, 4>{0x12, 0x00, 0x00, 0x00});
+    return WriteThenDiscard(link, std::array<bytes::Byte, 4>{0x78, 0x12, 0x34, 0x00}, 10, 500ms, cancellation)
+        .and_then(
+            [&]
+            {
+                return WriteThenDiscard(link, std::array<bytes::Byte, 4>{0x00, 0x46, 0x48, 0x49}, 2, 500ms,
+                                        cancellation);
+            })
+        .and_then([&] { return CheckWritten(link, std::array<bytes::Byte, 4>{0x12, 0x00, 0x00, 0x00}); });
 }
 
 // ssm_init parsed at most one more frame, unchecked, then drained.
@@ -280,69 +265,57 @@ Result<SsmIdentity> AdoptTrailingFrame(IDiagnosticLink& link, SsmIdentity identi
 
 Result<SsmIdentity> IdentifySsm1(IDiagnosticLink& link, const ICancellationToken& cancellation)
 {
-    if (auto opened = link.Open(KlineLinkConfig{.header = KlineHeader::kNone, .baud = 1953, .parity = Parity::kEven});
-        !opened.has_value())
-    {
-        return std::unexpected(opened.error());
-    }
-    if (auto woken = WakeSsm1(link, cancellation); !woken.has_value())
-    {
-        return std::unexpected(woken.error());
-    }
     bytes::Bytes frame;
-    if (auto got = ReadInto(link, frame, 500ms, cancellation); !got.has_value())
-    {
-        return std::unexpected(got.error());
-    }
-    if (frame.empty())
-    {
-        return Fail(ErrorKind::kTimeout, "no SSM1 init response");
-    }
-    // Pinned: the length is the only check on SSM1.
-    if (frame.size() < 4 || frame.size() != frame[3] + kSsmFrameOverhead)
-    {
-        return BadFrame("length does not match its length byte", frame);
-    }
-    auto ecu_id = ParseSsmEcuId(frame);
-    if (!ecu_id.has_value())
-    {
-        return BadFrame("is too short for an ECU ID", frame);
-    }
-    return AdoptTrailingFrame(link, SsmIdentity{std::move(*ecu_id), std::move(frame)}, cancellation);
+    return link.Open(KlineLinkConfig{.header = KlineHeader::kNone, .baud = 1953, .parity = Parity::kEven})
+        .and_then([&] { return WakeSsm1(link, cancellation); })
+        .and_then([&] { return ReadInto(link, frame, 500ms, cancellation); })
+        .and_then(
+            [&](bool) -> Result<SsmIdentity>
+            {
+                if (frame.empty())
+                {
+                    return Fail(ErrorKind::kTimeout, "no SSM1 init response");
+                }
+                // Pinned: the length is the only check on SSM1.
+                if (frame.size() < kSsmFrameOverhead || frame.size() != frame[3] + kSsmFrameOverhead)
+                {
+                    return BadFrame("length does not match its length byte", frame);
+                }
+                auto ecu_id = ParseSsmEcuId(frame);
+                if (!ecu_id.has_value())
+                {
+                    return BadFrame("is too short for an ECU ID", frame);
+                }
+                return AdoptTrailingFrame(link, SsmIdentity{std::move(*ecu_id), std::move(frame)}, cancellation);
+            });
 }
 
 Result<SsmIdentity> IdentifyIso15765Uds(IDiagnosticLink& link, const ICancellationToken& cancellation, SsmTarget target)
 {
     const std::uint32_t source = target == SsmTarget::kEcu ? 0x7E0 : 0x7E1;
-    if (auto opened = link.Open(CanLinkConfig{
-            .iso15765 = true, .bitrate = 500000, .extended_id = false, .source_id = source, .destination_id = 0x7E8});
-        !opened.has_value())
-    {
-        return std::unexpected(opened.error());
-    }
     const std::array<bytes::Byte, 7> request{
         0x00, 0x00, static_cast<bytes::Byte>((source >> 8U) & 0xFFU), static_cast<bytes::Byte>(source & 0xFFU), 0x22,
         0xF1, 0x82};
-    if (auto written = CheckWritten(link, request); !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-
     bytes::Bytes frame;
-    if (auto got = ReadInto(link, frame, 100ms, cancellation); !got.has_value())
-    {
-        return std::unexpected(got.error());
-    }
-    if (frame.empty())
-    {
-        return Fail(ErrorKind::kTimeout, "no answer to ReadDataByIdentifier F182");
-    }
-    if (frame.size() <= 7 || frame[4] != 0x62 || frame[5] != 0xF1 || frame[6] != 0x82)
-    {
-        return Fail(ErrorKind::kBadResponse,
-                    std::format("unexpected answer to ReadDataByIdentifier F182: {}", SpacedHex(frame)));
-    }
-    return SsmIdentity{UpperHex(bytes::ByteView(frame).subspan(7)), {}};
+    return link
+        .Open(CanLinkConfig{
+            .iso15765 = true, .bitrate = 500000, .extended_id = false, .source_id = source, .destination_id = 0x7E8})
+        .and_then([&] { return CheckWritten(link, request); })
+        .and_then([&] { return ReadInto(link, frame, 100ms, cancellation); })
+        .and_then(
+            [&](bool) -> Result<SsmIdentity>
+            {
+                if (frame.empty())
+                {
+                    return Fail(ErrorKind::kTimeout, "no answer to ReadDataByIdentifier F182");
+                }
+                if (frame.size() <= 7 || frame[4] != 0x62 || frame[5] != 0xF1 || frame[6] != 0x82)
+                {
+                    return Fail(ErrorKind::kBadResponse,
+                                std::format("unexpected answer to ReadDataByIdentifier F182: {}", SpacedHex(frame)));
+                }
+                return SsmIdentity{UpperHex(bytes::ByteView(frame).subspan(7)), {}};
+            });
 }
 
 } // namespace

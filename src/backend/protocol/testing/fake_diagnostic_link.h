@@ -1,8 +1,10 @@
 #pragma once
 #include "src/backend/protocol/idiagnostic_link.h"
 
+#include <cstddef>
 #include <deque>
 #include <format>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -18,6 +20,10 @@ class FakeDiagnosticLink final : public IDiagnosticLink
   public:
     std::vector<std::string> calls;
     bool j2534 = false;
+    // The 1-based index into `calls` of a call that fails with kDisconnected
+    // "injected fault". Only the fallible calls honour it: open, five-baud,
+    // fast-init, write and read.
+    std::optional<std::size_t> fail_call;
 
     void QueueOpen(Status outcome)
     {
@@ -54,13 +60,13 @@ class FakeDiagnosticLink final : public IDiagnosticLink
             std::format("open kline header={} iso14230={} baud={} start={:02X} tester={:02X} target={:02X}{}",
                         ToString(c.header), c.iso14230_connection, c.baud, c.start_byte, c.tester_id, c.target_id,
                         c.parity == Parity::kEven ? " parity=Even" : ""));
-        return Next(opens_);
+        return InjectedFault().and_then([this] { return Next(opens_); });
     }
     Status Open(const CanLinkConfig& c) override
     {
         calls.push_back(std::format("open can iso15765={} bitrate={} extended={} source={:03X} destination={:03X}",
                                     c.iso15765, c.bitrate, c.extended_id, c.source_id, c.destination_id));
-        return Next(opens_);
+        return InjectedFault().and_then([this] { return Next(opens_); });
     }
     Status Reset() override
     {
@@ -80,6 +86,10 @@ class FakeDiagnosticLink final : public IDiagnosticLink
     Result<bytes::Bytes> FiveBaudInit(std::uint8_t address) override
     {
         calls.push_back(std::format("five_baud {:02X}", address));
+        if (Status fault = InjectedFault(); !fault.has_value())
+        {
+            return std::unexpected(fault.error());
+        }
         if (five_bauds_.empty())
         {
             return bytes::Bytes{};
@@ -91,7 +101,7 @@ class FakeDiagnosticLink final : public IDiagnosticLink
     Status FastInit(bytes::ByteView wakeup) override
     {
         calls.push_back("fast_init " + Hex(wakeup));
-        return Next(fast_inits_);
+        return InjectedFault().and_then([this] { return Next(fast_inits_); });
     }
     // Echoes the input unconditionally. The real adapter instead returns the
     // facade's echo-check result (which can legitimately differ from what
@@ -100,17 +110,17 @@ class FakeDiagnosticLink final : public IDiagnosticLink
     Result<bytes::Bytes> Write(bytes::ByteView data) override
     {
         calls.push_back("write " + Hex(data));
-        return bytes::Bytes(data.begin(), data.end());
+        return InjectedFault().transform([&] { return bytes::Bytes(data.begin(), data.end()); });
     }
     Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
         calls.push_back(std::format("read {}", timeout.count()));
-        return NextRead(cancellation);
+        return InjectedFault().and_then([&] { return NextRead(cancellation); });
     }
     Result<OptionalBytes> ReadObd(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
         calls.push_back(std::format("read_obd {}", timeout.count()));
-        return NextRead(cancellation);
+        return InjectedFault().and_then([&] { return NextRead(cancellation); });
     }
     bool UsesJ2534() const override
     {
@@ -128,6 +138,14 @@ class FakeDiagnosticLink final : public IDiagnosticLink
     }
 
   private:
+    Status InjectedFault() const
+    {
+        if (fail_call == calls.size())
+        {
+            return Fail(ErrorKind::kDisconnected, "injected fault");
+        }
+        return {};
+    }
     static Status Next(std::deque<Status>& queue)
     {
         if (queue.empty())

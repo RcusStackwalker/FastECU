@@ -106,15 +106,9 @@ Result<std::unique_ptr<ICanFlashTransport>> OpenDesktopCanFlashTransport(const D
     }
 
     auto transport = std::make_unique<DesktopCanFlashTransport>(std::move(serial));
-    if (const Status configured = transport->Configure(can); !configured.has_value())
-    {
-        return std::unexpected(configured.error());
-    }
-    if (const Status opened = transport->Open(); !opened.has_value())
-    {
-        return std::unexpected(opened.error());
-    }
-    return transport;
+    return transport->Configure(can)
+        .and_then([&] { return transport->Open(); })
+        .transform([&] { return std::unique_ptr<ICanFlashTransport>(std::move(transport)); });
 }
 
 } // namespace fastecu::flash
