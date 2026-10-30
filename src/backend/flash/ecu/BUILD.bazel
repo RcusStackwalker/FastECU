@@ -978,6 +978,7 @@ cc_library(
         ":m32r_ssm_exchange",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/ports",
     ],
     deps = [
         ":subaru_unisia_jecs_m32r_kline_plan",
