@@ -29,6 +29,7 @@
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
+#include "src/backend/flash/testing/faulting_kline_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 
 using ::testing::_;
@@ -724,68 +725,6 @@ TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentS
 
 namespace
 {
-enum class FaultOp
-{
-    kWrite,
-    kRead,
-    kSetBaud,
-    kHeaderMode,
-};
-
-// Fails the `fail_at`-th call (1-based) of `op` with kDisconnected "injected";
-// every other call follows the script.
-struct FaultingTransport final : ScriptedKlineFlashTransport
-{
-    using ScriptedKlineFlashTransport::ScriptedKlineFlashTransport;
-
-    FaultOp op = FaultOp::kWrite;
-    std::size_t fail_at = 0;
-    std::size_t calls = 0;
-    std::optional<std::size_t> writes_at_fault;
-
-    bool Fault(FaultOp called)
-    {
-        if (called != op || ++calls != fail_at)
-        {
-            return false;
-        }
-        writes_at_fault = WritesConsumed();
-        return true;
-    }
-    Result<std::size_t> Write(bytes::ByteView data) override
-    {
-        if (Fault(FaultOp::kWrite))
-        {
-            return Fail(ErrorKind::kDisconnected, "injected");
-        }
-        return ScriptedKlineFlashTransport::Write(data);
-    }
-    Result<OptionalBytes> Read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
-    {
-        if (Fault(FaultOp::kRead))
-        {
-            return Fail(ErrorKind::kDisconnected, "injected");
-        }
-        return ScriptedKlineFlashTransport::Read(timeout, cancellation);
-    }
-    Status SetBaud(int baud) override
-    {
-        if (Fault(FaultOp::kSetBaud))
-        {
-            return Fail(ErrorKind::kDisconnected, "injected");
-        }
-        return ScriptedKlineFlashTransport::SetBaud(baud);
-    }
-    Status SetAddIso14230Header(bool add_header) override
-    {
-        if (Fault(FaultOp::kHeaderMode))
-        {
-            return Fail(ErrorKind::kDisconnected, "injected");
-        }
-        return ScriptedKlineFlashTransport::SetAddIso14230Header(add_header);
-    }
-};
-
 void EnqueueFullRead(ScriptedKlineFlashTransport& transport)
 {
     EnqueueFullBootloaderAndKernelUpload(transport, bytes::Bytes{0x11, 0x22, 0x33, 0x44}, KernelFixtureBytes(),
@@ -795,7 +734,7 @@ void EnqueueFullRead(ScriptedKlineFlashTransport& transport)
 }
 
 // The number of `op` calls in a clean full read.
-std::size_t CountCalls(FaultOp op)
+std::size_t CountCalls(KlineFaultOp op)
 {
     auto plan = ValidKlinePlan();
     if (!plan.has_value())
@@ -803,7 +742,7 @@ std::size_t CountCalls(FaultOp op)
         ADD_FAILURE() << "plan rejected";
         return 0;
     }
-    FaultingTransport transport{ScriptedTransportInitialState::kOpen};
+    FaultingKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     transport.op = op;
     EnqueueFullRead(transport);
     FakeClock clock;
@@ -818,11 +757,11 @@ TEST(DensoSh705xEepromKlineExecutorTest, EveryTransportFaultInAFullReadPropagate
 {
     // The third header-mode call is the best-effort reset after the read; its
     // failure is logged, not returned.
-    const std::vector<std::pair<FaultOp, std::size_t>> ops{
-        {FaultOp::kWrite, CountCalls(FaultOp::kWrite)},
-        {FaultOp::kRead, CountCalls(FaultOp::kRead)},
-        {FaultOp::kSetBaud, CountCalls(FaultOp::kSetBaud)},
-        {FaultOp::kHeaderMode, CountCalls(FaultOp::kHeaderMode) - 1},
+    const std::vector<std::pair<KlineFaultOp, std::size_t>> ops{
+        {KlineFaultOp::kWrite, CountCalls(KlineFaultOp::kWrite)},
+        {KlineFaultOp::kRead, CountCalls(KlineFaultOp::kRead)},
+        {KlineFaultOp::kSetBaud, CountCalls(KlineFaultOp::kSetBaud)},
+        {KlineFaultOp::kHeaderMode, CountCalls(KlineFaultOp::kHeaderMode) - 1},
     };
     for (const auto& [op, count] : ops)
     {
@@ -833,7 +772,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, EveryTransportFaultInAFullReadPropagate
             SCOPED_TRACE(::testing::Message() << "call " << k);
             auto plan = ValidKlinePlan();
             ASSERT_THAT(plan, fastecu::testing::IsOk());
-            FaultingTransport transport{ScriptedTransportInitialState::kOpen};
+            FaultingKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
             transport.op = op;
             transport.fail_at = k;
             EnqueueFullRead(transport);

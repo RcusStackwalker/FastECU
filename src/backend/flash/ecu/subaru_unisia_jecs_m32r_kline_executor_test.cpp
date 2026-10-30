@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <optional>
 #include <iterator>
 #include <ranges>
 #include <string_view>
@@ -15,6 +17,7 @@
 #include <vector>
 
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_plan.h"
+#include "src/backend/flash/testing/faulting_kline_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -923,6 +926,90 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, WriteFailureStopsBeforeReceiving)
     EXPECT_EQ(transport.read_calls, 0);
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(transport.control_line_trace, ::testing::ElementsAre(Line::kDisableLecLines));
+}
+
+// Fails the k-th write, read and baud change in turn, for the first `prefix`
+// calls of each (the page and block loops repeat one exchange shape), and
+// expects the fault to propagate with nothing written afterwards.
+void ExpectEveryEarlyFaultPropagates(const std::function<Result<FlashPlan>()>& make_plan,
+                                     const std::function<void(ScriptedKlineFlashTransport&)>& script,
+                                     std::size_t prefix)
+{
+    for (const KlineFaultOp op : {KlineFaultOp::kWrite, KlineFaultOp::kRead, KlineFaultOp::kSetBaud})
+    {
+        SCOPED_TRACE(::testing::Message() << "op " << static_cast<int>(op));
+        std::size_t count = 0;
+        {
+            FaultingKlineFlashTransport transport;
+            transport.op = op;
+            script(transport);
+            RunContext context;
+            auto plan = make_plan();
+            ASSERT_THAT(plan, IsOk());
+            std::ignore = RunScripted(*plan, transport, context); // only the call count matters here
+            count = std::min(transport.calls, prefix);
+        }
+        ASSERT_GT(count, 0U);
+        for (std::size_t k = 1; k <= count; ++k)
+        {
+            SCOPED_TRACE(::testing::Message() << "call " << k);
+            FaultingKlineFlashTransport transport;
+            transport.op = op;
+            transport.fail_at = k;
+            script(transport);
+            RunContext context;
+            auto plan = make_plan();
+            ASSERT_THAT(plan, IsOk());
+            EXPECT_THAT(RunScripted(*plan, transport, context),
+                        IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("injected")));
+            EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>{transport.WritesConsumed()});
+        }
+    }
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, EveryEarlyTransportFaultInAColdReadPropagates)
+{
+    ExpectEveryEarlyFaultPropagates([] { return ReadPlan(); },
+                                    [](ScriptedKlineFlashTransport& transport)
+                                    {
+                                        ScriptColdEntry(transport);
+                                        ScriptPages(transport, kRomSize / 0x80);
+                                    },
+                                    6);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, EveryEarlyTransportFaultInAColdWritePropagates)
+{
+    ExpectEveryEarlyFaultPropagates([] { return WritePlan(); },
+                                    [](ScriptedKlineFlashTransport& transport)
+                                    {
+                                        ScriptColdFlashMode(transport);
+                                        ScriptErase(transport);
+                                        ScriptBlocks(transport, BlockCount());
+                                    },
+                                    10);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, FrameAfterEraseIsLoggedAndDiscarded)
+{
+    // write_mem() :517 read once more after the erase and dropped the result.
+    ScriptedKlineFlashTransport transport;
+    ScriptObkRunning(transport);
+    {
+        auto section = transport.Section("erase with a trailing frame");
+        transport.ExpectWrite(Request({0xaf, 0x31}));
+        transport.QueueRead(kEraseStarted);
+        transport.QueueRead(kDone);
+        transport.QueueRead(kDone);
+    }
+    ScriptBlocks(transport, BlockCount());
+    RunContext context;
+
+    auto plan = WritePlan();
+    ASSERT_THAT(plan, IsOk());
+    ASSERT_THAT(RunScripted(*plan, transport, context), IsOk());
+    EXPECT_THAT(context.events.logs, ::testing::Contains(::testing::Pair(
+                                         LogLevel::kDebug, ::testing::HasSubstr("Discarded after erase: "))));
 }
 
 TEST(SubaruUnisiaJecsM32rKlineExecutor, CancelledAtEntryTouchesNoControlLine)
