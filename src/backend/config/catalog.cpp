@@ -155,12 +155,8 @@ std::expected<memory::MemoryMap, memory::MemoryError> SelectMemoryMap(const Prot
 
 std::expected<memory::MemoryImage, memory::MemoryError> PlaceRomFile(const ProtocolSpec *protocol, bytes::Bytes file)
 {
-    auto map = SelectMemoryMap(protocol, file.size());
-    if (!map.has_value())
-    {
-        return std::unexpected(map.error());
-    }
-    return memory::MemoryImage::Create(std::move(*map), std::move(file));
+    return SelectMemoryMap(protocol, file.size())
+        .and_then([&](memory::MemoryMap map) { return memory::MemoryImage::Create(std::move(map), std::move(file)); });
 }
 
 const ProtocolSpec *Catalog::FindProtocol(std::string_view name) const
