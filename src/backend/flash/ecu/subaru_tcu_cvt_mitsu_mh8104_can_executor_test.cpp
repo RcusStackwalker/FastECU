@@ -29,8 +29,10 @@
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
+#include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/faulting_clock.h"
 #include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -594,6 +596,91 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x80000")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_THAT(events.logs, IsEmpty());
+}
+
+const bytes::Bytes kEraseRequest = Request({0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff});
+
+template <typename Transport, typename Clock>
+fastecu::Result<fastecu::flash::FlashExecutionResult> RunWrite(Transport& transport, Clock& clock)
+{
+    const auto plan = WritePlan(WriteRom());
+    if (!plan.has_value())
+    {
+        return std::unexpected(plan.error());
+    }
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    return SubaruTcuCvtMitsuMh8104CanExecutor{}.Execute(*plan, transport, clock, cancellation, events);
+}
+
+TEST(SubaruTcuCvtMitsuMh8104CanExecutor, AFailedAliveProbeSendStopsBeforeAnyRead)
+{
+    fastecu::flash::FaultingCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    transport.fail_write_at = 1;
+    FakeClock clock;
+    EXPECT_THAT(RunWrite(transport, clock), fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+    EXPECT_EQ(transport.Reads(), 0U);
+}
+
+TEST(SubaruTcuCvtMitsuMh8104CanExecutor, AFailedEraseSendSkipsTheEraseWait)
+{
+    fastecu::flash::FaultingCanFlashTransport probe{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    ScriptFullConnect(probe);
+    FakeClock probe_clock;
+    ASSERT_THAT(RunWrite(probe, probe_clock), fastecu::testing::IsErr(ErrorKind::kInternal));
+
+    fastecu::flash::FaultingCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    ScriptFullConnect(transport);
+    transport.fail_write_at = probe.Writes();
+    FakeClock clock;
+    EXPECT_THAT(RunWrite(transport, clock), fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(clock.Elapsed(), probe_clock.Elapsed());
+}
+
+TEST(SubaruTcuCvtMitsuMh8104CanExecutor, EraseReadAndSleepFailuresPropagate)
+{
+    // The erase's first sleep comes right after the connect's last one. With
+    // no reply scripted for it, a read after a failed first sleep would run
+    // past the script instead of failing with the sleep's error.
+    fastecu::FaultingClock probe;
+    {
+        ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+        ScriptFullConnect(transport);
+        transport.Exchange(kEraseRequest);
+        transport.QueueError(ErrorKind::kDisconnected, "erase read failed");
+        ASSERT_THAT(RunWrite(transport, probe),
+                    fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("erase read failed")));
+        ASSERT_TRUE(transport.ScriptConsumed());
+    }
+    for (const std::size_t k : {probe.sleeps, probe.sleeps + 1})
+    {
+        SCOPED_TRACE(::testing::PrintToString(k));
+        ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+        ScriptFullConnect(transport);
+        transport.Exchange(kEraseRequest);
+        if (k > probe.sleeps)
+        {
+            transport.QueueNoFrame();
+        }
+        fastecu::FaultingClock clock;
+        clock.fail_at = k;
+        EXPECT_THAT(RunWrite(transport, clock),
+                    fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("sleep failed")));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
+TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ASilentEraseIsATimeoutAfterTheSettle)
+{
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    ScriptFullConnect(transport);
+    transport.Exchange(kEraseRequest);
+    transport.QueueNoFrame();
+    fastecu::FaultingClock clock;
+    EXPECT_THAT(RunWrite(transport, clock),
+                fastecu::testing::IsErrWith(ErrorKind::kTimeout, Eq("no response to the erase command")));
+    EXPECT_TRUE(transport.ScriptConsumed());
 }
 
 // The IFlashExecutor contract this family satisfies -- see
