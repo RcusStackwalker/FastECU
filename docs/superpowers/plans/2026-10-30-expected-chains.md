@@ -1,0 +1,397 @@
+# Expected Chains Plan
+
+**Goal:** Convert straight-line runs of `if (!r.has_value()) { return ...; }`
+early returns in `src/backend/flash/` into `std::expected` `and_then` /
+`transform` chains, following the shape PRs #912, #913, #919, #921, #923 and
+#929 introduced (`UnlockAndKernelJump` in
+`src/backend/flash/ecu/uds_client_exchange_common.cpp` is the reference).
+
+**Rule:** [Error handling](../../coding-style.md#error-handling) in the coding
+style guide.
+
+## Constraints
+
+- **Candidate:** two or more fallible calls in straight-line code; each step
+  consumes only the previous step's value (or nothing); logging or a small
+  reply check may sit between steps. A trailing `return Call(...);` counts as
+  the last step.
+- **Excluded:** runs inside loops; steps that need values from two or more
+  earlier steps; failure branches that do more than propagate.
+- **Partial runs** inside longer functions are converted. Extract a named
+  helper only when that also removes duplication.
+- **Behavior is byte-identical:** log text, log order, error kind and message
+  stay as they are. No transcript test changes. A site that cannot convert
+  without a log change stays an early return.
+- **Untested failure branches:** if a converted step's failure branch is not
+  exercised, add the failing-path test first, in the same PR, against the
+  unconverted code. Split a file across PRs when that grows large.
+- **NLOC:** record the change and the SonarCloud duplication change in the PR
+  body. Reject a PR that adds more than 5 NLOC. This series is not an
+  ADR 0029 loop PR and has no NLOC-drop floor.
+- **Label:** `expected-chains`. Auto-merge after CI's Mull run shows no new
+  surviving mutants.
+- **Order:** one PR per file, or per small same-family group for files with
+  two or fewer candidates, highest candidate count first (table below).
+- **Phase 2** (`src/backend/diagnostics`, `definition`, `src/platform`) is
+  decided after phase 1. A `/loop` skill is considered after 3-4 merged PRs.
+
+## Per-PR steps
+
+- [ ] Re-read the file; confirm each listed run against the rule (line numbers
+      drift as earlier PRs merge) and resolve every `review` entry.
+- [ ] Check failure-branch coverage for each run; add missing failing-path
+      tests first and see them pass against the unconverted code.
+- [ ] Convert; `clang-format`; build and run the package's tests.
+- [ ] Measure NLOC before and after; open the PR with the `expected-chains`
+      label; hold auto-merge until Mull is clean.
+- [ ] Tick the file off below.
+
+## Inventory
+
+Generated on 2026-10-30 from `master` at `0dbaa7b4` by a brace-aware scan for
+propagate-only checks (`return r;`, `return std::unexpected(r.error());`)
+grouped by block, then spot-checked by hand. Each PR re-verifies its file.
+
+- `candidate`: matches the rule as scanned.
+- `review`: non-log statements sit between steps (locals, phase reporters,
+  out-parameters); decide when converting.
+- `excluded`: reason given. For "used after a later step", the prefix of the
+  run ending at that value may still qualify.
+- `tail`: the run ends the function, so the whole tail becomes `return chain;`.
+
+Totals: 90 candidate runs, 14 to review, 52 excluded, across 44 files.
+
+| # | File | Candidate | Review | Excluded |
+|---|---|---|---|---|
+| 1 | `ecu/subaru_denso_sh705x_kline_executor.cpp` | 9 | 1 | 8 |
+| 2 | `eeprom/denso_sh705x_eeprom_kline_executor.cpp` | 7 | 2 | 1 |
+| 3 | `ecu/subaru_unisia_jecs_m32r_kline_executor.cpp` | 6 | 0 | 1 |
+| 4 | `ecu/denso_iso15765_can_common.cpp` | 6 | 0 | 0 |
+| 5 | `ecu/subaru_denso_sh7055_02_executor.cpp` | 5 | 2 | 4 |
+| 6 | `ecu/subaru_denso_mc68hc16y5_02_executor.cpp` | 5 | 2 | 3 |
+| 7 | `ecu/subaru_denso_mc68hc16y5_02_bdm_executor.cpp` | 5 | 0 | 2 |
+| 8 | `ecu/subaru_hitachi_sh72543r_can_executor.cpp` | 4 | 2 | 1 |
+| 9 | `ecu/subaru_hitachi_m32r_kline_executor.cpp` | 3 | 0 | 0 |
+| 10 | `workflow/flash_workflow.cpp` | 3 | 0 | 1 |
+| 11 | `ecu/subaru_unisia_jecs_m32r_bootmode_program_executor.cpp` | 3 | 0 | 0 |
+| 12 | `flash_executor.h` | 3 | 0 | 0 |
+| 13 | `eeprom/denso_sh705x_eeprom_can_executor.cpp` | 2 | 0 | 1 |
+| 14 | `ecu/subaru_tcu_hitachi_m32r_can_executor.cpp` | 2 | 0 | 1 |
+| 15 | `ecu/subaru_tcu_denso_sh705x_can_executor.cpp` | 2 | 0 | 1 |
+| 16 | `ecu/beef_can_kernel.cpp` | 2 | 0 | 1 |
+| 17 | `ecu/subaru_mitsu_m32r_kline_executor.cpp` | 2 | 0 | 0 |
+| 18 | `ecu/subaru_unisia_jecs_executor.cpp` | 2 | 0 | 2 |
+| 19 | `ecu/subaru_hitachi_sh7058_kline_executor.cpp` | 2 | 0 | 0 |
+| 20 | `ecu/denso_beef_kline_common.cpp` | 2 | 0 | 1 |
+| 21 | `ecu/subaru_unisia_jecs_m32r_bootmode_kernel_executor.cpp` | 2 | 0 | 1 |
+| 22 | `ecu/denso_iso15765_bootloader_executor.cpp` | 2 | 0 | 0 |
+| 23 | `ecu/single_window_plan.cpp` | 2 | 0 | 1 |
+| 24 | `ecu/denso_beef_can_ecu_execution.cpp` | 1 | 0 | 3 |
+| 25 | `ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp` | 1 | 0 | 1 |
+| 26 | `ecu/subaru_hitachi_m32r_can_executor.cpp` | 1 | 0 | 0 |
+| 27 | `ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp` | 1 | 0 | 1 |
+| 28 | `ecu/subaru_denso_sh705x_kline_plan.cpp` | 1 | 0 | 3 |
+| 29 | `ecu/subaru_denso_mc68hc16y5_02_plan.cpp` | 1 | 0 | 1 |
+| 30 | `ecu/plan_primitives.h` | 1 | 0 | 0 |
+| 31 | `ecu/m32r_ssm_exchange.cpp` | 1 | 0 | 0 |
+| 32 | `ecu/subaru_denso_sh7058_can_diesel_executor.cpp` | 1 | 0 | 0 |
+| 33 | `ecu/subaru_hitachi_sh7058_can_executor.cpp` | 0 | 3 | 0 |
+| 34 | `ecu/subaru_tcu_hitachi_m32r_kline_executor.cpp` | 0 | 0 | 1 |
+| 35 | `flash_validation.cpp` | 0 | 0 | 1 |
+| 36 | `ecu/subaru_unisia_jecs_m32r_bootmode_plan.cpp` | 0 | 0 | 3 |
+| 37 | `ecu/subaru_unisia_jecs_m32r_kline_plan.cpp` | 0 | 0 | 2 |
+| 38 | `ecu/subaru_denso_sh7055_02_plan.cpp` | 0 | 0 | 1 |
+| 39 | `ecu/denso_beef_kline_common.h` | 0 | 0 | 1 |
+| 40 | `ecu/subaru_tcu_hitachi_m32r_can_plan.cpp` | 0 | 0 | 1 |
+| 41 | `ecu/subaru_hitachi_sh72543r_can_plan.cpp` | 0 | 0 | 1 |
+| 42 | `eeprom/eeprom_read_plan.cpp` | 0 | 1 | 1 |
+| 43 | `ecu/bootloader_operation.h` | 0 | 1 | 0 |
+| 44 | `ecu/subaru_tcu_denso_sh705x_can_plan.cpp` | 0 | 0 | 1 |
+
+### `src/backend/flash/ecu/subaru_denso_sh705x_kline_executor.cpp`
+
+- 97-106 (2 steps): candidate
+- 117-130 (3 steps): excluded — `received` used after a later step; a prefix ending at `received` may qualify
+- 154-159 (2 steps, tail): candidate
+- 207-224 (3 steps): candidate
+- 282-291 (2 steps): excluded — `reply` used after a later step; a prefix ending at `reply` may qualify
+- 379-401 (5 steps): excluded — `ecu_id` used after a later step; a prefix ending at `ecu_id` may qualify
+- 474-487 (2 steps): candidate
+- 497-521 (4 steps): candidate
+- 559-571 (2 steps): excluded — `ecu_id` used after a later step; a prefix ending at `ecu_id` may qualify
+- 658-679 (4 steps): review — non-log statements between steps
+- 741-752 (2 steps): excluded — `reply` used after a later step; a prefix ending at `reply` may qualify
+- 758-770 (2 steps): candidate
+- 792-803 (2 steps): candidate
+- 811-830 (3 steps): excluded — inside a loop
+- 850-862 (2 steps): excluded — inside a loop
+- 887-897 (2 steps): excluded — `volt` used after a later step; a prefix ending at `volt` may qualify
+- 1030-1040 (3 steps, tail): candidate
+- 1047-1058 (2 steps): candidate
+
+### `src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.cpp`
+
+- 172-180 (2 steps): candidate
+- 274-282 (2 steps): candidate
+- 324-338 (2 steps): candidate
+- 406-414 (2 steps): candidate
+- 426-435 (2 steps): excluded — inside a loop
+- 482-506 (2 steps): review — non-log statements between steps
+- 570-583 (2 steps): candidate
+- 595-603 (2 steps, tail): candidate
+- 647-674 (4 steps): review — non-log statements between steps
+- 684-696 (3 steps, tail): candidate
+
+### `src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_executor.cpp`
+
+- 88-97 (2 steps): candidate
+- 146-160 (3 steps): candidate
+- 171-197 (5 steps): excluded — `cold` used after a later step; a prefix ending at `cold` may qualify
+- 297-311 (3 steps): candidate
+- 316-326 (2 steps): candidate
+- 345-366 (4 steps): candidate
+- 417-436 (4 steps): candidate
+
+### `src/backend/flash/ecu/denso_iso15765_can_common.cpp`
+
+- 95-104 (2 steps): candidate
+- 152-160 (2 steps, tail): candidate
+- 322-327 (2 steps, tail): candidate
+- 419-428 (2 steps): candidate
+- 628-638 (2 steps): candidate
+- 676-682 (2 steps, tail): candidate
+
+### `src/backend/flash/ecu/subaru_denso_sh7055_02_executor.cpp`
+
+- 96-109 (2 steps): review — non-log statements between steps
+- 166-171 (2 steps, tail): candidate
+- 181-191 (2 steps): excluded — inside a loop
+- 320-332 (2 steps): candidate
+- 347-360 (3 steps): candidate
+- 447-463 (3 steps): candidate
+- 490-502 (2 steps): excluded — inside a loop
+- 544-555 (2 steps): excluded — `crc` used after a later step; a prefix ending at `crc` may qualify
+- 584-600 (2 steps): excluded — inside a loop
+- 656-662 (2 steps, tail): candidate
+- 669-691 (4 steps): review — non-log statements between steps
+
+### `src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.cpp`
+
+- 138-147 (2 steps): candidate
+- 192-202 (2 steps): excluded — inside a loop
+- 251-261 (2 steps, tail): candidate
+- 282-291 (2 steps): candidate
+- 351-362 (2 steps): candidate
+- 370-378 (2 steps): candidate
+- 411-422 (2 steps): excluded — inside a loop
+- 457-467 (2 steps): review — non-log statements between steps
+- 498-514 (2 steps): excluded — inside a loop
+- 580-601 (4 steps): review — non-log statements between steps
+
+### `src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_executor.cpp`
+
+- 192-201 (2 steps): excluded — inside a loop
+- 222-227 (2 steps, tail): candidate
+- 249-263 (2 steps): candidate
+- 267-277 (2 steps): excluded — inside a loop
+- 291-302 (2 steps): candidate
+- 331-341 (2 steps): candidate
+- 356-365 (3 steps, tail): candidate
+
+### `src/backend/flash/ecu/subaru_hitachi_sh72543r_can_executor.cpp`
+
+- 58-67 (2 steps): review — non-log statements between steps
+- 91-96 (2 steps, tail): candidate
+- 100-109 (3 steps, tail): candidate
+- 239-248 (2 steps): excluded — `id` used after a later step; a prefix ending at `id` may qualify
+- 264-272 (2 steps): candidate
+- 323-332 (2 steps): candidate
+- 506-522 (3 steps): review — non-log statements between steps
+
+### `src/backend/flash/ecu/subaru_hitachi_m32r_kline_executor.cpp`
+
+- 237-242 (2 steps, tail): candidate
+- 357-365 (2 steps): candidate
+- 369-377 (2 steps): candidate
+
+### `src/backend/flash/workflow/flash_workflow.cpp`
+
+- 502-521 (3 steps): excluded — `program` used after a later step; a prefix ending at `program` may qualify
+- 657-664 (2 steps, tail): candidate
+- 690-697 (2 steps, tail): candidate
+- 709-716 (2 steps, tail): candidate
+
+### `src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_program_executor.cpp`
+
+- 127-149 (5 steps): candidate
+- 191-199 (2 steps): candidate
+- 226-232 (2 steps, tail): candidate
+
+### `src/backend/flash/flash_executor.h`
+
+- 380-385 (2 steps, tail): candidate
+- 410-415 (2 steps, tail): candidate
+- 474-491 (4 steps): candidate
+
+### `src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.cpp`
+
+- 360-367 (2 steps, tail): candidate
+- 747-780 (5 steps): excluded — step uses a value from 2+ steps back
+- 828-847 (3 steps): candidate
+
+### `src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_executor.cpp`
+
+- 331-340 (2 steps): excluded — `rom_id` used after a later step; a prefix ending at `rom_id` may qualify
+- 437-450 (3 steps): candidate
+- 763-770 (2 steps, tail): candidate
+
+### `src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.cpp`
+
+- 224-238 (3 steps): excluded — inside a loop
+- 417-427 (2 steps): candidate
+- 484-492 (2 steps): candidate
+
+### `src/backend/flash/ecu/beef_can_kernel.cpp`
+
+- 121-134 (3 steps): candidate
+- 157-167 (2 steps): candidate
+- 365-377 (2 steps): excluded — inside a loop
+
+### `src/backend/flash/ecu/subaru_mitsu_m32r_kline_executor.cpp`
+
+- 98-104 (2 steps, tail): candidate
+- 256-266 (2 steps): candidate
+
+### `src/backend/flash/ecu/subaru_unisia_jecs_executor.cpp`
+
+- 83-95 (3 steps): candidate
+- 115-125 (2 steps): excluded — inside a loop
+- 148-159 (2 steps, tail): excluded — inside a loop
+- 168-186 (4 steps): candidate
+
+### `src/backend/flash/ecu/subaru_hitachi_sh7058_kline_executor.cpp`
+
+- 35-44 (2 steps): candidate
+- 147-155 (2 steps): candidate
+
+### `src/backend/flash/ecu/denso_beef_kline_common.cpp`
+
+- 36-46 (3 steps, tail): candidate
+- 59-71 (3 steps): candidate
+- 78-91 (3 steps): excluded — `received` used after a later step; a prefix ending at `received` may qualify
+
+### `src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_kernel_executor.cpp`
+
+- 47-57 (2 steps): excluded — inside a loop
+- 63-76 (2 steps): candidate
+- 96-102 (2 steps, tail): candidate
+
+### `src/backend/flash/ecu/denso_iso15765_bootloader_executor.cpp`
+
+- 135-144 (2 steps): candidate
+- 187-203 (3 steps, tail): candidate
+
+### `src/backend/flash/ecu/single_window_plan.cpp`
+
+- 71-76 (2 steps, tail): candidate
+- 105-113 (2 steps): candidate
+- 138-147 (2 steps): excluded — `plan` used after a later step; a prefix ending at `plan` may qualify
+
+### `src/backend/flash/ecu/denso_beef_can_ecu_execution.cpp`
+
+- 101-109 (2 steps): candidate
+- 401-412 (2 steps): excluded — `seed_alter` used after a later step; a prefix ending at `seed_alter` may qualify
+- 452-456 (2 steps, tail): excluded — false positive (`switch` case returns)
+- 700-723 (5 steps): excluded — step uses a value from 2+ steps back
+
+### `src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp`
+
+- 113-118 (2 steps, tail): candidate
+- 468-486 (3 steps): excluded — `reply` used after a later step; a prefix ending at `reply` may qualify
+
+### `src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.cpp`
+
+- 226-234 (2 steps): candidate
+
+### `src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp`
+
+- 93-102 (2 steps): candidate
+- 239-250 (2 steps): excluded — `rom` used after a later step; a prefix ending at `rom` may qualify
+
+### `src/backend/flash/ecu/subaru_denso_sh705x_kline_plan.cpp`
+
+- 145-155 (2 steps): excluded — `variant` used after a later step; a prefix ending at `variant` may qualify
+- 168-177 (2 steps): candidate
+- 188-210 (5 steps): excluded — step uses a value from 2+ steps back
+- 224-233 (2 steps): excluded — `plan` used after a later step; a prefix ending at `plan` may qualify
+
+### `src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.cpp`
+
+- 184-196 (3 steps): candidate
+- 238-247 (2 steps): excluded — `plan` used after a later step; a prefix ending at `plan` may qualify
+
+### `src/backend/flash/ecu/plan_primitives.h`
+
+- 96-106 (2 steps): candidate
+
+### `src/backend/flash/ecu/m32r_ssm_exchange.cpp`
+
+- 69-75 (2 steps, tail): candidate
+
+### `src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.cpp`
+
+- 28-33 (2 steps, tail): candidate
+
+### `src/backend/flash/ecu/subaru_hitachi_sh7058_can_executor.cpp`
+
+- 36-45 (2 steps): review — non-log statements between steps
+- 217-226 (2 steps): review — non-log statements between steps
+- 324-340 (3 steps): review — non-log statements between steps
+
+### `src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_executor.cpp`
+
+- 226-240 (3 steps): excluded — `id` used after a later step; a prefix ending at `id` may qualify
+
+### `src/backend/flash/flash_validation.cpp`
+
+- 148-165 (4 steps): excluded — `rom_image` used after a later step; a prefix ending at `rom_image` may qualify
+
+### `src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_plan.cpp`
+
+- 143-152 (2 steps): excluded — `variant` used after a later step; a prefix ending at `variant` may qualify
+- 162-171 (2 steps): excluded — `variant` used after a later step; a prefix ending at `variant` may qualify
+- 184-193 (2 steps): excluded — `variant` used after a later step; a prefix ending at `variant` may qualify
+
+### `src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_plan.cpp`
+
+- 97-106 (2 steps): excluded — `variant` used after a later step; a prefix ending at `variant` may qualify
+- 131-140 (2 steps): excluded — `variant` used after a later step; a prefix ending at `variant` may qualify
+
+### `src/backend/flash/ecu/subaru_denso_sh7055_02_plan.cpp`
+
+- 155-164 (2 steps): excluded — `plan` used after a later step; a prefix ending at `plan` may qualify
+
+### `src/backend/flash/ecu/denso_beef_kline_common.h`
+
+- 118-127 (2 steps): excluded — `modified_count` used after a later step; a prefix ending at `modified_count` may qualify
+
+### `src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.cpp`
+
+- 147-156 (2 steps): excluded — `plan` used after a later step; a prefix ending at `plan` may qualify
+
+### `src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.cpp`
+
+- 137-146 (2 steps): excluded — `plan` used after a later step; a prefix ending at `plan` may qualify
+
+### `src/backend/flash/eeprom/eeprom_read_plan.cpp`
+
+- 80-90 (2 steps): excluded — `eeprom_region` used after a later step; a prefix ending at `eeprom_region` may qualify
+- 107-122 (3 steps, tail): review — non-log statements between steps
+
+### `src/backend/flash/ecu/bootloader_operation.h`
+
+- 74-84 (2 steps): review — non-log statements between steps
+
+### `src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.cpp`
+
+- 74-83 (2 steps): excluded — `entry` used after a later step; a prefix ending at `entry` may qualify
