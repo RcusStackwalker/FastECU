@@ -227,3 +227,21 @@ TEST(MutDmaLoggingProtocol, UsesFirmwareLittleEndianRequestsAndSamples)
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples.front().raw_value, "4660");
 }
+
+TEST(MutDmaLoggingProtocolTest, PollReportsSilenceAfterStart)
+{
+    auto transport = std::make_unique<ScriptedKlineTransport>();
+    ScriptValidHandshake(*transport);
+    auto *script = transport.get();
+    auto protocol = MakeProtocol(std::move(transport));
+    fastecu::FakeCancellationToken cancellation;
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
+    script->QueueNoFrame();
+
+    const auto result = protocol->Poll(50ms, cancellation);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_FALSE(result->responded);
+    EXPECT_THAT(result->samples, IsEmpty());
+    EXPECT_TRUE(script->ScriptConsumed());
+}

@@ -1000,3 +1000,21 @@ TEST(SsmLoggingProtocolTest, RejectsNonfiniteFloatWithoutFabricatedZero)
         EXPECT_THAT(protocol.Poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
     }
 }
+
+TEST(SsmLoggingProtocolTest, OpenPort2PollCancelledAfterWriteSkipsTheRead)
+{
+    auto transport = std::make_unique<ScriptedSsmTransport>();
+    transport->ExpectWrite(BuildRequest(bytes::Bytes{0xA8, 0x01, 0x00, 0x10, 0x00}));
+    auto *script = transport.get();
+    auto clock = fastecu::MakeAutoAdvancingClock(10ms);
+    fastecu::FakeCancellationToken cancellation;
+    // The readiness check passes; the read's own check cancels.
+    cancellation.CancelOnCheck(2);
+    auto protocol_result = MakeProtocol(clock, std::move(transport), {Channel()}, true, true);
+    ASSERT_THAT(protocol_result, fastecu::testing::IsOk());
+    auto& protocol = *protocol_result;
+
+    EXPECT_THAT(protocol.Poll(50ms, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kCancelled, "SSM logging cancelled"));
+    EXPECT_TRUE(script->ScriptConsumed());
+}
