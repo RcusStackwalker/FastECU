@@ -73,15 +73,9 @@ class DtcRun
   private:
     Status Body()
     {
-        if (auto initialised = Init(); !initialised.has_value())
-        {
-            return initialised;
-        }
-        if (auto info = VehicleInfo(); !info.has_value())
-        {
-            return info;
-        }
-        return request_.operation == DtcOperation::kRead ? ReadDtcs() : ClearDtcs();
+        return Init()
+            .and_then([&] { return VehicleInfo(); })
+            .and_then([&] { return request_.operation == DtcOperation::kRead ? ReadDtcs() : ClearDtcs(); });
     }
 
     Status Init()
@@ -106,112 +100,109 @@ class DtcRun
     {
         const std::string name(ProtocolName(requested));
         const KlineIds ids = IdsFor(requested);
-        if (auto opened = link_.Open(KlineLinkConfig{.header = KlineHeader::kNone,
-                                                     .iso14230_connection = false,
-                                                     .baud = 10400,
-                                                     .start_byte = ids.start_byte,
-                                                     .tester_id = ids.tester_id,
-                                                     .target_id = ids.target_id});
-            !opened.has_value())
-        {
-            return opened;
-        }
-        Info("Testing " + name + " five baud init, please wait...");
-        std::ignore = link_.SetP1Max(35ms); // result never checked today
-        auto response = link_.FiveBaudInit(kFiveBaudAddress);
-        if (!response.has_value())
-        {
-            return std::unexpected(response.error());
-        }
-        Info("Init response: " + FormatHex(*response));
-        const bool j2534 = link_.UsesJ2534();
-        const std::optional<KlineHeader> header = FiveBaudHeader(requested, *response, j2534);
-        if (!j2534)
-        {
-            std::ignore = link_.SetP1Max(25ms);
-        }
-        if (!header.has_value())
-        {
-            Error(name + " five baud init failed.");
-            return Fail(ErrorKind::kBadResponse, std::format("{} five baud init failed", name));
-        }
-        std::ignore = link_.SetHeader(*header);
-        Info(name + " five baud init succesfully completed.");
-        return {};
+        return link_
+            .Open(KlineLinkConfig{.header = KlineHeader::kNone,
+                                  .iso14230_connection = false,
+                                  .baud = 10400,
+                                  .start_byte = ids.start_byte,
+                                  .tester_id = ids.tester_id,
+                                  .target_id = ids.target_id})
+            .and_then(
+                [&]
+                {
+                    Info("Testing " + name + " five baud init, please wait...");
+                    std::ignore = link_.SetP1Max(35ms); // result never checked today
+                    return link_.FiveBaudInit(kFiveBaudAddress);
+                })
+            .and_then(
+                [&](const bytes::Bytes& response) -> Status
+                {
+                    Info("Init response: " + FormatHex(response));
+                    const bool j2534 = link_.UsesJ2534();
+                    const std::optional<KlineHeader> header = FiveBaudHeader(requested, response, j2534);
+                    if (!j2534)
+                    {
+                        std::ignore = link_.SetP1Max(25ms);
+                    }
+                    if (!header.has_value())
+                    {
+                        Error(name + " five baud init failed.");
+                        return Fail(ErrorKind::kBadResponse, std::format("{} five baud init failed", name));
+                    }
+                    std::ignore = link_.SetHeader(*header);
+                    Info(name + " five baud init succesfully completed.");
+                    return {};
+                });
     }
 
     Status FastInit()
     {
         const KlineIds ids = IdsFor(ObdProtocol::kIso14230);
-        if (auto opened = link_.Open(KlineLinkConfig{.header = KlineHeader::kIso14230,
-                                                     .iso14230_connection = true,
-                                                     .baud = 10400,
-                                                     .start_byte = ids.start_byte,
-                                                     .tester_id = ids.tester_id,
-                                                     .target_id = ids.target_id});
-            !opened.has_value())
-        {
-            return opened;
-        }
-        Info("Initialising iso14230 fast init K-Line communications, please wait...");
-        if (auto woke = link_.FastInit(bytes::Bytes{kFastInitWakeup}); !woke.has_value())
-        {
-            return woke; // silent, as today; the caller falls back to five-baud
-        }
-        auto frame = ReadFrame(kShortRead);
-        if (!frame.has_value())
-        {
-            return std::unexpected(frame.error());
-        }
-        if (!frame->has_value() || !FastInitAccepted(**frame))
-        {
-            Error("iso14230 fast init mode failed.");
-            return Fail(ErrorKind::kBadResponse, "iso14230 fast init mode failed");
-        }
-        Info("iso14230 fast init mode succesfully completed.");
-        return {};
+        return link_
+            .Open(KlineLinkConfig{.header = KlineHeader::kIso14230,
+                                  .iso14230_connection = true,
+                                  .baud = 10400,
+                                  .start_byte = ids.start_byte,
+                                  .tester_id = ids.tester_id,
+                                  .target_id = ids.target_id})
+            .and_then(
+                [&]
+                {
+                    Info("Initialising iso14230 fast init K-Line communications, please wait...");
+                    // A failure is silent, as today; the caller falls back to five-baud.
+                    return link_.FastInit(bytes::Bytes{kFastInitWakeup});
+                })
+            .and_then([&] { return ReadFrame(kShortRead); })
+            .and_then(
+                [&](const IDiagnosticLink::OptionalBytes& frame) -> Status
+                {
+                    if (!frame.has_value() || !FastInitAccepted(*frame))
+                    {
+                        Error("iso14230 fast init mode failed.");
+                        return Fail(ErrorKind::kBadResponse, "iso14230 fast init mode failed");
+                    }
+                    Info("iso14230 fast init mode succesfully completed.");
+                    return {};
+                });
     }
 
     Status CanInit()
     {
-        if (auto opened = link_.Open(CanLinkConfig{.iso15765 = true,
-                                                   .bitrate = 500000,
-                                                   .extended_id = false,
-                                                   .source_id = kCanSource,
-                                                   .destination_id = kCanDestination});
-            !opened.has_value())
-        {
-            return opened;
-        }
-        Info("Initialising iso15765 CAN communications, please wait...");
-        const bytes::Bytes probe = BuildRequest(ObdProtocol::kIso15765, kCanSource, bytes::Bytes{kLiveData, 0x00});
-        if (auto written = link_.Write(probe); !written.has_value())
-        {
-            return std::unexpected(written.error());
-        }
-        auto frame = link_.Read(kCanInitRead, cancellation_);
-        if (!frame.has_value())
-        {
-            return std::unexpected(frame.error());
-        }
-        const bytes::Bytes f = frame->value_or(bytes::Bytes{});
-        if (f.size() <= 4)
-        {
-            return Fail(ErrorKind::kBadResponse, "no iso15765 init response");
-        }
-        if (f[4] == 0x7F)
-        {
-            // The four-byte CAN identifier precedes the NRC payload.
-            Error("Wrong response from ECU: " + NrcDescription(bytes::ByteView(f).subspan(4)));
-            return Fail(ErrorKind::kBadResponse, "iso15765 init rejected");
-        }
-        if (f[4] != 0x41)
-        {
-            Error("Wrong response from ECU: " + FormatHex(f));
-            return Fail(ErrorKind::kBadResponse, "iso15765 init wrong response");
-        }
-        Info("iso15765 init mode succesfully completed.");
-        return {};
+        return link_
+            .Open(CanLinkConfig{.iso15765 = true,
+                                .bitrate = 500000,
+                                .extended_id = false,
+                                .source_id = kCanSource,
+                                .destination_id = kCanDestination})
+            .and_then(
+                [&]
+                {
+                    Info("Initialising iso15765 CAN communications, please wait...");
+                    return link_.Write(BuildRequest(ObdProtocol::kIso15765, kCanSource, bytes::Bytes{kLiveData, 0x00}));
+                })
+            .and_then([&](const bytes::Bytes&) { return link_.Read(kCanInitRead, cancellation_); })
+            .and_then(
+                [&](const IDiagnosticLink::OptionalBytes& frame) -> Status
+                {
+                    const bytes::Bytes f = frame.value_or(bytes::Bytes{});
+                    if (f.size() <= 4)
+                    {
+                        return Fail(ErrorKind::kBadResponse, "no iso15765 init response");
+                    }
+                    if (f[4] == 0x7F)
+                    {
+                        // The four-byte CAN identifier precedes the NRC payload.
+                        Error("Wrong response from ECU: " + NrcDescription(bytes::ByteView(f).subspan(4)));
+                        return Fail(ErrorKind::kBadResponse, "iso15765 init rejected");
+                    }
+                    if (f[4] != 0x41)
+                    {
+                        Error("Wrong response from ECU: " + FormatHex(f));
+                        return Fail(ErrorKind::kBadResponse, "iso15765 init wrong response");
+                    }
+                    Info("iso15765 init mode succesfully completed.");
+                    return {};
+                });
     }
 
     Status VehicleInfo()
@@ -321,16 +312,17 @@ class DtcRun
 
     Status ClearDtcs()
     {
-        if (auto read = ReadDtcs(); !read.has_value())
+        if (const Status requested = ReadDtcs().and_then(
+                [&]
+                {
+                    return link_.Write(BuildRequest(request_.protocol, kCanSource, bytes::Bytes{kClearDtcs}))
+                        .transform([](const bytes::Bytes&) {});
+                });
+            !requested.has_value())
         {
-            return read;
+            return requested;
         }
         const std::size_t index = ResponseIndex(request_.protocol);
-        if (auto written = link_.Write(BuildRequest(request_.protocol, kCanSource, bytes::Bytes{kClearDtcs}));
-            !written.has_value())
-        {
-            return std::unexpected(written.error());
-        }
         bool cleared = false;
         while (true)
         {
