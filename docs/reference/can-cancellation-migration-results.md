@@ -871,3 +871,87 @@ EEPROM checklist exists. Hardware remains experimental. Named adapter/EEPROM
 read comparisons, modes/ignition retry, upload/cancellation traces and the
 SH7058 kernel load address `0xFFFF3000` require bench evidence. Full repository,
 static, coverage and platform delivery gates remain controller-owned.
+
+## Subaru Denso SH705x DensoCAN
+
+Task 17, 2026-10-31; source baseline `0f44b89f` (including master `c078e458`).
+The executor explicitly selects `GuardedMixedCanFlashTransport`; direct suite
+calls use the existing selected-guard adapter. The new borrowing owner guards
+only WriteIso15765, ReadIso15765, WriteRaw and ReadRaw at entry. It preserves
+delegated outcomes without a post-check or persistent stopped state. The two
+stale mixed-interface comments now name the existing production consumer.
+
+| Boundary | Retained owner and guard effect |
+| --- | --- |
+| Admission/startup | FamilyExecutor validates before precancellation. BoundAttempt keeps reset/configure/Open/Close/unblock on the owned transport. Before/after-reset, after-configure and before-open polls remain. The only production caller is the mixed workflow's concrete KernelBackedWorkflow binding. Direct suite calls now use the selected-guard adapter. |
+| Initial ISO probe | IsoWrite/IsoRead retain entry and successful-call polls, original subjects and transport-error precedence. The 200 ms delay remains cancellation-aware. No-frame, timeout, short/malformed/wrong-ID/wrong-content and nonterminal adapter errors still fall back to raw boot; cancellation/disconnection remain terminal. |
+| Raw wake/handshake | EnterRawBootloaderMode, all 1,000 wake frames, per-loop poll, 3 ms wait/progress, buffer clear and strict 7A/96 acknowledgment retain sequence and validation. RawWrite/RawRead retain pre/post checks and delegate errors win before the after-call poll. |
+| Upload/checksum/jump | Entry and six-byte block-loop polls, padding/address/overflow guards, set-address acknowledgments, 1 ms pacing, folded checksum and 200 ms wait remain. The jump's 50 ms Read still tolerates missing/malformed acknowledgment and logs it. ISO mode handoff and post-upload kernel ID verification remain strict. |
+| ISO read/CRC/programming | Page and comparison/flash-buffer loop checks remain. BEEF envelope, lengths, addresses, raw caller bytes, timing, CRC drain, flash mode, voltage, erase/commit and test-write validation retain their owners. All I/O uses the audited wrappers and retains pre/post checks. |
+| Results/events/cleanup | Phase/progress and operator logs remain; execution error wins over Close error, and one Close follows each opened attempt. A failure/cancellation after successful destructive erase still emits the recovery warning; before-erase failures do not. No final cancellation sweep was added. |
+
+The executor `.cpp` is byte-identical to `origin/master`; all **18** explicit
+CheckCancelled sites, waits and protocol decisions are retained. This changes
+refusal only at raw/ISO guard entry, including the concurrent interval after a
+retained executor poll. No unmasked deterministic real-family Read boundary was
+found: retained after-Write/entry-Read checks mask a runner bypass. The tiny
+actual-alias selection probe therefore supplies independent raw and ISO proof;
+it is not a family protocol execution or a claim of redundant polls.
+
+Preservation XML: unchanged predecessor **37** cases, unguarded characterizations
+**39**, guarded candidate **40**; no predecessor classname/name pair is lost.
+The two new family preservation cases pass before opt-in: cancellation inside
+an accepted kernel-ID Write returns `cancelled after kernel ID write`, performs
+no Read and closes once; concurrent delegated Write or Read disconnection keeps
+`original I/O failure` over cancellation. Existing startup, mode transition,
+nonterminal/terminal probe, strict post-upload validation, wake/upload/read/write
+cancellation and post-erase recovery cases pass unchanged.
+
+Verification commands and local evidence:
+
+- `python3 scripts/gazelle_check.py --fix`: generated owner and family dependencies;
+  buildifier/buildifier-lint pass. Only the owner library/test and adapter/expectation
+  dependencies were added; existing visibility and layer boundaries are unchanged.
+- `bazel test --config=release //src/backend/flash:guarded_mixed_can_flash_transport_test`:
+  **13** cases pass. Four-way parameterization checks refusal/zero attempts,
+  successful/absent/present-empty/raw-frame outcomes, all seven existing error kinds,
+  cancellation within delegation, bytes/frame/timeout/token identity and no poisoned
+  next call. All eight control operations forward after cancellation.
+- Missing-definition RED was refreshed on the restored work by temporarily omitting
+  guard definitions: owner target fails linking on missing guard methods. The prior
+  worker's initial TDD output is unavailable; this refresh is mutation evidence,
+  not a reconstructed chronology. Restored definitions pass again.
+- Selection RED and a separate declaration-removal mutation both fail compilation
+  with `no type named 'CancellationGuard'` in the DensoCAN executor.
+- BoundAttempt construction bypass fails only family
+  `SelectedGuardIsUsedByBoundAttempt` and shared `BoundAttemptUsesSelectedGuard`.
+  Raw CAN and ISO-15765 each show **one** extra inner Read, success instead of
+  `kCancelled`, and a consumed queued reply. Each mode still closes once.
+  Both mutations were restored; no runner logic changes ship.
+- Restored focused gate uses `bazel test --config=release` with
+  `//src/backend/flash:guarded_mixed_can_flash_transport_test`,
+  `//src/backend/flash/ecu:subaru_denso_sh705x_densocan_executor_test`,
+  `//src/backend/flash/testing:guarded_attempt_expectations_test`,
+  `//src/backend/flash:bound_flash_attempt_test`,
+  `//src/backend/flash:guarded_can_flash_transport_test`,
+  `//src/backend/flash:flash_executor_test`, and
+  `//src/backend/flash/testing:scripted_flash_transports_test`: **7/7** pass,
+  including invalid-plan-before-precancel admission and family abort checks.
+- Evidence logs/XML: `/private/tmp/task17-*`; scoped clang-format and diff review
+  pass. Full repository/static/platform delivery gates remain controller-owned.
+
+`python3 scripts/dedup_loop.py measure --json` uses the upstream-renamed tool
+and the same pinned Lizard hook. Merged baseline `0f44b89f`:
+156334 total / 66208 production / 90126 test. Candidate:
+156784 / 66308 / 90476. Delta: production **+100**, test **+350**.
+The owner contributes 98 production NLOC, explicit include/alias 2; owner tests
+add 274 test NLOC, family hooks/characterizations/adapter wiring 76. Existing
+shared test support is reused without growth. These are support/coverage costs;
+no net savings, test compression or removed checkpoints are claimed.
+
+The matrix's DensoCAN row and connection bench prerequisites were consulted;
+there is no dedicated DensoCAN checklist. Hardware remains **experimental**.
+Named ECU/adapter traces for raw wake/upload/checksum/jump, ISO handoff,
+read/test-write/write and operator cancellation/recovery, plus programmed-image
+readback and confirmation of supported geometries remain bench gaps. No hardware
+qualification is claimed and no address-window guard is relaxed.

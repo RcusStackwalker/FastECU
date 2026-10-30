@@ -313,8 +313,7 @@ class ICanFlashTransport : public IFlashTransport
 // for one already-solved problem, without pulling cdbg::ICanTransport itself
 // into the flash contract.
 //
-// No production consumer yet: it exists ahead of PR #341's DensoCAN family,
-// which is what will actually construct and drive it.
+// SubaruDensoSh705xDensoCanExecutor uses both modes within one session.
 class IMixedCanFlashTransport : public IFlashTransport
 {
   public:
@@ -333,8 +332,7 @@ class IMixedCanFlashTransport : public IFlashTransport
 
 // Mixed-CAN sibling of IKlineFlashExecutor/ICanFlashExecutor, paired with
 // IMixedCanFlashTransport; the same caller-owns-lifecycle contract applies.
-// No production consumer yet -- it lands ahead of PR #341's DensoCAN family,
-// the first executor expected to implement it.
+// SubaruDensoSh705xDensoCanExecutor implements this mixed-mode interface.
 class IMixedCanFlashExecutor
 {
   public:

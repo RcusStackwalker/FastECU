@@ -75,6 +75,16 @@ its acknowledgment Read. The
 [EEPROM evidence](can-cancellation-migration-results.md#denso-sh705x-can-eeprom)
 records the measured predecessor boundary and separate upload characterizations.
 
+Subaru Denso SH705x DensoCAN explicitly selects
+[GuardedMixedCanFlashTransport](../../src/backend/flash/guarded_mixed_can_flash_transport.h).
+Its four raw/ISO-15765 I/O methods refuse cancellation at entry and preserve
+accepted delegate outcomes. Reset, configuration, Open/Close, buffer control,
+mode transitions and unblock forward without a new gate. The executor retains
+all pre/post I/O, startup and loop checks, including after-write diagnostics,
+transport-error precedence and post-erase recovery warnings. The
+[DensoCAN evidence](can-cancellation-migration-results.md#subaru-denso-sh705x-densocan)
+separates these preserved family behaviors from the raw and ISO selection proofs.
+
 ## Plan admission
 
 Every flash executor derives from
