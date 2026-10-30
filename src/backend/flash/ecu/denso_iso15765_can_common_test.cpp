@@ -6,8 +6,10 @@
 #include <array>
 #include <chrono>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <optional>
 #include <ranges>
 #include <string_view>
 
@@ -1044,6 +1046,192 @@ TEST(DensoIso15765CanCommon, ConnectBenchSettlesForTheArmsDelay)
 
     EXPECT_EQ(f.transport.write_attempts, 0U);
     EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(50ms));
+}
+
+// Fails the `fail_write_at`-th write or `fail_read_at`-th read (1-based) with
+// kDisconnected "injected", or cancels `token` as the `cancel_after_read`-th
+// read returns; everything else follows the script.
+class FaultingCanTransport final : public ScriptedCanFlashTransport
+{
+  public:
+    explicit FaultingCanTransport(ManualCancellationToken& token) : token_(token)
+    {
+    }
+    Status Write(bytes::ByteView data, const ICancellationToken& cancellation) override
+    {
+        if (++writes_ == fail_write_at)
+        {
+            writes_at_fault = WritesConsumed();
+            return Fail(ErrorKind::kDisconnected, "injected");
+        }
+        return ScriptedCanFlashTransport::Write(data, cancellation);
+    }
+    Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout,
+                                             const ICancellationToken& cancellation) override
+    {
+        if (++reads_ == fail_read_at)
+        {
+            writes_at_fault = WritesConsumed();
+            return Fail(ErrorKind::kDisconnected, "injected");
+        }
+        auto read = ScriptedCanFlashTransport::Read(timeout, cancellation);
+        if (reads_ == cancel_after_read)
+        {
+            token_.Cancel();
+        }
+        return read;
+    }
+    std::size_t Writes() const
+    {
+        return writes_;
+    }
+    std::size_t Reads() const
+    {
+        return reads_;
+    }
+
+    std::size_t fail_write_at = 0;
+    std::size_t fail_read_at = 0;
+    std::size_t cancel_after_read = 0;
+    std::optional<std::size_t> writes_at_fault;
+
+  private:
+    ManualCancellationToken& token_;
+    std::size_t writes_ = 0;
+    std::size_t reads_ = 0;
+};
+
+struct FaultFixture
+{
+    ManualCancellationToken cancellation;
+    FaultingCanTransport transport{cancellation};
+    CanFlashUdsChannel channel{transport, 0x7E0, 0x7E8};
+    RecordingClock clock;
+    RecordingEventSink events;
+    uds::UdsClient client{channel, clock, events};
+    CanExecutorContext ctx{cancellation, events, clock, client, channel};
+};
+
+TEST(DensoIso15765CanCommon, JumpToKernelPropagatesSendAndDiscardSettleFailures)
+{
+    {
+        FaultFixture f;
+        f.transport.fail_write_at = 1;
+        EXPECT_THAT(DensoIso15765JumpToKernel(f.ctx, 0x42, 50, 200ms, 200ms, /*discard_first_reply=*/true),
+                    fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("injected")));
+        EXPECT_EQ(f.transport.Reads(), 0U);
+    }
+    {
+        FaultFixture f;
+        f.transport.Exchange(Request({0x10, 0x42}));
+        f.transport.QueueNoFrame();
+        f.transport.cancel_after_read = 1;
+        EXPECT_THAT(DensoIso15765JumpToKernel(f.ctx, 0x42, 50, 200ms, 200ms, /*discard_first_reply=*/true),
+                    fastecu::testing::IsErr(ErrorKind::kCancelled));
+        EXPECT_EQ(f.transport.Reads(), 1U); // the discard re-read never happens
+    }
+}
+
+TEST(DensoIso15765CanCommon, ObkProbeSendFailurePropagates)
+{
+    FaultFixture f;
+    f.transport.fail_write_at = 1;
+    EXPECT_THAT(DensoObkIsActive(f.ctx, "OBK active"),
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("injected")));
+    EXPECT_EQ(f.transport.Reads(), 0U);
+}
+
+TEST(DensoIso15765CanCommon, ProgrammingBranchSelectorShorterThanFourBytesIsBadResponse)
+{
+    CommonFixture f;
+    f.transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
+    f.transport.Exchange(Request({0x22, 0x10, 0x1D}), Response({0x62, 0x10, 0x1D}));
+
+    EXPECT_THAT(DensoProgrammingBranchIsInCar(f.ctx, 200ms),
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
+                                            ::testing::Eq("programming-branch selector reply is too short")));
+    EXPECT_THAT(f.events.logs,
+                ::testing::Contains(::testing::Pair(
+                    LogLevel::kError, "Wrong response from ECU: programming-branch selector reply is too short")));
+    EXPECT_TRUE(f.transport.ScriptConsumed());
+}
+
+// The tolerant probe logs a reply whose service byte alone is wrong, and
+// stays silent on an exact one.
+TEST(DensoIso15765CanCommon, TolerantProbeLogsOnlyAMismatchedServiceOrSubfunction)
+{
+    for (const bool wrong_service : {false, true})
+    {
+        SCOPED_TRACE(wrong_service);
+        CommonFixture f;
+        f.transport.Exchange(Request({0x10, 0x5F}), wrong_service ? Response({0x51, 0x01}) : Response({0x50, 0x01}));
+        f.transport.Exchange(Request({0x22, 0x10, 0x1D}), Response({0x62, 0x10, 0x1D, 0x00}));
+
+        EXPECT_THAT(DensoProgrammingBranchIsInCar(f.ctx, 200ms), ::testing::Optional(true));
+        const auto errors =
+            std::ranges::count(f.events.logs, LogLevel::kError, [](const auto& entry) { return entry.first; });
+        EXPECT_EQ(errors, wrong_service ? 1 : 0);
+    }
+}
+
+TEST(DensoIso15765CanCommon, EraseTriggerSendFailureStopsBeforeTheSettle)
+{
+    FaultFixture f;
+    ScriptEraseSetup(f.transport);
+    f.transport.fail_write_at = 2;
+    EXPECT_THAT(DensoIso15765Erase(f.ctx, kEraseRegion),
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("injected")));
+    EXPECT_THAT(f.clock.sleep_calls, ::testing::IsEmpty());
+}
+
+// The SH in-car connect end to end: probe, the ten-exchange run, seed/key,
+// session and selector confirmations, then an acknowledged jump.
+void ScriptShInCarConnect(ScriptedCanFlashTransport& transport)
+{
+    transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
+    for (const bytes::Bytes& request :
+         {RequestTo(0x7A2, {0x10, 0xC0}), RequestTo(0x7E0, {0x10, 0x63}), RequestTo(0x7DF, {0x10, 0x03}),
+          RequestTo(0x7E1, {0x10, 0x03}), RequestTo(0x7B0, {0x10, 0x03}), RequestTo(0x7B0, {0x85, 0x02}),
+          RequestTo(0x7DF, {0x85, 0x02}), RequestTo(0x7B0, {0x85, 0x02}), RequestTo(0x7DF, {0x85, 0x02}),
+          RequestTo(0x7DF, {0x28, 0x03, 0x01})})
+    {
+        transport.Exchange(request);
+        transport.QueueNoFrame();
+    }
+    transport.Exchange(Request({0x27, 0x61}), Response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+    transport.Exchange(Request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), Response({0x67, 0x62}));
+    transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x63}));
+    transport.Exchange(Request({0x22, 0x10, 0x1D}), Response({0x62, 0x10}));
+    transport.Exchange(Request({0x10, 0x62}), Response({0x50, 0x62}));
+}
+
+TEST(DensoIso15765CanCommon, EveryTransportFaultInAnInCarConnectPropagates)
+{
+    std::size_t writes = 0;
+    std::size_t reads = 0;
+    {
+        FaultFixture f;
+        ScriptShInCarConnect(f.transport);
+        ASSERT_THAT(DensoIso15765ConnectInCar(f.ctx, f.transport, DensoInCarRun::kSh, 2000ms),
+                    fastecu::testing::IsOk());
+        ASSERT_TRUE(f.transport.ScriptConsumed());
+        writes = f.transport.Writes();
+        reads = f.transport.Reads();
+    }
+    for (const bool fail_read : {false, true})
+    {
+        SCOPED_TRACE(fail_read ? "read" : "write");
+        for (std::size_t k = 1; k <= (fail_read ? reads : writes); ++k)
+        {
+            SCOPED_TRACE(k);
+            FaultFixture f;
+            ScriptShInCarConnect(f.transport);
+            (fail_read ? f.transport.fail_read_at : f.transport.fail_write_at) = k;
+            EXPECT_THAT(DensoIso15765ConnectInCar(f.ctx, f.transport, DensoInCarRun::kSh, 2000ms),
+                        fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("injected")));
+            EXPECT_EQ(f.transport.writes_at_fault, std::optional<std::size_t>{f.transport.WritesConsumed()});
+        }
+    }
 }
 
 } // namespace

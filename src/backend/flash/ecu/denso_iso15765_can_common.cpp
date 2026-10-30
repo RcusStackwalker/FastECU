@@ -93,16 +93,9 @@ Status FireAndForget(const CanExecutorContext& ctx, ICanFlashTransport& can, std
     // The reply is read from `can` below, never through this channel, so the
     // response-id slot is filled with the request id and never consulted.
     CanFlashUdsChannel channel(can, request_id, request_id);
-    if (const Status sent = channel.Send(pdu, ctx.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> ignored = can.Read(timeout, ctx.cancellation);
-    if (!ignored.has_value())
-    {
-        return std::unexpected(ignored.error());
-    }
-    return {};
+    return channel.Send(pdu, ctx.cancellation)
+        .and_then([&] { return can.Read(timeout, ctx.cancellation); })
+        .transform([](const std::optional<bytes::Bytes>&) {});
 }
 
 // Every reply is read at 200 ms except the primary ECU's (0x7E0) session-open
@@ -299,32 +292,26 @@ void DensoIso15765BestEffortTransferExit(const CanExecutorContext& ctx)
 Status DensoIso15765CloseAndVerifyChecksum(const CanExecutorContext& ctx, const uds::ExchangePolicy& checksum_policy)
 {
     DensoIso15765BestEffortTransferExit(ctx);
-    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{100}, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    LogInfo(ctx, "Verifying checksum");
-    if (Result<bytes::Bytes> checksum = FatalQuery(
-            ctx,
-            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, kRoutineIdHigh, kRoutineChecksum, 0x01},
-            bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, checksum_policy, "checksum verify");
-        !checksum.has_value())
-    {
-        return std::unexpected(checksum.error());
-    }
-    LogInfo(ctx, "Checksum verified");
-    return {};
+    return ctx.clock.Sleep(std::chrono::milliseconds{100}, ctx.cancellation)
+        .and_then(
+            [&]
+            {
+                LogInfo(ctx, "Verifying checksum");
+                return FatalQuery(ctx,
+                                  bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, kRoutineIdHigh,
+                                               kRoutineChecksum, 0x01},
+                                  bytes::Bytes{uds::kRoutineControlStart, kRoutineIdHigh}, checksum_policy,
+                                  "checksum verify");
+            })
+        .transform([&](const bytes::Bytes&) { LogInfo(ctx, "Checksum verified"); });
 }
 
 Status DensoIso15765WriteImageAndVerifyChecksum(const CanExecutorContext& ctx, bytes::ByteView image,
                                                 std::uint32_t image_base, const MemoryRegion& block,
                                                 PhaseReporter& progress, const uds::ExchangePolicy& checksum_policy)
 {
-    if (const Status written = DensoIso15765WriteImage(ctx, image, image_base, block, progress); !written.has_value())
-    {
-        return written;
-    }
-    return DensoIso15765CloseAndVerifyChecksum(ctx, checksum_policy);
+    return DensoIso15765WriteImage(ctx, image, image_base, block, progress)
+        .and_then([&] { return DensoIso15765CloseAndVerifyChecksum(ctx, checksum_policy); });
 }
 
 Status DensoIso15765WaitForJumpAck(const CanExecutorContext& ctx, bytes::Byte session,
@@ -366,30 +353,21 @@ Status DensoIso15765JumpToKernel(const CanExecutorContext& ctx, bytes::Byte sess
                                  std::chrono::milliseconds loop_read_timeout, bool discard_first_reply)
 {
     LogInfo(ctx, "Jump to onboad kernel");
-    if (const Status sent =
-            ctx.channel.Send(bytes::Bytes{uds::kSidDiagnosticSessionControl, session}, ctx.cancellation);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.Receive(first_read_timeout, ctx.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (discard_first_reply)
-    {
-        if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{50}, ctx.cancellation); !slept.has_value())
-        {
-            return slept;
-        }
-        received = ctx.channel.Receive(first_read_timeout, ctx.cancellation);
-        if (!received.has_value())
-        {
-            return std::unexpected(received.error());
-        }
-    }
-    return DensoIso15765WaitForJumpAck(ctx, session, std::move(*received), max_tries, loop_read_timeout);
+    return ctx.channel.Send(bytes::Bytes{uds::kSidDiagnosticSessionControl, session}, ctx.cancellation)
+        .and_then([&] { return ctx.channel.Receive(first_read_timeout, ctx.cancellation); })
+        .and_then(
+            [&](std::optional<bytes::Bytes> first) -> Result<std::optional<bytes::Bytes>>
+            {
+                if (!discard_first_reply)
+                {
+                    return first;
+                }
+                return ctx.clock.Sleep(std::chrono::milliseconds{50}, ctx.cancellation)
+                    .and_then([&] { return ctx.channel.Receive(first_read_timeout, ctx.cancellation); });
+            })
+        .and_then(
+            [&](std::optional<bytes::Bytes> reply)
+            { return DensoIso15765WaitForJumpAck(ctx, session, std::move(reply), max_tries, loop_read_timeout); });
 }
 
 Result<bytes::Bytes> FatalQuery(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::ByteView expected_prefix,
@@ -417,29 +395,26 @@ Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteVie
                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
                                    std::string_view subject)
 {
-    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.Receive(timeout, ctx.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    // Legacy requires received.length() > 5, i.e. at least two bytes past the
-    // 4-byte envelope; anything shorter takes its "No valid response from
-    // ECU" path and returns STATUS_ERROR.
-    if (!received->has_value() || received->value().size() < 2)
-    {
-        LogError(ctx, "No valid response from ECU");
-        return Fail(ErrorKind::kTimeout, std::format("no response from ECU during the {}", subject));
-    }
-    const bytes::Bytes& frame = **received;
-    if (frame[0] != expected_service || frame[1] != expected_subfunction)
-    {
-        LogError(ctx, std::format("{}{}", kDensoIso15765RejectionPrefix, bytes::ToHex(frame)));
-    }
-    return frame;
+    return ctx.channel.Send(pdu, ctx.cancellation)
+        .and_then([&] { return ctx.channel.Receive(timeout, ctx.cancellation); })
+        .and_then(
+            [&](std::optional<bytes::Bytes> received) -> Result<bytes::Bytes>
+            {
+                // Legacy requires received.length() > 5, i.e. at least two bytes past the
+                // 4-byte envelope; anything shorter takes its "No valid response from
+                // ECU" path and returns STATUS_ERROR.
+                if (!received.has_value() || received->size() < 2)
+                {
+                    LogError(ctx, "No valid response from ECU");
+                    return Fail(ErrorKind::kTimeout, std::format("no response from ECU during the {}", subject));
+                }
+                const bytes::Bytes& frame = *received;
+                if (frame[0] != expected_service || frame[1] != expected_subfunction)
+                {
+                    LogError(ctx, std::format("{}{}", kDensoIso15765RejectionPrefix, bytes::ToHex(frame)));
+                }
+                return std::move(*received);
+            });
 }
 
 } // namespace
@@ -447,25 +422,21 @@ Result<bytes::Bytes> TolerantProbe(const CanExecutorContext& ctx, bytes::ByteVie
 Result<bool> DensoObkIsActive(const CanExecutorContext& ctx, std::string_view active_log)
 {
     LogInfo(ctx, "Checking if OBK is active...");
-    if (const Status sent =
-            ctx.channel.Send(bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, ctx.cancellation);
-        !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    Result<std::optional<bytes::Bytes>> obk = ctx.channel.Receive(kObkProbeTimeout, ctx.cancellation);
-    if (!obk.has_value())
-    {
-        return std::unexpected(obk.error());
-    }
-    constexpr std::array kObkActiveReply{kSessionControlReply, kSessionProbe};
-    if (obk->has_value() && std::ranges::equal(**obk | std::views::take(kObkActiveReply.size()), kObkActiveReply))
-    {
-        LogInfo(ctx, active_log);
-        return true;
-    }
-    LogInfo(ctx, "OBK not active, initialising ECU...");
-    return false;
+    return ctx.channel.Send(bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, ctx.cancellation)
+        .and_then([&] { return ctx.channel.Receive(kObkProbeTimeout, ctx.cancellation); })
+        .transform(
+            [&](const std::optional<bytes::Bytes>& obk)
+            {
+                constexpr std::array kObkActiveReply{kSessionControlReply, kSessionProbe};
+                if (obk.has_value() &&
+                    std::ranges::equal(*obk | std::views::take(kObkActiveReply.size()), kObkActiveReply))
+                {
+                    LogInfo(ctx, active_log);
+                    return true;
+                }
+                LogInfo(ctx, "OBK not active, initialising ECU...");
+                return false;
+            });
 }
 
 void DensoEcuIdQuery(const CanExecutorContext& ctx)
@@ -492,27 +463,26 @@ void DensoVehicleInfoQueries(const CanExecutorContext& ctx)
 Result<bool> DensoProgrammingBranchIsInCar(const CanExecutorContext& ctx, std::chrono::milliseconds probe_timeout)
 {
     LogInfo(ctx, "Checking access method");
-    if (Result<bytes::Bytes> access = TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe},
-                                                    kSessionControlReply, 0x01, probe_timeout, "access-method probe");
-        !access.has_value())
-    {
-        return std::unexpected(access.error());
-    }
-    Result<bytes::Bytes> selector =
-        TolerantProbe(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D}, kReadDataByIdentifierReply, 0x10,
-                      probe_timeout, "programming-branch selector");
-    if (!selector.has_value())
-    {
-        return std::unexpected(selector.error());
-    }
-    // Legacy reads raw frame byte 7 (payload byte 3) without a length check;
-    // TolerantProbe only guarantees two bytes, so this guard is not redundant.
-    if (selector->size() < 4)
-    {
-        LogError(ctx, "Wrong response from ECU: programming-branch selector reply is too short");
-        return Fail(ErrorKind::kBadResponse, "programming-branch selector reply is too short");
-    }
-    return (*selector)[3] != 0xFF;
+    return TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
+                         0x01, probe_timeout, "access-method probe")
+        .and_then(
+            [&](const bytes::Bytes&)
+            {
+                return TolerantProbe(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D},
+                                     kReadDataByIdentifierReply, 0x10, probe_timeout, "programming-branch selector");
+            })
+        .and_then(
+            [&](const bytes::Bytes& selector) -> Result<bool>
+            {
+                // Legacy reads raw frame byte 7 (payload byte 3) without a length check;
+                // TolerantProbe only guarantees two bytes, so this guard is not redundant.
+                if (selector.size() < 4)
+                {
+                    LogError(ctx, "Wrong response from ECU: programming-branch selector reply is too short");
+                    return Fail(ErrorKind::kBadResponse, "programming-branch selector reply is too short");
+                }
+                return selector[3] != 0xFF;
+            });
 }
 
 Status DensoSecurityAccess(const CanExecutorContext& ctx)
@@ -520,54 +490,43 @@ Status DensoSecurityAccess(const CanExecutorContext& ctx)
     const UdsExchangeContext exchange = ExchangeContext(ctx, kSecurityAccessPolicy);
 
     LogInfo(ctx, "Starting seed request");
-    Result<bytes::Bytes> seed_reply =
-        FatalQuery(exchange, bytes::Bytes{uds::kSidSecurityAccess, kSecurityAccessRequestSeed},
-                   bytes::Bytes{kSecurityAccessRequestSeed}, kDensoIso15765RejectionPrefix, "seed request", 5);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    LogInfo(ctx, "Seed request ok");
-    // The four seed bytes sit at payload offsets 1-4, once the service id is
-    // stripped and behind the level echo.
-    const bytes::Bytes key = DensoSeedKey(uds::Payload(*seed_reply).subspan(1, 4));
+    return FatalQuery(exchange, bytes::Bytes{uds::kSidSecurityAccess, kSecurityAccessRequestSeed},
+                      bytes::Bytes{kSecurityAccessRequestSeed}, kDensoIso15765RejectionPrefix, "seed request", 5)
+        .and_then(
+            [&](const bytes::Bytes& seed_reply)
+            {
+                LogInfo(ctx, "Seed request ok");
+                // The four seed bytes sit at payload offsets 1-4, once the service id is
+                // stripped and behind the level echo.
+                const bytes::Bytes key = DensoSeedKey(uds::Payload(seed_reply).subspan(1, 4));
 
-    LogInfo(ctx, "Sending seed key");
-    Result<bytes::Bytes> key_reply =
-        FatalQuery(exchange, bytes::ComposeBe(uds::kSidSecurityAccess, kSecurityAccessSendKey, key),
-                   bytes::Bytes{kSecurityAccessSendKey}, kDensoIso15765RejectionPrefix, "seed key");
-    if (!key_reply.has_value())
-    {
-        return std::unexpected(key_reply.error());
-    }
-    LogInfo(ctx, "Seed key ok");
-    return {};
+                LogInfo(ctx, "Sending seed key");
+                return FatalQuery(exchange, bytes::ComposeBe(uds::kSidSecurityAccess, kSecurityAccessSendKey, key),
+                                  bytes::Bytes{kSecurityAccessSendKey}, kDensoIso15765RejectionPrefix, "seed key");
+            })
+        .transform([&](const bytes::Bytes&) { LogInfo(ctx, "Seed key ok"); });
 }
 
 Status DensoIso15765Erase(const CanExecutorContext& ctx, const MemoryRegion& region)
 {
     LogInfo(ctx, "Setting flash start & length");
-    if (Result<bytes::Bytes> setup =
+    if (const Status triggered =
             FatalQuery(ExchangeContext(ctx, kErasePolicy), DensoIso15765DownloadSetupPdu(region),
-                       bytes::Bytes{0x20, 0x01, 0x05}, kDensoIso15765RejectionPrefix, "flash start & length setup");
-        !setup.has_value())
+                       bytes::Bytes{0x20, 0x01, 0x05}, kDensoIso15765RejectionPrefix, "flash start & length setup")
+                .and_then(
+                    [&](const bytes::Bytes&)
+                    {
+                        LogInfo(ctx, "Erasing ECU ROM");
+                        // Sent through the channel rather than UdsClient: no reply is read here,
+                        // the polling loop below consumes the ECU's answer instead.
+                        return ctx.channel.Send(bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart,
+                                                             kRoutineIdHigh, kRoutineErase, 0xff, 0xff, 0xff, 0xff},
+                                                ctx.cancellation);
+                    })
+                .and_then([&] { return ctx.clock.Sleep(kEraseTimeout, ctx.cancellation); });
+        !triggered.has_value())
     {
-        return std::unexpected(setup.error());
-    }
-
-    LogInfo(ctx, "Erasing ECU ROM");
-    // Sent through the channel rather than UdsClient: no reply is read here,
-    // the polling loop below consumes the ECU's answer instead.
-    if (const Status sent = ctx.channel.Send(bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart,
-                                                          kRoutineIdHigh, kRoutineErase, 0xff, 0xff, 0xff, 0xff},
-                                             ctx.cancellation);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    if (const Status slept = ctx.clock.Sleep(kEraseTimeout, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
+        return triggered;
     }
 
     for (int attempt = 0; attempt < kErasePollLimit; ++attempt)
@@ -615,43 +574,39 @@ Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTranspo
                                  std::chrono::milliseconds read_timeout)
 {
     LogInfo(ctx, "In car programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    if (Result<bytes::Bytes> probe =
-            TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
-                          0x01, read_timeout, "in-car access-method probe");
-        !probe.has_value())
-    {
-        return std::unexpected(probe.error());
-    }
-    if (const Status sent =
-            run == DensoInCarRun::kSh ? ShInCarFireAndForget(ctx, can, read_timeout) : N83mInCarFireAndForget(ctx, can);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    if (const Status unlocked = DensoSecurityAccess(ctx); !unlocked.has_value())
-    {
-        return unlocked;
-    }
     const uds::ExchangePolicy policy{.read_timeout = read_timeout};
-    if (Result<bytes::Bytes> session =
-            FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe},
-                       bytes::Bytes{kSessionInCarOpen}, policy, "in-car session confirmation");
-        !session.has_value())
-    {
-        return std::unexpected(session.error());
-    }
-    if (Result<bytes::Bytes> selector = FatalQuery(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D},
-                                                   bytes::Bytes{0x10}, policy, "in-car programming-mode confirmation");
-        !selector.has_value())
-    {
-        return std::unexpected(selector.error());
-    }
-    return DensoIso15765JumpToKernel(ctx, kSessionInCarJump, 10, read_timeout, read_timeout,
-                                     /*discard_first_reply=*/false);
+    return ctx.clock.Sleep(std::chrono::milliseconds{500}, ctx.cancellation)
+        .and_then(
+            [&]
+            {
+                return TolerantProbe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe},
+                                     kSessionControlReply, 0x01, read_timeout, "in-car access-method probe");
+            })
+        .and_then(
+            [&](const bytes::Bytes&)
+            {
+                return run == DensoInCarRun::kSh ? ShInCarFireAndForget(ctx, can, read_timeout)
+                                                 : N83mInCarFireAndForget(ctx, can);
+            })
+        .and_then([&] { return DensoSecurityAccess(ctx); })
+        .and_then(
+            [&]
+            {
+                return FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe},
+                                  bytes::Bytes{kSessionInCarOpen}, policy, "in-car session confirmation");
+            })
+        .and_then(
+            [&](const bytes::Bytes&)
+            {
+                return FatalQuery(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D}, bytes::Bytes{0x10},
+                                  policy, "in-car programming-mode confirmation");
+            })
+        .and_then(
+            [&](const bytes::Bytes&)
+            {
+                return DensoIso15765JumpToKernel(ctx, kSessionInCarJump, 10, read_timeout, read_timeout,
+                                                 /*discard_first_reply=*/false);
+            });
 }
 
 // Legacy bench arms: N83M 1.5M 657-803, N83M 4M 663-808, SH72531 657-805,
@@ -659,27 +614,24 @@ Status DensoIso15765ConnectInCar(const CanExecutorContext& ctx, ICanFlashTranspo
 Status DensoIso15765ConnectBench(const CanExecutorContext& ctx, const DensoBenchArm& arm)
 {
     LogInfo(ctx, "Bench programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.Sleep(arm.settle, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
     const bytes::Bytes session_pdu{uds::kSidDiagnosticSessionControl, kSessionBench};
-    if (Result<bytes::Bytes> session =
-            arm.session_reply == DensoBenchSessionReply::kTolerantProbe
-                ? TolerantProbe(ctx, session_pdu, kSessionControlReply, kSessionBench, arm.session_timeout,
-                                "bench diagnostic session")
-                : FatalQuery(ctx, session_pdu, bytes::Bytes{kSessionBench}, {.read_timeout = arm.session_timeout},
-                             "bench diagnostic session");
-        !session.has_value())
-    {
-        return std::unexpected(session.error());
-    }
-    if (const Status unlocked = DensoSecurityAccess(ctx); !unlocked.has_value())
-    {
-        return unlocked;
-    }
-    return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, arm.jump_first_read, arm.jump_loop_read,
-                                     arm.discard_first_reply);
+    return ctx.clock.Sleep(arm.settle, ctx.cancellation)
+        .and_then(
+            [&]
+            {
+                return arm.session_reply == DensoBenchSessionReply::kTolerantProbe
+                           ? TolerantProbe(ctx, session_pdu, kSessionControlReply, kSessionBench, arm.session_timeout,
+                                           "bench diagnostic session")
+                           : FatalQuery(ctx, session_pdu, bytes::Bytes{kSessionBench},
+                                        {.read_timeout = arm.session_timeout}, "bench diagnostic session");
+            })
+        .and_then([&](const bytes::Bytes&) { return DensoSecurityAccess(ctx); })
+        .and_then(
+            [&]
+            {
+                return DensoIso15765JumpToKernel(ctx, kSessionBenchJump, 50, arm.jump_first_read, arm.jump_loop_read,
+                                                 arm.discard_first_reply);
+            });
 }
 
 } // namespace fastecu::flash
