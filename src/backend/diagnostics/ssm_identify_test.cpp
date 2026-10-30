@@ -4,6 +4,8 @@
 #include <gmock/gmock.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <functional>
 #include <initializer_list>
 #include <iterator>
 #include <ranges>
@@ -25,6 +27,7 @@ using fastecu::testing::IsErr;
 using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::ElementsAre;
+using ::testing::ElementsAreArray;
 using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
@@ -432,4 +435,65 @@ TEST(IdentifyIso15765Uds, NoAnswerIsTimeout)
 {
     Harness h;
     EXPECT_THAT(h.Run(SsmVariant::kIso15765Uds), IsErr(ErrorKind::kTimeout));
+}
+
+namespace
+{
+// Fails each link call of a successful identification in turn: the injected
+// error comes back unchanged and nothing runs after the failed call.
+void ExpectEveryLinkFaultPassesThrough(SsmVariant variant, const std::function<void(FakeDiagnosticLink&)>& script)
+{
+    Harness reference;
+    script(reference.link);
+    ASSERT_THAT(reference.Run(variant), IsOk());
+    for (std::size_t call = 1; call <= reference.link.calls.size(); ++call)
+    {
+        SCOPED_TRACE(reference.link.calls.at(call - 1));
+        Harness h;
+        script(h.link);
+        h.link.fail_call = call;
+        EXPECT_THAT(h.Run(variant), IsErrWith(ErrorKind::kDisconnected, Eq("injected fault")));
+        EXPECT_THAT(h.link.calls, ElementsAreArray(reference.link.calls.begin(),
+                                                   reference.link.calls.begin() + static_cast<std::ptrdiff_t>(call)));
+    }
+}
+} // namespace
+
+TEST(IdentifyKlineSsm2, EveryLinkFaultPassesThrough)
+{
+    ExpectEveryLinkFaultPassesThrough(SsmVariant::kKlineSsm2,
+                                      [](FakeDiagnosticLink& link)
+                                      {
+                                          link.QueueRead(B({0x80, 0xF0}));
+                                          link.QueueRead(B({0x10, 0x09, 0xFF}));
+                                          link.QueueRead(B({0xA2, 0x10, 0x11, 0x31, 0x52, 0x58, 0x40, 0x06}));
+                                          link.QueueRead(B({0x6C}));
+                                      });
+}
+
+TEST(IdentifySsm1, EveryLinkFaultPassesThrough)
+{
+    ExpectEveryLinkFaultPassesThrough(SsmVariant::kSsm1,
+                                      [](FakeDiagnosticLink& link)
+                                      {
+                                          QueueSilentWakeup(link);
+                                          link.QueueRead(kShortEcuInit);
+                                          link.QueueRead(kShortEcuInit);
+                                      });
+}
+
+TEST(IdentifyIso15765Uds, EveryLinkFaultPassesThrough)
+{
+    ExpectEveryLinkFaultPassesThrough(
+        SsmVariant::kIso15765Uds, [](FakeDiagnosticLink& link)
+        { link.QueueRead(B({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82, 0x12, 0x34, 0x56, 0x78, 0x9A})); });
+}
+
+TEST(IdentifySsm1, AFrameTooShortForAnIdIsBadResponse)
+{
+    Harness h;
+    QueueSilentWakeup(h.link);
+    h.link.QueueRead(B({0x80, 0xF0, 0x10, 0x00, 0x40}));
+    EXPECT_THAT(h.Run(SsmVariant::kSsm1),
+                IsErrWith(ErrorKind::kBadResponse, Eq("SSM init response is too short for an ECU ID: 80 F0 10 00 40")));
 }

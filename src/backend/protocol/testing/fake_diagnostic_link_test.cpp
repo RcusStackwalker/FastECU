@@ -90,3 +90,36 @@ TEST(FakeDiagnosticLink, RecordsEvenParityAndStaysSilentForNone)
               "open kline header=None iso14230=false baud=1953 start=00 tester=00 target=00 parity=Even");
     EXPECT_EQ(link.calls.at(1), "open kline header=None iso14230=false baud=4800 start=00 tester=00 target=00");
 }
+
+TEST(FakeDiagnosticLink, FailCallFailsOnlyTheCallAtThatIndex)
+{
+    FakeCancellationToken token;
+    FakeDiagnosticLink link;
+    link.QueueRead(bytes::Bytes{0x41});
+    for (std::size_t call = 1; call <= 7; ++call)
+    {
+        SCOPED_TRACE(call);
+        link.fail_call = call;
+        const auto expect_fault_at = [&](const auto& result, std::size_t index)
+        {
+            if (index == call)
+            {
+                EXPECT_THAT(result,
+                            fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("injected fault")));
+            }
+            else
+            {
+                EXPECT_THAT(result, IsOk());
+            }
+        };
+        expect_fault_at(link.Open(KlineLinkConfig{}), 1);
+        expect_fault_at(link.Open(CanLinkConfig{}), 2);
+        expect_fault_at(link.FiveBaudInit(0x33), 3);
+        expect_fault_at(link.FastInit(bytes::Bytes{0x81}), 4);
+        expect_fault_at(link.Write(bytes::Bytes{0x01}), 5);
+        expect_fault_at(link.Read(200ms, token), 6);
+        expect_fault_at(link.ReadObd(200ms, token), 7);
+        link.calls.clear();
+    }
+    EXPECT_TRUE(link.ScriptConsumed());
+}
