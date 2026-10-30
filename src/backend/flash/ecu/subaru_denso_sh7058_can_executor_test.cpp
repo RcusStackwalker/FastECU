@@ -1577,7 +1577,7 @@ TEST(SubaruDensoSh7058CanExecutor, CancellationInterruptsProbeUploadReadCrcErase
 // Retargeted cold-query cases exercise the complete admitted family operation.
 // The independently scripted continuation proves tolerated replies do not abort;
 // section logs exclude the enclosing operation's unrelated status records.
-class SubaruDensoSh7058CanColdTest : public ::testing::Test
+class SubaruDensoSh7058CanCold : public ::testing::Test
 {
   protected:
     using Outcome = Result<std::optional<bytes::Bytes>>;
@@ -1656,7 +1656,7 @@ class SubaruDensoSh7058CanColdTest : public ::testing::Test
     bytes::Bytes programming_{0x10, 0x02, 0x42};
 };
 
-TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryTimeoutLogsNoValidResponse)
+TEST_F(SubaruDensoSh7058CanCold, NonfatalQueryTimeoutLogsNoValidResponse)
 {
     identity_[0] = Fail(ErrorKind::kTimeout, "");
     const auto reply = ExecuteCold();
@@ -1665,7 +1665,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryTimeoutLogsNoValidResponse)
     EXPECT_THAT(EcuLogs(), ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryNoFrameLogsNoValidResponse)
+TEST_F(SubaruDensoSh7058CanCold, NonfatalQueryNoFrameLogsNoValidResponse)
 {
     const auto reply = ExecuteCold();
     ASSERT_THAT(reply, IsOk());
@@ -1673,7 +1673,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryNoFrameLogsNoValidResponse)
     EXPECT_THAT(EcuLogs(), ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDeviceName)
+TEST_F(SubaruDensoSh7058CanCold, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDeviceName)
 {
     identity_[0] = Fail(ErrorKind::kBadResponse, "boom");
     const auto reply = ExecuteCold();
@@ -1682,7 +1682,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryBadReplyLogsTheErrorDetailUnde
     EXPECT_THAT(EcuLogs(), ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: boom")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryPassesCancelAndDisconnectThrough)
+TEST_F(SubaruDensoSh7058CanCold, NonfatalQueryPassesCancelAndDisconnectThrough)
 {
     for (const ErrorKind kind : {ErrorKind::kCancelled, ErrorKind::kDisconnected})
     {
@@ -1700,7 +1700,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryPassesCancelAndDisconnectThrou
     }
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryReturnsTheFrame)
+TEST_F(SubaruDensoSh7058CanCold, NonfatalQueryReturnsTheFrame)
 {
     // Returning the literal 50 03 is observable as both selected programming
     // bytes 02 and 42, rather than only the always-accepted 43 -> 42.
@@ -1708,7 +1708,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryReturnsTheFrame)
     EXPECT_THAT(Section("Requesting session mode", "Requesting seed"), IsEmpty());
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryUsesTheReadTimeoutAndPostSendDelay)
+TEST_F(SubaruDensoSh7058CanCold, NonfatalQueryUsesTheReadTimeoutAndPostSendDelay)
 {
     MockClock clock;
     auto plan = PlanFor(kVariants.front(), FlashOperation::kRead);
@@ -1728,13 +1728,13 @@ TEST_F(SubaruDensoSh7058CanColdTest, NonfatalQueryUsesTheReadTimeoutAndPostSendD
     EXPECT_TRUE(transport_.ScriptConsumed());
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, RequestSessionAcceptsThePositiveReply)
+TEST_F(SubaruDensoSh7058CanCold, RequestSessionAcceptsThePositiveReply)
 {
     ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting session mode", "Requesting seed"), IsEmpty());
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, RequestSessionStepsOverSilence)
+TEST_F(SubaruDensoSh7058CanCold, RequestSessionStepsOverSilence)
 {
     session_03_ = std::nullopt;
     programming_ = {0x10, 0x42};
@@ -1743,7 +1743,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestSessionStepsOverSilence)
                 ElementsAre(Pair(LogLevel::kError, "No valid response from ECU")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, WrongRepliesRenderInTheProfilePduFormat)
+TEST_F(SubaruDensoSh7058CanCold, WrongRepliesRenderInTheProfilePduFormat)
 {
     session_03_ = bytes::Bytes{0x7F, 0x10, 0x22};
     programming_ = {0x10, 0x42};
@@ -1752,7 +1752,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, WrongRepliesRenderInTheProfilePduFormat)
                 ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 7f 10 22 ")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, RequestEcuIdParsesFiveBytesAndNamesAReadImage)
+TEST_F(SubaruDensoSh7058CanCold, RequestEcuIdParsesFiveBytesAndNamesAReadImage)
 {
     identity_[0] = bytes::Bytes{0xEA, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
     const auto written = ExecuteCold(FlashOperation::kWrite);
@@ -1765,7 +1765,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestEcuIdParsesFiveBytesAndNamesAReadIma
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting ECU ID")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, RequestEcuIdStepsOverAShortReply)
+TEST_F(SubaruDensoSh7058CanCold, RequestEcuIdStepsOverAShortReply)
 {
     identity_[0] = bytes::Bytes{0xEA, 0x01};
     const auto reply = ExecuteCold();
@@ -1776,7 +1776,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestEcuIdStepsOverAShortReply)
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting ECU ID")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, RequestCvnLogsUppercaseCompactHex)
+TEST_F(SubaruDensoSh7058CanCold, RequestCvnLogsUppercaseCompactHex)
 {
     identity_[3] = bytes::Bytes{0x49, 0x06, 0x01, 0xAB, 0xCD};
     ASSERT_THAT(ExecuteCold(), IsOk());
@@ -1784,7 +1784,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestCvnLogsUppercaseCompactHex)
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting CVN")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, RequestCvnLogsAWrongReply)
+TEST_F(SubaruDensoSh7058CanCold, RequestCvnLogsAWrongReply)
 {
     identity_[3] = bytes::Bytes{0x7F, 0x09};
     ASSERT_THAT(ExecuteCold(), IsOk());
@@ -1793,14 +1793,14 @@ TEST_F(SubaruDensoSh7058CanColdTest, RequestCvnLogsAWrongReply)
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting CVN")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, IdentityStringReturnsTheTail)
+TEST_F(SubaruDensoSh7058CanCold, IdentityStringReturnsTheTail)
 {
     identity_[1] = bytes::Bytes{0x49, 0x02, 0x01, 'V', '1'};
     ASSERT_THAT(ExecuteCold(), IsOk());
     EXPECT_THAT(Section("Requesting VIN", "Requesting CAL ID"), ElementsAre(Pair(LogLevel::kInfo, "VIN: V1")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, IdentityStringStepsOverAMismatch)
+TEST_F(SubaruDensoSh7058CanCold, IdentityStringStepsOverAMismatch)
 {
     identity_[1] = bytes::Bytes{0x49, 0x04, 0x01, 'V'};
     const auto reply = ExecuteCold();
@@ -1810,7 +1810,7 @@ TEST_F(SubaruDensoSh7058CanColdTest, IdentityStringStepsOverAMismatch)
                 ElementsAre(Pair(LogLevel::kError, "Wrong response from ECU: 49 04 01 56 ")));
 }
 
-TEST_F(SubaruDensoSh7058CanColdTest, UppercaseHexCompactHasNoSeparators)
+TEST_F(SubaruDensoSh7058CanCold, UppercaseHexCompactHasNoSeparators)
 {
     identity_[3] = bytes::Bytes{0x49, 0x06, 0x01, 0x0A, 0xFF, 0x00};
     ASSERT_THAT(ExecuteCold(), IsOk());

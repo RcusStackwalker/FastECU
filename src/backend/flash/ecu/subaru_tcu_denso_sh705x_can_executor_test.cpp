@@ -2195,7 +2195,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, BoundAttemptReturnsCloseErrorOnlyWhenExecu
     EXPECT_TRUE(HasLog(failing_events, LogLevel::kWarning, "close failed after execution error"));
 }
 
-class SubaruTcuDensoSh705xCanColdTest : public ::testing::Test
+class SubaruTcuDensoSh705xCanCold : public ::testing::Test
 {
   protected:
     using Outcome = Result<bytes::Bytes>;
@@ -2251,7 +2251,7 @@ class SubaruTcuDensoSh705xCanColdTest : public ::testing::Test
     RecordingEventSink events_;
 };
 
-TEST_F(SubaruTcuDensoSh705xCanColdTest, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDeviceName)
+TEST_F(SubaruTcuDensoSh705xCanCold, NonfatalQueryBadReplyLogsTheErrorDetailUnderTheDeviceName)
 {
     const auto reply = ExecuteCold(Fail(ErrorKind::kBadResponse, "boom"));
     ASSERT_THAT(reply, IsOk());
@@ -2260,7 +2260,7 @@ TEST_F(SubaruTcuDensoSh705xCanColdTest, NonfatalQueryBadReplyLogsTheErrorDetailU
                 ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: boom")));
 }
 
-TEST_F(SubaruTcuDensoSh705xCanColdTest, LogFailureNamesTimeoutsAndBadRepliesAndStaysSilentOtherwise)
+TEST_F(SubaruTcuDensoSh705xCanCold, LogFailureNamesTimeoutsAndBadRepliesAndStaysSilentOtherwise)
 {
     Logs failures;
     for (const auto& [kind, detail] :
@@ -2284,7 +2284,7 @@ TEST_F(SubaruTcuDensoSh705xCanColdTest, LogFailureNamesTimeoutsAndBadRepliesAndS
                                       Pair(LogLevel::kError, "Wrong response from TCU: garbled")));
 }
 
-TEST_F(SubaruTcuDensoSh705xCanColdTest, IdentityWrongReplyKeepsTcuPduWording)
+TEST_F(SubaruTcuDensoSh705xCanCold, IdentityWrongReplyKeepsTcuPduWording)
 {
     // The former session-only CVN case combined CVN parsing and TCU wording.
     // Real TCU operations request CAL ID; the same negative vector preserves
@@ -2295,7 +2295,7 @@ TEST_F(SubaruTcuDensoSh705xCanColdTest, IdentityWrongReplyKeepsTcuPduWording)
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting CAL ID")));
 }
 
-TEST_F(SubaruTcuDensoSh705xCanColdTest, OpcodeOnlyKernelIdContinuesToReadWithoutColdInitialization)
+TEST_F(SubaruTcuDensoSh705xCanCold, OpcodeOnlyKernelIdContinuesToReadWithoutColdInitialization)
 {
     auto plan = ReadPlan(kCases.front());
     ASSERT_THAT(plan, IsOk());
@@ -2308,7 +2308,7 @@ TEST_F(SubaruTcuDensoSh705xCanColdTest, OpcodeOnlyKernelIdContinuesToReadWithout
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Kernel ID: ")));
 }
 
-TEST_F(SubaruTcuDensoSh705xCanColdTest, MinimalCalIdAndProgrammingSessionRepliesRemainAccepted)
+TEST_F(SubaruTcuDensoSh705xCanCold, MinimalCalIdAndProgrammingSessionRepliesRemainAccepted)
 {
     const auto result = ExecuteCold(Fail(ErrorKind::kTimeout, ""), {0x49, 0x04, 0x01}, 0x02);
     ASSERT_THAT(result, IsOk());
