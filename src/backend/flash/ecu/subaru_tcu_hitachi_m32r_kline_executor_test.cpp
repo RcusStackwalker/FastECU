@@ -713,4 +713,21 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PreservesExchangeReadFailure)
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
+
+TEST(SubaruTcuHitachiM32rKlineExecutor, AHeaderModeFailureStopsBeforeAnyWrite)
+{
+    auto plan = BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline", "M32R_512KB",
+                                                   std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    transport.set_add_iso14230_header_result = Fail(ErrorKind::kDisconnected, "header failed");
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("header failed")));
+    EXPECT_EQ(transport.WritesConsumed(), 0U);
+}
 } // namespace
