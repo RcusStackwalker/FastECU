@@ -119,6 +119,21 @@ style guide.
 | `ecu/subaru_tcu_hitachi_m32r_can_plan.cpp` | #943 | -7 | 0 |
 | `ecu/subaru_hitachi_sh72543r_can_plan.cpp` | #943 | -7 | 0 |
 | `eeprom/eeprom_read_plan.cpp` | #943 | 0 | 0 |
+| `definition/parser_utils.cpp` | #TBD | -28 | 0 |
+| `definition/parser_utils.h` | #TBD | +2 | 0 |
+| `definition/romraider_parser.cpp` | #TBD | -4 | +57 |
+| `definition/ecuflash_parser.cpp` | #TBD | -15 | +11 |
+| `definition/definition_service.cpp` | #TBD | -11 | 0 |
+| `definition/definition_resolver.cpp` | #TBD | -5 | +65 |
+| `definition/definition_header_fields.cpp` | #TBD | +3 | 0 |
+| `definition/definition_writer.cpp` | #TBD | -8 | 0 |
+| `protocol/testing/fake_diagnostic_link.h` (shared, gains `fail_call`) | #TBD | +15 | +32 |
+| `diagnostics/ssm_identify.cpp` | #TBD | -26 | +67 |
+| `diagnostics/dtc_session.cpp` | #TBD | -9 | +70 |
+| `platform/.../transport/desktop_mixed_can_flash_transport.cpp` | #TBD | -19 | +86 |
+| `platform/.../service_functions/serial_facade_configurator.cpp` | #TBD | -5 | 0 |
+| `platform/.../transport/desktop_transport_factory.cpp` | #TBD | -6 | +15 |
+| `platform/.../service_functions/worker/service_function_worker.cpp` | #TBD | -4 | +22 |
 
 The rest of phase 1 landed in one PR (#943), one commit per file. Kept on
 purpose: `ecu/subaru_hitachi_sh7058_can_executor.cpp`'s `Exchange` (its read
@@ -130,6 +145,17 @@ phase reporters' scopes carry the phase order);
 and `ecu/subaru_tcu_denso_sh705x_can_plan.cpp` (the prefix ending at the
 reused value is a single step); and `eeprom/eeprom_read_plan.cpp` 80-90 (the
 input struct needs two earlier values).
+
+Phase 2 (`src/backend/definition`, `src/backend/diagnostics`, `src/platform`)
+landed in one PR, one commit per file, tests first; phase 2 rows above name
+paths under `src/backend/` (`platform/...` is `src/platform/desktop/common`).
+Review items resolved: the out-parameter assignments in `parser_utils.cpp`
+and the ignored `SetP1Max` in `dtc_session.cpp`'s `FiveBaud` moved into the
+lambdas; `ClearDtcs` chains its prefix and computes `index` after it; the
+mixed CAN transitions and `ServiceFunctionWorker::run` chain their steps
+into the one shared failure branch. Kept: `romraider_parser.cpp`'s
+`ParseScaling` (the owner fallback is a conditional single read; chaining
+saves nothing).
 
 ## Inventory
 
