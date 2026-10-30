@@ -9,6 +9,7 @@
 #include <array>
 #include <cstdint>
 #include <initializer_list>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -21,6 +22,7 @@
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
+#include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -475,6 +477,78 @@ TEST(SubaruHitachiM32rCanExecutor, WriteStopsWhenTheEraseIsRejected)
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+template <typename Transport>
+fastecu::Result<fastecu::flash::FlashExecutionResult> RunRead(Transport& transport, RecordingEventSink& events)
+{
+    const auto plan = ReadPlan();
+    if (!plan.has_value())
+    {
+        return std::unexpected(plan.error());
+    }
+    FakeClock clock;
+    fastecu::ManualCancellationToken cancellation;
+    return SubaruHitachiM32rCanExecutor{}.Execute(*plan, transport, clock, cancellation, events);
+}
+
+// The fatal connect exchanges: the OBK probe (1), the session-scope probe (6)
+// and the bench branch (7-11). The identity queries (2-5) are non-fatal.
+TEST(SubaruHitachiM32rCanExecutor, EveryFatalConnectTransportFaultPropagates)
+{
+    for (const bool on_read : {false, true})
+    {
+        SCOPED_TRACE(::testing::PrintToString(on_read));
+        for (const std::size_t k : {1U, 6U, 7U, 8U, 9U, 10U, 11U})
+        {
+            SCOPED_TRACE(::testing::PrintToString(std::pair{on_read, k}));
+            fastecu::flash::FaultingCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+            (on_read ? transport.fail_read_at : transport.fail_write_at) = k;
+            ScriptBenchConnect(transport);
+            RecordingEventSink events;
+            EXPECT_THAT(RunRead(transport, events),
+                        fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+            EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>(transport.WritesConsumed()));
+        }
+    }
+}
+
+TEST(SubaruHitachiM32rCanExecutor, AnAlreadyRunningObkSkipsTheConnectSequence)
+{
+    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    transport.Exchange(Request({0xB7}), Response({0x7F, 0xB7, 0x13}));
+    ScriptDumpSetup(transport);
+    ScriptFlashDump(transport, 0, 0x80000, 0x100, 0x5A);
+    ScriptStopCommand(transport);
+    RecordingEventSink events;
+    const auto result = RunRead(transport, events);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(events.logs, testing::Contains(std::pair{fastecu::LogLevel::kInfo, std::string("OBK is active!")}));
+}
+
+TEST(SubaruHitachiM32rCanExecutor, ASilentOrShortSessionScopeProbeIsATimeout)
+{
+    for (const bool silent : {true, false})
+    {
+        SCOPED_TRACE(::testing::PrintToString(silent));
+        ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+        ScriptPreliminaryProbes(transport);
+        if (silent)
+        {
+            transport.Exchange(Request({0xA8, 0x00, 0x00, 0x00, 0xD7}));
+            transport.QueueNoFrame();
+        }
+        else
+        {
+            transport.Exchange(Request({0xA8, 0x00, 0x00, 0x00, 0xD7}), Response({0x00, 0xA0}));
+        }
+        RecordingEventSink events;
+        EXPECT_THAT(RunRead(transport, events),
+                    fastecu::testing::IsErrWith(ErrorKind::kTimeout,
+                                                Eq("no response from ECU during the session-scope probe")));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
 }
 
 // The IFlashExecutor contract this family satisfies -- see
