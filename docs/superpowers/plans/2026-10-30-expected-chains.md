@@ -51,7 +51,7 @@ style guide.
 
 | File | PR | Production NLOC | Test NLOC |
 |---|---|---|---|
-| `ecu/subaru_denso_sh705x_kline_executor.cpp` | this PR | -75 | +166 |
+| `ecu/subaru_denso_sh705x_kline_executor.cpp` | #931 | -75 | +166 |
 
 ## Inventory
 
