@@ -4,6 +4,7 @@
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/manual_cancellation_token.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -11,6 +12,11 @@
 #include <gtest/gtest.h>
 #include <functional>
 #include <array>
+#include <cstddef>
+#include <format>
+#include <optional>
+#include <string>
+#include <string_view>
 
 using ::testing::Eq;
 using ::testing::IsEmpty;
@@ -731,4 +737,146 @@ TEST_F(Sh72543rWrite, ReusedExecutorDoesNotLeakReadMetadataIntoWrite)
     EXPECT_THAT(result->rom_id, Eq(std::nullopt));
     EXPECT_TRUE(transport_.ScriptConsumed());
 }
+
+std::string CheckName(const ::testing::TestParamInfo<int>& info)
+{
+    return std::format("Check{}", info.param);
+}
+std::string ExchangeName(const ::testing::TestParamInfo<int>& info)
+{
+    return std::format("Exchange{}", info.param);
+}
+// Cancels at the GetParam()-th cancellation check, counted from the check
+// that first sees `anchor` as the newest log (from admission when empty).
+class Sh72543rCancelSweep : public Sh72543rWrite, public ::testing::WithParamInterface<int>
+{
+  protected:
+    void ExpectCancelledAt(FlashOperation operation, std::string_view anchor)
+    {
+        // The 2 MiB write plan is built once per process; every sweep step reuses it.
+        static const Result<FlashPlan> kWritePlan = BuildSubaruHitachiSh72543rCanPlan(
+            FlashOperation::kWrite, "sub_ecu_hitachi_sh72543r_can", "SH72543R", Image());
+        const Result<FlashPlan>& plan = operation == FlashOperation::kRead ? read_plan_ : kWritePlan;
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        FakeCancellationToken cancellation;
+        bool armed = anchor.empty();
+        std::size_t seen = 0;
+        std::optional<std::size_t> writes_at_cancel;
+        cancellation.SetPredicate(
+            [&]
+            {
+                armed = armed || (!events_.logs.empty() && events_.logs.back().second == anchor);
+                if (!armed)
+                {
+                    return false;
+                }
+                if (++seen == static_cast<std::size_t>(GetParam()))
+                {
+                    writes_at_cancel = transport_.writes;
+                }
+                return seen >= static_cast<std::size_t>(GetParam());
+            });
+        EXPECT_THAT(executor_.Execute(*plan, transport_, clock_, cancellation, events_),
+                    fastecu::testing::IsErr(ErrorKind::kCancelled));
+        EXPECT_EQ(writes_at_cancel, std::optional<std::size_t>{transport_.writes});
+    }
+    Result<FlashPlan> read_plan_ = Plan();
+    void ScriptRead()
+    {
+        Init();
+        Access();
+        Pages();
+        Stop();
+    }
+    void ScriptWrite()
+    {
+        ScriptSetup();
+        Erase();
+        Data();
+        Finish();
+    }
+};
+class Sh72543rReadPrefixCancel : public Sh72543rCancelSweep
+{
+};
+// Admission, full initialization, session, security access and the first
+// pages; the sweep never reaches the rest of the image.
+TEST_P(Sh72543rReadPrefixCancel, StopsAtTheCheck)
+{
+    Init();
+    Access();
+    for (std::uint32_t a = 0; a < 0x800; a += 0x400)
+    {
+        X(PageRequest(a), Bytes(0x401, 0x63));
+    }
+    ExpectCancelledAt(FlashOperation::kRead, "");
+}
+INSTANTIATE_TEST_SUITE_P(FirstChecks, Sh72543rReadPrefixCancel, ::testing::Range(1, 71), CheckName);
+
+class Sh72543rReadStopCancel : public Sh72543rCancelSweep
+{
+};
+// The stop request and the closing checkpoint.
+TEST_P(Sh72543rReadStopCancel, StopsAtTheCheck)
+{
+    ScriptRead();
+    ExpectCancelledAt(FlashOperation::kRead, "Sending stop command...");
+}
+INSTANTIATE_TEST_SUITE_P(StopChecks, Sh72543rReadStopCancel, ::testing::Range(1, 9), CheckName);
+
+class Sh72543rWritePrefixCancel : public Sh72543rCancelSweep
+{
+};
+// From the pre-encryption checkpoint through the erase command (52 checks);
+// the read sweep covers admission and connect.
+TEST_P(Sh72543rWritePrefixCancel, StopsAtTheCheck)
+{
+    ScriptSetup();
+    Erase();
+    ExpectCancelledAt(FlashOperation::kWrite, "OBK is active");
+}
+INSTANTIATE_TEST_SUITE_P(EraseChecks, Sh72543rWritePrefixCancel, ::testing::Range(1, 53), CheckName);
+
+class Sh72543rWriteFinishCancel : public Sh72543rCancelSweep
+{
+};
+// The three checks of the settle between close and checksum.
+TEST_P(Sh72543rWriteFinishCancel, StopsAtTheCheck)
+{
+    ScriptWrite();
+    ExpectCancelledAt(FlashOperation::kWrite, "Flashing of block closed");
+}
+INSTANTIATE_TEST_SUITE_P(SettleChecks, Sh72543rWriteFinishCancel, ::testing::Range(1, 4), CheckName);
+
+class Sh72543rReadPrefixFault : public Sh72543rExecutor, public ::testing::WithParamInterface<int>
+{
+};
+// Every write and read of the initialization and access exchanges.
+TEST_P(Sh72543rReadPrefixFault, PropagatesTheTransportError)
+{
+    for (const bool on_write : {true, false})
+    {
+        SCOPED_TRACE(on_write ? "write" : "read");
+        Transport transport;
+        transport.Exchange(Req(Bytes{0xb7}), Reply(Bytes{0x7f, 0xb7, 0x22}));
+        transport.Exchange(Req(Bytes{0xaa}), Reply(Bytes{0xea, 0, 0, 0, 0x11, 0x22, 0x33, 0x44, 0x55}));
+        transport.Exchange(Req(Bytes{9, 2}), Reply(Bytes{0x49, 2, 0, 'V'}));
+        transport.Exchange(Req(Bytes{9, 4}), Reply(Bytes{0x49, 4, 0, 'C'}));
+        transport.Exchange(Req(Bytes{9, 6}), Reply(Bytes{0x49, 6, 0, 0x12}));
+        transport.Exchange(Req(Bytes{0xa8, 0, 0, 0, 0xd7}), Reply(Bytes{}));
+        transport.Exchange(Req(Bytes{0xa8, 0, 0, 1, 0x3b}), Reply(Bytes{}));
+        transport.Exchange(Req(Bytes{0x10, 0x03}), Reply(Bytes{0x50, 0x03}));
+        transport.Exchange(Req(Bytes{0x27, 0x01}), Reply(Bytes{0x67, 0x01, 0xde, 0xad, 0xbe, 0xef}));
+        transport.Exchange(Req(Bytes{0x27, 0x02, 0xde, 0x44, 0x6f, 0xc3}), Reply(Bytes{0x67, 0x02}));
+        (on_write ? transport.fail_write : transport.fail_read) = static_cast<std::size_t>(GetParam());
+        auto plan = Plan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        const auto result = executor_.Execute(*plan, transport, clock_, cancel_, events_);
+        EXPECT_THAT(result,
+                    fastecu::testing::IsErrWith(ErrorKind::kDisconnected,
+                                                Eq(on_write ? "injected write failure" : "injected read failure")));
+        EXPECT_EQ(transport.writes, static_cast<std::size_t>(GetParam() + 1));
+    }
+}
+INSTANTIATE_TEST_SUITE_P(EachExchange, Sh72543rReadPrefixFault, ::testing::Range(0, 10), ExchangeName);
 } // namespace
