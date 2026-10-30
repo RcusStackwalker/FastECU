@@ -89,6 +89,47 @@ style guide.
 | `ecu/subaru_hitachi_m32r_kline_executor.cpp` | #939 | -45 | +298 |
 | `workflow/flash_workflow.cpp` | #940 | -7 | 0 |
 | `ecu/subaru_unisia_jecs_m32r_bootmode_program_executor.cpp` | #942 | -17 | +86 |
+| `flash_executor.h` | #TBD | -17 | 0 |
+| `testing/faulting_can_flash_transport.h` (shared, replaces a local copy) | #TBD | 0 | +19 |
+| `ports/testing/faulting_clock.h` (shared, replaces three local copies) | #TBD | 0 | -19 |
+| `eeprom/denso_sh705x_eeprom_can_executor.cpp` | #TBD | -34 | +284 |
+| `ecu/subaru_tcu_hitachi_m32r_can_executor.cpp` | #TBD | -27 | +111 |
+| `ecu/subaru_tcu_denso_sh705x_can_executor.cpp` | #TBD | -9 | +67 |
+| `ecu/beef_can_kernel.cpp` | #TBD | -7 | +9 |
+| `ecu/subaru_mitsu_m32r_kline_executor.cpp` | #TBD | -6 | +240 |
+| `ecu/subaru_unisia_jecs_executor.cpp` | #TBD | -14 | +13 |
+| `ecu/subaru_hitachi_sh7058_kline_executor.cpp` | #TBD | -17 | +173 |
+| `ecu/denso_beef_kline_common.cpp` | #TBD | -28 | 0 |
+| `ecu/subaru_unisia_jecs_m32r_bootmode_kernel_executor.cpp` | #TBD | -7 | +55 |
+| `ecu/denso_iso15765_bootloader_executor.cpp` | #TBD | -5 | +30 |
+| `ecu/single_window_plan.cpp` | #TBD | -6 | +52 |
+| `ecu/denso_beef_can_ecu_execution.cpp` | #TBD | -8 | +16 |
+| `ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor.cpp` | #TBD | -9 | +77 |
+| `ecu/subaru_hitachi_m32r_can_executor.cpp` | #TBD | -18 | +68 |
+| `ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.cpp` | #TBD | -4 | +75 |
+| `ecu/subaru_denso_sh705x_kline_plan.cpp` | #TBD | -10 | +5 |
+| `ecu/subaru_denso_mc68hc16y5_02_plan.cpp` | #TBD | -12 | +7 |
+| `ecu/plan_primitives.h` | #TBD | -3 | 0 |
+| `ecu/m32r_ssm_exchange.cpp` | #TBD | -4 | 0 |
+| `ecu/subaru_denso_sh7058_can_diesel_executor.cpp` | #TBD | -5 | +17 |
+| `ecu/subaru_hitachi_sh7058_can_executor.cpp` | #TBD | -5 | 0 |
+| `ecu/subaru_tcu_hitachi_m32r_kline_executor.cpp` | #TBD | -6 | +15 |
+| `flash_validation.cpp` | #TBD | -6 | 0 |
+| `ecu/subaru_denso_sh7055_02_plan.cpp` | #TBD | -7 | +8 |
+| `ecu/subaru_tcu_hitachi_m32r_can_plan.cpp` | #TBD | -7 | 0 |
+| `ecu/subaru_hitachi_sh72543r_can_plan.cpp` | #TBD | -7 | 0 |
+| `eeprom/eeprom_read_plan.cpp` | #TBD | 0 | 0 |
+
+The rest of phase 1 landed in one PR (#TBD), one commit per file. Kept on
+purpose: `ecu/subaru_hitachi_sh7058_can_executor.cpp`'s `Exchange` (its read
+step turns a timeout into an empty reply) and its programming-mode step (the
+branch picks from `mode` across a sleep); `ecu/bootloader_operation.h` (the
+phase reporters' scopes carry the phase order);
+`ecu/subaru_unisia_jecs_m32r_bootmode_plan.cpp`,
+`ecu/subaru_unisia_jecs_m32r_kline_plan.cpp`, `ecu/denso_beef_kline_common.h`
+and `ecu/subaru_tcu_denso_sh705x_can_plan.cpp` (the prefix ending at the
+reused value is a single step); and `eeprom/eeprom_read_plan.cpp` 80-90 (the
+input struct needs two earlier values).
 
 ## Inventory
 
