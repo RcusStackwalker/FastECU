@@ -105,21 +105,19 @@ Result<FlashPlan> BuildEepromReadPlan(const config::ConfigPaths& paths, const co
         .security = *security,
         .eeprom_region = *eeprom_region,
     };
-    if (Result<void> preflight = ValidateDensoSh705xEepromPreflight(input, std::nullopt); !preflight.has_value())
-    {
-        return std::unexpected(preflight.error());
-    }
-
-    // KernelFileHandle preserves the configured directory's trailing-slash contract.
-    const std::string kernel_handle = config::KernelFileHandle(paths, protocol.kernel);
-    Result<std::vector<std::uint8_t>> kernel_bytes = file_repository.Read(kernel_handle);
-    if (!kernel_bytes.has_value())
-    {
-        return std::unexpected(kernel_bytes.error());
-    }
-
-    input.kernel.bytes = std::move(*kernel_bytes);
-    return BuildDensoSh705xEepromPlan(std::move(input));
+    return ValidateDensoSh705xEepromPreflight(input, std::nullopt)
+        .and_then(
+            [&]
+            {
+                // KernelFileHandle preserves the configured directory's trailing-slash contract.
+                return file_repository.Read(config::KernelFileHandle(paths, protocol.kernel));
+            })
+        .and_then(
+            [&](std::vector<std::uint8_t> kernel_bytes)
+            {
+                input.kernel.bytes = std::move(kernel_bytes);
+                return BuildDensoSh705xEepromPlan(std::move(input));
+            });
 }
 
 } // namespace fastecu::flash

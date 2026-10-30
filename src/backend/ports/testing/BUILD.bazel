@@ -17,6 +17,12 @@ cc_library(
 )
 
 cc_library(
+    name = "faulting_clock",
+    hdrs = ["faulting_clock.h"],
+    deps = [":fake_clock"],
+)
+
+cc_library(
     name = "fake_cancellation_token",
     hdrs = ["fake_cancellation_token.h"],
     deps = ["//src/backend/ports"],

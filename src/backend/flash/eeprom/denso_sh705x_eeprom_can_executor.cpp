@@ -4,6 +4,7 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
+#include "src/backend/ports/cancellation.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -256,39 +257,19 @@ Result<std::optional<bytes::Bytes>> CanRawExchange(ICanFlashTransport& transport
                                                    const ICancellationToken& cancellation, bytes::ByteView request,
                                                    int delay_ms, std::chrono::milliseconds timeout)
 {
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before write");
-    }
-    if (Status written = transport.Write(request, cancellation); !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after write");
-    }
-    if (delay_ms > 0)
-    {
-        if (Status slept = clock.Sleep(std::chrono::milliseconds{delay_ms}, cancellation); !slept.has_value())
-        {
-            return std::unexpected(slept.error());
-        }
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled after delay");
-        }
-    }
-    auto received = transport.Read(timeout, cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after read");
-    }
-    return std::move(*received);
+    return CheckCancelled(cancellation, "cancelled before write")
+        .and_then([&] { return transport.Write(request, cancellation); })
+        .and_then([&] { return CheckCancelled(cancellation, "cancelled after write"); })
+        // Every caller passes a positive delay.
+        .and_then([&] { return clock.Sleep(std::chrono::milliseconds{delay_ms}, cancellation); })
+        .and_then([&] { return CheckCancelled(cancellation, "cancelled after delay"); })
+        .and_then([&] { return transport.Read(timeout, cancellation); })
+        .and_then(
+            [&](std::optional<bytes::Bytes> received)
+            {
+                return CheckCancelled(cancellation, "cancelled after read")
+                    .transform([&] { return std::move(received); });
+            });
 }
 
 // Gated variant: an absent response maps to ErrorKind::kTimeout. Used only at
@@ -389,34 +370,34 @@ Status UnlockSecurity(ICanFlashTransport& transport, IClock& clock, const ICance
                       IEventSink& events, const DensoSh705xEepromCanPlan& can_plan)
 {
     events.Log(LogLevel::kInfo, "Requesting seed");
-    Result<bytes::Bytes> seed_resp = CanExchangeGated(transport, clock, cancellation, SeedRequest(can_plan.request_id),
-                                                      kHandshakeDelayMs, kHandshakeTimeout);
-    if (!seed_resp.has_value())
-    {
-        return std::unexpected(seed_resp.error());
-    }
-    if (!RepliesWith(*seed_resp, 0x67, 0x01))
-    {
-        return Fail(ErrorKind::kBadResponse, "seed request rejected");
-    }
-    if (seed_resp->size() < 10)
-    {
-        return Fail(ErrorKind::kBadResponse, "seed response too short to contain a 4-byte seed");
-    }
-    const bytes::Bytes seed_key = SeedKey(can_plan.security, bytes::ByteView(*seed_resp).subspan(6, 4));
-    events.Log(LogLevel::kInfo, "Sending seed key");
-    Result<bytes::Bytes> key_resp =
-        CanExchangeGated(transport, clock, cancellation, SeedKeySendRequest(can_plan.request_id, seed_key),
-                         kHandshakeDelayMs, kHandshakeTimeout);
-    if (!key_resp.has_value())
-    {
-        return std::unexpected(key_resp.error());
-    }
-    if (!RepliesWith(*key_resp, 0x67, 0x02))
-    {
-        return Fail(ErrorKind::kBadResponse, "seed key send rejected");
-    }
-    return {};
+    return CanExchangeGated(transport, clock, cancellation, SeedRequest(can_plan.request_id), kHandshakeDelayMs,
+                            kHandshakeTimeout)
+        .and_then(
+            [&](const bytes::Bytes& seed_resp) -> Result<bytes::Bytes>
+            {
+                if (!RepliesWith(seed_resp, 0x67, 0x01))
+                {
+                    return Fail(ErrorKind::kBadResponse, "seed request rejected");
+                }
+                if (seed_resp.size() < 10)
+                {
+                    return Fail(ErrorKind::kBadResponse, "seed response too short to contain a 4-byte seed");
+                }
+                const bytes::Bytes seed_key = SeedKey(can_plan.security, bytes::ByteView(seed_resp).subspan(6, 4));
+                events.Log(LogLevel::kInfo, "Sending seed key");
+                return CanExchangeGated(transport, clock, cancellation,
+                                        SeedKeySendRequest(can_plan.request_id, seed_key), kHandshakeDelayMs,
+                                        kHandshakeTimeout);
+            })
+        .and_then(
+            [&](const bytes::Bytes& key_resp) -> Status
+            {
+                if (!RepliesWith(key_resp, 0x67, 0x02))
+                {
+                    return Fail(ErrorKind::kBadResponse, "seed key send rejected");
+                }
+                return {};
+            });
 }
 
 // lines 734-760: pad the ORIGINAL file bytes up to data_len (always a
@@ -492,36 +473,33 @@ Status StartKernel(ICanFlashTransport& transport, IClock& clock, const ICancella
                    IEventSink& events, std::uint32_t request_id)
 {
     events.Log(LogLevel::kInfo, "Kernel uploaded, starting...");
-    Result<bytes::Bytes> start_resp =
-        CanExchangeGated(transport, clock, cancellation, Sid37Request(request_id), kHandshakeDelayMs, kQuickAckTimeout);
-    if (!start_resp.has_value())
-    {
-        return std::unexpected(start_resp.error());
-    }
-    if (start_resp->size() <= 4 || (*start_resp)[4] != 0x77)
-    {
-        return Fail(ErrorKind::kBadResponse, "kernel start ack rejected");
-    }
-    if (Status slept = clock.Sleep(std::chrono::milliseconds{kPostUploadSettleDelayMs}, cancellation);
-        !slept.has_value())
-    {
-        return std::unexpected(slept.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before start routine");
-    }
-    Result<bytes::Bytes> routine_resp =
-        CanExchangeGated(transport, clock, cancellation, Sid31Request(request_id), kHandshakeDelayMs, kQuickAckTimeout);
-    if (!routine_resp.has_value())
-    {
-        return std::unexpected(routine_resp.error());
-    }
-    if (routine_resp->size() <= 4 || (*routine_resp)[4] != 0x71)
-    {
-        return Fail(ErrorKind::kBadResponse, "kernel start routine rejected");
-    }
-    return {};
+    return CanExchangeGated(transport, clock, cancellation, Sid37Request(request_id), kHandshakeDelayMs,
+                            kQuickAckTimeout)
+        .and_then(
+            [&](const bytes::Bytes& start_resp) -> Status
+            {
+                if (start_resp.size() < 5 || start_resp[4] != 0x77)
+                {
+                    return Fail(ErrorKind::kBadResponse, "kernel start ack rejected");
+                }
+                return clock.Sleep(std::chrono::milliseconds{kPostUploadSettleDelayMs}, cancellation);
+            })
+        .and_then([&] { return CheckCancelled(cancellation, "cancelled before start routine"); })
+        .and_then(
+            [&]
+            {
+                return CanExchangeGated(transport, clock, cancellation, Sid31Request(request_id), kHandshakeDelayMs,
+                                        kQuickAckTimeout);
+            })
+        .and_then(
+            [&](const bytes::Bytes& routine_resp) -> Status
+            {
+                if (routine_resp.size() < 5 || routine_resp[4] != 0x71)
+                {
+                    return Fail(ErrorKind::kBadResponse, "kernel start routine rejected");
+                }
+                return {};
+            });
 }
 
 // The page body that follows a header ack: up to kMaxPagedataAttempts polls.
@@ -563,58 +541,50 @@ Result<bytes::Bytes> ReadEepromPage(ICanFlashTransport& transport, const ICancel
                                     std::uint32_t request_id, EepromReadMode mode, std::uint32_t addr,
                                     std::uint32_t pagesize)
 {
-    if (Status written = transport.Write(ReadEepromRequest(request_id, static_cast<std::uint8_t>(mode), addr, pagesize),
-                                         cancellation);
-        !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after EEPROM read request");
-    }
-    // No delay() call between this write and the header-ack read (legacy
-    // line 1036 has it commented out).
-    auto header = transport.Read(kPageHeaderTimeout, cancellation);
-    if (!header.has_value())
-    {
-        return std::unexpected(header.error());
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after EEPROM header ack");
-    }
-    if (!header->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no response to EEPROM read request");
-    }
-    const bytes::Bytes& hdr = **header;
-    if (hdr.size() <= 8)
-    {
-        return Fail(ErrorKind::kBadResponse, "EEPROM read header ack too short");
-    }
-    bytes::Bytes contributed;
-    // A well-formed-length-but-wrong-content header ack is silently
-    // swallowed -- neither an error nor an append (Task 7 report, "Legacy
-    // behavior surprises" #3). Faithfully reproduced.
-    if (hdr[4] == 0xBE && hdr[5] == 0xEF && hdr[8] == static_cast<bytes::Byte>(kSubKernelReadArea | 0x40U))
-    {
-        contributed.assign(hdr.begin() + 9, hdr.end());
-    }
-    Result<bytes::Bytes> pagedata = ReadPageData(transport, cancellation, pagesize);
-    if (!pagedata.has_value())
-    {
-        return pagedata;
-    }
-    if (pagedata->size() > 7)
-    {
-        contributed.append_range(bytes::ByteView(*pagedata).subspan(8));
-    }
-    else
-    {
-        contributed.append_range(*pagedata);
-    }
-    return contributed;
+    return transport.Write(ReadEepromRequest(request_id, static_cast<std::uint8_t>(mode), addr, pagesize), cancellation)
+        .and_then([&] { return CheckCancelled(cancellation, "cancelled after EEPROM read request"); })
+        // No delay() call between this write and the header-ack read (legacy
+        // line 1036 has it commented out).
+        .and_then([&] { return transport.Read(kPageHeaderTimeout, cancellation); })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& header) -> Result<bytes::Bytes>
+            {
+                if (cancellation.Cancelled())
+                {
+                    return Fail(ErrorKind::kCancelled, "cancelled after EEPROM header ack");
+                }
+                if (!header.has_value())
+                {
+                    return Fail(ErrorKind::kTimeout, "no response to EEPROM read request");
+                }
+                const bytes::Bytes& hdr = *header;
+                if (hdr.size() < 9)
+                {
+                    return Fail(ErrorKind::kBadResponse, "EEPROM read header ack too short");
+                }
+                bytes::Bytes contributed;
+                // A well-formed-length-but-wrong-content header ack is silently
+                // swallowed -- neither an error nor an append (Task 7 report, "Legacy
+                // behavior surprises" #3). Faithfully reproduced.
+                if (hdr[4] == 0xBE && hdr[5] == 0xEF && hdr[8] == static_cast<bytes::Byte>(kSubKernelReadArea | 0x40U))
+                {
+                    contributed.assign(hdr.begin() + 9, hdr.end());
+                }
+                return ReadPageData(transport, cancellation, pagesize)
+                    .transform(
+                        [&](const bytes::Bytes& pagedata)
+                        {
+                            if (pagedata.size() >= 8)
+                            {
+                                contributed.append_range(bytes::ByteView(pagedata).subspan(8));
+                            }
+                            else
+                            {
+                                contributed.append_range(pagedata);
+                            }
+                            return std::move(contributed);
+                        });
+            });
 }
 
 } // namespace
@@ -631,38 +601,36 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::Run(const DensoSh705x
 {
     ICanFlashTransport& can_transport = transport;
     bool kernel_alive = false;
-    if (Status connected = ConnectBootloader(can_transport, clock, cancellation, events, can_plan, kernel_alive);
-        !connected.has_value())
-    {
-        return std::unexpected(connected.error());
-    }
-
-    if (!kernel_alive)
-    {
-        // Safe to dereference: this executor only ever runs against
-        // DensoSh705xEepromCan plans, and validate_and_build rejects any plan
-        // for that family whose kernel is absent (flash_validation.cpp:
-        // "family requires a kernel image"). check_family above confirms
-        // the family; it does not itself
-        // guarantee a kernel -- validate_and_build is what does.
-        if (Status uploaded = UploadKernel(can_transport, clock, cancellation, events, can_plan, plan.KernelOrEmpty());
-            !uploaded.has_value())
-        {
-            return std::unexpected(uploaded.error());
-        }
-    }
-
-    Result<bytes::Bytes> read_result =
-        ReadMem(can_transport, clock, cancellation, events, plan.TransferRegion(), can_plan.mode, can_plan.request_id);
-
-    if (!read_result.has_value())
-    {
-        return std::unexpected(read_result.error());
-    }
-    return FlashExecutionResult{
-        .operation = plan.Operation(),
-        .read_bytes = std::move(*read_result),
-    };
+    return ConnectBootloader(can_transport, clock, cancellation, events, can_plan, kernel_alive)
+        .and_then(
+            [&]() -> Status
+            {
+                if (kernel_alive)
+                {
+                    return {};
+                }
+                // Safe to dereference: this executor only ever runs against
+                // DensoSh705xEepromCan plans, and validate_and_build rejects any plan
+                // for that family whose kernel is absent (flash_validation.cpp:
+                // "family requires a kernel image"). check_family above confirms
+                // the family; it does not itself
+                // guarantee a kernel -- validate_and_build is what does.
+                return UploadKernel(can_transport, clock, cancellation, events, can_plan, plan.KernelOrEmpty());
+            })
+        .and_then(
+            [&]
+            {
+                return ReadMem(can_transport, clock, cancellation, events, plan.TransferRegion(), can_plan.mode,
+                               can_plan.request_id);
+            })
+        .transform(
+            [&](bytes::Bytes read_bytes)
+            {
+                return FlashExecutionResult{
+                    .operation = plan.Operation(),
+                    .read_bytes = std::move(read_bytes),
+                };
+            });
 }
 
 // ---------------------------------------------------------------------
@@ -814,48 +782,42 @@ Status DensoSh705xEepromCanExecutor::UploadKernel(ICanFlashTransport& transport,
     const bytes::Bytes encrypted = KernelPayload(kernel.bytes, data_len);
 
     events.Log(LogLevel::kInfo, "Initialize kernel upload");
-    Result<bytes::Bytes> download_resp =
-        CanExchangeGated(transport, clock, cancellation, Sid34Request(request_id, start_address, data_len),
-                         kHandshakeDelayMs, kQuickAckTimeout);
-    if (!download_resp.has_value())
-    {
-        return std::unexpected(download_resp.error());
-    }
-    if (!RepliesWith(*download_resp, 0x74, 0x20))
-    {
-        return Fail(ErrorKind::kBadResponse, "kernel upload request rejected");
-    }
-    events.Log(LogLevel::kInfo, "Uploading kernel, please wait...");
-    if (Status sent = SendKernelBlocks(transport, cancellation, events, request_id, start_address, encrypted);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    if (Status started = StartKernel(transport, clock, cancellation, events, request_id); !started.has_value())
-    {
-        return started;
-    }
-
-    events.Log(LogLevel::kInfo, "Kernel requesting kernel ID...");
-    // Unlike the K-Line sibling's up-to-10-iteration poll loop, this is a
-    // SINGLE attempt -- legacy lines 930-953 `return STATUS_ERROR`
-    // immediately on a non-alive response here, with no retry.
-    Result<std::optional<bytes::Bytes>> poll = RequestKernelId(transport, clock, cancellation, request_id);
-    if (!poll.has_value())
-    {
-        return std::unexpected(poll.error());
-    }
-    if (!poll->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "kernel did not respond after upload");
-    }
-    if (!LooksKernelAlive(**poll))
-    {
-        return Fail(ErrorKind::kBadResponse, "kernel did not report a valid ID after upload");
-    }
-
-    events.Log(LogLevel::kInfo, "Kernel is alive");
-    return {};
+    return CanExchangeGated(transport, clock, cancellation, Sid34Request(request_id, start_address, data_len),
+                            kHandshakeDelayMs, kQuickAckTimeout)
+        .and_then(
+            [&](const bytes::Bytes& download_resp) -> Status
+            {
+                if (!RepliesWith(download_resp, 0x74, 0x20))
+                {
+                    return Fail(ErrorKind::kBadResponse, "kernel upload request rejected");
+                }
+                events.Log(LogLevel::kInfo, "Uploading kernel, please wait...");
+                return SendKernelBlocks(transport, cancellation, events, request_id, start_address, encrypted);
+            })
+        .and_then([&] { return StartKernel(transport, clock, cancellation, events, request_id); })
+        .and_then(
+            [&]
+            {
+                events.Log(LogLevel::kInfo, "Kernel requesting kernel ID...");
+                // Unlike the K-Line sibling's up-to-10-iteration poll loop, this is a
+                // SINGLE attempt -- legacy lines 930-953 `return STATUS_ERROR`
+                // immediately on a non-alive response here, with no retry.
+                return RequestKernelId(transport, clock, cancellation, request_id);
+            })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& poll) -> Status
+            {
+                if (!poll.has_value())
+                {
+                    return Fail(ErrorKind::kTimeout, "kernel did not respond after upload");
+                }
+                if (!LooksKernelAlive(*poll))
+                {
+                    return Fail(ErrorKind::kBadResponse, "kernel did not report a valid ID after upload");
+                }
+                events.Log(LogLevel::kInfo, "Kernel is alive");
+                return {};
+            });
 }
 
 // read_mem(), lines 963-1139 ("BEEF/READ_EEPROM" combined-request protocol).

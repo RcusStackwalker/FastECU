@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "src/backend/flash/ecu/denso_beef_can_ecu_execution.h"
+#include "src/backend/ports/cancellation.h"
 
 namespace fastecu::flash
 {
@@ -22,15 +23,9 @@ Status SubaruDensoSh7058CanDieselExecutor::BeforeTransportConfigure(ICanFlashTra
     // setters and opens the port.
     // BoundAttempt owns the lifecycle; this hook preserves the family-specific
     // pre-config ordering without exposing desktop serial details here.
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before CAN reset");
-    }
-    if (const Status reset = transport.ResetConnection(); !reset.has_value())
-    {
-        return reset;
-    }
-    return clock.Sleep(500ms, cancellation);
+    return CheckCancelled(cancellation, "cancelled before CAN reset")
+        .and_then([&] { return transport.ResetConnection(); })
+        .and_then([&] { return clock.Sleep(500ms, cancellation); });
 }
 
 Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::Run(const SubaruDensoSh7058CanDieselPlan& family,

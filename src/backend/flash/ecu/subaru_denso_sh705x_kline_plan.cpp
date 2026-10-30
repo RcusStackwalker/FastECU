@@ -166,20 +166,17 @@ Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan)
     {
         return Fail(kInvalidConfig, "Denso SH705x K-Line requires a kernel image");
     }
-    if (Status valid = ValidateKernel(*variant, *plan.Kernel()); !valid.has_value())
-    {
-        return valid;
-    }
-    Result<const FlashDevice *> device = FindDevice(plan.McuName());
-    if (!device.has_value())
-    {
-        return std::unexpected(device.error());
-    }
-    if (plan.TransferRegion() != MemoryRegion{0, (*device)->romsize})
-    {
-        return Fail(kInvalidConfig, "Denso SH705x K-Line transfer region does not match the MCU");
-    }
-    return ValidateImage(plan.Operation(), plan.Image(), (*device)->romsize);
+    return ValidateKernel(*variant, *plan.Kernel())
+        .and_then([&] { return FindDevice(plan.McuName()); })
+        .and_then(
+            [&](const FlashDevice *device) -> Status
+            {
+                if (plan.TransferRegion() != MemoryRegion{0, device->romsize})
+                {
+                    return Fail(kInvalidConfig, "Denso SH705x K-Line transfer region does not match the MCU");
+                }
+                return ValidateImage(plan.Operation(), plan.Image(), device->romsize);
+            });
 }
 
 Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std::string_view protocol_name,
@@ -222,16 +219,9 @@ Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std:
         .family_plan = WireFor(*variant),
         .confirmations = {},
     };
-    auto plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (Status valid = ValidateSubaruDensoSh705xKlinePlan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return ValidateAndBuild(std::move(fields))
+        .and_then([](FlashPlan plan)
+                  { return ValidateSubaruDensoSh705xKlinePlan(plan).transform([&] { return std::move(plan); }); });
 }
 
 } // namespace fastecu::flash

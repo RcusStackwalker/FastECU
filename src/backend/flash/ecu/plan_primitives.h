@@ -94,24 +94,21 @@ Status ValidateWholeRomKernelPlan(const FlashPlan& plan, std::uint32_t kernel_lo
     {
         return Fail(ErrorKind::kInvalidConfig, "plan requires a kernel image");
     }
-    if (Status kernel = ValidateKernelUpload<KernelBlockSize>(plan.Kernel()->bytes.size(), plan.Kernel()->load_address,
-                                                              kernel_load_address, device.kblocks[0]);
-        !kernel.has_value())
-    {
-        return kernel;
-    }
-    if (Status regions = ValidateRegions(plan, device); !regions.has_value())
-    {
-        return regions;
-    }
-    if (!OperationImageShapeMatches(plan, device.romsize))
-    {
-        return Fail(ErrorKind::kInvalidConfig,
-                    plan.Operation() == FlashOperation::kRead
-                        ? std::string("read plan carries an image")
-                        : std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
-    }
-    return {};
+    return ValidateKernelUpload<KernelBlockSize>(plan.Kernel()->bytes.size(), plan.Kernel()->load_address,
+                                                 kernel_load_address, device.kblocks[0])
+        .and_then([&] { return ValidateRegions(plan, device); })
+        .and_then(
+            [&]() -> Status
+            {
+                if (!OperationImageShapeMatches(plan, device.romsize))
+                {
+                    return Fail(ErrorKind::kInvalidConfig,
+                                plan.Operation() == FlashOperation::kRead
+                                    ? std::string("read plan carries an image")
+                                    : std::format("ROM file must be exactly 0x{:x} bytes", device.romsize));
+                }
+                return {};
+            });
 }
 
 // Builds a kernel-loaded whole-ROM family's plan on a device the caller has

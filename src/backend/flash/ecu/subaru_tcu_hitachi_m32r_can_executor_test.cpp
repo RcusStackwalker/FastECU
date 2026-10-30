@@ -15,6 +15,7 @@
 #include <ranges>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -23,9 +24,12 @@
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/faulting_clock.h"
 #include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -2360,5 +2364,120 @@ TEST(SubaruTcuHitachiM32rCanExecutor, TransportErrorDuringTheReadLoopStopsWithou
     // the error surfaces on the very next exchange and no further page is
     // ever requested.
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 2);
+}
+
+// The connect frames, then the read window or the erase: the span the
+// sweeps below cover. Each sweep ends where the next step is unscripted.
+void ScriptConnectThen(ScriptedCanFlashTransport& transport, FlashOperation operation)
+{
+    ScriptFullConnect(transport);
+    if (operation == FlashOperation::kRead)
+    {
+        ScriptReadWindow(transport);
+    }
+    else
+    {
+        ScriptErase(transport);
+    }
+}
+
+fastecu::Result<FlashPlan> PlanFor(FlashOperation operation)
+{
+    return operation == FlashOperation::kRead ? ReadPlan() : WritePlan();
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, EveryConnectAndEraseTransportFaultPropagates)
+{
+    for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kWrite})
+    {
+        SCOPED_TRACE(::testing::PrintToString(operation));
+        auto plan = PlanFor(operation);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        for (const bool reads : {false, true})
+        {
+            SCOPED_TRACE(::testing::PrintToString(reads));
+            for (std::size_t k = 1; k <= kConnectFrames + 1; ++k)
+            {
+                SCOPED_TRACE(::testing::PrintToString(std::tuple{operation, reads, k}));
+                fastecu::flash::FaultingCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+                (reads ? transport.fail_read_at : transport.fail_write_at) = k;
+                ScriptConnectThen(transport, operation);
+                SubaruTcuHitachiM32rCanExecutor executor;
+                FakeClock clock;
+                RecordingEventSink events;
+                EXPECT_THAT(Execute(executor, *plan, transport, clock, events),
+                            fastecu::testing::IsErr(ErrorKind::kDisconnected));
+                EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>(transport.WritesConsumed()));
+            }
+        }
+    }
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, EveryConnectAndEraseSleepFailurePropagates)
+{
+    for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kWrite})
+    {
+        SCOPED_TRACE(::testing::PrintToString(operation));
+        auto plan = PlanFor(operation);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        for (std::size_t k = 1;; ++k)
+        {
+            SCOPED_TRACE(::testing::PrintToString(std::pair{operation, k}));
+            ASSERT_LT(k, 32U);
+            ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+            ScriptConnectThen(transport, operation);
+            SubaruTcuHitachiM32rCanExecutor executor;
+            fastecu::FaultingClock clock;
+            clock.fail_at = k;
+            RecordingEventSink events;
+            const auto result = Execute(executor, *plan, transport, clock, events);
+            if (!transport.ScriptConsumed())
+            {
+                EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("sleep failed")));
+                continue;
+            }
+            // The fault now lands past the scripted span.
+            break;
+        }
+    }
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, CancellingAtEveryConnectAndEraseCheckWritesNothingMore)
+{
+    for (const FlashOperation operation : {FlashOperation::kRead, FlashOperation::kWrite})
+    {
+        SCOPED_TRACE(::testing::PrintToString(operation));
+        auto plan = PlanFor(operation);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        for (std::size_t k = 2;; ++k)
+        {
+            SCOPED_TRACE(::testing::PrintToString(std::pair{operation, k}));
+            ASSERT_LT(k, 128U);
+            ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+            ScriptConnectThen(transport, operation);
+            fastecu::FakeCancellationToken cancellation;
+            std::size_t checks = 0;
+            std::optional<std::size_t> writes_at_cancel;
+            cancellation.SetPredicate(
+                [&]
+                {
+                    if (++checks == k && !transport.ScriptConsumed())
+                    {
+                        writes_at_cancel = transport.WritesConsumed();
+                    }
+                    return writes_at_cancel.has_value();
+                });
+            SubaruTcuHitachiM32rCanExecutor executor;
+            FakeClock clock;
+            RecordingEventSink events;
+            const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+            if (!writes_at_cancel.has_value())
+            {
+                break;
+            }
+            EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
+            EXPECT_EQ(transport.WritesConsumed(), *writes_at_cancel);
+        }
+    }
 }
 } // namespace

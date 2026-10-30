@@ -8,6 +8,7 @@
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/ecu/m32r_ssm_exchange.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
+#include "src/backend/ports/cancellation.h"
 
 namespace fastecu::flash
 {
@@ -68,83 +69,91 @@ Result<std::string> Handshake(IKlineFlashTransport& transport, IClock& clock, co
 {
     // Legacy wire sequence and delays: flash_ecu_subaru_mitsu_m32r_kline_operation.cpp
     // connect_bootloader() lines 85-248 and send_sid_bf/81/83/27/10 lines 691-815.
-    if (auto slept = clock.Sleep(100ms, cancellation); !slept.has_value())
+    const auto request = [&](bytes::Bytes payload, std::initializer_list<bytes::Byte> expected)
     {
-        return std::unexpected(slept.error());
-    }
-    events.Log(LogLevel::kInfo, "Requesting ECU ID");
-    auto id = Exchange(transport, cancellation, bytes::Bytes{0xbf}, p);
-    if (!id.has_value())
-    {
-        return std::unexpected(id.error());
-    }
-    if (auto valid = ExpectService(*id, {0xff}); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (id->size() < 14)
-    {
-        return Fail(ErrorKind::kBadResponse, "ECU ID response does not contain five ID bytes");
-    }
-    std::string rom_id;
-    for (std::size_t i = 8; i < 13; ++i)
-    {
-        rom_id += std::format("{:02X}", (*id)[i]);
-    }
-    rom_id += '_';
-    events.Log(LogLevel::kInfo, std::format("ECU ID: {}", rom_id.substr(0, rom_id.size() - 1)));
-
-    const auto request = [&](bytes::Bytes payload, std::initializer_list<bytes::Byte> expected) -> Status
-    {
-        auto response = Exchange(transport, cancellation, payload, p);
-        if (!response.has_value())
-        {
-            return std::unexpected(response.error());
-        }
-        return ExpectService(*response, expected);
+        return Exchange(transport, cancellation, payload, p)
+            .and_then([&](const bytes::Bytes& response) { return ExpectService(response, expected); });
     };
-    events.Log(LogLevel::kInfo, "Requesting to start communication");
-    if (auto s = request({0x81}, {0xc1}); !s.has_value())
-    {
-        return std::unexpected(s.error());
-    }
-    events.Log(LogLevel::kInfo, "Start communication ok");
-    events.Log(LogLevel::kInfo, "Requesting timings params");
-    if (auto s = request({0x83, 0x00}, {0xc3}); !s.has_value())
-    {
-        return std::unexpected(s.error());
-    }
-    events.Log(LogLevel::kInfo, "Timing parameters ok");
-    events.Log(LogLevel::kInfo, "Requesting seed");
-    auto seed_response =
-        Exchange(transport, cancellation, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, p);
-    if (!seed_response.has_value())
-    {
-        return std::unexpected(seed_response.error());
-    }
-    if (auto s = ExpectService(*seed_response, {0x67, uds::kSecurityAccessRequestSeed}); !s.has_value())
-    {
-        return std::unexpected(s.error());
-    }
-    if (seed_response->size() < 10)
-    {
-        return Fail(ErrorKind::kBadResponse, "seed response is too short");
-    }
-    const bytes::Bytes key_request = ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey,
-                                               SeedKey(bytes::ByteView{*seed_response}.subspan(6, 4)));
-    events.Log(LogLevel::kInfo, "Sending seed key to ECU");
-    if (auto s = request(std::move(key_request), {0x67, uds::kSecurityAccessSendKey}); !s.has_value())
-    {
-        return std::unexpected(s.error());
-    }
-    events.Log(LogLevel::kInfo, "Seed key ok");
-    events.Log(LogLevel::kInfo, "Set session mode");
-    if (auto s = request({uds::kSidDiagnosticSessionControl, 0x85, 0x02}, {0x50}); !s.has_value())
-    {
-        return std::unexpected(s.error());
-    }
-    events.Log(LogLevel::kInfo, "Succesfully set to programming session");
-    return rom_id;
+    return clock.Sleep(100ms, cancellation)
+        .and_then(
+            [&]
+            {
+                events.Log(LogLevel::kInfo, "Requesting ECU ID");
+                return Exchange(transport, cancellation, bytes::Bytes{0xbf}, p);
+            })
+        .and_then(
+            [&](const bytes::Bytes& id)
+            {
+                return ExpectService(id, {0xff})
+                    .and_then(
+                        [&]() -> Result<std::string>
+                        {
+                            if (id.size() < 14)
+                            {
+                                return Fail(ErrorKind::kBadResponse, "ECU ID response does not contain five ID bytes");
+                            }
+                            std::string rom_id;
+                            for (std::size_t i = 8; i < 13; ++i)
+                            {
+                                rom_id += std::format("{:02X}", id[i]);
+                            }
+                            rom_id += '_';
+                            events.Log(LogLevel::kInfo, std::format("ECU ID: {}", rom_id.substr(0, rom_id.size() - 1)));
+                            return rom_id;
+                        });
+            })
+        .and_then(
+            [&](std::string rom_id)
+            {
+                events.Log(LogLevel::kInfo, "Requesting to start communication");
+                return request({0x81}, {0xc1})
+                    .and_then(
+                        [&]
+                        {
+                            events.Log(LogLevel::kInfo, "Start communication ok");
+                            events.Log(LogLevel::kInfo, "Requesting timings params");
+                            return request({0x83, 0x00}, {0xc3});
+                        })
+                    .and_then(
+                        [&]
+                        {
+                            events.Log(LogLevel::kInfo, "Timing parameters ok");
+                            events.Log(LogLevel::kInfo, "Requesting seed");
+                            return Exchange(transport, cancellation,
+                                            bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, p);
+                        })
+                    .and_then(
+                        [&](const bytes::Bytes& seed_response)
+                        {
+                            return ExpectService(seed_response, {0x67, uds::kSecurityAccessRequestSeed})
+                                .and_then(
+                                    [&]() -> Status
+                                    {
+                                        if (seed_response.size() < 10)
+                                        {
+                                            return Fail(ErrorKind::kBadResponse, "seed response is too short");
+                                        }
+                                        bytes::Bytes key_request =
+                                            ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey,
+                                                      SeedKey(bytes::ByteView{seed_response}.subspan(6, 4)));
+                                        events.Log(LogLevel::kInfo, "Sending seed key to ECU");
+                                        return request(std::move(key_request), {0x67, uds::kSecurityAccessSendKey});
+                                    });
+                        })
+                    .and_then(
+                        [&]
+                        {
+                            events.Log(LogLevel::kInfo, "Seed key ok");
+                            events.Log(LogLevel::kInfo, "Set session mode");
+                            return request({uds::kSidDiagnosticSessionControl, 0x85, 0x02}, {0x50});
+                        })
+                    .transform(
+                        [&]
+                        {
+                            events.Log(LogLevel::kInfo, "Succesfully set to programming session");
+                            return std::move(rom_id);
+                        });
+            });
 }
 
 Result<bytes::Bytes> ReadRom(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
@@ -183,34 +192,28 @@ Status WriteRom(IKlineFlashTransport& transport, IClock& clock, const ICancellat
     // Legacy baud switch, SID 34/31/36 traffic, acknowledgement tolerance, and checksum:
     // operation.cpp lines 425-641. Appending below deliberately replaces the legacy
     // out-of-bounds operator[] construction while preserving the transmitted bytes.
-    if (auto baud = transport.SetBaud(p.flash_baud); !baud.has_value())
-    {
-        return baud;
-    }
-    auto setup =
-        Exchange(transport, cancellation, bytes::Bytes{uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x07, 0x80, 0}, p);
-    if (!setup.has_value())
-    {
-        return std::unexpected(setup.error());
-    }
-    if (auto s = ExpectService(*setup, {0x74}); !s.has_value())
-    {
-        return s;
-    }
-    events.Log(LogLevel::kInfo, "Erasing...");
-    auto erased = Exchange(transport, cancellation,
-                           bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x0f, 0xff, 0xff, 0xff}, p);
+    const Status erased =
+        transport.SetBaud(p.flash_baud)
+            .and_then(
+                [&]
+                {
+                    return Exchange(transport, cancellation,
+                                    bytes::Bytes{uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x07, 0x80, 0}, p);
+                })
+            .and_then([](const bytes::Bytes& setup) { return ExpectService(setup, {0x74}); })
+            .and_then(
+                [&]
+                {
+                    events.Log(LogLevel::kInfo, "Erasing...");
+                    return Exchange(
+                        transport, cancellation,
+                        bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x0f, 0xff, 0xff, 0xff}, p);
+                })
+            .and_then([](const bytes::Bytes& erase_reply) { return ExpectService(erase_reply, {0x71}); })
+            .and_then([&] { return CheckCancelled(cancellation, "cancelled after erase"); });
     if (!erased.has_value())
     {
-        return std::unexpected(erased.error());
-    }
-    if (auto s = ExpectService(*erased, {0x71}); !s.has_value())
-    {
-        return s;
-    }
-    if (cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled after erase");
+        return erased;
     }
 
     const bytes::Bytes encrypted = Encrypt(plan.ImageOrEmpty());
@@ -232,54 +235,44 @@ Status WriteRom(IKlineFlashTransport& transport, IClock& clock, const ICancellat
         events.Progress(static_cast<int>(offset + p.chunk_size), static_cast<int>(region.length));
     }
     events.Log(LogLevel::kInfo, "Verifying checksum...");
-    if (auto slept = clock.Sleep(1000ms, cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    auto checksum =
-        Exchange(transport, cancellation, bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02}, p);
-    if (!checksum.has_value())
-    {
-        return std::unexpected(checksum.error());
-    }
-    if (auto s = ExpectService(*checksum, {0x71, uds::kRoutineControlStart, 0x02}); !s.has_value())
-    {
-        return s;
-    }
-    events.Log(LogLevel::kInfo, "Checksum verified...");
-    return {};
+    return clock.Sleep(1000ms, cancellation)
+        .and_then(
+            [&]
+            {
+                return Exchange(transport, cancellation,
+                                bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02}, p);
+            })
+        .and_then([](const bytes::Bytes& checksum)
+                  { return ExpectService(checksum, {0x71, uds::kRoutineControlStart, 0x02}); })
+        .transform([&] { events.Log(LogLevel::kInfo, "Checksum verified..."); });
 }
 
 Result<FlashExecutionResult> ExecuteOpenTransport(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& clock,
                                                   const ICancellationToken& cancellation, IEventSink& events,
                                                   const SubaruMitsuM32rKlinePlan& parameters)
 {
-    if (auto header = transport.SetAddIso14230Header(false); !header.has_value())
-    {
-        return std::unexpected(header.error());
-    }
-    events.Log(LogLevel::kInfo, "Connecting to ECU K-Line bootloader, please wait...");
-    auto rom_id = Handshake(transport, clock, cancellation, events, parameters);
-    if (!rom_id.has_value())
-    {
-        return std::unexpected(rom_id.error());
-    }
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        events.Log(LogLevel::kInfo, "Reading ROM from ECU using K-Line");
-        auto bytes = ReadRom(transport, cancellation, events, parameters, plan.TransferRegion());
-        if (!bytes.has_value())
-        {
-            return std::unexpected(bytes.error());
-        }
-        return FlashExecutionResult{plan.Operation(), std::move(*bytes), std::move(*rom_id)};
-    }
-    events.Log(LogLevel::kInfo, "Writing ROM to ECU using K-Line");
-    if (auto status = WriteRom(transport, clock, cancellation, events, parameters, plan); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    return FlashExecutionResult{plan.Operation(), std::nullopt, std::nullopt};
+    return transport.SetAddIso14230Header(false)
+        .and_then(
+            [&]
+            {
+                events.Log(LogLevel::kInfo, "Connecting to ECU K-Line bootloader, please wait...");
+                return Handshake(transport, clock, cancellation, events, parameters);
+            })
+        .and_then(
+            [&](std::string rom_id) -> Result<FlashExecutionResult>
+            {
+                if (plan.Operation() == FlashOperation::kRead)
+                {
+                    events.Log(LogLevel::kInfo, "Reading ROM from ECU using K-Line");
+                    return ReadRom(transport, cancellation, events, parameters, plan.TransferRegion())
+                        .transform(
+                            [&](bytes::Bytes rom)
+                            { return FlashExecutionResult{plan.Operation(), std::move(rom), std::move(rom_id)}; });
+                }
+                events.Log(LogLevel::kInfo, "Writing ROM to ECU using K-Line");
+                return WriteRom(transport, clock, cancellation, events, parameters, plan)
+                    .transform([&] { return FlashExecutionResult{plan.Operation(), std::nullopt, std::nullopt}; });
+            });
 }
 } // namespace
 

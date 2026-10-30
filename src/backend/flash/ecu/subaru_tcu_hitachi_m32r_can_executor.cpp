@@ -18,6 +18,7 @@
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/backend/ports/cancellation.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
 namespace fastecu::flash
@@ -226,119 +227,100 @@ std::optional<std::string> DecodeCalId(IEventSink& events, const std::optional<b
 // (see the function comment above).
 Result<std::optional<std::string>> RequestRomId(const Ctx& ctx)
 {
-    Result<std::optional<bytes::Bytes>> tcu_id =
-        Tolerant(ctx, ctx.diagnostic, bytes::Bytes{uds::kSidEcuIdQuery}, Policy(kShortDelay, kResponseTimeout),
-                 bytes::Bytes{uds::kSidEcuIdQuery + 0x40}, "TCU ID");
-    if (!tcu_id.has_value())
-    {
-        return std::unexpected(tcu_id.error());
-    }
-    const std::optional<std::string> tcu_id_hex = DecodeTcuId(ctx.events, *tcu_id);
-    Result<std::optional<bytes::Bytes>> cal_id =
-        Tolerant(ctx, ctx.diagnostic, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId},
-                 Policy(kShortDelay, kResponseTimeout),
-                 bytes::Bytes{uds::kSidVehicleInfoRequest + 0x40, uds::kVehicleInfoPidCalId}, "CAL ID");
-    if (!cal_id.has_value())
-    {
-        return std::unexpected(cal_id.error());
-    }
-    const std::optional<std::string> cal_id_text = DecodeCalId(ctx.events, *cal_id);
-    if (tcu_id_hex.has_value() && cal_id_text.has_value())
-    {
-        return std::optional<std::string>{*cal_id_text + "_" + *tcu_id_hex + "_"};
-    }
-    return std::optional<std::string>{};
+    return Tolerant(ctx, ctx.diagnostic, bytes::Bytes{uds::kSidEcuIdQuery}, Policy(kShortDelay, kResponseTimeout),
+                    bytes::Bytes{uds::kSidEcuIdQuery + 0x40}, "TCU ID")
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& tcu_id)
+            {
+                const std::optional<std::string> tcu_id_hex = DecodeTcuId(ctx.events, tcu_id);
+                return Tolerant(ctx, ctx.diagnostic,
+                                bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId},
+                                Policy(kShortDelay, kResponseTimeout),
+                                bytes::Bytes{uds::kSidVehicleInfoRequest + 0x40, uds::kVehicleInfoPidCalId}, "CAL ID")
+                    .transform(
+                        [&](const std::optional<bytes::Bytes>& cal_id)
+                        {
+                            const std::optional<std::string> cal_id_text = DecodeCalId(ctx.events, cal_id);
+                            if (tcu_id_hex.has_value() && cal_id_text.has_value())
+                            {
+                                return std::optional<std::string>{*cal_id_text + "_" + *tcu_id_hex + "_"};
+                            }
+                            return std::optional<std::string>{};
+                        });
+            });
 }
 
 Status UnlockAndJump(const Ctx& ctx)
 {
     // Step 4: enter the extended diagnostic session; mismatch is fatal.
-    if (Result<bytes::Bytes> session = Fatal(
-            ctx, ctx.diagnostic, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
-            Policy(kShortDelay, kResponseTimeout), bytes::Bytes{uds::kSessionExtendedDiagnostic}, "diagnostic session");
-        !session.has_value())
-    {
-        return std::unexpected(session.error());
-    }
-
-    // Step 5: request the four-byte seed. The prefix alone only guarantees
-    // the sub-function echo, so guard the seed bytes (PDU offsets 2..5)
-    // explicitly.
-    Result<bytes::Bytes> seed_response =
-        Fatal(ctx, ctx.diagnostic, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
-              Policy(kShortDelay, kResponseTimeout), bytes::Bytes{uds::kSecurityAccessRequestSeed}, "seed");
-    if (!seed_response.has_value())
-    {
-        return std::unexpected(seed_response.error());
-    }
-    if (seed_response->size() < 6)
-    {
-        return Fail(ErrorKind::kBadResponse, "seed response is too short");
-    }
-
-    // Step 6: derive and send the key.
-    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
-    const bytes::Bytes key = SeedKey(bytes::ByteView{*seed_response}.subspan(2, 4));
-    key_request.insert(key_request.end(), key.begin(), key.end());
-    if (Result<bytes::Bytes> key_response =
-            Fatal(ctx, ctx.diagnostic, key_request, Policy(kShortDelay, kResponseTimeout),
-                  bytes::Bytes{uds::kSecurityAccessSendKey}, "key");
-        !key_response.has_value())
-    {
-        return std::unexpected(key_response.error());
-    }
-
-    // Step 7: legacy logs a bad jump response and continues (its return is
-    // commented out), but preserves the 200 ms delay before the read.
-    Result<std::optional<bytes::Bytes>> jump =
-        Tolerant(ctx, ctx.kernel, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionProgramming},
-                 Policy(kJumpDelay, kResponseTimeout),
-                 bytes::Bytes{uds::kSidDiagnosticSessionControl + 0x40, uds::kSessionProgramming}, "kernel jump");
-    if (!jump.has_value())
-    {
-        return std::unexpected(jump.error());
-    }
-    if (jump->has_value())
-    {
-        ctx.events.Log(LogLevel::kInfo, std::format("kernel jump response: {}", bytes::ToHex(**jump)));
-    }
-
-    // Step 8, deliberate divergence 3: build the full four-byte payload in
-    // bounds. Legacy reused a six-byte frame and wrote positions 6 and 7
-    // beyond its QByteArray, which does not extend under Qt 6.
-    if (Result<bytes::Bytes> recheck =
-            Fatal(ctx, ctx.kernel, bytes::Bytes{uds::kSidRoutineControl, 0x02, 0x02, 0x01},
-                  Policy(0ms, kResponseTimeout), bytes::Bytes{0x02, 0x02, 0x03}, "kernel recheck");
-        !recheck.has_value())
-    {
-        return std::unexpected(recheck.error());
-    }
-    return {};
+    return Fatal(ctx, ctx.diagnostic, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
+                 Policy(kShortDelay, kResponseTimeout), bytes::Bytes{uds::kSessionExtendedDiagnostic},
+                 "diagnostic session")
+        .and_then(
+            [&](const bytes::Bytes&)
+            {
+                // Step 5: request the four-byte seed. The prefix alone only guarantees
+                // the sub-function echo, so guard the seed bytes (PDU offsets 2..5)
+                // explicitly.
+                return Fatal(
+                    ctx, ctx.diagnostic, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
+                    Policy(kShortDelay, kResponseTimeout), bytes::Bytes{uds::kSecurityAccessRequestSeed}, "seed");
+            })
+        .and_then(
+            [&](const bytes::Bytes& seed_response) -> Result<bytes::Bytes>
+            {
+                if (seed_response.size() < 6)
+                {
+                    return Fail(ErrorKind::kBadResponse, "seed response is too short");
+                }
+                // Step 6: derive and send the key.
+                bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
+                const bytes::Bytes key = SeedKey(bytes::ByteView{seed_response}.subspan(2, 4));
+                key_request.insert(key_request.end(), key.begin(), key.end());
+                return Fatal(ctx, ctx.diagnostic, key_request, Policy(kShortDelay, kResponseTimeout),
+                             bytes::Bytes{uds::kSecurityAccessSendKey}, "key");
+            })
+        .and_then(
+            [&](const bytes::Bytes&)
+            {
+                // Step 7: legacy logs a bad jump response and continues (its return is
+                // commented out), but preserves the 200 ms delay before the read.
+                return Tolerant(
+                    ctx, ctx.kernel, bytes::Bytes{uds::kSidDiagnosticSessionControl, uds::kSessionProgramming},
+                    Policy(kJumpDelay, kResponseTimeout),
+                    bytes::Bytes{uds::kSidDiagnosticSessionControl + 0x40, uds::kSessionProgramming}, "kernel jump");
+            })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& jump)
+            {
+                if (jump.has_value())
+                {
+                    ctx.events.Log(LogLevel::kInfo, std::format("kernel jump response: {}", bytes::ToHex(*jump)));
+                }
+                // Step 8, deliberate divergence 3: build the full four-byte payload in
+                // bounds. Legacy reused a six-byte frame and wrote positions 6 and 7
+                // beyond its QByteArray, which does not extend under Qt 6.
+                return Fatal(ctx, ctx.kernel, bytes::Bytes{uds::kSidRoutineControl, 0x02, 0x02, 0x01},
+                             Policy(0ms, kResponseTimeout), bytes::Bytes{0x02, 0x02, 0x03}, "kernel recheck");
+            })
+        .transform([](const bytes::Bytes&) {});
 }
 
 Result<std::optional<std::string>> ConnectBootloader(const Ctx& ctx)
 {
-    Result<bool> alive = KernelAlive(ctx);
-    if (!alive.has_value())
-    {
-        return std::unexpected(alive.error());
-    }
-    if (*alive)
-    {
-        // Legacy returns here too, before ever requesting the TCU/CAL ID
-        // (line 128), so RomId is never set on this path either.
-        return std::optional<std::string>{};
-    }
-    Result<std::optional<std::string>> rom_id = RequestRomId(ctx);
-    if (!rom_id.has_value())
-    {
-        return rom_id;
-    }
-    if (Status unlocked = UnlockAndJump(ctx); !unlocked.has_value())
-    {
-        return std::unexpected(unlocked.error());
-    }
-    return rom_id;
+    return KernelAlive(ctx).and_then(
+        [&](bool alive) -> Result<std::optional<std::string>>
+        {
+            if (alive)
+            {
+                // Legacy returns here too, before ever requesting the TCU/CAL ID
+                // (line 128), so RomId is never set on this path either.
+                return std::optional<std::string>{};
+            }
+            return RequestRomId(ctx).and_then(
+                [&](std::optional<std::string> rom_id)
+                { return UnlockAndJump(ctx).transform([&] { return std::move(rom_id); }); });
+        });
 }
 
 // Legacy read_mem (operation.cpp:395-616).
@@ -430,38 +412,29 @@ Result<bytes::Bytes> ReadRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& 
 // keeps its own check. responsePending is therefore not absorbed here.
 Status Erase(const Ctx& ctx)
 {
-    if (ctx.cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, "cancelled before request");
-    }
     const bytes::Bytes request{uds::kSidRoutineControl, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF};
-    if (const Status sent = ctx.kernel_channel.Send(request, ctx.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    if (const Status slept = ctx.clock.Sleep(kEraseDelay, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    Result<std::optional<bytes::Bytes>> reply = ctx.kernel_channel.Receive(kEraseTimeout, ctx.cancellation);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    if (!reply->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no response from TCU");
-    }
-    constexpr std::array<bytes::Byte, 3> kEraseReply{0x31, 0x02, 0x01};
-    if ((*reply)->size() < kEraseReply.size())
-    {
-        return Fail(ErrorKind::kBadResponse, "erase response is too short");
-    }
-    if (!std::equal(kEraseReply.begin(), kEraseReply.end(), (*reply)->begin()))
-    {
-        return Fail(ErrorKind::kBadResponse, "wrong response from TCU");
-    }
-    return {};
+    return CheckCancelled(ctx.cancellation, "cancelled before request")
+        .and_then([&] { return ctx.kernel_channel.Send(request, ctx.cancellation); })
+        .and_then([&] { return ctx.clock.Sleep(kEraseDelay, ctx.cancellation); })
+        .and_then([&] { return ctx.kernel_channel.Receive(kEraseTimeout, ctx.cancellation); })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& reply) -> Status
+            {
+                if (!reply.has_value())
+                {
+                    return Fail(ErrorKind::kTimeout, "no response from TCU");
+                }
+                constexpr std::array<bytes::Byte, 3> kEraseReply{0x31, 0x02, 0x01};
+                if (reply->size() < kEraseReply.size())
+                {
+                    return Fail(ErrorKind::kBadResponse, "erase response is too short");
+                }
+                if (!std::equal(kEraseReply.begin(), kEraseReply.end(), reply->begin()))
+                {
+                    return Fail(ErrorKind::kBadResponse, "wrong response from TCU");
+                }
+                return {};
+            });
 }
 
 // Legacy erase_mem (operation.cpp:925-966).
@@ -762,12 +735,8 @@ Result<FlashExecutionResult> SubaruTcuHitachiM32rCanExecutor::Run(const SubaruTc
     uds::UdsClient kernel(kernel_channel, clock, events);
     const Ctx ctx{cancellation, events, clock, diagnostic, kernel, kernel_channel};
 
-    Result<std::optional<std::string>> connected = ConnectBootloader(ctx);
-    if (!connected.has_value())
-    {
-        return std::unexpected(connected.error());
-    }
-    return ExecuteTransfer(plan, ctx, parameters, std::move(*connected));
+    return ConnectBootloader(ctx).and_then([&](std::optional<std::string> rom_id)
+                                           { return ExecuteTransfer(plan, ctx, parameters, std::move(rom_id)); });
 }
 
 } // namespace fastecu::flash

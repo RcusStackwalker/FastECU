@@ -182,15 +182,10 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
                                                    std::string_view mcu_type, std::optional<memory::MemoryImage> image,
                                                    KernelImage kernel)
 {
-    if (auto valid = ValidateIdentity(protocol_name, mcu_type); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (auto valid = ValidateOperation(protocol_name, operation); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (auto valid = ValidateKernelUpload(kernel); !valid.has_value())
+    if (const Status valid = ValidateIdentity(protocol_name, mcu_type)
+                                 .and_then([&] { return ValidateOperation(protocol_name, operation); })
+                                 .and_then([&] { return ValidateKernelUpload(kernel); });
+        !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -236,15 +231,8 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
         .kernel = std::move(kernel),
         .family_plan = WireParams(protocol_name),
     };
-    auto plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (auto valid = ValidateSubaruDensoMc68hc16y502Plan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return ValidateAndBuild(std::move(fields))
+        .and_then([](FlashPlan plan)
+                  { return ValidateSubaruDensoMc68hc16y502Plan(plan).transform([&] { return std::move(plan); }); });
 }
 } // namespace fastecu::flash

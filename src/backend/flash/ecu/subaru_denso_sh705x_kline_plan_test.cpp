@@ -137,6 +137,13 @@ TEST(SubaruDensoSh705xKlinePlan, RejectsBadKernels)
                                                 std::nullopt, KernelFor("SH7058")),
                 IsErr(ErrorKind::kInvalidConfig));
 
+    // Caught by the generic plan validation, after every family check passed.
+    KernelImage unnamed = KernelFor("SH7055");
+    unnamed.id.clear();
+    EXPECT_THAT(BuildSubaruDensoSh705xKlinePlan(FlashOperation::kRead, "sub_ecu_denso_sh7055_04", "SH7055",
+                                                std::nullopt, unnamed),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, Eq("kernel id must not be empty")));
+
     KernelImage oversized = KernelFor("SH7058");
     oversized.bytes.assign(0x01000000, 0x00);
     EXPECT_THAT(BuildSubaruDensoSh705xKlinePlan(FlashOperation::kRead, "sub_ecu_denso_sh7058", "SH7058", std::nullopt,

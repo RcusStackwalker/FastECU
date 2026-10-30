@@ -120,17 +120,14 @@ void NonFatalQuery(Ctx& ctx, bytes::ByteView request_pdu, std::optional<bytes::B
 Result<bool> ObkActive(Ctx& ctx)
 {
     LogInfo(ctx, "Checking if OBK is already running...");
-    if (const Status sent = ctx.channel.Send(bytes::Bytes{0xB7}, ctx.cancellation); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    Result<std::optional<bytes::Bytes>> obk = ctx.channel.Receive(200ms, ctx.cancellation);
-    if (!obk.has_value())
-    {
-        return std::unexpected(obk.error());
-    }
-    return obk->has_value() && obk->value().size() > 2 && (**obk)[0] == 0x7F && (**obk)[1] == 0xB7 &&
-           (**obk)[2] == 0x13;
+    return ctx.channel.Send(bytes::Bytes{0xB7}, ctx.cancellation)
+        .and_then([&] { return ctx.channel.Receive(200ms, ctx.cancellation); })
+        .transform(
+            [](const std::optional<bytes::Bytes>& obk)
+            {
+                return obk.has_value() && obk->size() >= 3 && (*obk)[0] == 0x7F && (*obk)[1] == 0xB7 &&
+                       (*obk)[2] == 0x13;
+            });
 }
 
 // Lines 115-257: four non-fatal identity queries.
@@ -156,49 +153,41 @@ void QueryIdentity(Ctx& ctx)
 Status RequireBenchSession(Ctx& ctx)
 {
     LogInfo(ctx, "Initializing bootloader...");
-    if (const Status sent = ctx.channel.Send(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0xD7}, ctx.cancellation);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> probe = ctx.channel.Receive(200ms, ctx.cancellation);
-    if (!probe.has_value())
-    {
-        return std::unexpected(probe.error());
-    }
-    if (!probe->has_value() || probe->value().size() < 3)
-    {
-        // Legacy's outer `if (received.length() > 5) {...} return
-        // STATUS_ERROR;` (line 759): this is the only failure point in
-        // connect_bootloader with no dedicated legacy log line, and the
-        // first point that DOES propagate rather than falling through.
-        return Fail(ErrorKind::kTimeout, "no response from ECU during the session-scope probe");
-    }
-    const bytes::Bytes& session_probe = **probe;
-    // `at(5) != 0xA0 && at(6) != 0x20` selects on-car; De Morgan's gives
-    // bench whenever either byte matches.
-    if (const bool bench = session_probe[1] == 0xA0 || session_probe[2] == 0x20; !bench)
-    {
-        // On-car programming branch (lines 281-579): out of scope per the
-        // design's on-car scope decision (only the bench path is ported).
-        return Fail(ErrorKind::kUnsupported, "on-car programming is not supported by this port");
-    }
-    LogInfo(ctx, "Bench Programming, Accessing...");
-    return {};
+    return ctx.channel.Send(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0xD7}, ctx.cancellation)
+        .and_then([&] { return ctx.channel.Receive(200ms, ctx.cancellation); })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& probe) -> Status
+            {
+                if (!probe.has_value() || probe->size() < 3)
+                {
+                    // Legacy's outer `if (received.length() > 5) {...} return
+                    // STATUS_ERROR;` (line 759): this is the only failure point in
+                    // connect_bootloader with no dedicated legacy log line, and the
+                    // first point that DOES propagate rather than falling through.
+                    return Fail(ErrorKind::kTimeout, "no response from ECU during the session-scope probe");
+                }
+                const bytes::Bytes& session_probe = *probe;
+                // `at(5) != 0xA0 && at(6) != 0x20` selects on-car; De Morgan's gives
+                // bench whenever either byte matches.
+                if (const bool bench = session_probe[1] == 0xA0 || session_probe[2] == 0x20; !bench)
+                {
+                    // On-car programming branch (lines 281-579): out of scope per the
+                    // design's on-car scope decision (only the bench path is ported).
+                    return Fail(ErrorKind::kUnsupported, "on-car programming is not supported by this port");
+                }
+                LogInfo(ctx, "Bench Programming, Accessing...");
+                return {};
+            });
 }
 
 // Bench branch (lines 581-753): every exchange from here on is fatal on
 // mismatch or empty reply, unlike the identity queries.
 Status UnlockAndJump(Ctx& ctx)
 {
-    if (Result<bytes::Bytes> session = FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench},
-                                                  bytes::Bytes{kSessionBench}, "bench diagnostic session");
-        !session.has_value())
-    {
-        return std::unexpected(session.error());
-    }
-
-    return UnlockAndKernelJump(ExchangeContext(ctx), kRejectionPrefix, SeedKey)
+    return FatalQuery(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionBench}, bytes::Bytes{kSessionBench},
+                      "bench diagnostic session")
+        .and_then([&](const bytes::Bytes&)
+                  { return UnlockAndKernelJump(ExchangeContext(ctx), kRejectionPrefix, SeedKey); })
         .and_then(
             [&]
             {
@@ -212,28 +201,20 @@ Status UnlockAndJump(Ctx& ctx)
 
 Status ConnectBootloader(Ctx& ctx)
 {
-    Result<bool> active = ObkActive(ctx);
-    if (!active.has_value())
-    {
-        return std::unexpected(active.error());
-    }
-    if (*active)
-    {
-        LogInfo(ctx, "OBK is active!");
-        return {};
-    }
-    LogInfo(ctx, "OBK not active, initializing ECU...");
-    QueryIdentity(ctx);
-    if (Status bench = RequireBenchSession(ctx); !bench.has_value())
-    {
-        return bench;
-    }
-    if (Status unlocked = UnlockAndJump(ctx); !unlocked.has_value())
-    {
-        return unlocked;
-    }
-    LogInfo(ctx, "ECU initialised, continue...");
-    return {};
+    return ObkActive(ctx).and_then(
+        [&](bool active) -> Status
+        {
+            if (active)
+            {
+                LogInfo(ctx, "OBK is active!");
+                return {};
+            }
+            LogInfo(ctx, "OBK not active, initializing ECU...");
+            QueryIdentity(ctx);
+            return RequireBenchSession(ctx)
+                .and_then([&] { return UnlockAndJump(ctx); })
+                .transform([&] { LogInfo(ctx, "ECU initialised, continue..."); });
+        });
 }
 
 // Legacy read_mem, lines 767-963. start_addr/length are hardcoded to

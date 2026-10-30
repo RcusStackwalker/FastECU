@@ -119,24 +119,18 @@ Status CancelledIfRequested(const KernelContext& ctx, std::string_view detail)
 // Warm exchanges have no post-send delay.
 Result<bytes::Bytes> ChannelRequest(KernelContext& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout)
 {
-    if (const Status checkpoint = CancelledIfRequested(ctx, "cancelled before CAN request"); !checkpoint.has_value())
-    {
-        return std::unexpected(checkpoint.error());
-    }
-    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    auto received = ctx.channel.Receive(timeout, ctx.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (!received->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
-    }
-    return std::move(**received);
+    return CancelledIfRequested(ctx, "cancelled before CAN request")
+        .and_then([&] { return ctx.channel.Send(pdu, ctx.cancellation); })
+        .and_then([&] { return ctx.channel.Receive(timeout, ctx.cancellation); })
+        .and_then(
+            [](std::optional<bytes::Bytes> received) -> Result<bytes::Bytes>
+            {
+                if (!received.has_value())
+                {
+                    return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
+                }
+                return std::move(*received);
+            });
 }
 
 // Legacy reported a floor of one millisecond for any completed transfer, so a
@@ -155,27 +149,26 @@ Result<bytes::Bytes> Exchange(KernelContext& ctx, bytes::Byte opcode, bytes::Byt
 {
     const auto request = bytes::ComposeBe(std::uint16_t{kKernelStartComm},
                                           static_cast<std::uint16_t>(payload.size() + 1), opcode, payload);
-    Result<bytes::Bytes> reply = ChannelRequest(ctx, request, timeout);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    Result<BeefMessage> parsed = ParseBeef(*reply);
-    if (!parsed.has_value())
-    {
-        return std::unexpected(parsed.error());
-    }
-    const bytes::Byte expected = static_cast<bytes::Byte>(opcode | 0x40U);
-    if (parsed->opcode != expected)
-    {
-        return Fail(ErrorKind::kBadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
-                                                         parsed->opcode, expected));
-    }
-    if (parsed->payload.size() < minimum_payload)
-    {
-        return Fail(ErrorKind::kBadResponse, "short BEEF response payload");
-    }
-    return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
+    // The reply outlives the parsed message's view of it: both live until the
+    // end of the full expression.
+    return ChannelRequest(ctx, request, timeout)
+        .and_then([](const bytes::Bytes& reply) { return ParseBeef(reply); })
+        .and_then(
+            [&](const BeefMessage& parsed) -> Result<bytes::Bytes>
+            {
+                const bytes::Byte expected = static_cast<bytes::Byte>(opcode | 0x40U);
+                if (parsed.opcode != expected)
+                {
+                    return Fail(ErrorKind::kBadResponse,
+                                std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
+                                            parsed.opcode, expected));
+                }
+                if (parsed.payload.size() < minimum_payload)
+                {
+                    return Fail(ErrorKind::kBadResponse, "short BEEF response payload");
+                }
+                return bytes::Bytes(parsed.payload.begin(), parsed.payload.end());
+            });
 }
 
 Result<std::uint32_t> QueryCrc(KernelContext& ctx, const MemoryRegion& block)
@@ -345,19 +338,21 @@ Status FlashBlock(KernelContext& ctx, bytes::ByteView image, std::uint32_t image
                   bool test_write, std::size_t& flash_bytes_index, std::size_t flash_bytes_count,
                   PhaseReporter& progress)
 {
-    if (const auto valid = ValidateFlashBlock(ctx, image, image_base, block); !valid.has_value())
-    {
-        return valid;
-    }
-    const std::size_t image_offset = block.start - image_base;
-    LogFlashRegion(ctx, "Flash page erase addr", block);
-    LogInfo(ctx, "Erasing flash page...");
-    Result<bytes::Bytes> erased = Exchange(ctx, kBeefBlankPage, bytes::ComposeBe(block.start), 0, kBeefEraseTimeout);
+    const Status erased =
+        ValidateFlashBlock(ctx, image, image_base, block)
+            .and_then(
+                [&]
+                {
+                    LogFlashRegion(ctx, "Flash page erase addr", block);
+                    LogInfo(ctx, "Erasing flash page...");
+                    return Exchange(ctx, kBeefBlankPage, bytes::ComposeBe(block.start), 0, kBeefEraseTimeout);
+                })
+            .transform([&](const bytes::Bytes&) { LogInfo(ctx, " erased"); });
     if (!erased.has_value())
     {
-        return std::unexpected(erased.error());
+        return erased;
     }
-    LogInfo(ctx, " erased");
+    const std::size_t image_offset = block.start - image_base;
 
     auto previous_time = ctx.clock.Now();
     LogFlashRegion(ctx, "Start flash write addr", block);

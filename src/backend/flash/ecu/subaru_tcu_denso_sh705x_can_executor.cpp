@@ -278,53 +278,51 @@ Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expe
 Status RequestIdentity(Context& context, bool read_operation, std::optional<std::string>& rom_id)
 {
     LogInfo(context, "Requesting ECU ID");
-    const auto ecu_reply = NonfatalQuery(context, bytes::Bytes{0xAA});
-    if (!ecu_reply.has_value())
-    {
-        return std::unexpected(ecu_reply.error());
-    }
-    if (ecu_reply->has_value())
-    {
-        const auto& pdu = **ecu_reply;
-        if (pdu.size() < 9 || pdu[0] != 0xEA)
-        {
-            LogWrongPdu(context, pdu);
-        }
-        else
-        {
-            const std::string ecu_id =
-                std::format("{:02X}{:02X}{:02X}{:02X}{:02X}", pdu[4], pdu[5], pdu[6], pdu[7], pdu[8]);
-            LogInfo(context, std::format("ECU ID: {}", ecu_id));
-            if (read_operation)
+    return NonfatalQuery(context, bytes::Bytes{0xAA})
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& ecu_reply)
             {
-                rom_id = ecu_id + "_";
-            }
-        }
-    }
-    LogInfo(context, "Requesting CAL ID");
-    const auto cal_id = NonfatalQuery(context, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId});
-    if (!cal_id.has_value())
-    {
-        return std::unexpected(cal_id.error());
-    }
-    if (cal_id->has_value())
-    {
-        const auto& pdu = **cal_id;
-        if (pdu.size() < 3 || pdu[0] != 0x49 || pdu[1] != 0x04)
-        {
-            LogWrongPdu(context, pdu);
-        }
-        else
-        {
-            const std::string value(pdu.begin() + 3, pdu.end());
-            LogInfo(context, std::format("CAL ID: {}", value));
-            if (read_operation)
+                if (ecu_reply.has_value())
+                {
+                    const auto& pdu = *ecu_reply;
+                    if (pdu.size() < 9 || pdu[0] != 0xEA)
+                    {
+                        LogWrongPdu(context, pdu);
+                    }
+                    else
+                    {
+                        const std::string ecu_id =
+                            std::format("{:02X}{:02X}{:02X}{:02X}{:02X}", pdu[4], pdu[5], pdu[6], pdu[7], pdu[8]);
+                        LogInfo(context, std::format("ECU ID: {}", ecu_id));
+                        if (read_operation)
+                        {
+                            rom_id = ecu_id + "_";
+                        }
+                    }
+                }
+                LogInfo(context, "Requesting CAL ID");
+                return NonfatalQuery(context, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId});
+            })
+        .transform(
+            [&](const std::optional<bytes::Bytes>& cal_id)
             {
-                rom_id = value + "_" + rom_id.value_or(std::string{});
-            }
-        }
-    }
-    return {};
+                if (!cal_id.has_value())
+                {
+                    return;
+                }
+                const auto& pdu = *cal_id;
+                if (pdu.size() < 3 || pdu[0] != 0x49 || pdu[1] != 0x04)
+                {
+                    LogWrongPdu(context, pdu);
+                    return;
+                }
+                const std::string value(pdu.begin() + 3, pdu.end());
+                LogInfo(context, std::format("CAL ID: {}", value));
+                if (read_operation)
+                {
+                    rom_id = value + "_" + rom_id.value_or(std::string{});
+                }
+            });
 }
 
 // Strict UDS session/security exchanges, lines 216-359. Oracle line 230
@@ -333,108 +331,99 @@ Status RequestIdentity(Context& context, bool read_operation, std::optional<std:
 Status EnterProgrammingSession(Context& context)
 {
     LogInfo(context, "Requesting session mode");
-    if (const Status session = StrictPayload(context, bytes::Bytes{uds::kSidDiagnosticSessionControl, 0x03},
-                                             bytes::Bytes{0x03}, "session mode");
-        !session.has_value())
-    {
-        return session;
-    }
-    const auto seed_reply = context.uds.Request(bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
-                                                kStrictPolicy, context.cancellation);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    const bytes::ByteView seed = uds::Payload(*seed_reply);
-    if (seed.size() < 5 || seed[0] != uds::kSecurityAccessRequestSeed)
-    {
-        return Fail(ErrorKind::kBadResponse, "invalid TCU seed response");
-    }
-    const bytes::Bytes key = DensoSeedKey(seed.subspan<1, 4>());
-    LogInfo(context, "Seed request ok");
-    LogInfo(context, "Sending seed key");
-    if (const Status key_status =
-            StrictPayload(context, ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
-                          bytes::Bytes{0x02}, "seed key");
-        !key_status.has_value())
-    {
-        return key_status;
-    }
-    LogInfo(context, "Seed key ok");
-    LogInfo(context, "Set session mode");
-    const auto reply =
-        context.uds.Request(bytes::Bytes{uds::kSidDiagnosticSessionControl, 0x02}, kStrictPolicy, context.cancellation);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    const auto payload = uds::Payload(*reply);
-    if (payload.empty() || (payload[0] != 0x02 && payload[0] != 0x42))
-    {
-        return Fail(ErrorKind::kBadResponse, "unexpected programming session response");
-    }
-    LogInfo(context, "Succesfully set to programming session");
-    return {};
+    return StrictPayload(context, bytes::Bytes{uds::kSidDiagnosticSessionControl, 0x03}, bytes::Bytes{0x03},
+                         "session mode")
+        .and_then(
+            [&]
+            {
+                return context.uds.Request(bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
+                                           kStrictPolicy, context.cancellation);
+            })
+        .and_then(
+            [&](const bytes::Bytes& seed_reply) -> Status
+            {
+                const bytes::ByteView seed = uds::Payload(seed_reply);
+                if (seed.size() < 5 || seed[0] != uds::kSecurityAccessRequestSeed)
+                {
+                    return Fail(ErrorKind::kBadResponse, "invalid TCU seed response");
+                }
+                const bytes::Bytes key = DensoSeedKey(seed.subspan<1, 4>());
+                LogInfo(context, "Seed request ok");
+                LogInfo(context, "Sending seed key");
+                return StrictPayload(context, ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
+                                     bytes::Bytes{0x02}, "seed key");
+            })
+        .and_then(
+            [&]
+            {
+                LogInfo(context, "Seed key ok");
+                LogInfo(context, "Set session mode");
+                return context.uds.Request(bytes::Bytes{uds::kSidDiagnosticSessionControl, 0x02}, kStrictPolicy,
+                                           context.cancellation);
+            })
+        .and_then(
+            [&](const bytes::Bytes& reply) -> Status
+            {
+                const auto payload = uds::Payload(reply);
+                if (payload.empty() || (payload[0] != 0x02 && payload[0] != 0x42))
+                {
+                    return Fail(ErrorKind::kBadResponse, "unexpected programming session response");
+                }
+                LogInfo(context, "Succesfully set to programming session");
+                return {};
+            });
 }
 
 Status UploadKernel(Context& context, const KernelImage& kernel)
 {
-    if (const Status uploaded = context.kernel.TransferPayload(kernel, {kStrictPolicy, kReadTimeout});
-        !uploaded.has_value())
-    {
-        return uploaded;
-    }
-    LogInfo(context, "Kernel uploaded, starting...");
-    if (const Status transfer_exit =
-            StrictPayload(context, bytes::Bytes{uds::kSidRequestTransferExit}, {}, "kernel transfer exit");
-        !transfer_exit.has_value())
-    {
-        return transfer_exit;
-    }
-    // upload_kernel(), revision 59f4e442 lines 546-577 checks only the
-    // positive service id, so an echoed routine is optional.
-    if (const Status start_kernel =
-            StrictPayload(context, bytes::Bytes{uds::kSidRoutineControl, 0x01, 0x02, 0x02, 0x02}, {}, "kernel start");
-        !start_kernel.has_value())
-    {
-        return start_kernel;
-    }
-
-    LogInfo(context, "Kernel started, initializing...");
-    // upload_kernel(), revision 59f4e442 lines 581-595 resets the adapter
-    // and reapplies the TCU's ISO-15765 configuration before its quiet
-    // period and strict post-upload probe. This is protocol-owned inner
-    // lifecycle; BoundAttempt retains the initial configure/open and final
-    // close ownership.
-    if (const Status restarted = context.transport.RestartIso15765({.bitrate = 500000,
-                                                                    .request_id = context.request_id,
-                                                                    .response_id = context.response_id,
-                                                                    .extended_id = false},
-                                                                   context.cancellation);
-        !restarted.has_value())
-    {
-        return restarted;
-    }
-    if (const Status slept = context.clock.Sleep(kPostUploadDelay, context.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    LogInfo(context, "Requesting kernel ID");
-    Result<std::optional<std::string>> kernel_id = RequestKernelId(context, false);
-    if (!kernel_id.has_value())
-    {
-        return std::unexpected(kernel_id.error());
-    }
-    if (kernel_id->has_value())
-    {
-        LogInfo(context, std::format("Kernel ID: {}", **kernel_id));
-    }
-    else
-    {
-        LogError(context, "No valid response from ECU");
-        return Fail(ErrorKind::kTimeout, "kernel did not answer after upload");
-    }
-    return {};
+    return context.kernel.TransferPayload(kernel, {kStrictPolicy, kReadTimeout})
+        .and_then(
+            [&]
+            {
+                LogInfo(context, "Kernel uploaded, starting...");
+                return StrictPayload(context, bytes::Bytes{uds::kSidRequestTransferExit}, {}, "kernel transfer exit");
+            })
+        // upload_kernel(), revision 59f4e442 lines 546-577 checks only the
+        // positive service id, so an echoed routine is optional.
+        .and_then(
+            [&]
+            {
+                return StrictPayload(context, bytes::Bytes{uds::kSidRoutineControl, 0x01, 0x02, 0x02, 0x02}, {},
+                                     "kernel start");
+            })
+        .and_then(
+            [&]
+            {
+                LogInfo(context, "Kernel started, initializing...");
+                // upload_kernel(), revision 59f4e442 lines 581-595 resets the adapter
+                // and reapplies the TCU's ISO-15765 configuration before its quiet
+                // period and strict post-upload probe. This is protocol-owned inner
+                // lifecycle; BoundAttempt retains the initial configure/open and final
+                // close ownership.
+                return context.transport.RestartIso15765({.bitrate = 500000,
+                                                          .request_id = context.request_id,
+                                                          .response_id = context.response_id,
+                                                          .extended_id = false},
+                                                         context.cancellation);
+            })
+        .and_then([&] { return context.clock.Sleep(kPostUploadDelay, context.cancellation); })
+        .and_then(
+            [&]
+            {
+                LogInfo(context, "Requesting kernel ID");
+                return RequestKernelId(context, false);
+            })
+        .and_then(
+            [&](const std::optional<std::string>& kernel_id) -> Status
+            {
+                if (!kernel_id.has_value())
+                {
+                    LogError(context, "No valid response from ECU");
+                    return Fail(ErrorKind::kTimeout, "kernel did not answer after upload");
+                }
+                LogInfo(context, std::format("Kernel ID: {}", *kernel_id));
+                return {};
+            });
 }
 
 } // namespace
@@ -482,22 +471,23 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::Run(const SubaruTc
     {
         LogError(context, "No valid response from ECU");
         LogInfo(context, "No response from kernel, initialising ECU...");
-        if (const Status identity = RequestIdentity(context, read_operation, rom_id); !identity.has_value())
+        const Status connected =
+            RequestIdentity(context, read_operation, rom_id)
+                .and_then([&] { return EnterProgrammingSession(context); })
+                .and_then(
+                    [&]() -> Status
+                    {
+                        if (!plan.Kernel().has_value())
+                        {
+                            return {};
+                        }
+                        context.events.Notice("Preparing, please wait...");
+                        LogInfo(context, "Initializing Subaru Denso SH705x TCU CAN kernel upload, please wait...");
+                        return UploadKernel(context, *plan.Kernel());
+                    });
+        if (!connected.has_value())
         {
-            return std::unexpected(identity.error());
-        }
-        if (const Status entered = EnterProgrammingSession(context); !entered.has_value())
-        {
-            return std::unexpected(entered.error());
-        }
-        if (plan.Kernel().has_value())
-        {
-            context.events.Notice("Preparing, please wait...");
-            LogInfo(context, "Initializing Subaru Denso SH705x TCU CAN kernel upload, please wait...");
-            if (const Status uploaded = UploadKernel(context, *plan.Kernel()); !uploaded.has_value())
-            {
-                return std::unexpected(uploaded.error());
-            }
+            return std::unexpected(connected.error());
         }
     }
     kernel_phase.Complete();

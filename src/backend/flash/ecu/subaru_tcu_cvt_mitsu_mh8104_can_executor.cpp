@@ -111,11 +111,8 @@ Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rej
 // absent reply means for their own exchange.
 Result<std::optional<bytes::Bytes>> Exchange(Ctx& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout)
 {
-    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    return ctx.channel.Receive(timeout, ctx.cancellation);
+    return ctx.channel.Send(pdu, ctx.cancellation)
+        .and_then([&] { return ctx.channel.Receive(timeout, ctx.cancellation); });
 }
 
 // A single send + read whose reply CONTENT is never checked for fatality --
@@ -459,44 +456,38 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 Status EraseMemory(Ctx& ctx)
 {
     LogInfo(ctx, "Erasing TCU ROM...");
-    if (const Status sent = ctx.channel.Send(
-            bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff},
-            ctx.cancellation);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    // Legacy delay(8000) before reading the erase acknowledgement (line
-    // 877) -- the TCU needs this long to actually erase flash before it
-    // can answer. Modeled via ctx.clock.sleep() so tests assert the timing
-    // parameter instead of literally waiting 8 seconds.
-    if (const Status slept = ctx.clock.Sleep(8000ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    Result<std::optional<bytes::Bytes>> reply = ctx.channel.Receive(200ms, ctx.cancellation);
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    // Legacy delay(5000) unconditionally after reading (line 883).
-    if (const Status slept = ctx.clock.Sleep(5000ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    if (!reply->has_value())
-    {
-        LogError(ctx, "No response from TCU to the erase command");
-        return Fail(ErrorKind::kTimeout, "no response to the erase command");
-    }
-    // Content check (lines 885-889) is non-fatal -- `// return
-    // STATUS_ERROR;` is commented out.
-    if (!Matches(**reply, {0x71, uds::kRoutineControlStart, 0x02}))
-    {
-        LogError(ctx, "Erasing error! Do not panic, do not reset the TCU immediately. The kernel "
-                      "is most likely still running and receiving commands!");
-    }
-    return {};
+    return ctx.channel
+        .Send(bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff},
+              ctx.cancellation)
+        // Legacy delay(8000) before reading the erase acknowledgement (line
+        // 877) -- the TCU needs this long to actually erase flash before it
+        // can answer. Modeled via ctx.clock.sleep() so tests assert the timing
+        // parameter instead of literally waiting 8 seconds.
+        .and_then([&] { return ctx.clock.Sleep(8000ms, ctx.cancellation); })
+        .and_then([&] { return ctx.channel.Receive(200ms, ctx.cancellation); })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& reply)
+            {
+                // Legacy delay(5000) unconditionally after reading (line 883).
+                return ctx.clock.Sleep(5000ms, ctx.cancellation)
+                    .and_then(
+                        [&]() -> Status
+                        {
+                            if (!reply.has_value())
+                            {
+                                LogError(ctx, "No response from TCU to the erase command");
+                                return Fail(ErrorKind::kTimeout, "no response to the erase command");
+                            }
+                            // Content check (lines 885-889) is non-fatal -- `// return
+                            // STATUS_ERROR;` is commented out.
+                            if (!Matches(*reply, {0x71, uds::kRoutineControlStart, 0x02}))
+                            {
+                                LogError(ctx, "Erasing error! Do not panic, do not reset the TCU immediately. The "
+                                              "kernel is most likely still running and receiving commands!");
+                            }
+                            return {};
+                        });
+            });
 }
 
 // Legacy reflash_block, lines 643-840, called once (this family flashes

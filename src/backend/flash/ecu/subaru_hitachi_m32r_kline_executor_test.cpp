@@ -17,6 +17,7 @@
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/faulting_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 using ::testing::_;
@@ -532,23 +533,6 @@ const std::vector<Scenario>& Scenarios()
 constexpr std::size_t kSessionPrefix = 40;
 constexpr std::uint32_t kSweptEnd = 64 * 0x80;
 constexpr std::uint32_t kRomEnd = 0x80000;
-
-// Fails the `fail_at`-th Sleep (1-based); with 0 it only counts them.
-class FaultingClock final : public FakeClock
-{
-  public:
-    std::size_t fail_at = 0;
-    std::size_t sleeps = 0;
-
-    Status Sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-    {
-        if (++sleeps == fail_at)
-        {
-            return Fail(ErrorKind::kDisconnected, "sleep failed");
-        }
-        return FakeClock::Sleep(duration, cancellation);
-    }
-};
 
 TEST(SubaruHitachiM32rKlineExecutor, EveryEarlyTransportFaultPropagates)
 {

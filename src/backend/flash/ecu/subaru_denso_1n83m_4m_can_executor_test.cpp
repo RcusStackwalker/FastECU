@@ -27,6 +27,7 @@
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
+#include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/recording_clock.h"
@@ -54,6 +55,7 @@ using testing::Contains;
 using testing::Each;
 using ::testing::Eq;
 using testing::IsEmpty;
+using ::testing::Not;
 using ::testing::Optional;
 using testing::Pair;
 
@@ -472,6 +474,63 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadTimeoutAtTheTolerantDumpSetupStillPropa
 
     fastecu::flash::testing::ExpectReadFailsWith<SubaruDenso1n83m_4mCanExecutor>(ReadPlan(), transport,
                                                                                  ErrorKind::kTimeout);
+}
+
+// The channel strips the CAN envelope, so a correct dump-setup reply is
+// exactly the four payload bytes the tolerant check needs: both are accepted
+// without logging either error.
+TEST(SubaruDenso1n83m_4mCanExecutor, ExactFourByteDumpSetupRepliesAreAcceptedSilently)
+{
+    ScriptedCanFlashTransport transport;
+    ScriptBenchConnect(transport);
+    ScriptReadSetup(transport);
+    ScriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0x5A);
+    ScriptStopCommand(transport);
+
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDenso1n83m_4mCanExecutor>(*plan, transport);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kError, _))));
+}
+
+// The same boundary one step later: a transport failure at the 0x35 upload
+// setup surfaces too, and the dump never starts.
+TEST(SubaruDenso1n83m_4mCanExecutor, ReadTimeoutAtTheTolerantUploadSetupStillPropagates)
+{
+    ScriptedCanFlashTransport transport;
+    ScriptBenchConnect(transport);
+    transport.Exchange(Request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x3D, 0x3F, 0x00}),
+                       Response({0x74, 0x20, 0x01, 0x05}));
+    transport.Exchange(Request({0x35, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x3D, 0x3F, 0x00}));
+    transport.QueueError(ErrorKind::kTimeout, "no reply");
+
+    fastecu::flash::testing::ExpectReadFailsWith<SubaruDenso1n83m_4mCanExecutor>(ReadPlan(), transport,
+                                                                                 ErrorKind::kTimeout);
+}
+
+// And a failed send of the 0x34 dump setup is never mistaken for an absent
+// reply: it surfaces before any read.
+TEST(SubaruDenso1n83m_4mCanExecutor, SendFailureAtTheTolerantDumpSetupStillPropagates)
+{
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    fastecu::flash::FaultingCanFlashTransport probe;
+    ScriptBenchConnect(probe);
+    probe.Exchange(Request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x3D, 0x3F, 0x00}));
+    probe.QueueError(ErrorKind::kTimeout, "no reply");
+    ASSERT_THAT(ExecutorRun<SubaruDenso1n83m_4mCanExecutor>(*plan, probe).result,
+                fastecu::testing::IsErr(ErrorKind::kTimeout));
+
+    fastecu::flash::FaultingCanFlashTransport transport;
+    ScriptBenchConnect(transport);
+    transport.fail_write_at = probe.Writes();
+    EXPECT_THAT(ExecutorRun<SubaruDenso1n83m_4mCanExecutor>(*plan, transport).result,
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_EQ(transport.Reads(), probe.Reads() - 1);
 }
 
 // The IFlashExecutor contract this family satisfies -- see

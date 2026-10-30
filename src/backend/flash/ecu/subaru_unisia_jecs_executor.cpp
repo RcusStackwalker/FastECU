@@ -81,17 +81,12 @@ Result<bytes::Byte> ReadAddress(std::uint16_t address, RawReadState& state, IKli
                                 IClock& clock, const ICancellationToken& cancellation)
 {
     const bytes::Bytes request = RequestFor(address);
-    if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
+    if (const Status sent = CancelledIfRequested(cancellation)
+                                .and_then([&] { return WriteExact(transport, request, true); })
+                                .and_then([&] { return clock.Sleep(kAddressDelay, cancellation); });
+        !sent.has_value())
     {
-        return std::unexpected(cancelled.error());
-    }
-    if (auto written = WriteExact(transport, request, true); !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (auto slept = clock.Sleep(kAddressDelay, cancellation); !slept.has_value())
-    {
-        return std::unexpected(slept.error());
+        return std::unexpected(sent.error());
     }
 
     unsigned read_quanta = 0;
@@ -166,25 +161,16 @@ Result<FlashExecutionResult> SubaruUnisiaJecsExecutor::Run(const SubaruUnisiaJec
                                                            IClock& clock, const ICancellationToken& cancellation,
                                                            IEventSink& events)
 {
-    if (auto written = WriteExact(transport, kWakeup, false); !written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (auto slept = clock.Sleep(kWakeupDelay, cancellation); !slept.has_value())
-    {
-        return std::unexpected(slept.error());
-    }
-    auto flushed = transport.Read(kWakeupFlushTimeout, cancellation);
-    if (!flushed.has_value())
-    {
-        return std::unexpected(flushed.error());
-    }
-    auto image = ReadRange(0, kRomSize, transport, clock, cancellation, events);
-    if (!image.has_value())
-    {
-        return std::unexpected(image.error());
-    }
-    return FlashExecutionResult{
-        .operation = FlashOperation::kRead, .read_bytes = std::move(*image), .rom_id = std::nullopt};
+    return WriteExact(transport, kWakeup, false)
+        .and_then([&] { return clock.Sleep(kWakeupDelay, cancellation); })
+        .and_then([&] { return transport.Read(kWakeupFlushTimeout, cancellation); })
+        .and_then([&](const std::optional<bytes::Bytes>&)
+                  { return ReadRange(0, kRomSize, transport, clock, cancellation, events); })
+        .transform(
+            [](bytes::Bytes image)
+            {
+                return FlashExecutionResult{
+                    .operation = FlashOperation::kRead, .read_bytes = std::move(image), .rom_id = std::nullopt};
+            });
 }
 } // namespace fastecu::flash

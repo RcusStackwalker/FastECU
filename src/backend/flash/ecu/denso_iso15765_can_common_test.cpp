@@ -21,6 +21,7 @@
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/flash_types.h"
+#include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/mock_clock.h"
@@ -1048,57 +1049,29 @@ TEST(DensoIso15765CanCommon, ConnectBenchSettlesForTheArmsDelay)
     EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(50ms));
 }
 
-// Fails the `fail_write_at`-th write or `fail_read_at`-th read (1-based) with
-// kDisconnected "injected", or cancels `token` as the `cancel_after_read`-th
-// read returns; everything else follows the script.
-class FaultingCanTransport final : public ScriptedCanFlashTransport
+// FaultingCanFlashTransport that also cancels `token` as the
+// `cancel_after_read`-th read returns.
+class FaultingCanTransport final : public FaultingCanFlashTransport
 {
   public:
     explicit FaultingCanTransport(ManualCancellationToken& token) : token_(token)
     {
     }
-    Status Write(bytes::ByteView data, const ICancellationToken& cancellation) override
-    {
-        if (++writes_ == fail_write_at)
-        {
-            writes_at_fault = WritesConsumed();
-            return Fail(ErrorKind::kDisconnected, "injected");
-        }
-        return ScriptedCanFlashTransport::Write(data, cancellation);
-    }
     Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout,
                                              const ICancellationToken& cancellation) override
     {
-        if (++reads_ == fail_read_at)
-        {
-            writes_at_fault = WritesConsumed();
-            return Fail(ErrorKind::kDisconnected, "injected");
-        }
-        auto read = ScriptedCanFlashTransport::Read(timeout, cancellation);
-        if (reads_ == cancel_after_read)
+        auto read = FaultingCanFlashTransport::Read(timeout, cancellation);
+        if (read.has_value() && Reads() == cancel_after_read)
         {
             token_.Cancel();
         }
         return read;
     }
-    std::size_t Writes() const
-    {
-        return writes_;
-    }
-    std::size_t Reads() const
-    {
-        return reads_;
-    }
 
-    std::size_t fail_write_at = 0;
-    std::size_t fail_read_at = 0;
     std::size_t cancel_after_read = 0;
-    std::optional<std::size_t> writes_at_fault;
 
   private:
     ManualCancellationToken& token_;
-    std::size_t writes_ = 0;
-    std::size_t reads_ = 0;
 };
 
 struct FaultFixture
