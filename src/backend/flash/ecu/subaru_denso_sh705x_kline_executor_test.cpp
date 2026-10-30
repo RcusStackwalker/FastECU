@@ -6,11 +6,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -699,6 +701,158 @@ TEST(SubaruDensoSh705xKlineExecutor, CancellationBeforeAnySessionWriteSendsNothi
     }
 }
 
+TEST(SubaruDensoSh705xKlineExecutor, FourByteProbeReplyIsNoValidResponse)
+{
+    // :134 -- `> 4`: four bytes is "no valid response", not a wrong one.
+    Harness h;
+    {
+        auto s = h.transport.Section("probe");
+        h.transport.Exchange(kKernelIdRequest, bytes::Bytes{0xBE, 0xEF, 0x00, 0x01});
+    }
+    h.transport.ExpectWrite(Ssm(bytes::Bytes{0xBF}));
+    h.transport.QueueError(ErrorKind::kDisconnected, "stop after probe");
+    auto plan = MakePlan(FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_THAT(h.Run(std::move(*plan)), IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(h.events.logs,
+                ::testing::Contains(std::pair{LogLevel::kError, std::string{"No valid response from ECU"}}));
+    EXPECT_THAT(h.events.logs,
+                Not(::testing::Contains(::testing::Pair(LogLevel::kError, HasSubstr("Wrong response")))));
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, FourByteKernelIdAfterUploadIsTooShort)
+{
+    Harness h;
+    ScriptProbeDead(h.transport);
+    ScriptHandshake(h.transport, StockKey(kSeed));
+    ScriptUploadFrames(h.transport, 0xFFFF6004);
+    h.transport.Exchange(kKernelIdRequest, bytes::Bytes{0xBE, 0xEF, 0x00, 0x01});
+    auto plan = MakePlan(FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_THAT(h.Run(std::move(*plan)),
+                IsErrWith(ErrorKind::kBadResponse, Eq("kernel ID reply too short after upload")));
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, ShortKlineWriteIsADisconnect)
+{
+    struct ShortWrite final : ScriptedKlineFlashTransport
+    {
+        using ScriptedKlineFlashTransport::ScriptedKlineFlashTransport;
+        Result<std::size_t> Write(bytes::ByteView data) override
+        {
+            return ScriptedKlineFlashTransport::Write(data).transform([](std::size_t n) { return n - 1; });
+        }
+    };
+    ShortWrite t{ScriptedTransportInitialState::kOpen};
+    t.ExpectWrite(kKernelIdRequest);
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+    SubaruDensoSh705xKlineExecutor executor;
+    auto plan = MakePlan(FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_THAT(executor.Execute(std::move(*plan), t, clock, cancellation, events),
+                IsErrWith(ErrorKind::kDisconnected, Eq("short K-Line write")));
+    EXPECT_TRUE(t.ScriptConsumed());
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, RejectedUploadRequestOrStartRoutineStops)
+{
+    const bytes::Bytes upload_request = Ssm(ComposeBe(0x34_b, U24{0xFFFF6004}, 0x04_b, U24{8}));
+    const bytes::Bytes transfer = Ssm(ComposeBe(0x36_b, U24{0xFFFF6004}, EncryptedKernel(kBalancedKernel)));
+    const bytes::Bytes start_routine = Ssm(bytes::Bytes{0x31, 0x01, 0x01});
+    const std::vector<std::vector<std::pair<bytes::Bytes, bytes::Bytes>>> uploads{
+        {{upload_request, SsmReply(bytes::Bytes{0x7F, 0x34})}},
+        {{upload_request, SsmReply(bytes::Bytes{0x74})},
+         {transfer, SsmReply(bytes::Bytes{0x76})},
+         {start_routine, SsmReply(bytes::Bytes{0x7F, 0x31})}},
+    };
+    for (const auto& upload : uploads)
+    {
+        SCOPED_TRACE(upload.size());
+        Harness h;
+        ScriptProbeDead(h.transport);
+        ScriptHandshake(h.transport, StockKey(kSeed));
+        for (const auto& [request, reply] : upload)
+        {
+            h.transport.Exchange(request, reply);
+        }
+        auto plan = MakePlan(FlashOperation::kRead);
+        ASSERT_THAT(plan, IsOk());
+        EXPECT_THAT(h.Run(std::move(*plan)), IsErr(ErrorKind::kBadResponse));
+        EXPECT_TRUE(h.transport.ScriptConsumed());
+    }
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, KernelIdTransportErrorAfterUploadPropagates)
+{
+    Harness h;
+    ScriptProbeDead(h.transport);
+    ScriptHandshake(h.transport, StockKey(kSeed));
+    ScriptUploadFrames(h.transport, 0xFFFF6004);
+    h.transport.ExpectWrite(kKernelIdRequest);
+    h.transport.QueueError(ErrorKind::kDisconnected, "unplugged");
+    auto plan = MakePlan(FlashOperation::kRead);
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_THAT(h.Run(std::move(*plan)), IsErrWith(ErrorKind::kDisconnected, Eq("unplugged")));
+    EXPECT_TRUE(h.transport.ScriptConsumed());
+}
+
+// Runs the scripted write once to count its cancellation checks, then once per
+// check, cancelling from that check on: every run stops as cancelled and sends
+// nothing after the cancelling check.
+void ExpectEveryCancellationCheckStops(const std::function<void(ScriptedKlineFlashTransport&)>& script,
+                                       const bytes::Bytes& image)
+{
+    std::size_t checks = 0;
+    {
+        Harness h;
+        script(h.transport);
+        h.cancellation.SetPredicate(
+            [&checks]
+            {
+                ++checks;
+                return false;
+            });
+        auto plan = MakePlan(FlashOperation::kWrite, "sub_ecu_denso_sh7055_04", "SH7055", image);
+        ASSERT_THAT(plan, IsOk());
+        std::ignore = h.Run(std::move(*plan)); // only the check count matters here
+    }
+    ASSERT_GT(checks, 0U);
+    for (std::size_t n = 1; n <= checks; ++n)
+    {
+        SCOPED_TRACE(n);
+        Harness h;
+        script(h.transport);
+        std::size_t seen = 0;
+        std::optional<std::size_t> writes_at_cancel;
+        h.cancellation.SetPredicate(
+            [&]
+            {
+                if (++seen == n)
+                {
+                    writes_at_cancel = h.transport.WritesConsumed();
+                }
+                return seen >= n;
+            });
+        auto plan = MakePlan(FlashOperation::kWrite, "sub_ecu_denso_sh7055_04", "SH7055", image);
+        ASSERT_THAT(plan, IsOk());
+        EXPECT_THAT(h.Run(std::move(*plan)), IsErr(ErrorKind::kCancelled));
+        EXPECT_EQ(writes_at_cancel, std::optional<std::size_t>{h.transport.WritesConsumed()});
+    }
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, EveryCancellationCheckInTheSessionStops)
+{
+    ExpectEveryCancellationCheckStops(
+        [](ScriptedKlineFlashTransport& t)
+        {
+            ScriptSession(t);
+            ScriptStopAtFirstCrc(t);
+        },
+        bytes::Bytes(FindFlashDevice("SH7055")->romsize, 0xFF));
+}
+
 // ---- Read (Task 7) -------------------------------------------------------
 
 // read_mem(): READ_AREA [00, addr24, 0x0400], reply BE EF len 43 <0x400 bytes> sum8.
@@ -1243,6 +1397,61 @@ TEST(SubaruDensoSh705xKlineExecutor, CancellationDuringWriteStopsBeforeTheNextCo
         ASSERT_THAT(built_plan_39, fastecu::testing::IsOk());
         EXPECT_THAT(h.Run(std::move(*built_plan_39)), IsErr(ErrorKind::kCancelled));
         EXPECT_EQ(h.transport.WritesConsumed(), k);
+    }
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, EveryCancellationCheckInTheWriteStops)
+{
+    const bytes::Bytes image = Sh7055Image();
+    ExpectEveryCancellationCheckStops(
+        [&image](ScriptedKlineFlashTransport& t)
+        {
+            ScriptProbeAlive(t);
+            ScriptCompare(t, "SH7055", image, {0});
+            ScriptInit(t, 0x20);
+            ScriptReflash(t, image, FindFlashDevice("SH7055")->fblocks[0], 0x24);
+            ScriptCompare(t, "SH7055", image, {});
+        },
+        image);
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, WriteTransportErrorsStopLaterCommands)
+{
+    // The compare's flush read, the flash-mode reply and the PROG_VOLT reply.
+    const bytes::Bytes image = Sh7055Image();
+    const FlashBlock block0 = FindFlashDevice("SH7055")->fblocks[0];
+    const std::vector<std::function<void(ScriptedKlineFlashTransport&)>> scripts{
+        [&](ScriptedKlineFlashTransport& t)
+        {
+            t.Exchange(CrcRequest(block0), BeefReply(0x02, ComposeBe(std::uint32_t{0})));
+            t.QueueError(ErrorKind::kDisconnected, "unplugged");
+        },
+        [&](ScriptedKlineFlashTransport& t)
+        {
+            ScriptCompare(t, "SH7055", image, {0});
+            t.Exchange(Beef(0x05), BeefReply(0x05, ComposeBe(std::uint32_t{0x00000204})));
+            t.Exchange(Beef(0x06), BeefReply(0x06, ComposeBe(std::uint32_t{0x00001000})));
+            t.ExpectWrite(Beef(0x20));
+            t.QueueError(ErrorKind::kDisconnected, "unplugged");
+        },
+        [&](ScriptedKlineFlashTransport& t)
+        {
+            ScriptCompare(t, "SH7055", image, {0});
+            ScriptInit(t, 0x20);
+            t.ExpectWrite(Beef(0x04));
+            t.QueueError(ErrorKind::kDisconnected, "unplugged");
+        },
+    };
+    for (std::size_t i = 0; i < scripts.size(); ++i)
+    {
+        SCOPED_TRACE(i);
+        Harness h;
+        ScriptProbeAlive(h.transport);
+        scripts[i](h.transport);
+        auto plan = MakePlan(FlashOperation::kWrite, "sub_ecu_denso_sh7055_04", "SH7055", image);
+        ASSERT_THAT(plan, IsOk());
+        EXPECT_THAT(h.Run(std::move(*plan)), IsErrWith(ErrorKind::kDisconnected, Eq("unplugged")));
+        EXPECT_TRUE(h.transport.ScriptConsumed());
     }
 }
 

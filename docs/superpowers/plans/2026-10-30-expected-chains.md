@@ -25,9 +25,10 @@ style guide.
 - **Untested failure branches:** if a converted step's failure branch is not
   exercised, add the failing-path test first, in the same PR, against the
   unconverted code. Split a file across PRs when that grows large.
-- **NLOC:** record the change and the SonarCloud duplication change in the PR
-  body. Reject a PR that adds more than 5 NLOC. This series is not an
-  ADR 0029 loop PR and has no NLOC-drop floor.
+- **NLOC:** record the production and test change and the SonarCloud
+  duplication change in the PR body. Reject a PR that adds more than 5
+  production NLOC; failure-path tests added under the rule below are exempt.
+  This series is not an ADR 0029 loop PR and has no NLOC-drop floor.
 - **Label:** `expected-chains`. Auto-merge after CI's Mull run shows no new
   surviving mutants.
 - **Order:** one PR per file, or per small same-family group for files with
@@ -46,11 +47,21 @@ style guide.
       label; hold auto-merge until Mull is clean.
 - [ ] Tick the file off below.
 
+## Progress
+
+| File | PR | Production NLOC | Test NLOC |
+|---|---|---|---|
+| `ecu/subaru_denso_sh705x_kline_executor.cpp` | #931 | -75 | +166 |
+
 ## Inventory
 
 Generated on 2026-10-30 from `master` at `0dbaa7b4` by a brace-aware scan for
 propagate-only checks (`return r;`, `return std::unexpected(r.error());`)
 grouped by block, then spot-checked by hand. Each PR re-verifies its file.
+The scan misses runs whose calls carry a brace initializer
+(`SsmStep(..., bytes::Bytes{0x81}, ...)`) and runs whose last step is a
+reply check on the previous value, so reading the file finds more than it
+lists.
 
 - `candidate`: matches the rule as scanned.
 - `review`: non-log statements sit between steps (locals, phase reporters,

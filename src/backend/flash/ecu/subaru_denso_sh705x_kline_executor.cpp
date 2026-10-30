@@ -95,40 +95,25 @@ Result<OptionalBytes> Exchange(IKlineFlashTransport& transport, IClock& clock, c
                                bytes::ByteView request, std::chrono::milliseconds settle,
                                std::chrono::milliseconds timeout)
 {
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before write"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    Result<std::size_t> written = transport.Write(request);
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    if (*written != request.size())
-    {
-        return Fail(ErrorKind::kDisconnected, "short K-Line write");
-    }
-    if (settle > 0ms)
-    {
-        if (Status slept = clock.Sleep(settle, cancellation); !slept.has_value())
-        {
-            return std::unexpected(slept.error());
-        }
-    }
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before read"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    Result<OptionalBytes> received = transport.Read(timeout, cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled after read"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    return received;
+    return CheckCancelled(cancellation, "cancelled before write")
+        .and_then([&] { return transport.Write(request); })
+        .and_then(
+            [&](std::size_t written) -> Status
+            {
+                if (written != request.size())
+                {
+                    return Fail(ErrorKind::kDisconnected, "short K-Line write");
+                }
+                return settle > 0ms ? clock.Sleep(settle, cancellation) : Status{};
+            })
+        .and_then([&] { return CheckCancelled(cancellation, "cancelled before read"); })
+        .and_then([&] { return transport.Read(timeout, cancellation); })
+        .and_then(
+            [&](OptionalBytes received)
+            {
+                return CheckCancelled(cancellation, "cancelled after read")
+                    .transform([&] { return std::move(received); });
+            });
 }
 
 // Like exchange(), but no frame at all is a Timeout -- legacy treated an
@@ -152,11 +137,8 @@ Result<bytes::Bytes> RequiredExchange(IKlineFlashTransport& transport, IClock& c
 
 Status ChangeBaud(IKlineFlashTransport& transport, const ICancellationToken& cancellation, int baud)
 {
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before changing baud"); !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    return transport.SetBaud(baud);
+    return CheckCancelled(cancellation, "cancelled before changing baud")
+        .and_then([&] { return transport.SetBaud(baud); });
 }
 
 Status SleepFor(IClock& clock, const ICancellationToken& cancellation, std::chrono::milliseconds duration)
@@ -207,34 +189,32 @@ Result<bool> ProbeKernel(IKlineFlashTransport& transport, IClock& clock, const I
 {
     // connect_bootloader():127-128. Legacy ignored this result; a failed baud
     // change stops here (see the Task 6 report).
-    if (Status baud = ChangeBaud(transport, cancellation, kProbeBaud); !baud.has_value())
-    {
-        return std::unexpected(baud.error());
-    }
-    if (Status slept = SleepFor(clock, cancellation, kBaudSettle); !slept.has_value())
-    {
-        return std::unexpected(slept.error());
-    }
-    events.Log(LogLevel::kInfo, "Checking if kernel is already running...");          // :130
-    events.Log(LogLevel::kInfo, "Requesting kernel ID");                              // :131
-    Result<OptionalBytes> received = RequestKernelId(transport, clock, cancellation); // :133
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (!received->has_value() || (**received).size() <= 4) // :134
-    {
-        events.Log(LogLevel::kError, "No valid response from ECU"); // :156
-        return false;
-    }
-    const bytes::Bytes& reply = **received;
-    if (!KernelReplyOk(reply, kOpId, 5)) // :136-138
-    {
-        LogWrongResponse(events, reply, 8); // :140-142, mid(8)
-        return false;
-    }
-    events.Log(LogLevel::kInfo, std::format("Kernel ID: {}", KernelIdText(reply))); // :146-148
-    return true;
+    return ChangeBaud(transport, cancellation, kProbeBaud)
+        .and_then([&] { return SleepFor(clock, cancellation, kBaudSettle); })
+        .and_then(
+            [&]
+            {
+                events.Log(LogLevel::kInfo, "Checking if kernel is already running..."); // :130
+                events.Log(LogLevel::kInfo, "Requesting kernel ID");                     // :131
+                return RequestKernelId(transport, clock, cancellation);                  // :133
+            })
+        .transform(
+            [&](const OptionalBytes& received)
+            {
+                if (!received.has_value() || received->size() <= 4) // :134
+                {
+                    events.Log(LogLevel::kError, "No valid response from ECU"); // :156
+                    return false;
+                }
+                const bytes::Bytes& reply = *received;
+                if (!KernelReplyOk(reply, kOpId, 5)) // :136-138
+                {
+                    LogWrongResponse(events, reply, 8); // :140-142, mid(8)
+                    return false;
+                }
+                events.Log(LogLevel::kInfo, std::format("Kernel ID: {}", KernelIdText(reply))); // :146-148
+                return true;
+            });
 }
 
 // Every send_sid_*() helper: SsmProtocol::addHeader(payload, tester_id,
@@ -280,16 +260,10 @@ Result<bytes::Bytes> SsmStep(IKlineFlashTransport& transport, IClock& clock, con
                              std::string_view what, std::size_t min_size, std::uint8_t byte4,
                              std::optional<std::uint8_t> byte5 = std::nullopt)
 {
-    Result<bytes::Bytes> reply = SsmExchange(transport, clock, cancellation, events, plan, payload, kReadTimeout, what);
-    if (!reply.has_value())
-    {
-        return reply;
-    }
-    if (Status ok = RequireSsm(*reply, min_size, byte4, byte5, events); !ok.has_value())
-    {
-        return std::unexpected(ok.error());
-    }
-    return reply;
+    return SsmExchange(transport, clock, cancellation, events, plan, payload, kReadTimeout, what)
+        .and_then(
+            [&](bytes::Bytes reply)
+            { return RequireSsm(reply, min_size, byte4, byte5, events).transform([&] { return std::move(reply); }); });
 }
 
 // :164-192, send_sid_bf_ssm_init():1373-1378.
@@ -322,22 +296,16 @@ Status StartCommunication(IKlineFlashTransport& transport, IClock& clock, const 
                           IEventSink& events, const SubaruDensoSh705xKlinePlan& plan)
 {
     events.Log(LogLevel::kInfo, "Requesting to start communication");
-    if (auto start =
-            SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x81}, "start communication", 5, 0xC1);
-        !start.has_value())
-    {
-        return std::unexpected(start.error());
-    }
-    events.Log(LogLevel::kInfo, "Start communication ok");
-    events.Log(LogLevel::kInfo, "Requesting timings params");
-    if (auto timings = SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x83, 0x00},
+    return SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x81}, "start communication", 5, 0xC1)
+        .and_then(
+            [&](const bytes::Bytes&)
+            {
+                events.Log(LogLevel::kInfo, "Start communication ok");
+                events.Log(LogLevel::kInfo, "Requesting timings params");
+                return SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x83, 0x00},
                                "timing parameters", 5, 0xC3);
-        !timings.has_value())
-    {
-        return std::unexpected(timings.error());
-    }
-    events.Log(LogLevel::kInfo, "Timing parameters ok");
-    return {};
+            })
+        .transform([&](const bytes::Bytes&) { events.Log(LogLevel::kInfo, "Timing parameters ok"); });
 }
 
 // :240-300, send_sid_27_request_seed():1434-1440 and
@@ -346,29 +314,24 @@ Status UnlockSecurity(IKlineFlashTransport& transport, IClock& clock, const ICan
                       IEventSink& events, const SubaruDensoSh705xKlinePlan& plan)
 {
     events.Log(LogLevel::kInfo, "Requesting seed");
-    Result<bytes::Bytes> seed_reply =
-        SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x27, 0x01}, "seed request", 10, 0x67, 0x01);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    events.Log(LogLevel::kInfo, "Seed request ok");
-    // :261-279 -- seed at(6..9); ECUTEK transformation for "_ecutek" methods.
-    const bytes::ByteView seed = bytes::ByteView(*seed_reply).subspan(6, 4);
-    events.Log(LogLevel::kInfo, std::format("Received seed: {}", bytes::ToHex(seed)));
-    const bytes::Bytes key = plan.seed_key == SubaruDensoSh705xKlineSeedKey::kEcuTek
-                                 ? DensoSh705xKlineEcutekSeedKey(seed)
-                                 : DensoSh705xKlineStockSeedKey(seed);
-    events.Log(LogLevel::kInfo, std::format("Calculated seed key: {}", bytes::ToHex(key)));
-    events.Log(LogLevel::kInfo, "Sending seed key to ECU");
-    if (auto key_reply = SsmStep(transport, clock, cancellation, events, plan, ComposeBe(0x27_b, 0x02_b, key),
-                                 "seed key", 6, 0x67, 0x02);
-        !key_reply.has_value())
-    {
-        return std::unexpected(key_reply.error());
-    }
-    events.Log(LogLevel::kInfo, "Seed key ok");
-    return {};
+    return SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x27, 0x01}, "seed request", 10, 0x67,
+                   0x01)
+        .and_then(
+            [&](const bytes::Bytes& seed_reply)
+            {
+                events.Log(LogLevel::kInfo, "Seed request ok");
+                // :261-279 -- seed at(6..9); ECUTEK transformation for "_ecutek" methods.
+                const bytes::ByteView seed = bytes::ByteView(seed_reply).subspan(6, 4);
+                events.Log(LogLevel::kInfo, std::format("Received seed: {}", bytes::ToHex(seed)));
+                const bytes::Bytes key = plan.seed_key == SubaruDensoSh705xKlineSeedKey::kEcuTek
+                                             ? DensoSh705xKlineEcutekSeedKey(seed)
+                                             : DensoSh705xKlineStockSeedKey(seed);
+                events.Log(LogLevel::kInfo, std::format("Calculated seed key: {}", bytes::ToHex(key)));
+                events.Log(LogLevel::kInfo, "Sending seed key to ECU");
+                return SsmStep(transport, clock, cancellation, events, plan, ComposeBe(0x27_b, 0x02_b, key), "seed key",
+                               6, 0x67, 0x02);
+            })
+        .transform([&](const bytes::Bytes&) { events.Log(LogLevel::kInfo, "Seed key ok"); });
 }
 
 // connect_bootloader():159-323. Returns the ECU ID hex (legacy :184-192).
@@ -378,37 +341,30 @@ Result<std::string> ConnectBootloader(IKlineFlashTransport& transport, IClock& c
 {
     events.Log(LogLevel::kInfo, "No response from kernel, initialising ECU..."); // :159
     // :161-162. Legacy ignored this result; a failed baud change stops here.
-    if (Status baud = ChangeBaud(transport, cancellation, kSsmBaud); !baud.has_value())
-    {
-        return std::unexpected(baud.error());
-    }
-    if (Status slept = SleepFor(clock, cancellation, kBaudSettle); !slept.has_value())
-    {
-        return std::unexpected(slept.error());
-    }
-    Result<std::string> ecu_id = RequestEcuId(transport, clock, cancellation, events, plan);
+    Result<std::string> ecu_id =
+        ChangeBaud(transport, cancellation, kSsmBaud)
+            .and_then([&] { return SleepFor(clock, cancellation, kBaudSettle); })
+            .and_then([&] { return RequestEcuId(transport, clock, cancellation, events, plan); });
     if (!ecu_id.has_value())
     {
         return ecu_id;
     }
-    if (Status started = StartCommunication(transport, clock, cancellation, events, plan); !started.has_value())
-    {
-        return std::unexpected(started.error());
-    }
-    if (Status unlocked = UnlockSecurity(transport, clock, cancellation, events, plan); !unlocked.has_value())
-    {
-        return std::unexpected(unlocked.error());
-    }
-    // :302-321, send_sid_10_start_diagnostic():1477-1484.
-    events.Log(LogLevel::kInfo, "Set session mode");
-    if (auto session = SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x10, 0x85, 0x02},
+    return StartCommunication(transport, clock, cancellation, events, plan)
+        .and_then([&] { return UnlockSecurity(transport, clock, cancellation, events, plan); })
+        .and_then(
+            [&]
+            {
+                // :302-321, send_sid_10_start_diagnostic():1477-1484.
+                events.Log(LogLevel::kInfo, "Set session mode");
+                return SsmStep(transport, clock, cancellation, events, plan, bytes::Bytes{0x10, 0x85, 0x02},
                                "session mode", 5, 0x50);
-        !session.has_value())
-    {
-        return std::unexpected(session.error());
-    }
-    events.Log(LogLevel::kInfo, "Succesfully set to programming session");
-    return ecu_id;
+            })
+        .transform(
+            [&](const bytes::Bytes&)
+            {
+                events.Log(LogLevel::kInfo, "Succesfully set to programming session");
+                return std::move(*ecu_id);
+            });
 }
 
 // send_sid_36_transferdata():1526-1590 -- 0x80-byte blocks at addr +
@@ -448,83 +404,15 @@ Status TransferKernel(IKlineFlashTransport& transport, IClock& clock, const ICan
     return {};
 }
 
-// upload_kernel():331-496.
-Status UploadKernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                    IEventSink& events, const SubaruDensoSh705xKlinePlan& plan, const KernelImage& kernel)
+// upload_kernel():465-495 -- the kernel ID that proves the upload started.
+Status RequireUploadedKernelId(IEventSink& events, const OptionalBytes& id)
 {
-    events.Log(LogLevel::kDebug, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address)); // :345
-    // :354-357 -- the one baud change legacy checked.
-    if (Status baud = ChangeBaud(transport, cancellation, kUploadBaud); !baud.has_value())
-    {
-        return baud;
-    }
-    // :366-389 -- balance, then encrypt_payload(pl_encr, pl_encr.length()).
-    const bytes::Bytes balanced = DensoSh705xKlineBalancedKernel(kernel.bytes);
-    const bytes::Bytes encrypted = DensoSh705xKlineEncryptPayload(balanced);
-    const auto size = static_cast<std::uint32_t>(encrypted.size());
-
-    // :391-411, send_sid_34_request_upload():1494-1506.
-    events.Log(LogLevel::kInfo, "Requesting kernel upload");
-    Result<bytes::Bytes> request = SsmExchange(transport, clock, cancellation, events, plan,
-                                               ComposeBe(0x34_b, U24{kernel.load_address}, 0x04_b, U24{size}),
-                                               kExtraLongTimeout, "upload request");
-    if (!request.has_value())
-    {
-        return std::unexpected(request.error());
-    }
-    if (Status ok = RequireSsm(*request, 5, 0x74, std::nullopt, events); !ok.has_value())
-    {
-        return ok;
-    }
-    events.Log(LogLevel::kInfo, "Kernel upload request ok");
-
-    // :413-432.
-    events.Log(LogLevel::kInfo, "Transfer kernel data");
-    if (Status sent = TransferKernel(transport, clock, cancellation, events, plan, kernel.load_address, encrypted);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    events.Log(LogLevel::kInfo, "Kernel uploaded");
-
-    // :434-460 -- 31 01 01, read_serial_data(serial_read_extra_long_timeout).
-    events.Log(LogLevel::kInfo, "Jump to kernel");
-    Result<bytes::Bytes> routine = SsmExchange(transport, clock, cancellation, events, plan,
-                                               bytes::Bytes{0x31, 0x01, 0x01}, kExtraLongTimeout, "start routine");
-    if (!routine.has_value())
-    {
-        return std::unexpected(routine.error());
-    }
-    if (Status ok = RequireSsm(*routine, 5, 0x71, std::nullopt, events); !ok.has_value())
-    {
-        return ok;
-    }
-    events.Log(LogLevel::kInfo, "Kernel started, initializing...");
-
-    // :462-463.
-    if (Status slept = SleepFor(clock, cancellation, kPostStartRoutine); !slept.has_value())
-    {
-        return slept;
-    }
-    // Correction: legacy ignored this change_port_speed("62500") result.
-    if (Status baud = ChangeBaud(transport, cancellation, kProbeBaud); !baud.has_value())
-    {
-        return baud;
-    }
-
-    // :465-495.
-    events.Log(LogLevel::kInfo, "Requesting kernel ID");
-    Result<OptionalBytes> id = RequestKernelId(transport, clock, cancellation);
     if (!id.has_value())
-    {
-        return std::unexpected(id.error());
-    }
-    if (!id->has_value())
     {
         events.Log(LogLevel::kError, "No valid response from ECU"); // :492
         return Fail(ErrorKind::kTimeout, "no kernel ID after upload");
     }
-    const bytes::Bytes& reply = **id;
+    const bytes::Bytes& reply = *id;
     if (reply.size() <= 4)
     {
         events.Log(LogLevel::kError, "No valid response from ECU"); // :492
@@ -537,6 +425,65 @@ Status UploadKernel(IKlineFlashTransport& transport, IClock& clock, const ICance
     }
     events.Log(LogLevel::kInfo, std::format("Kernel ID: {}", KernelIdText(reply))); // :482-484
     return {};
+}
+
+// upload_kernel():331-496.
+Status UploadKernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                    IEventSink& events, const SubaruDensoSh705xKlinePlan& plan, const KernelImage& kernel)
+{
+    events.Log(LogLevel::kDebug, std::format("Start address to upload kernel: 0x{:x}", kernel.load_address)); // :345
+    // :366-389 -- balance, then encrypt_payload(pl_encr, pl_encr.length()).
+    const bytes::Bytes balanced = DensoSh705xKlineBalancedKernel(kernel.bytes);
+    const bytes::Bytes encrypted = DensoSh705xKlineEncryptPayload(balanced);
+    const auto size = static_cast<std::uint32_t>(encrypted.size());
+
+    // :354-357 -- the one baud change legacy checked.
+    return ChangeBaud(transport, cancellation, kUploadBaud)
+        .and_then(
+            [&]
+            {
+                // :391-411, send_sid_34_request_upload():1494-1506.
+                events.Log(LogLevel::kInfo, "Requesting kernel upload");
+                return SsmExchange(transport, clock, cancellation, events, plan,
+                                   ComposeBe(0x34_b, U24{kernel.load_address}, 0x04_b, U24{size}), kExtraLongTimeout,
+                                   "upload request");
+            })
+        .and_then([&](const bytes::Bytes& request) { return RequireSsm(request, 5, 0x74, std::nullopt, events); })
+        .and_then(
+            [&]
+            {
+                events.Log(LogLevel::kInfo, "Kernel upload request ok");
+                // :413-432.
+                events.Log(LogLevel::kInfo, "Transfer kernel data");
+                return TransferKernel(transport, clock, cancellation, events, plan, kernel.load_address, encrypted);
+            })
+        .and_then(
+            [&]
+            {
+                events.Log(LogLevel::kInfo, "Kernel uploaded");
+                // :434-460 -- 31 01 01, read_serial_data(serial_read_extra_long_timeout).
+                events.Log(LogLevel::kInfo, "Jump to kernel");
+                return SsmExchange(transport, clock, cancellation, events, plan, bytes::Bytes{0x31, 0x01, 0x01},
+                                   kExtraLongTimeout, "start routine");
+            })
+        .and_then([&](const bytes::Bytes& routine) { return RequireSsm(routine, 5, 0x71, std::nullopt, events); })
+        .and_then(
+            [&]
+            {
+                events.Log(LogLevel::kInfo, "Kernel started, initializing...");
+                // :462-463.
+                return SleepFor(clock, cancellation, kPostStartRoutine);
+            })
+        // Correction: legacy ignored this change_port_speed("62500") result.
+        .and_then([&] { return ChangeBaud(transport, cancellation, kProbeBaud); })
+        .and_then(
+            [&]
+            {
+                // :465-495.
+                events.Log(LogLevel::kInfo, "Requesting kernel ID");
+                return RequestKernelId(transport, clock, cancellation);
+            })
+        .and_then([&](const OptionalBytes& id) { return RequireUploadedKernelId(events, id); });
 }
 
 // execute():79-87 -- probe, then handshake and upload unless the kernel is
@@ -656,28 +603,23 @@ Result<std::uint32_t> ReadBlockCrc(IKlineFlashTransport& transport, IClock& cloc
                                    const MemoryRegion& block)
 {
     const bytes::Bytes request = Frame(kOpCrc, ComposeBe(block.start, 0x00_b, U24{block.length}));
-    Result<bytes::Bytes> reply =
-        KernelExchange(transport, clock, cancellation, events, request, kExtraLongTimeout, "CRC check");
-    if (!reply.has_value())
+    const Result<std::uint32_t> crc =
+        KernelExchange(transport, clock, cancellation, events, request, kExtraLongTimeout, "CRC check")
+            .and_then(
+                [&](const bytes::Bytes& reply)
+                {
+                    // :833-856. Correction: legacy checked `> 5` then read at(5..8); require
+                    // all nine bytes before parsing.
+                    return RequireKernelReply(reply, kOpCrc, 9, events, "CRC check")
+                        .transform([&] { return bytes::ReadU32Be(reply, 5); });
+                });
+    if (!crc.has_value())
     {
-        return std::unexpected(reply.error());
+        return crc;
     }
-    // :833-856. Correction: legacy checked `> 5` then read at(5..8); require
-    // all nine bytes before parsing.
-    if (Status ok = RequireKernelReply(*reply, kOpCrc, 9, events, "CRC check"); !ok.has_value())
-    {
-        return std::unexpected(ok.error());
-    }
-    const std::uint32_t crc = bytes::ReadU32Be(*reply, 5);
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before CRC flush"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    if (Result<OptionalBytes> flushed = transport.Read(kShortTimeout, cancellation); !flushed.has_value())
-    {
-        return std::unexpected(flushed.error());
-    }
-    return crc;
+    return CheckCancelled(cancellation, "cancelled before CRC flush")
+        .and_then([&] { return transport.Read(kShortTimeout, cancellation); })
+        .transform([&](const OptionalBytes&) { return *crc; });
 }
 
 // get_changed_blocks():767-791 and check_romcrc():858-879.
@@ -756,20 +698,11 @@ Status InitFlashWrite(IKlineFlashTransport& transport, IClock& clock, const ICan
     const std::uint8_t mode = test_write ? kOpFlashDisable : kOpFlashEnable;
     events.Log(LogLevel::kInfo, test_write ? "Test write mode on, no actual flash write is performed"
                                            : "Test write mode off, perform actual flash write");
-    Result<bytes::Bytes> reply =
-        KernelExchange(transport, clock, cancellation, events, Frame(mode), kMediumTimeout, "flash mode");
-    if (!reply.has_value())
-    {
-        return std::unexpected(reply.error());
-    }
-    // :1002-1022 -- `> 5`; a rejected mode stops the write (legacy returned
-    // STATUS_ERROR, and write_mem() stopped before any erase).
-    if (Status ok = RequireKernelReply(*reply, mode, 6, events, "flash mode"); !ok.has_value())
-    {
-        return ok;
-    }
-    events.Log(LogLevel::kError, "Flash mode succesfully set"); // :1008, legacy LOG_E
-    return {};
+    return KernelExchange(transport, clock, cancellation, events, Frame(mode), kMediumTimeout, "flash mode")
+        // :1002-1022 -- `> 5`; a rejected mode stops the write (legacy returned
+        // STATUS_ERROR, and write_mem() stopped before any erase).
+        .and_then([&](const bytes::Bytes& reply) { return RequireKernelReply(reply, mode, 6, events, "flash mode"); })
+        .transform([&] { events.Log(LogLevel::kError, "Flash mode succesfully set"); }); // :1008, legacy LOG_E
 }
 
 std::uint64_t ElapsedMilliseconds(std::chrono::steady_clock::time_point start,
@@ -790,16 +723,13 @@ Status FlashBlock(IKlineFlashTransport& transport, IClock& clock, const ICancell
     events.Log(LogLevel::kInfo,
                std::format("Flash page erase addr: 0x{:08x} len: 0x{:08x}", block.start, block.length));
     events.Log(LogLevel::kInfo, "Erasing flash page...");
-    Result<bytes::Bytes> erased =
-        KernelExchange(transport, clock, cancellation, events, Frame(kOpBlankPage, ComposeBe(block.start)),
-                       kExtraLongTimeout, "erase");
-    if (!erased.has_value())
+    if (Status erased = KernelExchange(transport, clock, cancellation, events,
+                                       Frame(kOpBlankPage, ComposeBe(block.start)), kExtraLongTimeout, "erase")
+                            .and_then([&](const bytes::Bytes& reply)
+                                      { return RequireKernelReply(reply, kOpBlankPage, 5, events, "erase", 8); });
+        !erased.has_value())
     {
-        return std::unexpected(erased.error());
-    }
-    if (Status ok = RequireKernelReply(*erased, kOpBlankPage, 5, events, "erase", 8); !ok.has_value())
-    {
-        return ok;
+        return erased;
     }
     events.Log(LogLevel::kInfo, " erased");
     events.Log(LogLevel::kInfo,
@@ -885,18 +815,20 @@ Status ReflashBlock(IKlineFlashTransport& transport, IClock& clock, const ICance
                std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.length)); // :1065
     // :1068-1105 -- `> 9`, voltage at(5..6) / 50.
     events.Log(LogLevel::kInfo, "Check flash voltage");
-    Result<bytes::Bytes> volt =
-        KernelExchange(transport, clock, cancellation, events, Frame(kOpProgVolt), kMediumTimeout, "prog voltage");
+    const Result<std::uint16_t> volt =
+        KernelExchange(transport, clock, cancellation, events, Frame(kOpProgVolt), kMediumTimeout, "prog voltage")
+            .and_then(
+                [&](const bytes::Bytes& reply)
+                {
+                    return RequireKernelReply(reply, kOpProgVolt, 10, events, "prog voltage")
+                        .transform([&] { return bytes::ReadU16Be(reply, 5); });
+                });
     if (!volt.has_value())
     {
         return std::unexpected(volt.error());
     }
-    if (Status ok = RequireKernelReply(*volt, kOpProgVolt, 10, events, "prog voltage"); !ok.has_value())
-    {
-        return ok;
-    }
     // QString::number(float) is 'g' with precision 6, as is std::format's {:g}.
-    const auto prog_voltage = static_cast<float>(bytes::ReadU16Be(*volt, 5) / 50.0);
+    const auto prog_voltage = static_cast<float>(*volt / 50.0);
     events.Log(LogLevel::kInfo, std::format(": {:g}V", prog_voltage));
 
     // :1107-1115.
@@ -1029,15 +961,9 @@ Status SubaruDensoSh705xKlineExecutor::BeforeTransportConfigure(IKlineFlashTrans
                                                                 const ICancellationToken& cancellation) const
 {
     // execute():67 -- serial->reset_connection() before every setter.
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before K-Line reset"); !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    if (Status reset = transport.ResetConnection(); !reset.has_value())
-    {
-        return reset;
-    }
-    return CheckCancelled(cancellation, "cancelled after K-Line reset");
+    return CheckCancelled(cancellation, "cancelled before K-Line reset")
+        .and_then([&] { return transport.ResetConnection(); })
+        .and_then([&] { return CheckCancelled(cancellation, "cancelled after K-Line reset"); });
 }
 
 Result<FlashExecutionResult> SubaruDensoSh705xKlineExecutor::Run(const SubaruDensoSh705xKlinePlan& /*family*/,
@@ -1047,11 +973,8 @@ Result<FlashExecutionResult> SubaruDensoSh705xKlineExecutor::Run(const SubaruDen
 {
     // execute():68 -- the shared serial can arrive with the header flag set by
     // another feature; every BEEF and SSM frame of this family goes out bare.
-    if (Status header = transport.SetAddIso14230Header(false); !header.has_value())
-    {
-        return std::unexpected(header.error());
-    }
-    Result<std::optional<std::string>> ecu_id = StartSession(transport, clock, cancellation, events, plan);
+    Result<std::optional<std::string>> ecu_id = transport.SetAddIso14230Header(false).and_then(
+        [&] { return StartSession(transport, clock, cancellation, events, plan); });
     if (!ecu_id.has_value())
     {
         return std::unexpected(ecu_id.error());
