@@ -137,19 +137,19 @@ style guide.
 | `platform/.../service_functions/serial_facade_configurator.cpp` | #944 | -5 | 0 |
 | `platform/.../transport/desktop_transport_factory.cpp` | #944 | -6 | +15 |
 | `platform/.../service_functions/worker/service_function_worker.cpp` | #944 | -4 | +22 |
-| `logging/protocols/portable_ssm_logging_protocol.cpp` | #TBD | -14 | +15 |
-| `protocol/mitsu_colt_can_cdbg_driver.cpp` | #TBD | -2 | +123 |
-| `protocol/testing/scripted_can_transport.h` (shared, gains `ExpectShortWrite`) | #TBD | 0 | +4 |
-| `logging/logger_definition_service.cpp` | #TBD | -14 | 0 |
-| `calibration/numeric_map_edit.cpp` | #TBD | -10 | +19 |
-| `logging/protocols/portable_cdbg_logging_protocol.cpp` | #TBD | 0 | +13 |
-| `logging/protocols/portable_mut_dma_logging_protocol.cpp` | #TBD | -2 | +15 |
-| `calibration/session/numeric_target_internal.cpp` | #TBD | -8 | 0 |
-| `protocol/mut_dma_driver.cpp` | #TBD | -10 | +66 |
-| `calibration/session/map_operations.cpp` | #TBD | -3 | 0 |
-| `config/catalog.cpp` | #TBD | -4 | 0 |
-| `algorithms/expression/expression.cpp` (under `src/`) | #TBD | -5 | 0 |
-| `calibration/session/calibration_session.cpp` | #TBD | -2 | 0 |
+| `logging/protocols/portable_ssm_logging_protocol.cpp` | #945 | -14 | +15 |
+| `protocol/mitsu_colt_can_cdbg_driver.cpp` | #945 | -2 | +123 |
+| `protocol/testing/scripted_can_transport.h` (shared, gains `ExpectShortWrite`) | #945 | 0 | +4 |
+| `logging/logger_definition_service.cpp` | #945 | -14 | 0 |
+| `calibration/numeric_map_edit.cpp` | #945 | -10 | +19 |
+| `logging/protocols/portable_cdbg_logging_protocol.cpp` | #945 | 0 | +13 |
+| `logging/protocols/portable_mut_dma_logging_protocol.cpp` | #945 | -2 | +15 |
+| `calibration/session/numeric_target_internal.cpp` | #945 | -8 | 0 |
+| `protocol/mut_dma_driver.cpp` | #945 | -10 | +66 |
+| `calibration/session/map_operations.cpp` | #945 | -3 | 0 |
+| `config/catalog.cpp` | #945 | -4 | 0 |
+| `algorithms/expression/expression.cpp` (under `src/`) | #945 | -5 | 0 |
+| `calibration/session/calibration_session.cpp` | #945 | -2 | 0 |
 
 The rest of phase 1 landed in one PR (#943), one commit per file. Kept on
 purpose: `ecu/subaru_hitachi_sh7058_can_executor.cpp`'s `Exchange` (its read
