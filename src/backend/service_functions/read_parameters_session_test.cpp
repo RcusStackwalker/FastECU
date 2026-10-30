@@ -14,7 +14,7 @@ namespace fastecu::service_functions
 namespace
 {
 
-// legacy :534-570 -- 0xA8 read of ten addresses behind the 0x7E1 envelope.
+// 0xA8 read of ten addresses behind the 0x7E1 envelope.
 const bytes::Bytes kRequest{
     0x00, 0x00, 0x07, 0xe1, 0xa8, 0x00, 0x00, 0x01, 0x6c, 0x00, 0x01, 0x6d, 0x00, 0x01, 0x6e, 0x00, 0x01, 0x6f,
     0x00, 0x01, 0x70, 0x00, 0x01, 0x71, 0x00, 0x01, 0xbc, 0x00, 0x01, 0xbd, 0x00, 0x01, 0xbe, 0x00, 0x01, 0xbf,
@@ -77,8 +77,8 @@ TEST(ReadParametersSession, DecodesTheNineValuesFromBytesFiveToFourteen)
 
 TEST(ReadParametersSession, AcceptsE8WhichTheLegacyRetryLoopNeverCould)
 {
-    // legacy :571-608 sets responseOK only on 0xF8 and then demands 0xE8, so
-    // the legacy always returns STATUS_ERROR. This is the corrected path.
+    // Legacy sets responseOK only on 0xF8 and then demands 0xE8, so the legacy
+    // always returns STATUS_ERROR. This is the corrected path.
     Fixture fixture;
     fixture.transport.ExpectWrite(kRequest);
     fixture.transport.QueueRead(GoodReply());
@@ -89,7 +89,7 @@ TEST(ReadParametersSession, AcceptsE8WhichTheLegacyRetryLoopNeverCould)
 
 TEST(ReadParametersSession, RetriesUpToSixTimes)
 {
-    // legacy :571 -- while (try_count < 6 && !responseOK).
+    // Legacy retries while (try_count < 6 && !responseOK).
     Fixture fixture;
     for (int attempt = 0; attempt < 6; ++attempt)
     {
@@ -122,7 +122,7 @@ TEST(ReadParametersSession, TimesOutWhenAllSixAttemptsAreSilent)
 
 TEST(ReadParametersSession, RejectsAFrameShorterThanFifteenBytes)
 {
-    // legacy :592 guards on length() > 10 but :624 indexes byte 14.
+    // Legacy guards on length() > 10 but indexes byte 14.
     Fixture fixture;
     fixture.transport.ExpectWrite(kRequest);
     fixture.transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xe9, 0xe8, 0x11, 0x22, 0x33, 0x44, 0xbe, 0xef, 0x55});

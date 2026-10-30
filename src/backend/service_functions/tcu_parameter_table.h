@@ -9,9 +9,9 @@
 namespace fastecu::service_functions
 {
 
-// The nine values the operator supplies. legacy :162-202 prompts for these
-// with bounds 0-255, and 0-65535 for AWD torque -- exactly these types, so the
-// bounds are enforced by the value model rather than a runtime range check.
+// The nine values the operator supplies. Legacy prompts for these with bounds
+// 0-255, and 0-65535 for AWD torque -- exactly these types, so the bounds are
+// enforced by the value model rather than a runtime range check.
 struct TcuParameterValues
 {
     bytes::Byte correction_1to2{};             // DC,   written to 0x16e
@@ -31,8 +31,8 @@ struct TcuParameterValues
 // AWD torque occupies two, and the trailing commit pair has no parameter.
 struct TcuParameterWrite
 {
-    // 24-bit. Parameter rows are 0x0001xx; the legacy commit payload is
-    // B8 00 00 EC 55/AA (legacy :453-479).
+    // 24-bit. Parameter rows are 0x0001xx; the legacy commit payload is B8 00
+    // 00 EC 55/AA.
     std::uint32_t address;
     bytes::Byte value;
 
@@ -42,11 +42,11 @@ struct TcuParameterWrite
 inline constexpr std::size_t kTcuParameterWriteCount = 12;
 
 // The twelve writes in legacy wire order. The legacy performs the same twelve
-// but only its first frame is well-formed (:215 reassigns `output` to the
-// framed array; :237 onward mutate indices that then address the SSM length
-// byte and service ID, and re-frame an already-framed buffer). Composing each
-// payload from this table is the correction. The final two rows preserve the
-// legacy's distinct 0x0000ec commit address.
+// but only its first frame is well-formed (the first write reassigns `output` to the framed
+// array; later writes mutate indices that then address the SSM length byte and
+// service ID, and re-frame an already-framed buffer). Composing each payload
+// from this table is the correction. The final two rows preserve the legacy's
+// distinct 0x0000ec commit address.
 std::array<TcuParameterWrite, kTcuParameterWriteCount> TcuParameterWrites(const TcuParameterValues& values);
 
 } // namespace fastecu::service_functions

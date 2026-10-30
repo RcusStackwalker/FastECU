@@ -14,12 +14,12 @@ namespace fastecu::service_functions
 namespace
 {
 
-// legacy :655-663 -- 0x7E1 envelope, SID 0xB8, address 0x1FC, value 0x01.
+// 0x7E1 envelope, SID 0xB8, address 0x1FC, value 0x01.
 const bytes::Bytes kStepOne{0x00, 0x00, 0x07, 0xe1, 0xb8, 0x00, 0x01, 0xfc, 0x01};
-// legacy :699-700 -- same frame with address 0x1FD and value 0x09.
+// Same frame with address 0x1FD and value 0x09.
 const bytes::Bytes kStepTwo{0x00, 0x00, 0x07, 0xe1, 0xb8, 0x00, 0x01, 0xfd, 0x09};
-// legacy :740-747 intends this 12-byte 0xA8 read of 0x1FC and 0x1FD, but
-// writes indices 9-11 past the end of the 9-byte step-two buffer.
+// Legacy intends this 12-byte 0xA8 read of 0x1FC and 0x1FD, but writes indices
+// 9-11 past the end of the 9-byte step-two buffer.
 const bytes::Bytes kPoll{0x00, 0x00, 0x07, 0xe1, 0xa8, 0x00, 0x00, 0x01, 0xfc, 0x00, 0x01, 0xfd};
 
 bytes::Bytes WriteAck()
@@ -73,9 +73,9 @@ TEST(RelearnSession, AsksForTheStaticSetupGateBeforeAnyIo)
 
 TEST(RelearnSession, AsksForTheEngineRunningGateOnlyAfterStepTwoIsAccepted)
 {
-    // This ordering is the whole reason the package exists: legacy :735 issues
-    // the instruction after the TCU accepts step two, so it cannot be
-    // pre-collected the way ConfirmationSpec requires.
+    // This ordering is the whole reason the package exists: legacy issues the
+    // instruction after the TCU accepts step two, so it cannot be pre-collected
+    // the way ConfirmationSpec requires.
     Fixture fixture;
     ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
     fixture.session.Submit(GateResponse::kAccept);
@@ -141,7 +141,7 @@ TEST(RelearnSession, PollsWithTheTwelveByteFrameTheLegacyCannotBuild)
 
 TEST(RelearnSession, ReportsSuccessWhereTheLegacyAlwaysReportedFailure)
 {
-    // legacy :786 -- the function's last statement is return STATUS_ERROR.
+    // The function's last statement is return STATUS_ERROR.
     Fixture fixture;
     ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
     fixture.session.Submit(GateResponse::kAccept);
@@ -162,8 +162,8 @@ TEST(RelearnSession, ReportsSuccessWhereTheLegacyAlwaysReportedFailure)
 
 TEST(RelearnSession, ToleratesABadStepOneResponseAndContinues)
 {
-    // legacy :688 and :694 -- both returns are commented out, so the legacy
-    // logs and proceeds. Tolerance is real behavior and is preserved.
+    // Both returns are commented out, so the legacy logs and proceeds.
+    // Tolerance is real behavior and is preserved.
     Fixture fixture;
     ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
     fixture.session.Submit(GateResponse::kAccept);
@@ -183,7 +183,7 @@ TEST(RelearnSession, ToleratesABadStepOneResponseAndContinues)
 
 TEST(RelearnSession, RetriesEachWriteStepUpToSixTimes)
 {
-    // legacy :702 -- while (try_count < 6 && !responseOK).
+    // Legacy retries while (try_count < 6 && !responseOK).
     Fixture fixture;
     ASSERT_TRUE(std::holds_alternative<GateStep>(fixture.Step()));
     fixture.session.Submit(GateResponse::kAccept);

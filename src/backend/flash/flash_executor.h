@@ -223,14 +223,13 @@ class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransp
     // (SerialPortActions::set_add_iso14230_header()), independently of
     // configure()'s connection-type flags and mid-session, not just at
     // configure() time. Some exchanges self-frame their own header via
-    // SsmProtocol::addHeader() and need this OFF (false, the default) to
-    // avoid double-framing; others hand the driver a raw, unframed request
-    // and need this ON (true) so the driver adds the header itself. The
-    // legacy, now-deleted EepromEcuSubaruDensoSH705xKlineOperation is exactly
-    // this shape: connect()/upload_kernel() rely on the default false (lines
-    // 199/329, commented out) while read_mem()'s raw SID_DUMP request turns
-    // it on (line 477). See DensoSh705xEepromKlineExecutor::execute() for the
-    // portable equivalent.
+    // SsmProtocol::addHeader() and need this OFF (false, the default) to avoid
+    // double-framing; others hand the driver a raw, unframed request and need
+    // this ON (true) so the driver adds the header itself. The legacy,
+    // now-deleted EepromEcuSubaruDensoSH705xKlineOperation is exactly this
+    // shape: connect()/upload_kernel() rely on the default false (commented
+    // out) while read_mem()'s raw SID_DUMP request turns it on. See
+    // DensoSh705xEepromKlineExecutor::execute() for the portable equivalent.
     virtual Status SetAddIso14230Header(bool add_header) = 0;
 };
 

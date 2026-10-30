@@ -55,8 +55,8 @@ using bytes::U24;
 using namespace bytes::literals;
 
 // eeprom_ecu_subaru_denso_sh705x_can_operation.cpp's serial->set_can_source_
-// address(0x7e0)/set_iso15765_destination_address(0x7e8) (lines 61-64),
-// mirrored by the builder's DensoSh705xEepromCanPlan.
+// address(0x7e0)/set_iso15765_destination_address(0x7e8), mirrored by the
+// builder's DensoSh705xEepromCanPlan.
 constexpr std::uint32_t kRequestId = 0x7e0;
 
 // Matches the built-in catalog's CAN protocol entries'
@@ -115,8 +115,7 @@ bytes::Bytes SessionSetRequestBothConnected()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0x10, 0x02, 0x42};
 }
-// request_kernel_id(), lines 1355-1390: UNLIKE the K-Line sibling's
-// request_kernel_id(), NOT checksum-terminated.
+// UNLIKE the K-Line sibling's request_kernel_id(), NOT checksum-terminated.
 bytes::Bytes RequestKernelIdRequest()
 {
     return {0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00};
@@ -475,9 +474,9 @@ void EnqueueUploadKernel(ScriptedCanFlashTransport& transport, bytes::ByteView k
     transport.ExpectWrite(Sid34RequestDownloadRequest(kernel_start_addr, plan.data_len));
     transport.QueueRead(Sid34DownloadAckResponse());
 
-    // lines 816-857: blockno runs 0..maxBlocks INCLUSIVE. Since dataLen ==
-    // maxBlocks*128 exactly, the final (blockno==maxBlocks) iteration's chunk
-    // is always empty -- an N-block kernel produces N+1 wire frames.
+    // Blockno runs 0..maxBlocks INCLUSIVE. Since dataLen == maxBlocks*128
+    // exactly, the final (blockno==maxBlocks) iteration's chunk is always empty
+    // -- an N-block kernel produces N+1 wire frames.
     for (std::uint32_t blockno = 0; blockno <= plan.max_blocks; ++blockno)
     {
         const std::uint32_t block_addr = kernel_start_addr + blockno * 128;

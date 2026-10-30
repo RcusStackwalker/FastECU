@@ -137,7 +137,7 @@ TEST(TestDesktopKlineFlashTransport, lecControlOperationsForwardToSerialBackend)
     ASSERT_THAT(transport.DisableLecLines(), IsOk());
     ASSERT_THAT(transport.PulseLec2Line(200ms), IsOk());
     ASSERT_THAT(transport.EnableProgrammingVoltageLine(), IsOk());
-    // Legacy bootmode execute() :66 -- VPP on LEC1 and MOD1 on LEC2.
+    // Legacy bootmode execute() -- VPP on LEC1 and MOD1 on LEC2.
     ASSERT_THAT(transport.EnableBootModeLines(), IsOk());
 }
 

@@ -243,8 +243,7 @@ Status DesktopMixedCanFlashTransport::ConfigureIso(const MixedCanConfig& config)
             // can_source/destination_address values are inert here. They are set
             // anyway to mirror the legacy DensoCAN path, which configures ISO
             // 0x7e0/0x7e8 and then also stamps the raw CAN pair with the
-            // bootloader's 0x000FFFFE/0x21
-            // (flash_ecu_subaru_denso_sh705x_densocan_operation.cpp:68-70).
+            // bootloader's 0x000FFFFE/0x21.
             if (!serial_->SetCanSourceAddress(config.bootloader.transmit_id))
             {
                 return Fail(ErrorKind::kInvalidConfig, "set_can_source_address failed");

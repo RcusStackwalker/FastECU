@@ -8,16 +8,16 @@ namespace fastecu::service_functions
 {
 
 // Portable equivalent of FlashTcuSubaruDensoSH705xCanOperation::
-// tcu_relearn_subaru_ssm (legacy :632-790), which always reports failure: its
-// last statement is an unconditional return STATUS_ERROR (:786).
+// tcu_relearn_subaru_ssm, which always reports failure: its last statement is
+// an unconditional return STATUS_ERROR.
 //
 // Three corrections, all named in the flash qualification matrix:
 //   1. completion reports success;
 //   2. the status poll accepts 0xE8, the positive response to the 0xA8 it
 //      sends, instead of the unreachable 0xF8;
-//   3. the poll frame is composed directly. Legacy :740-747 rewrites the
-//      9-byte step-two buffer at indices 9-11, three bytes past its end, so
-//      the second status address never reaches the wire.
+//   3. the poll frame is composed directly. Legacy rewrites the 9-byte step-two
+//      buffer at indices 9-11, three bytes past its end, so the second status
+//      address never reaches the wire.
 //
 // The poll's terminal condition is deliberately NOT invented: the bound stays
 // at 200 iterations and the last frame is surfaced for the bench.

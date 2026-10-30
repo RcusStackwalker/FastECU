@@ -12,14 +12,14 @@ namespace
 {
 using namespace std::chrono_literals;
 
-constexpr std::chrono::milliseconds kReadTimeout = 500ms; // receive_timeout, legacy header :59
-constexpr bytes::Byte kTesterId = 0xf0;                   // legacy :151
-constexpr bytes::Byte kTargetId = 0x18;                   // legacy :152
+constexpr std::chrono::milliseconds kReadTimeout = 500ms; // receive_timeout
+constexpr bytes::Byte kTesterId = 0xf0;
+constexpr bytes::Byte kTargetId = 0x18;
 constexpr bytes::Byte kPositiveResponse = 0xf8;
 
 bytes::Bytes FrameFor(const TcuParameterWrite& write)
 {
-    // legacy :210-215 -- SID 0xB8, 24-bit address, value, framed exactly once.
+    // SID 0xB8, 24-bit address, value, framed exactly once.
     bytes::Bytes payload{0xb8};
     bytes::AppendU24Be(payload, write.address);
     payload.push_back(write.value);
@@ -39,7 +39,7 @@ Result<SsmTransportConfig> SetParametersSession::TransportSetup() const
     {
         return Fail(ErrorKind::kUnsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
     }
-    // legacy :141-152 -- "CAN 0xb8 command is disabled, so switch to K-Line comms".
+    // "CAN 0xb8 command is disabled, so switch to K-Line comms".
     return SsmTransportConfig{
         .framing = SsmTransportConfig::Framing::kKline14230,
         .bitrate_or_baud = 4800,
@@ -92,9 +92,9 @@ ServiceFunctionStep SetParametersSession::Resume(ISsmTransport& transport, ICloc
             return FailedStep{Error{ErrorKind::kTimeout, "no response to TCU parameter write"}};
         }
 
-        // legacy :219-236 -- exactly one exchange per row. This check is NOT
-        // commented out, unlike relearn's, so silence/rejection stops the
-        // live-write sequence immediately; retry idempotency is not known.
+        // Exactly one exchange per row. This check is NOT commented out, unlike
+        // relearn's, so silence/rejection stops the live-write sequence
+        // immediately; retry idempotency is not known.
         const bytes::Bytes& reply = **received;
         if (reply.size() <= 4 || reply[4] != kPositiveResponse)
         {

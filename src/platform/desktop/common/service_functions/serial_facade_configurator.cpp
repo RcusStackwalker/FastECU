@@ -46,10 +46,9 @@ Status OpenPort(SerialPortActions& serial, const char *not_open)
     return {};
 }
 
-// legacy :70 -- FlashUtils::configureIso15765Can(serial, "500000", 0x7E1,
-// 0x7E9). Check every setter result and clear the K-Line auto-header as part
-// of the mode transition so stale state cannot alter these sessions'
-// self-framed requests.
+// FlashUtils::configureIso15765Can(serial, "500000", 0x7E1, 0x7E9). Check every
+// setter result and clear the K-Line auto-header as part of the mode transition
+// so stale state cannot alter these sessions' self-framed requests.
 Status ConfigureIso15765(SerialPortActions& serial, const SsmTransportConfig& config)
 {
     return ApplySetters(
@@ -69,9 +68,9 @@ Status ConfigureIso15765(SerialPortActions& serial, const SsmTransportConfig& co
         .and_then([&] { return OpenPort(serial, "serial port is not open after ISO-15765 setup"); });
 }
 
-// legacy :141-152 -- "CAN 0xb8 command is disabled, so switch to K-Line
-// comms": mode, open, baud, then auto-header. Check the port both after open
-// and after the baud call so a drop never falls through into live service I/O.
+// "CAN 0xb8 command is disabled, so switch to K-Line comms": mode, open, baud,
+// then auto-header. Check the port both after open and after the baud call so a
+// drop never falls through into live service I/O.
 Status ConfigureKLine(SerialPortActions& serial, const SsmTransportConfig& config)
 {
     return ApplySetters({

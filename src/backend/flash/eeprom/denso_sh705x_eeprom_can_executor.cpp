@@ -40,16 +40,16 @@ constexpr std::uint32_t kMaxEepromPageBytes = 0x400; // read_mem()'s pagesize ca
 // for the full site-by-site mapping.
 constexpr int kHandshakeDelayMs = 50;                          // delay(50) before every connect_bootloader() read
 constexpr std::chrono::milliseconds kHandshakeTimeout{2000};   // serial_read_timeout
-constexpr int kKernelIdRequestDelayMs = 200;                   // request_kernel_id():1382 delay(200)
+constexpr int kKernelIdRequestDelayMs = 200;                   // request_kernel_id() delay(200)
 constexpr std::chrono::milliseconds kKernelIdReadTimeout{800}; // serial_read_long_timeout
 constexpr std::chrono::milliseconds kQuickAckTimeout{10}; // literal "10" -- upload_kernel()'s SID34/0x37/0x31 ack reads
 constexpr std::chrono::milliseconds kBlockAckTimeout{500}; // receive_timeout -- 0xB6 block acks (no delay before)
-constexpr int kPostUploadSettleDelayMs = 100;              // upload_kernel():892 delay(100)
+constexpr int kPostUploadSettleDelayMs = 100;              // upload_kernel() delay(100)
 constexpr std::chrono::milliseconds kPageHeaderTimeout{
     2000}; // serial_read_timeout -- read_mem()'s header-ack read (no delay before)
 constexpr std::chrono::milliseconds kPagedataPollTimeout{200}; // serial_read_short_timeout
-constexpr int kMaxPagedataAttempts = 100; // read_mem()'s inner accumulation loop cap (line 1056: `timeout < 100`)
-constexpr int kInterPageDelayMs = 1;      // read_mem():1117 delay(1)
+constexpr int kMaxPagedataAttempts = 100; // read_mem()'s inner accumulation loop cap (`timeout < 100`)
+constexpr int kInterPageDelayMs = 1;      // read_mem() delay(1)
 
 // ---------------------------------------------------------------------
 // Request builders. Every UDS-over-CAN request in this legacy class (except
@@ -99,10 +99,10 @@ bytes::Bytes SeedKeySendRequest(std::uint32_t request_id, bytes::ByteView key)
 {
     return CanFrame(request_id, ComposeBe(0x27_b, 0x02_b, key));
 }
-// lines 586-602: [0x10] with 0x02 appended iff req_10_03_connected, then 0x42
-// appended iff req_10_43_connected. Computed dynamically, not hardcoded to
-// "both true" -- the two prior session-mode checks (586-602) never hard-fail
-// on mismatch, so either flag can legitimately end up false.
+// [0x10] with 0x02 appended iff req_10_03_connected, then 0x42 appended iff
+// req_10_43_connected. Computed dynamically, not hardcoded to "both true" --
+// the two prior session-mode checks never hard-fail on mismatch, so
+// either flag can legitimately end up false.
 bytes::Bytes SessionSetRequest(std::uint32_t request_id, bool req_10_03_connected, bool req_10_43_connected)
 {
     bytes::Bytes payload{0x10};
@@ -116,8 +116,8 @@ bytes::Bytes SessionSetRequest(std::uint32_t request_id, bool req_10_03_connecte
     }
     return CanFrame(request_id, payload);
 }
-// request_kernel_id(), lines 1355-1390: UNLIKE the K-Line sibling's
-// request_kernel_id(), this one has NO trailing checksum byte.
+// UNLIKE the K-Line sibling's request_kernel_id(), this one has NO trailing
+// checksum byte.
 bytes::Bytes RequestKernelIdFrame(std::uint32_t request_id)
 {
     // Trailing 3 zero bytes (0x00,0x00,0x00) are NOT checksum -- see the
@@ -143,8 +143,8 @@ bytes::Bytes Sid31Request(std::uint32_t request_id)
 {
     return CanFrame(request_id, bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x02});
 }
-// read_mem(), lines 987-1004 (template) + 1029-1033 (per-iteration overwrite):
-// datalen==6 hardcoded.
+// read_mem(): datalen==6 is hardcoded in the request template and again on
+// every iteration.
 bytes::Bytes ReadEepromRequest(std::uint32_t request_id, std::uint8_t mode, std::uint32_t addr, std::uint32_t pagesize)
 {
     constexpr std::uint32_t kDatalen = 6;
@@ -153,8 +153,8 @@ bytes::Bytes ReadEepromRequest(std::uint32_t request_id, std::uint8_t mode, std:
 }
 
 // request_kernel_id()'s / upload_kernel()'s post-upload poll's "kernel alive"
-// marker check, lines 176,934: received[4..5] == SUB_KERNEL_START_COMM
-// big-endian, received[8] == SUB_KERNEL_ID | 0x40.
+// marker check: received[4..5] == SUB_KERNEL_START_COMM big-endian, received[8]
+// == SUB_KERNEL_ID | 0x40.
 bool LooksKernelAlive(bytes::ByteView received)
 {
     return received.size() > 8 && bytes::ReadU16Be(received, 4) == kSubKernelStartComm &&
@@ -169,7 +169,7 @@ bool LooksKernelAlive(bytes::ByteView received)
 // from the K-Line executor.
 // ---------------------------------------------------------------------
 
-// generate_seed_key(), lines 1146-1172 (Stock).
+// generate_seed_key(), (Stock).
 bytes::Bytes GenerateStockSeedKey(bytes::ByteView seed)
 {
     static constexpr std::array<std::uint16_t, 16> kIndex{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4,
@@ -178,12 +178,11 @@ bytes::Bytes GenerateStockSeedKey(bytes::ByteView seed)
     return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kStockPairTable);
 }
 
-// generate_ecutek_seed_key(), lines 1224-1269 (base calculateSeedKey() call
-// only, lines 1228-1247 -- the "_ecutek_racerom_alt" post-processing,
-// 1249-1266, is intentionally not reproduced; see the OPEN QUESTION
-// resolution comment above connect_bootloader() below). The same
-// keytogenerateindex_1 as Stock, paired with the ECUTEK index
-// transformation.
+// generate_ecutek_seed_key(), (base calculateSeedKey() call only, -- the
+// "_ecutek_racerom_alt" post-processing is intentionally not
+// reproduced; see the OPEN QUESTION resolution comment above
+// connect_bootloader() below). The same keytogenerateindex_1 as Stock, paired
+// with the ECUTEK index transformation.
 bytes::Bytes GenerateEcutekSeedKey(bytes::ByteView seed)
 {
     static constexpr std::array<std::uint16_t, 16> kIndex{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4,
@@ -192,8 +191,8 @@ bytes::Bytes GenerateEcutekSeedKey(bytes::ByteView seed)
     return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kEcutekPairTable);
 }
 
-// generate_cobb_seed_key(), lines 1274-1302 ("2017 VA model" table -- the one
-// actually passed to calculateSeedKey()).
+// generate_cobb_seed_key(), ("2017 VA model" table -- the one actually passed
+// to calculateSeedKey()).
 bytes::Bytes GenerateCobbSeedKey(bytes::ByteView seed)
 {
     static constexpr std::array<std::uint16_t, 16> kIndex{0x9DDB, 0x9CFB, 0x9B9A, 0x6136, 0x59E1, 0xBA03,
@@ -202,8 +201,8 @@ bytes::Bytes GenerateCobbSeedKey(bytes::ByteView seed)
     return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kStockPairTable);
 }
 
-// decrypt_racerom_seed(), lines 1175-1189: plain modular exponentiation
-// (square-and-multiply) -- no SsmProtocol equivalent, replicated verbatim.
+// Plain modular exponentiation (square-and-multiply) -- no SsmProtocol
+// equivalent, replicated verbatim.
 std::uint64_t DecryptRaceromSeed(std::uint64_t base, std::uint64_t exponent, std::uint64_t modulus)
 {
     std::uint64_t result = 1;
@@ -220,9 +219,8 @@ std::uint64_t DecryptRaceromSeed(std::uint64_t base, std::uint64_t exponent, std
     return result;
 }
 
-// generate_ecutek_racerom_can_seed_key(), lines 1191-1217: seed packed
-// big-endian into a uint32, RSA-decrypted with hardcoded d/n, re-emitted
-// big-endian as the 4-byte key.
+// Seed packed big-endian into a uint32, RSA-decrypted with hardcoded d/n,
+// re-emitted big-endian as the 4-byte key.
 bytes::Bytes GenerateEcutekRaceromCanSeedKey(bytes::ByteView seed)
 {
     const std::uint32_t seed_word = bytes::ReadU32Be(seed, 0);
@@ -232,9 +230,8 @@ bytes::Bytes GenerateEcutekRaceromCanSeedKey(bytes::ByteView seed)
     return bytes::ComposeBeWithExtraCapacity(0, decrypted);
 }
 
-// encrypt_payload(), lines 1314-1330: this class's OWN key table --
-// {0xC85B, 0x32C0, 0xE282, 0x92A0} -- distinct from the K-Line sibling's
-// ({0x7856, 0xCE22, 0xF513, 0x6E86}).
+// This class's OWN key table -- {0xC85B, 0x32C0, 0xE282, 0x92A0} -- distinct
+// from the K-Line sibling's ({0x7856, 0xCE22, 0xF513, 0x6E86}).
 bytes::Bytes EncryptCanKernelPayload(bytes::ByteView buf)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex{0xC85B, 0x32C0, 0xE282, 0x92A0};
@@ -294,11 +291,11 @@ Result<bytes::Bytes> CanExchangeGated(ICanFlashTransport& transport, IClock& clo
     return std::move(**raw);
 }
 
-// request_kernel_id(), lines 1355-1390 (write) + 1382-1383 (delay(200) then
-// read(serial_read_long_timeout)). An empty/absent response here is NOT an
+// request_kernel_id(): a write, then delay(200) and
+// read(serial_read_long_timeout). An empty/absent response here is NOT an
 // error -- it's the normal "kernel not (yet) running" signal that both
-// connect_bootloader()'s initial probe and upload_kernel()'s single
-// post-upload poll interpret themselves.
+// connect_bootloader()'s initial probe and upload_kernel()'s single post-upload
+// poll interpret themselves.
 Result<std::optional<bytes::Bytes>> RequestKernelId(ICanFlashTransport& transport, IClock& clock,
                                                     const ICancellationToken& cancellation, std::uint32_t request_id)
 {
@@ -400,13 +397,12 @@ Status UnlockSecurity(ICanFlashTransport& transport, IClock& clock, const ICance
             });
 }
 
-// lines 734-760: pad the ORIGINAL file bytes up to data_len (always a
-// multiple of 128, hence of 4), drop the last 4 bytes, append a 32-bit
-// checksum word, then encrypt the whole data_len-byte buffer. Unlike the
-// K-Line sibling's upload_kernel(), buf.size() == len == data_len always
-// holds here by construction -- there is no latent OOB-read risk to fix
-// (Task 7 report: "there's no latent calculatePayload()-clamping/OOB-read
-// risk analogous to the K-Line finding").
+// Pad the ORIGINAL file bytes up to data_len (always a multiple of 128, hence
+// of 4), drop the last 4 bytes, append a 32-bit checksum word, then encrypt the
+// whole data_len-byte buffer. Unlike the K-Line sibling's upload_kernel(),
+// buf.size() == len == data_len always holds here by construction -- there is
+// no latent OOB-read risk to fix (Task 7 report: "there's no latent
+// calculatePayload()-clamping/OOB-read risk analogous to the K-Line finding").
 bytes::Bytes KernelPayload(bytes::ByteView kernel, std::uint32_t data_len)
 {
     bytes::Bytes buf(kernel.begin(), kernel.end());
@@ -420,14 +416,14 @@ bytes::Bytes KernelPayload(bytes::ByteView kernel, std::uint32_t data_len)
     return EncryptCanKernelPayload(buf);
 }
 
-// lines 816-857: the block loop runs blockno = 0..max_blocks INCLUSIVE
-// (max_blocks+1 iterations). Each of the first max_blocks iterations sends a
-// full 128-byte chunk and decrements a running `data_len` copy by 128; since
-// that running value starts at exactly max_blocks*128, it has reached exactly
-// 0 by the final (blockno==max_blocks) iteration -- so the LAST 0xB6 frame
-// this loop sends is always header-only, zero payload bytes (Task 7 report,
-// "Legacy behavior surprises" #1). Faithfully reproduced, not corrected: an
-// N-block kernel produces N+1 wire frames.
+// The block loop runs blockno = 0..max_blocks INCLUSIVE (max_blocks+1
+// iterations). Each of the first max_blocks iterations sends a full 128-byte
+// chunk and decrements a running `data_len` copy by 128; since that running
+// value starts at exactly max_blocks*128, it has reached exactly 0 by the final
+// (blockno==max_blocks) iteration -- so the LAST 0xB6 frame this loop sends is
+// always header-only, zero payload bytes (Task 7 report, "Legacy behavior
+// surprises" #1). Faithfully reproduced, not corrected: an N-block kernel
+// produces N+1 wire frames.
 Status SendKernelBlocks(ICanFlashTransport& transport, const ICancellationToken& cancellation, IEventSink& events,
                         std::uint32_t request_id, std::uint32_t start_address, bytes::ByteView encrypted)
 {
@@ -452,10 +448,9 @@ Status SendKernelBlocks(ICanFlashTransport& transport, const ICancellationToken&
         {
             return Fail(ErrorKind::kCancelled, "cancelled after kernel chunk write");
         }
-        // No delay() call between this write and its read (legacy line
-        // 852-853). Response content is never inspected (legacy line 853 just
-        // discards it) -- reading it anyway keeps the wire exchange in
-        // lockstep with a real ECU.
+        // No delay() call between this write and its read. Response content is
+        // never inspected (legacy just discards it) -- reading it anyway keeps
+        // the wire exchange in lockstep with a real ECU.
         if (auto block_resp = transport.Read(kBlockAckTimeout, cancellation); !block_resp.has_value())
         {
             return std::unexpected(block_resp.error());
@@ -503,11 +498,11 @@ Status StartKernel(ICanFlashTransport& transport, IClock& clock, const ICancella
 }
 
 // The page body that follows a header ack: up to kMaxPagedataAttempts polls.
-// line 1069: `if (timeout >= 1000)` is legacy dead code -- the loop's own
-// bound is kMaxPagedataAttempts (100), so this can never trip. A page that
-// never fully arrives is therefore silently accepted short rather than
-// erroring; preserved faithfully (Task 7 report, "Legacy behavior surprises"
-// #2), same shape as the K-Line sibling's own analogous dead-code note.
+// `if (timeout >= 1000)` is legacy dead code -- the loop's own bound is
+// kMaxPagedataAttempts (100), so this can never trip. A page that never fully
+// arrives is therefore silently accepted short rather than erroring; preserved
+// faithfully (Task 7 report, "Legacy behavior surprises" #2), same shape as the
+// K-Line sibling's own analogous dead-code note.
 Result<bytes::Bytes> ReadPageData(ICanFlashTransport& transport, const ICancellationToken& cancellation,
                                   std::uint32_t pagesize)
 {
@@ -544,7 +539,7 @@ Result<bytes::Bytes> ReadEepromPage(ICanFlashTransport& transport, const ICancel
     return transport.Write(ReadEepromRequest(request_id, static_cast<std::uint8_t>(mode), addr, pagesize), cancellation)
         .and_then([&] { return CheckCancelled(cancellation, "cancelled after EEPROM read request"); })
         // No delay() call between this write and the header-ack read (legacy
-        // line 1036 has it commented out).
+        // has it commented out).
         .and_then([&] { return transport.Read(kPageHeaderTimeout, cancellation); })
         .and_then(
             [&](const std::optional<bytes::Bytes>& header) -> Result<bytes::Bytes>
@@ -635,9 +630,9 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::Run(const DensoSh705x
 
 // ---------------------------------------------------------------------
 // Resolution of Task 4's OPEN QUESTION (denso_sh705x_eeprom_common.cpp): the
-// legacy "_ecutek_racerom_alt" flash-method branch (connect_bootloader(),
-// lines 195-234) is intentionally NOT implemented below. Full reasoning is
-// in task-9-report.md; summary:
+// legacy "_ecutek_racerom_alt" flash-method branch (connect_bootloader()) is
+// intentionally NOT implemented below. Full reasoning is in task-9-report.md;
+// summary:
 //
 //   1. DensoSecurityVariant (fixed at 4 values by Task 4, before this task)
 //      has no representation for "_ecutek_racerom_alt" -- and adding a 5th
@@ -652,16 +647,15 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::Run(const DensoSh705x
 //      the CAN executor), not a per-security-variant branch.
 //   2. Even setting (1) aside, Task 7's characterization work could only pin
 //      read_ram_location()'s FAILURE path (a short/malformed response taking
-//      its early `return STATUS_ERROR` branch, lines 680-685) -- the
-//      "success" path (lines 671-679, 687-693) reads its result from
-//      `response`, a QByteArray that is never populated anywhere in the
-//      function (the real bytes land in `received`), so on real hardware a
-//      well-formed ACK there is undefined behavior (an out-of-bounds
-//      QByteArray read), not a stable, reproducible contract. There is no
-//      golden trace for what the resulting seed key should be in that case,
-//      so implementing that pipeline now would mean inventing unverified
-//      behavior -- exactly what Task 7 declined to do, and exactly what the
-//      design spec's compatibility-contract rule forbids guessing at.
+//      its early `return STATUS_ERROR` branch) -- the "success" path reads its
+//      result from `response`, a QByteArray that is never populated anywhere in
+//      the function (the real bytes land in `received`), so on real hardware a
+//      well-formed ACK there is undefined behavior (an out-of-bounds QByteArray
+//      read), not a stable, reproducible contract. There is no golden trace for
+//      what the resulting seed key should be in that case, so implementing that
+//      pipeline now would mean inventing unverified behavior -- exactly what
+//      Task 7 declined to do, and exactly what the design spec's
+//      compatibility-contract rule forbids guessing at.
 //
 // This is resolution option (a) from the OPEN QUESTION comment: the RAM-
 // location-read path is out of scope for step 5c. connect_bootloader() below
@@ -681,7 +675,6 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::Run(const DensoSh705x
 // capability this branch would need.
 // ---------------------------------------------------------------------
 
-// connect_bootloader(), lines 152-635.
 Status DensoSh705xEepromCanExecutor::ConnectBootloader(ICanFlashTransport& transport, IClock& clock,
                                                        const ICancellationToken& cancellation, IEventSink& events,
                                                        const DensoSh705xEepromCanPlan& can_plan,
@@ -702,21 +695,19 @@ Status DensoSh705xEepromCanExecutor::ConnectBootloader(ICanFlashTransport& trans
     }
     if (probe->has_value() && LooksKernelAlive(**probe))
     {
-        // lines 174-187: a well-formed alive response short-circuits the
-        // rest of connect_bootloader() -- upload_kernel() is skipped too.
+        // A well-formed alive response short-circuits the rest of
+        // connect_bootloader() -- upload_kernel() is skipped too.
         kernel_alive = true;
         events.Log(LogLevel::kInfo, "Kernel already running");
         return {};
     }
-    // lines 174-191: BOTH "no frame at all" and "frame present but markers
-    // wrong" fall through to the full init sequence below -- neither is a
-    // hard failure at this point (same shape as the K-Line sibling's own
-    // initial probe).
+    // BOTH "no frame at all" and "frame present but markers wrong" fall through
+    // to the full init sequence below -- neither is a hard failure at this
+    // point (same shape as the K-Line sibling's own initial probe).
     events.Log(LogLevel::kWarning, "No response from kernel, initialising ECU...");
 
-    // NOT IMPLEMENTED: the legacy "_ecutek_racerom_alt" branch (lines
-    // 195-234) -- see the OPEN QUESTION resolution comment above this
-    // function.
+    // NOT IMPLEMENTED: the legacy "_ecutek_racerom_alt" branch -- see the OPEN
+    // QUESTION resolution comment above this function.
 
     if (Status identity = QueryIdentity(transport, clock, cancellation, events, request_id); !identity.has_value())
     {
@@ -755,7 +746,6 @@ Status DensoSh705xEepromCanExecutor::ConnectBootloader(ICanFlashTransport& trans
     return {};
 }
 
-// upload_kernel(), lines 701-956.
 Status DensoSh705xEepromCanExecutor::UploadKernel(ICanFlashTransport& transport, IClock& clock,
                                                   const ICancellationToken& cancellation, IEventSink& events,
                                                   const DensoSh705xEepromCanPlan& can_plan,
@@ -800,8 +790,8 @@ Status DensoSh705xEepromCanExecutor::UploadKernel(ICanFlashTransport& transport,
             {
                 events.Log(LogLevel::kInfo, "Kernel requesting kernel ID...");
                 // Unlike the K-Line sibling's up-to-10-iteration poll loop, this is a
-                // SINGLE attempt -- legacy lines 930-953 `return STATUS_ERROR`
-                // immediately on a non-alive response here, with no retry.
+                // SINGLE attempt -- legacy `return STATUS_ERROR` immediately on a
+                // non-alive response here, with no retry.
                 return RequestKernelId(transport, clock, cancellation, request_id);
             })
         .and_then(
@@ -820,7 +810,7 @@ Status DensoSh705xEepromCanExecutor::UploadKernel(ICanFlashTransport& transport,
             });
 }
 
-// read_mem(), lines 963-1139 ("BEEF/READ_EEPROM" combined-request protocol).
+// read_mem(), ("BEEF/READ_EEPROM" combined-request protocol).
 Result<bytes::Bytes> DensoSh705xEepromCanExecutor::ReadMem(ICanFlashTransport& transport, IClock& clock,
                                                            const ICancellationToken& cancellation, IEventSink& events,
                                                            const MemoryRegion& region, EepromReadMode mode,
