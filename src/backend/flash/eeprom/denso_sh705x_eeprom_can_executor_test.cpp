@@ -20,7 +20,12 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <initializer_list>
 #include <iterator>
+#include <optional>
 #include <ranges>
 #include <string_view>
 #include <utility>
@@ -31,7 +36,9 @@
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
+#include "src/backend/ports/testing/faulting_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
+#include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 
 using ::testing::_;
@@ -779,6 +786,310 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
 
     ASSERT_THAT(RunExecutor(*plan, transport, std::move(cancellation)), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 11U);
+}
+
+namespace
+{
+const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
+
+void EnqueueFullRead(ScriptedCanFlashTransport& transport)
+{
+    EnqueueConnectBootloaderFullInit(transport, kSeed);
+    EnqueueUploadKernel(transport, KernelFixtureBytes(), kKernelStartAddr);
+    EnqueueReadMem(transport, 2);
+}
+
+// connect_bootloader() up to the session set, then upload_kernel()'s SID34
+// request; the caller scripts its reply.
+void EnqueueUpToSid34(ScriptedCanFlashTransport& transport)
+{
+    EnqueueConnectBootloaderFullInit(transport, kSeed);
+    const KernelUploadPlan upload = ComputeKernelUploadPlan(KernelFixtureBytes());
+    transport.ExpectWrite(Sid34RequestDownloadRequest(kKernelStartAddr, upload.data_len));
+}
+
+// upload_kernel() through the 0xB6 blocks, then the 0x37 request; the caller
+// scripts its reply.
+void EnqueueUpToSid37(ScriptedCanFlashTransport& transport)
+{
+    EnqueueUpToSid34(transport);
+    transport.QueueRead(Sid34DownloadAckResponse());
+    const KernelUploadPlan upload = ComputeKernelUploadPlan(KernelFixtureBytes());
+    for (std::uint32_t blockno = 0; blockno <= upload.max_blocks; ++blockno)
+    {
+        const bytes::ByteView chunk =
+            blockno < upload.max_blocks
+                ? bytes::ByteView(upload.encrypted_payload).subspan(static_cast<std::size_t>(blockno) * 128, 128)
+                : bytes::ByteView{};
+        transport.ExpectWrite(SidB6TransferBlockRequest(kKernelStartAddr + blockno * 128, chunk));
+        transport.QueueNoFrame();
+    }
+    transport.ExpectWrite(Sid37StartKernelRequest());
+}
+
+// The whole bootloader path with a live kernel, up to the EEPROM read request;
+// the caller scripts the header and page replies.
+void EnqueueUpToEepromRequest(ScriptedCanFlashTransport& transport)
+{
+    EnqueueConnectBootloaderFullInit(transport, kSeed);
+    EnqueueUploadKernel(transport, KernelFixtureBytes(), kKernelStartAddr);
+    transport.ExpectWrite(SidReadEepromRequestForSh7055(2));
+}
+
+bytes::Bytes Reply(std::initializer_list<bytes::Byte> tail, std::size_t size)
+{
+    bytes::Bytes out(4, 0);
+    out.insert(out.end(), tail);
+    out.resize(size, 0);
+    return out;
+}
+
+Result<FlashExecutionResult> RunWith(const FlashPlan& plan, ScriptedCanFlashTransport& transport, FakeClock& clock,
+                                     FakeCancellationToken& cancellation)
+{
+    RecordingEventSink events;
+    return DensoSh705xEepromCanExecutor{}.Execute(plan, transport, clock, cancellation, events);
+}
+} // namespace
+
+TEST(DensoSh705xEepromCanExecutorTest, EveryWriteAndReadFaultPropagates)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (const bool reads : {false, true})
+    {
+        SCOPED_TRACE(::testing::PrintToString(reads));
+        for (std::size_t k = 1;; ++k)
+        {
+            SCOPED_TRACE(::testing::PrintToString(std::pair{reads, k}));
+            ASSERT_LT(k, 64U);
+            FaultingCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+            (reads ? transport.fail_read_at : transport.fail_write_at) = k;
+            EnqueueFullRead(transport);
+            FakeClock clock;
+            FakeCancellationToken cancellation;
+            const auto result = RunWith(*plan, transport, clock, cancellation);
+            if (!transport.writes_at_fault.has_value())
+            {
+                EXPECT_THAT(result, fastecu::testing::IsOk());
+                break;
+            }
+            EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("injected")));
+            EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>(transport.WritesConsumed()));
+        }
+    }
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, EverySleepFailurePropagates)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (std::size_t k = 1;; ++k)
+    {
+        SCOPED_TRACE(::testing::PrintToString(k));
+        ASSERT_LT(k, 64U);
+        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        EnqueueFullRead(transport);
+        FaultingClock clock;
+        clock.fail_at = k;
+        FakeCancellationToken cancellation;
+        const auto result = RunWith(*plan, transport, clock, cancellation);
+        if (clock.sleeps < k)
+        {
+            EXPECT_THAT(result, fastecu::testing::IsOk());
+            break;
+        }
+        EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kDisconnected, ::testing::Eq("sleep failed")));
+    }
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, CancellingAtEveryCheckWritesNothingMore)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (std::size_t k = 2;; ++k)
+    {
+        SCOPED_TRACE(::testing::PrintToString(k));
+        ASSERT_LT(k, 256U);
+        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        EnqueueFullRead(transport);
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        std::size_t checks = 0;
+        std::optional<std::size_t> writes_at_cancel;
+        cancellation.SetPredicate(
+            [&]
+            {
+                if (++checks == k)
+                {
+                    writes_at_cancel = transport.WritesConsumed();
+                }
+                return writes_at_cancel.has_value();
+            });
+        const auto result = RunWith(*plan, transport, clock, cancellation);
+        if (!writes_at_cancel.has_value())
+        {
+            EXPECT_THAT(result, fastecu::testing::IsOk());
+            break;
+        }
+        EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
+        EXPECT_EQ(transport.WritesConsumed(), *writes_at_cancel);
+    }
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, ANineByteSeedIsTooShort)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    EnqueueConnectUpToSeedRequest(transport);
+    transport.QueueRead(Reply({0x67, 0x01}, 9));
+    EXPECT_THAT(RunExecutor(*plan, transport),
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
+                                            ::testing::Eq("seed response too short to contain a 4-byte seed")));
+    EXPECT_EQ(transport.WritesConsumed(), 9U);
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, ARejectedSeedKeyFails)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    EnqueueConnectUpToSeedRequest(transport);
+    transport.QueueRead(SeedResponse(kSeed));
+    transport.ExpectWrite(SeedKeySendRequest(GenerateSeedKeyStock(kSeed)));
+    transport.QueueRead(Reply({0x67, 0x03}, 6));
+    EXPECT_THAT(RunExecutor(*plan, transport),
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("seed key send rejected")));
+    EXPECT_EQ(transport.WritesConsumed(), 10U);
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, ARejectedDownloadRequestSendsNoBlocks)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+    EnqueueUpToSid34(transport);
+    transport.QueueRead(Reply({0x74, 0x21}, 6));
+    EXPECT_THAT(RunExecutor(*plan, transport),
+                fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("kernel upload request rejected")));
+    EXPECT_EQ(transport.WritesConsumed(), 12U);
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, ShortOrWrongStartAcksFail)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (const bytes::Bytes& ack : {Reply({}, 4), Reply({0x76}, 5)})
+    {
+        SCOPED_TRACE(bytes::ToHex(ack));
+        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        EnqueueUpToSid37(transport);
+        transport.QueueRead(ack);
+        EXPECT_THAT(RunExecutor(*plan, transport),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("kernel start ack rejected")));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, ShortOrWrongStartRoutineAcksFail)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (const bytes::Bytes& ack : {Reply({}, 4), Reply({0x70}, 5)})
+    {
+        SCOPED_TRACE(bytes::ToHex(ack));
+        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        EnqueueUpToSid37(transport);
+        transport.QueueRead(Sid37StartAckResponse());
+        transport.ExpectWrite(Sid31StartRoutineRequest());
+        transport.QueueRead(ack);
+        EXPECT_THAT(
+            RunExecutor(*plan, transport),
+            fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("kernel start routine rejected")));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, ASilentOrDeadKernelAfterUploadFails)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (const bool silent : {true, false})
+    {
+        SCOPED_TRACE(::testing::PrintToString(silent));
+        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        EnqueueUpToSid37(transport);
+        transport.QueueRead(Sid37StartAckResponse());
+        transport.ExpectWrite(Sid31StartRoutineRequest());
+        transport.QueueRead(Sid31RoutineAckResponse());
+        transport.ExpectWrite(RequestKernelIdRequest());
+        if (silent)
+        {
+            transport.QueueNoFrame();
+        }
+        else
+        {
+            transport.QueueRead(Reply({0xbe, 0xef}, 14));
+        }
+        EXPECT_THAT(
+            RunExecutor(*plan, transport),
+            silent
+                ? fastecu::testing::IsErrWith(ErrorKind::kTimeout, ::testing::Eq("kernel did not respond after upload"))
+                : fastecu::testing::IsErrWith(ErrorKind::kBadResponse,
+                                              ::testing::Eq("kernel did not report a valid ID after upload")));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, AMissingOrShortEepromHeaderFails)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    {
+        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        EnqueueUpToEepromRequest(transport);
+        transport.QueueNoFrame();
+        EXPECT_THAT(
+            RunExecutor(*plan, transport),
+            fastecu::testing::IsErrWith(ErrorKind::kTimeout, ::testing::Eq("no response to EEPROM read request")));
+    }
+    {
+        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        EnqueueUpToEepromRequest(transport);
+        transport.QueueRead(Reply({0xbe, 0xef, 0x00, 0x00}, 8));
+        EXPECT_THAT(
+            RunExecutor(*plan, transport),
+            fastecu::testing::IsErrWith(ErrorKind::kBadResponse, ::testing::Eq("EEPROM read header ack too short")));
+    }
+}
+
+// A page body of eight bytes or fewer: eight are all framing, seven are kept.
+TEST(DensoSh705xEepromCanExecutorTest, AShortPageBodyKeepsOnlyWhatFollowsTheFraming)
+{
+    auto plan = ValidCanPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    const bytes::Bytes header = ComposeBe(EepromHeaderAckResponse(), 0xaa_b);
+    for (const auto& [body_size, expected] : std::to_array<std::pair<std::size_t, bytes::Bytes>>({
+             {7, bytes::Bytes{0xaa, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee, 0xee}},
+             {8, bytes::Bytes{0xaa}},
+         }))
+    {
+        SCOPED_TRACE(::testing::PrintToString(body_size));
+        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
+        EnqueueUpToEepromRequest(transport);
+        transport.QueueRead(header);
+        // ReadPageData polls 100 times for a 256-byte page; only the first
+        // poll carries data.
+        transport.QueueRead(bytes::Bytes(body_size, 0xee));
+        for (int poll = 1; poll < 100; ++poll)
+        {
+            transport.QueueNoFrame();
+        }
+        auto result = RunExecutor(*plan, transport);
+        ASSERT_THAT(result, fastecu::testing::IsOk());
+        EXPECT_THAT(result->read_bytes, Optional(expected));
+    }
 }
 
 } // namespace fastecu::flash
