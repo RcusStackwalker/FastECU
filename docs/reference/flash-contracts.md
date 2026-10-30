@@ -4,9 +4,9 @@ What each shared flash module covers, what deliberately stays in the family
 executors, and the preserved quirks a reader could mistake for bugs. Rationale is
 in the [flash design notes](../design-notes.md#share-only-proven-protocol-equivalence);
 dialect terms are in the [flash language](../../src/backend/flash/GLOSSARY.md).
-Exact timeouts, attempt counts and log text are asserted by each family's
-executor tests and the shared module headers; read those rather than restating
-them here. Open evidence questions are tracked in
+Each family's executor tests and the shared module headers assert the timing,
+attempt counts and log text behind these contracts. Open evidence questions are
+tracked in
 [technical debt](../tech-debt.md#p3-flash-protocol-behaviors-awaiting-external-evidence).
 Nothing here establishes hardware qualification.
 
@@ -77,44 +77,85 @@ differs (six versus 128 bytes) and is the template argument of both.
 
 [BeefCanKernel](../../src/backend/flash/ecu/beef_can_kernel.h) owns three
 operations used directly by the Subaru SH7058 petrol ECU, SH7058 diesel ECU and
-SH705x TCU executors: kernel payload transfer, ROM read and ROM write. It borrows
-the caller's ports and profile; execution context, lifetimes and transport
-lifecycle remain with callers. The cold
-[session](../../src/backend/flash/ecu/beef_can_session.h) retains tolerant
-identity/session queries and kernel-ID handling, without forwarding warm work.
+SH705x TCU execution owners: kernel payload transfer, ROM read and ROM write.
+It borrows the caller's ports and profile; execution context, lifetimes and
+transport lifecycle remain with callers. Framing, reply parsing, CRC comparison,
+flash initialization and write windows are private to this module. There is no
+session facade or callback operation runner.
 
 - `TransferPayload` validates, pads, checksums and encrypts the kernel, sends
   `34 04 33` with the low 24 address bits and checked 24-bit encrypted payload
   length, both big-endian, then sends 128-byte B6 blocks and the final
   address-only B6. Each block has one raw reply read; content and nonterminal
   adapter outcomes are discarded, while cancellation/disconnection terminate.
-  The caller supplies the existing download exchange policy and block timeout;
-  the diesel's timings remain distinct from petrol/TCU.
-- `Read` requests fixed 0x400-byte raw BEEF pages, checks each reply and bounds
+  The download policy delays 50 ms before reading, then waits 2000 ms for
+  petrol/TCU or 10 ms for diesel; pending replies use 3000 ms and at most ten
+  repeats. Block reads use 2000 ms for petrol/TCU and 500 ms for diesel.
+- `Read` uses opcode `03` with `00 + U24 address + U16 0400` and a 2000 ms
+  timeout for fixed 0x400-byte raw BEEF pages, checks each reply and bounds
   the appended tail and progress to the requested region. No normal-ROM BEEF
   read decrypts the payload. Per-page clock sampling keeps the 1 ms elapsed
   floor and existing rate logs.
-- `Write` owns CRC comparison and its raw stale-frame drain, flash init,
-  voltage query, erase, 0x200-byte buffers, 0x1000-byte validate/commit windows,
-  recovery warnings and final comparison. Unchanged images skip flashing;
+- `Write` owns CRC comparison (`02`) and its 200 ms raw stale-frame drain,
+  flash init, voltage query (`04`, 500 ms), erase (`25`, 3000 ms), 0x200-byte
+  buffer writes (`22`, 800 ms), 0x1000-byte validate/commit windows
+  (`23`/`24`, 3000 ms), recovery warnings and final comparison. Unchanged images skip flashing;
   ECU TestWrite selects disable/validate rather than enable/commit. Existing
   address-window guards, cancellation boundaries and final-mismatch reporting
   remain intact. The existing profile keeps wording, init timeout and hex
-  formatting: its uppercase-size setting also preserves TCU uppercase write
-  addresses and padded CRC logs, without selecting a different wire algorithm.
+  formatting: init uses 500 ms for ECU and 2000 ms for TCU. The uppercase-size
+  setting also preserves TCU uppercase write addresses and padded CRC logs,
+  without selecting a different wire algorithm.
 
-Cold paths and post-upload handoffs stay in the family executors. Petrol and
-diesel retain their own identity/security/session sequences, transfer-exit and
-kernel-start policies and strict kernel-ID checks. The TCU retains its separate
-probe/identity/session/security sequence and kernel-ID continuation/drain logic;
-after kernel start it resets, configures and opens through `RestartIso15765`,
-waits 500 ms cancellably, then probes strictly. The outer attempt still owns the
-initial lifecycle and final close. Plan admission still rejects TCU TestWrite
-and SH7055 Write. These distinct cold paths and handoffs do not imply different
-warm read/write wire behavior.
+The [ECU execution module](../../src/backend/flash/ecu/denso_beef_can_ecu_execution.h)
+has two typed `RunDensoBeefCanEcu` overloads, admitted only for petrol and diesel.
+Their family-named executors retain setup/reset hooks and delegate execution.
+One private algorithm owns this fixed order: BEEF kernel probe; if absent,
+ECU ID, VIN, CAL ID and CVN; security preparation; tolerant session `03` then
+`43` discovery; seed/key; programming `02` and/or `42` according to accepted
+sessions; optional kernel payload transfer; ECU handoff; then kernel read/write.
+Vehicle-information fields share one fixed `09`/PID query and `49`/PID reply
+validation loop; CVN renders uppercase compact hex, while VIN and CAL ID retain
+text rendering. Read naming remains `CAL-ID_ECU-ID_` with unavailable parts
+omitted. Identity queries retain their 50 ms delay and 2000 ms timeout;
+cancellation/disconnection abort, while other query failures are logged and
+tolerated.
 
-The unchanged family scripted wire suites and plan goldens are the preservation
-contract. Hardware status remains in the
+Exactly two private family-trait specializations supply compile-time facts and
+security calculations. Petrol retains stock, EcuTek, RaceRom, RaceRom-alt and
+Cobb security, including the three CAL-ID-dependent RaceRom-alt RAM mappings.
+Diesel retains stock Denso security. Neither traits nor profiles select operation
+steps or carry callbacks. ECU probes send `BE EF 00 01 01 00 00 00`, wait 200 ms,
+then read for 800 ms. The initial probe tolerates malformed/nonterminal outcomes;
+post-upload verification is strict. ECU handoff sends transfer exit, waits
+100 ms, sends `31 01 02 02 02`, then requires the BEEF ID. Transfer exit uses the
+family download policy; routine start uses the 10 ms first-read policy. Both
+accept service-only positive replies. Diesel's extra failure and byte-count logs,
+petrol's hex PDU wording and diesel's described PDU wording remain distinct.
+
+The [TCU executor](../../src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.cpp)
+owns a visibly separate cold path. Its proprietary `7A A0 00 00 00 00 00 00`
+probe makes at most five attempts with 100 ms waits and 800 ms reads. It filters
+CAN IDs and coalesces kernel-ID fragments with a bounded 32-frame, 200 ms drain.
+If no kernel answers, it requests ECU ID and CAL ID, requires session `03`,
+performs its seed/key exchange, and requests programming `02`. After optional
+payload transfer it sends transfer exit and routine start, accepting service-only
+positive replies. It then resets, configures and opens through `RestartIso15765`
+at 500000 bit/s with standard IDs `7E1`/`7E9`, waits 500 ms cancellably, and
+strictly repeats its proprietary probe. The outer attempt still owns the initial
+lifecycle and final close. Plan admission rejects TCU TestWrite and SH7055 Write.
+
+The unchanged plan goldens and original family scripted wire cases remain the
+preservation contract: [petrol](../../src/backend/flash/ecu/subaru_denso_sh7058_can_executor_test.cpp),
+[diesel](../../src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor_test.cpp)
+and [TCU](../../src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor_test.cpp).
+Retired session/common-helper cases now exercise the public kernel and family
+executor seams, preserving literal request/reply vectors, complete bounded log
+sections, absent/present ROM IDs, session selection, timeout/delay assertions and
+abort/continue behavior. The [kernel tests](../../src/backend/flash/ecu/beef_can_kernel_test.cpp)
+retain malformed-envelope, declared-payload-bound, transfer and warm-operation
+evidence. Expected bytes do not use production encoders. Hardware status remains
+in the
 [qualification matrix](../flash-qualification-matrix.md); this sharing establishes
 no bench or vehicle qualification.
 

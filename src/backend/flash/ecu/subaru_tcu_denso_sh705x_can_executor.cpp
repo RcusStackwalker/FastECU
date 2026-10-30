@@ -14,8 +14,6 @@
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/beef_can_kernel.h"
-#include "src/backend/flash/ecu/beef_can_session.h"
-#include "src/backend/flash/ecu/denso_beef_can_common.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
@@ -69,13 +67,46 @@ struct Context
     std::uint32_t response_id;
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
-    BeefCanSession session;
     BeefCanKernel kernel;
 };
 
-bytes::Bytes SeedKey(bytes::ByteView seed)
+Status CancelledIfRequested(const Context& context, std::string_view detail)
 {
-    return DensoSeedKey(seed);
+    if (context.cancellation.Cancelled())
+    {
+        return Fail(ErrorKind::kCancelled, std::string(detail));
+    }
+    return {};
+}
+
+void LogWrongPdu(const Context& context, bytes::ByteView pdu)
+{
+    LogError(context, std::format("Wrong response from TCU: {}", bytes::ToHex(pdu)));
+}
+
+Result<std::optional<bytes::Bytes>> NonfatalQuery(Context& context, bytes::ByteView pdu)
+{
+    auto received = CancelledIfRequested(context, "cancelled before CAN request")
+                        .and_then([&] { return context.channel.Send(pdu, context.cancellation); })
+                        .and_then([&] { return context.clock.Sleep(kExtraShortTimeout, context.cancellation); })
+                        .and_then([&] { return context.channel.Receive(kReadTimeout, context.cancellation); });
+    if (!received.has_value())
+    {
+        const Error& failure = received.error();
+        if (failure.kind == ErrorKind::kCancelled || failure.kind == ErrorKind::kDisconnected)
+        {
+            return std::unexpected(failure);
+        }
+        LogError(context, failure.kind == ErrorKind::kTimeout
+                              ? "No valid response from ECU"
+                              : std::format("Wrong response from TCU: {}", failure.detail));
+        return std::optional<bytes::Bytes>{};
+    }
+    if (!received->has_value())
+    {
+        LogError(context, "No valid response from ECU");
+    }
+    return received;
 }
 
 bool IsFatal(const Error& error)
@@ -92,20 +123,6 @@ Result<std::optional<std::string>> Malformed(bool tolerate_malformed, Error erro
         return std::optional<std::string>{};
     }
     return std::unexpected(std::move(error));
-}
-
-Status SendKernelIdProbe(Context& context, bytes::ByteView request, bytes::ByteView wire_request)
-{
-    if (const Status checkpoint = CancelledIfRequested(context, "kernel ID probe cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    if (const Status sent = context.channel.Send(request, context.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    LogInfo(context, std::format("Kernel ID request: {}", bytes::ToHex(wire_request)));
-    return context.clock.Sleep(kProbeDelay, context.cancellation);
 }
 
 // Legacy lines 1621-1625 keep reading at the short timeout and append every
@@ -176,17 +193,25 @@ Result<std::optional<std::string>> ParseKernelIdReply(Context& context, const by
         return Malformed(tolerate_malformed,
                          Error{ErrorKind::kBadResponse, "kernel ID trailing drain exceeded its frame bound"});
     }
-    Result<BeefMessage> parsed = ParseBeef(coalesced);
-    if (!parsed.has_value())
+    if (coalesced.size() < 5)
     {
-        return Malformed(tolerate_malformed, parsed.error());
+        return Malformed(tolerate_malformed, Error{ErrorKind::kBadResponse, "short BEEF response envelope"});
     }
-    if (parsed->opcode != kKernelId)
+    if (bytes::ReadU16Be(coalesced) != 0xBEEF)
+    {
+        return Malformed(tolerate_malformed, Error{ErrorKind::kBadResponse, "wrong BEEF response marker"});
+    }
+    const auto declared = bytes::ReadU16Be(coalesced, 2);
+    if (declared < 1 || static_cast<std::size_t>(declared) + 4 > coalesced.size())
+    {
+        return Malformed(tolerate_malformed, Error{ErrorKind::kBadResponse, "invalid BEEF response length"});
+    }
+    if (coalesced[4] != kKernelId)
     {
         LogError(context, std::format("Wrong response from ECU: {}", bytes::ToHex(coalesced)));
         return Malformed(tolerate_malformed, Error{ErrorKind::kBadResponse, "unexpected kernel ID response opcode"});
     }
-    return std::optional<std::string>{std::string(parsed->payload.begin(), parsed->payload.end())};
+    return std::optional<std::string>{std::string(coalesced.begin() + 5, coalesced.begin() + declared + 4)};
 }
 
 Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolerate_malformed)
@@ -195,12 +220,21 @@ Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolera
     // PDU is intentionally kept here instead of deriving it from BEEF
     // constants: 0x7A 0xA0 is the legacy kernel probe, not a BEEF command.
     const bytes::Bytes request{0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    const bytes::Bytes wire_request = ComposeBe(context.request_id, request);
     for (int attempt = 0; attempt < 5; ++attempt)
     {
-        if (const Status sent = SendKernelIdProbe(context, request, wire_request); !sent.has_value())
+        if (const Status checkpoint = CancelledIfRequested(context, "kernel ID probe cancelled");
+            !checkpoint.has_value())
+        {
+            return std::unexpected(checkpoint.error());
+        }
+        if (const Status sent = context.channel.Send(request, context.cancellation); !sent.has_value())
         {
             return std::unexpected(sent.error());
+        }
+        LogInfo(context, std::format("Kernel ID request: {}", bytes::ToHex(ComposeBe(context.request_id, request))));
+        if (const Status delayed = context.clock.Sleep(kProbeDelay, context.cancellation); !delayed.has_value())
+        {
+            return std::unexpected(delayed.error());
         }
         Result<std::optional<bytes::Bytes>> received = context.transport.Read(kLongTimeout, context.cancellation);
         LogInfo(context,
@@ -223,8 +257,7 @@ Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolera
     return std::optional<std::string>{};
 }
 
-Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expected, std::string_view label,
-                     std::optional<std::size_t> minimum_size = std::nullopt)
+Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expected, std::string_view label)
 {
     Result<bytes::Bytes> reply = context.uds.Request(pdu, kStrictPolicy, context.cancellation);
     if (!reply.has_value())
@@ -232,8 +265,7 @@ Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expe
         return std::unexpected(reply.error());
     }
     const bytes::ByteView payload = uds::Payload(*reply);
-    const std::size_t required = minimum_size.value_or(expected.size());
-    if (payload.size() < required || !std::equal(expected.begin(), expected.end(), payload.begin()))
+    if (payload.size() < expected.size() || !std::equal(expected.begin(), expected.end(), payload.begin()))
     {
         LogError(context, std::format("Wrong response from TCU during {}", label));
         return Fail(ErrorKind::kBadResponse, std::format("unexpected response during {}", label));
@@ -241,41 +273,56 @@ Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expe
     return {};
 }
 
-Status StrictSeed(Context& context, bytes::Bytes& key)
-{
-    Result<bytes::Bytes> seed_reply = context.uds.Request(
-        bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, kStrictPolicy, context.cancellation);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    const bytes::ByteView payload = uds::Payload(*seed_reply);
-    if (payload.size() < 5 || payload[0] != uds::kSecurityAccessRequestSeed)
-    {
-        return Fail(ErrorKind::kBadResponse, "invalid TCU seed response");
-    }
-    key = SeedKey(payload.subspan(1, 4));
-    return {};
-}
-
 // The ECU/CAL identity queries (lines 137-214) are intentionally non-fatal.
 // Their successful values form the legacy read ROM id.
 Status RequestIdentity(Context& context, bool read_operation, std::optional<std::string>& rom_id)
 {
-    if (Status ecu_id = context.session.RequestEcuId(read_operation, rom_id); !ecu_id.has_value())
+    LogInfo(context, "Requesting ECU ID");
+    const auto ecu_reply = NonfatalQuery(context, bytes::Bytes{0xAA});
+    if (!ecu_reply.has_value())
     {
-        return ecu_id;
+        return std::unexpected(ecu_reply.error());
+    }
+    if (ecu_reply->has_value())
+    {
+        const auto& pdu = **ecu_reply;
+        if (pdu.size() < 9 || pdu[0] != 0xEA)
+        {
+            LogWrongPdu(context, pdu);
+        }
+        else
+        {
+            const std::string ecu_id =
+                std::format("{:02X}{:02X}{:02X}{:02X}{:02X}", pdu[4], pdu[5], pdu[6], pdu[7], pdu[8]);
+            LogInfo(context, std::format("ECU ID: {}", ecu_id));
+            if (read_operation)
+            {
+                rom_id = ecu_id + "_";
+            }
+        }
     }
     LogInfo(context, "Requesting CAL ID");
-    Result<std::optional<std::string>> cal_id = context.session.IdentityString(
-        bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId}, 0x49, 0x04, "CAL ID");
+    const auto cal_id = NonfatalQuery(context, bytes::Bytes{uds::kSidVehicleInfoRequest, uds::kVehicleInfoPidCalId});
     if (!cal_id.has_value())
     {
         return std::unexpected(cal_id.error());
     }
-    if (read_operation && cal_id->has_value())
+    if (cal_id->has_value())
     {
-        rom_id = **cal_id + "_" + rom_id.value_or(std::string{});
+        const auto& pdu = **cal_id;
+        if (pdu.size() < 3 || pdu[0] != 0x49 || pdu[1] != 0x04)
+        {
+            LogWrongPdu(context, pdu);
+        }
+        else
+        {
+            const std::string value(pdu.begin() + 3, pdu.end());
+            LogInfo(context, std::format("CAL ID: {}", value));
+            if (read_operation)
+            {
+                rom_id = value + "_" + rom_id.value_or(std::string{});
+            }
+        }
     }
     return {};
 }
@@ -292,34 +339,42 @@ Status EnterProgrammingSession(Context& context)
     {
         return session;
     }
-    bytes::Bytes key;
-    if (const Status seed = StrictSeed(context, key); !seed.has_value())
+    const auto seed_reply = context.uds.Request(bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
+                                                kStrictPolicy, context.cancellation);
+    if (!seed_reply.has_value())
     {
-        return seed;
+        return std::unexpected(seed_reply.error());
     }
+    const bytes::ByteView seed = uds::Payload(*seed_reply);
+    if (seed.size() < 5 || seed[0] != uds::kSecurityAccessRequestSeed)
+    {
+        return Fail(ErrorKind::kBadResponse, "invalid TCU seed response");
+    }
+    const bytes::Bytes key = DensoSeedKey(seed.subspan<1, 4>());
     LogInfo(context, "Seed request ok");
     LogInfo(context, "Sending seed key");
-    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
-    key_request.insert(key_request.end(), key.begin(), key.end());
-    if (const Status key_status = StrictPayload(context, key_request, bytes::Bytes{0x02}, "seed key");
+    if (const Status key_status =
+            StrictPayload(context, ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
+                          bytes::Bytes{0x02}, "seed key");
         !key_status.has_value())
     {
         return key_status;
     }
     LogInfo(context, "Seed key ok");
-    return EnterBeefProgrammingSession(context, true, false, kStrictPolicy);
-}
-
-Status ConnectBootloader(Context& context, bool read_operation, std::optional<std::string>& rom_id)
-{
-    // connect_bootloader(), revision 59f4e442 lines 107-135. The oracle
-    // continues initialization after any nonterminal invalid probe reply;
-    // post-upload callers select the strict path instead.
-    if (Status identity = RequestIdentity(context, read_operation, rom_id); !identity.has_value())
+    LogInfo(context, "Set session mode");
+    const auto reply =
+        context.uds.Request(bytes::Bytes{uds::kSidDiagnosticSessionControl, 0x02}, kStrictPolicy, context.cancellation);
+    if (!reply.has_value())
     {
-        return identity;
+        return std::unexpected(reply.error());
     }
-    return EnterProgrammingSession(context);
+    const auto payload = uds::Payload(*reply);
+    if (payload.empty() || (payload[0] != 0x02 && payload[0] != 0x42))
+    {
+        return Fail(ErrorKind::kBadResponse, "unexpected programming session response");
+    }
+    LogInfo(context, "Succesfully set to programming session");
+    return {};
 }
 
 Status UploadKernel(Context& context, const KernelImage& kernel)
@@ -405,15 +460,71 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::Run(const SubaruTc
         family.response_id,
         uds_client,
         channel,
-        BeefCanSession(transport, clock, cancellation, events, channel, kSubaruTcuDensoSh705xCanBeefProfile),
         BeefCanKernel(transport, clock, cancellation, events, channel, kSubaruTcuDensoSh705xCanBeefProfile)};
 
-    return RunBeefKernelOperation(
-        plan, "Subaru Denso SH705x TCU", context, [](Context& c) { return RequestKernelId(c, true); },
-        ConnectBootloader, UploadKernel, [](Context& c, const FlashPlan& p, PhaseReporter& progress)
-        { return c.kernel.Read(p.TransferRegion(), progress); },
-        [](Context& c, const FlashPlan& p, PhaseSequence& phases, PhaseReporter& compare)
-        { return c.kernel.Write(p, phases, compare); });
+    const bool read_operation = plan.Operation() == FlashOperation::kRead;
+    PhaseSequence phases(context.events, read_operation ? 2 : 4);
+    PhaseReporter kernel_phase = phases.Start("Kernel", 1);
+    std::optional<std::string> rom_id;
+    LogInfo(context, "Connecting to Subaru Denso SH705x TCU CAN bootloader, please wait...");
+    LogInfo(context, "Checking if kernel is already running...");
+    LogInfo(context, "Requesting kernel ID");
+    const auto kernel_id = RequestKernelId(context, true);
+    if (!kernel_id.has_value())
+    {
+        return std::unexpected(kernel_id.error());
+    }
+    if (kernel_id->has_value())
+    {
+        LogInfo(context, std::format("Kernel ID: {}", **kernel_id));
+    }
+    else
+    {
+        LogError(context, "No valid response from ECU");
+        LogInfo(context, "No response from kernel, initialising ECU...");
+        if (const Status identity = RequestIdentity(context, read_operation, rom_id); !identity.has_value())
+        {
+            return std::unexpected(identity.error());
+        }
+        if (const Status entered = EnterProgrammingSession(context); !entered.has_value())
+        {
+            return std::unexpected(entered.error());
+        }
+        if (plan.Kernel().has_value())
+        {
+            context.events.Notice("Preparing, please wait...");
+            LogInfo(context, "Initializing Subaru Denso SH705x TCU CAN kernel upload, please wait...");
+            if (const Status uploaded = UploadKernel(context, *plan.Kernel()); !uploaded.has_value())
+            {
+                return std::unexpected(uploaded.error());
+            }
+        }
+    }
+    kernel_phase.Complete();
+    if (read_operation)
+    {
+        context.events.Notice("Reading ROM, please wait...");
+        LogInfo(context, "Reading ROM from Subaru Denso SH705x TCU using CAN");
+        PhaseReporter read_phase = phases.Start("Read", static_cast<int>(plan.TransferRegion().length));
+        auto rom = context.kernel.Read(plan.TransferRegion(), read_phase);
+        if (!rom.has_value())
+        {
+            return std::unexpected(rom.error());
+        }
+        read_phase.Complete();
+        return FlashExecutionResult{
+            .operation = FlashOperation::kRead, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
+    }
+    context.events.Notice("Writing ROM, please wait...");
+    LogInfo(context, "Writing ROM to Subaru Denso SH705x TCU using CAN");
+    PhaseReporter compare_phase = phases.Start("Compare", static_cast<int>(plan.EraseRegions().size()));
+    if (const Status written = context.kernel.Write(plan, phases, compare_phase); !written.has_value())
+    {
+        return std::unexpected(written.error());
+    }
+    PhaseReporter complete = phases.Start("Complete", 1);
+    complete.Complete();
+    return FlashExecutionResult{.operation = plan.Operation()};
 }
 
 } // namespace fastecu::flash

@@ -15,7 +15,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/backend/flash/ecu/denso_iso15765_crypto.h"
-#include "src/backend/flash/ecu/denso_beef_can_common.h"
+#include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/flash/transfer_progress.h"
 
 namespace fastecu::flash
@@ -72,6 +72,72 @@ struct KernelContext
     uds::IUdsChannel& channel;
     const DensoBeefCanProfile& profile;
 };
+
+// The two-byte frame marker every BEEF-protocol request and reply opens with.
+// Byte-identical across all three consumers.
+constexpr std::uint32_t kKernelStartComm = 0xBEEF;
+
+// A parsed BEEF reply: its opcode and the payload the declared length covers.
+struct BeefMessage
+{
+    bytes::Byte opcode;
+    bytes::ByteView payload;
+};
+
+Result<BeefMessage> ParseBeef(bytes::ByteView pdu)
+{
+    if (pdu.size() < 5)
+    {
+        return Fail(ErrorKind::kBadResponse, "short BEEF response envelope");
+    }
+    if (bytes::ReadU16Be(pdu) != kKernelStartComm)
+    {
+        return Fail(ErrorKind::kBadResponse, "wrong BEEF response marker");
+    }
+    const std::uint16_t declared = bytes::ReadU16Be(pdu, 2);
+    // The legacy serial reader can return a complete ISO payload with
+    // transport padding or a coalesced trailing frame.  Its checks only use
+    // the declared BEEF body, so retain that tolerance while bounding every
+    // indexed field.  The view exposed to callers is limited to the declared
+    // opcode-plus-payload body.
+    if (declared < 1 || static_cast<std::size_t>(declared) + 4 > pdu.size())
+    {
+        return Fail(ErrorKind::kBadResponse, "invalid BEEF response length");
+    }
+    return BeefMessage{.opcode = pdu[4], .payload = pdu.subspan(5, declared - 1)};
+}
+
+Status CancelledIfRequested(const KernelContext& ctx, std::string_view detail)
+{
+    if (ctx.cancellation.Cancelled())
+    {
+        return Fail(ErrorKind::kCancelled, std::string(detail));
+    }
+    return {};
+}
+
+// Warm exchanges have no post-send delay.
+Result<bytes::Bytes> ChannelRequest(KernelContext& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout)
+{
+    if (const Status checkpoint = CancelledIfRequested(ctx, "cancelled before CAN request"); !checkpoint.has_value())
+    {
+        return std::unexpected(checkpoint.error());
+    }
+    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
+    {
+        return std::unexpected(sent.error());
+    }
+    auto received = ctx.channel.Receive(timeout, ctx.cancellation);
+    if (!received.has_value())
+    {
+        return std::unexpected(received.error());
+    }
+    if (!received->has_value())
+    {
+        return Fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
+    }
+    return std::move(**received);
+}
 
 // Legacy reported a floor of one millisecond for any completed transfer, so a
 // sub-millisecond phase never renders as "0 ms".
