@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -18,6 +20,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/testing/faulting_kline_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -1450,6 +1453,236 @@ TEST(SubaruDensoSh7055_02Executor, PrecancelledRunIsRefusedInAdmission)
     EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_THAT(transport.control_line_trace, IsEmpty());
     EXPECT_THAT(events.logs, IsEmpty());
+}
+
+// A cold read with the ECU ID: preamble, WRX connect, upload, then every page.
+void ScriptColdRead(ScriptedKlineFlashTransport& transport)
+{
+    ScriptWrxPreamble(transport, true);
+    ScriptFirstWrxAttemptConnects(transport);
+    ScriptUpload(transport);
+    const FlashDevice *device = FindFlashDevice("SH7055");
+    for (std::uint32_t offset = 0; offset < device->romsize; offset += 0x400)
+    {
+        ScriptReadPage(transport, device->fblocks[0].start + offset, 0x5A);
+    }
+}
+
+// The connect and upload phases end well inside these many calls or checks;
+// the page loop after them repeats one exchange shape.
+constexpr std::size_t kSessionPrefix = 40;
+
+TEST(SubaruDensoSh7055_02Executor, EveryEarlyTransportFaultInAColdReadPropagates)
+{
+    for (const KlineFaultOp op : {KlineFaultOp::kWrite, KlineFaultOp::kRead, KlineFaultOp::kSetBaud,
+                                  KlineFaultOp::kDisableLecLines, KlineFaultOp::kPulseLec2Line})
+    {
+        SCOPED_TRACE(::testing::Message() << "op " << static_cast<int>(op));
+        auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        std::size_t count = 0;
+        {
+            FaultingKlineFlashTransport transport;
+            transport.op = op;
+            ScriptColdRead(transport);
+            RecordingClock clock;
+            FakeCancellationToken cancellation;
+            RecordingEventSink events;
+            ASSERT_THAT(SubaruDensoSh7055_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                        fastecu::testing::IsOk());
+            count = std::min(transport.calls, kSessionPrefix);
+        }
+        ASSERT_GT(count, 0U);
+        for (std::size_t k = 1; k <= count; ++k)
+        {
+            SCOPED_TRACE(::testing::Message() << "call " << k);
+            FaultingKlineFlashTransport transport;
+            transport.op = op;
+            transport.fail_at = k;
+            ScriptColdRead(transport);
+            RecordingClock clock;
+            FakeCancellationToken cancellation;
+            RecordingEventSink events;
+            EXPECT_THAT(SubaruDensoSh7055_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                        fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+            EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>{transport.WritesConsumed()});
+        }
+    }
+}
+
+TEST(SubaruDensoSh7055_02Executor, EveryEarlyCancellationCheckInAColdReadStops)
+{
+    auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    for (std::size_t n = 1; n <= kSessionPrefix; ++n)
+    {
+        SCOPED_TRACE(n);
+        ScriptedKlineFlashTransport transport;
+        ScriptColdRead(transport);
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        std::size_t seen = 0;
+        std::optional<std::size_t> writes_at_cancel;
+        cancellation.SetPredicate(
+            [&]
+            {
+                if (++seen == n)
+                {
+                    writes_at_cancel = transport.WritesConsumed();
+                }
+                return seen >= n;
+            });
+        RecordingEventSink events;
+        EXPECT_THAT(SubaruDensoSh7055_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErr(ErrorKind::kCancelled));
+        EXPECT_EQ(writes_at_cancel, std::optional<std::size_t>{transport.WritesConsumed()});
+    }
+}
+
+TEST(SubaruDensoSh7055_02Executor, BothConfigureToOpenCheckpointsReportTheirOwnDetail)
+{
+    std::vector<std::string> details;
+    for (std::size_t n = 1; n <= 4; ++n)
+    {
+        SCOPED_TRACE(n);
+        auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        auto attempt = BindFlashAttempt(std::move(*plan), std::make_unique<SubaruDensoSh7055_02Executor>(),
+                                        std::make_unique<ScriptedKlineFlashTransport>());
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        cancellation.CancelOnCheck(n);
+        RecordingEventSink events;
+        const auto result = attempt->Run(clock, cancellation, events);
+        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
+        details.push_back(result.error().detail);
+    }
+    EXPECT_THAT(details, ::testing::IsSupersetOf(
+                             {"cancelled after transport configuration", "cancelled before opening transport"}));
+}
+
+TEST(SubaruDensoSh7055_02Executor, FailedPostUploadSettleSendsNoKernelIdRequest)
+{
+    auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    ScriptWrxPreamble(transport, true);
+    ScriptFirstWrxAttemptConnects(transport);
+    transport.ExpectWrite(ExactUploadRequest());
+    transport.QueueNoFrame();
+
+    MockClock clock;
+    EXPECT_CALL(clock, Sleep(_, _)).WillRepeatedly(Return(Status{}));
+    // The first 100 ms settle follows the WRX connect; the second follows the
+    // post-upload baud change.
+    EXPECT_CALL(clock, Sleep(100ms, _))
+        .WillOnce(Return(Status{}))
+        .WillOnce(Return(Fail(ErrorKind::kDisconnected, "settle failed")));
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+    EXPECT_THAT(SubaruDensoSh7055_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("settle failed")));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+TEST(SubaruDensoSh7055_02Executor, BadEcuIdRepliesStopBeforeTheBootloader)
+{
+    struct Case
+    {
+        std::optional<bytes::Bytes> reply;
+        ErrorKind kind;
+        std::string_view detail;
+    };
+    const std::vector<Case> cases{
+        {std::nullopt, ErrorKind::kTimeout, "no response from ECU during ID read"},
+        {bytes::Bytes{0x80, 0xF0, 0x10, 0x01}, ErrorKind::kBadResponse, "wrong response from ECU during ID read"},
+        {bytes::Bytes{0x80, 0xF0, 0x10, 0x01, 0x7F}, ErrorKind::kBadResponse, "wrong response from ECU during ID read"},
+        {bytes::Bytes{0x80, 0xF0, 0x10, 0x01, 0xFF}, ErrorKind::kBadResponse, "ECU ID response is too short"},
+        {bytes::Bytes{0x80, 0xF0, 0x10, 0x01, 0xFF, 0x00}, ErrorKind::kBadResponse, "ECU ID response is too short"},
+    };
+    for (const Case& c : cases)
+    {
+        SCOPED_TRACE(c.detail);
+        auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+        transport.QueueNoFrame();
+        ScriptFailedProbe(transport);
+        transport.ExpectWrite(bytes::Bytes{0x80, 0x10, 0xF0, 0x01, 0xBF, 0x40});
+        if (c.reply.has_value())
+        {
+            transport.QueueRead(*c.reply);
+        }
+        else
+        {
+            transport.QueueNoFrame();
+        }
+        RecordingClock clock;
+        FakeCancellationToken cancellation;
+        RecordingEventSink events;
+        EXPECT_THAT(SubaruDensoSh7055_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErrWith(c.kind, Eq(c.detail)));
+        EXPECT_TRUE(transport.ScriptConsumed());
+        EXPECT_THAT(transport.baud_calls, ElementsAre(4800));
+    }
+}
+
+TEST(SubaruDensoSh7055_02Executor, ThirteenByteEcuIdReplyIsLongEnough)
+{
+    auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    transport.QueueNoFrame();
+    ScriptFailedProbe(transport);
+    transport.Exchange(bytes::Bytes{0x80, 0x10, 0xF0, 0x01, 0xBF, 0x40},
+                       bytes::Bytes{0x80, 0x10, 0xF0, 0x08, 0xFF, 0x00, 0x00, 0x00, 0x41, 0x42, 0x43, 0x44, 0x45});
+    transport.QueueError(ErrorKind::kDisconnected, "stop after ECU ID"); // the pre-countdown drain
+    RecordingClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+    EXPECT_THAT(SubaruDensoSh7055_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, Eq("stop after ECU ID")));
+    EXPECT_TRUE(HasLog(events, "ECU ID: 4142434445"));
+}
+
+TEST(SubaruDensoSh7055_02Executor, BadUploadOrKernelIdRepliesFailTheUpload)
+{
+    struct Case
+    {
+        bytes::Bytes upload_reply;
+        bytes::Bytes kernel_id_reply;
+        std::string_view detail;
+    };
+    const std::vector<Case> cases{
+        {bytes::Bytes{0x7F}, {}, "error on kernel upload"},
+        {{}, bytes::Bytes{0xBE, 0xEF, 0x00, 0x01}, "no valid response from ECU after kernel upload"},
+        {{}, Framed(0x7F), "wrong response from ECU after kernel upload"},
+    };
+    for (const Case& c : cases)
+    {
+        SCOPED_TRACE(c.detail);
+        auto plan = ReadPlan();
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+        ScriptWrxPreamble(transport, true);
+        ScriptFirstWrxAttemptConnects(transport);
+        transport.ExpectWrite(ExactUploadRequest());
+        if (!c.upload_reply.empty())
+        {
+            transport.QueueRead(c.upload_reply);
+        }
+        else
+        {
+            transport.QueueNoFrame();
+            transport.Exchange(Framed(0x01), c.kernel_id_reply);
+        }
+        RecordingClock clock;
+        FakeCancellationToken cancellation;
+        RecordingEventSink events;
+        EXPECT_THAT(SubaruDensoSh7055_02Executor{}.Execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErrWith(ErrorKind::kBadResponse, Eq(c.detail)));
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
 }
 
 } // namespace

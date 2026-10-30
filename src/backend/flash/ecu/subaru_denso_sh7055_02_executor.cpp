@@ -86,35 +86,35 @@ Status ChangeBaud(IKlineFlashTransport& transport, const ICancellationToken& can
 Result<std::string> ReadEcuId(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
                               IEventSink& events, const SubaruDensoSh7055_02Plan& family_plan)
 {
-    if (Status baud = ChangeBaud(transport, cancellation, 4800); !baud.has_value())
-    {
-        return std::unexpected(baud.error());
-    }
-    events.Log(LogLevel::kInfo, "Requesting ECU ID");
-    const bytes::Bytes request =
-        ssm_protocol::AddHeader(bytes::Bytes{0xBF}, family_plan.tester_id, family_plan.target_id);
-    Result<IKlineFlashTransport::OptionalBytes> received =
-        DensoBeefKlineExchangeOptional(transport, nullptr, cancellation, request, 0ms, 2000ms);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    if (!received->has_value())
-    {
-        return Fail(ErrorKind::kTimeout, "no response from ECU during ID read");
-    }
-    const bytes::Bytes& response = **received;
-    if (response.size() <= 4 || response[4] != 0xFF)
-    {
-        return Fail(ErrorKind::kBadResponse, "wrong response from ECU during ID read");
-    }
-    if (response.size() < 13)
-    {
-        return Fail(ErrorKind::kBadResponse, "ECU ID response is too short");
-    }
-    std::string ecu_id = EcuIdHex(bytes::ByteView(response).subspan(8, 5));
-    events.Log(LogLevel::kInfo, std::format("ECU ID: {}", ecu_id));
-    return ecu_id;
+    return ChangeBaud(transport, cancellation, 4800)
+        .and_then(
+            [&]
+            {
+                events.Log(LogLevel::kInfo, "Requesting ECU ID");
+                const bytes::Bytes request =
+                    ssm_protocol::AddHeader(bytes::Bytes{0xBF}, family_plan.tester_id, family_plan.target_id);
+                return DensoBeefKlineExchangeOptional(transport, nullptr, cancellation, request, 0ms, 2000ms);
+            })
+        .and_then(
+            [&](const IKlineFlashTransport::OptionalBytes& received) -> Result<std::string>
+            {
+                if (!received.has_value())
+                {
+                    return Fail(ErrorKind::kTimeout, "no response from ECU during ID read");
+                }
+                const bytes::Bytes& response = *received;
+                if (response.size() < 5 || response[4] != 0xFF)
+                {
+                    return Fail(ErrorKind::kBadResponse, "wrong response from ECU during ID read");
+                }
+                if (response.size() < 13)
+                {
+                    return Fail(ErrorKind::kBadResponse, "ECU ID response is too short");
+                }
+                std::string ecu_id = EcuIdHex(bytes::ByteView(response).subspan(8, 5));
+                events.Log(LogLevel::kInfo, std::format("ECU ID: {}", ecu_id));
+                return ecu_id;
+            });
 }
 
 // The plan's upfront CycleIgnition confirmation replaces the legacy
@@ -125,13 +125,10 @@ Status EnterBootMode(IKlineFlashTransport& transport, IClock& clock, const ICanc
                      IEventSink& events)
 {
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:170-172.
-    if (Status disabled =
-            DensoBeefKlineGuarded(cancellation, "disabling LEC lines", [&] { return transport.DisableLecLines(); });
-        !disabled.has_value())
-    {
-        return disabled;
-    }
-    if (Status drained = Drain(transport, cancellation, 10ms, "pre-countdown drain"); !drained.has_value())
+    if (Status drained =
+            DensoBeefKlineGuarded(cancellation, "disabling LEC lines", [&] { return transport.DisableLecLines(); })
+                .and_then([&] { return Drain(transport, cancellation, 10ms, "pre-countdown drain"); });
+        !drained.has_value())
     {
         return drained;
     }
@@ -146,21 +143,14 @@ Status EnterBootMode(IKlineFlashTransport& transport, IClock& clock, const ICanc
         }
     }
     events.Log(LogLevel::kInfo, "Switch Ignition ON!");
-    if (Status slept = clock.Sleep(250ms, cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    if (Status pulsed =
-            DensoBeefKlineGuarded(cancellation, "LEC pulse", [&] { return transport.PulseLec2Line(200ms); });
-        !pulsed.has_value())
-    {
-        return pulsed;
-    }
-    if (Status drained = Drain(transport, cancellation, 10ms, "post-pulse drain"); !drained.has_value())
-    {
-        return drained;
-    }
-    return clock.Sleep(190ms, cancellation);
+    return clock.Sleep(250ms, cancellation)
+        .and_then(
+            [&]
+            {
+                return DensoBeefKlineGuarded(cancellation, "LEC pulse", [&] { return transport.PulseLec2Line(200ms); });
+            })
+        .and_then([&] { return Drain(transport, cancellation, 10ms, "post-pulse drain"); })
+        .and_then([&] { return clock.Sleep(190ms, cancellation); });
 }
 
 // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:198-228.
@@ -310,14 +300,16 @@ Status SubaruDensoSh7055_02Executor::ConnectBootloader(IKlineFlashTransport& tra
                                                        const SubaruDensoSh7055_02Plan& family_plan, bool read_ecu_id,
                                                        bool& kernel_alive, std::optional<std::string>& ecu_id) const
 {
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled before connect"); !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    events.Log(LogLevel::kInfo, "Checking if kernel is already running...");
-    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:108-131 and
-    // 1169-1198.
-    Result<bytes::Bytes> probe = RequestKernelId(transport, clock, cancellation);
+    Result<bytes::Bytes> probe = CheckCancelled(cancellation, "cancelled before connect")
+                                     .and_then(
+                                         [&]
+                                         {
+                                             events.Log(LogLevel::kInfo, "Checking if kernel is already running...");
+                                             // Legacy
+                                             // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:
+                                             // 108-131 and 1169-1198.
+                                             return RequestKernelId(transport, clock, cancellation);
+                                         });
     if (!probe.has_value())
     {
         return std::unexpected(probe.error());
@@ -337,15 +329,9 @@ Status SubaruDensoSh7055_02Executor::ConnectBootloader(IKlineFlashTransport& tra
         }
         ecu_id = std::move(*id);
     }
-    if (Status baud = ChangeBaud(transport, cancellation, 9600); !baud.has_value())
-    {
-        return baud;
-    }
-    if (Status boot = EnterBootMode(transport, clock, cancellation, events); !boot.has_value())
-    {
-        return boot;
-    }
-    Result<bool> connected = InitBootloader(transport, cancellation);
+    Result<bool> connected = ChangeBaud(transport, cancellation, 9600)
+                                 .and_then([&] { return EnterBootMode(transport, clock, cancellation, events); })
+                                 .and_then([&] { return InitBootloader(transport, cancellation); });
     if (!connected.has_value())
     {
         return std::unexpected(connected.error());
@@ -426,43 +412,40 @@ Status SubaruDensoSh7055_02Executor::UploadKernel(IKlineFlashTransport& transpor
     // period after the raw write and before reading its upload response.
     // IClock keeps that wait deterministic and cancellation-aware.
     const std::chrono::milliseconds post_upload_delay = transport.RequiresPostKernelUploadDelay() ? 5000ms : 0ms;
-    Result<IKlineFlashTransport::OptionalBytes> upload_response =
-        DensoBeefKlineExchangeOptional(transport, &clock, cancellation, request, post_upload_delay, 200ms);
-    if (!upload_response.has_value())
-    {
-        return std::unexpected(upload_response.error());
-    }
-    if (upload_response->has_value() && !(**upload_response).empty())
-    {
-        return Fail(ErrorKind::kBadResponse, "error on kernel upload");
-    }
-    events.Log(LogLevel::kInfo, "Kernel uploaded successfully");
-
-    if (Status baud = ChangeBaud(transport, cancellation, 62500); !baud.has_value())
-    {
-        return baud;
-    }
-    if (Status slept = clock.Sleep(100ms, cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-    // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:323-352 and
-    // 1169-1198.
-    Result<bytes::Bytes> id = RequestKernelId(transport, clock, cancellation);
-    if (!id.has_value())
-    {
-        return std::unexpected(id.error());
-    }
-    if (id->size() <= 4)
-    {
-        return Fail(ErrorKind::kBadResponse, "no valid response from ECU after kernel upload");
-    }
-    if (!DensoBeefKlineResponseOk(*id, static_cast<bytes::Byte>(kDensoKlineOpId | 0x40U)))
-    {
-        return Fail(ErrorKind::kBadResponse, "wrong response from ECU after kernel upload");
-    }
-    events.Log(LogLevel::kInfo, "Kernel is alive");
-    return {};
+    return DensoBeefKlineExchangeOptional(transport, &clock, cancellation, request, post_upload_delay, 200ms)
+        .and_then(
+            [](const IKlineFlashTransport::OptionalBytes& upload_response) -> Status
+            {
+                if (upload_response.has_value() && !upload_response->empty())
+                {
+                    return Fail(ErrorKind::kBadResponse, "error on kernel upload");
+                }
+                return {};
+            })
+        .and_then(
+            [&]
+            {
+                events.Log(LogLevel::kInfo, "Kernel uploaded successfully");
+                return ChangeBaud(transport, cancellation, 62500);
+            })
+        .and_then([&] { return clock.Sleep(100ms, cancellation); })
+        // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:323-352
+        // and 1169-1198.
+        .and_then([&] { return RequestKernelId(transport, clock, cancellation); })
+        .and_then(
+            [&](const bytes::Bytes& id) -> Status
+            {
+                if (id.size() <= 4)
+                {
+                    return Fail(ErrorKind::kBadResponse, "no valid response from ECU after kernel upload");
+                }
+                if (!DensoBeefKlineResponseOk(id, static_cast<bytes::Byte>(kDensoKlineOpId | 0x40U)))
+                {
+                    return Fail(ErrorKind::kBadResponse, "wrong response from ECU after kernel upload");
+                }
+                events.Log(LogLevel::kInfo, "Kernel is alive");
+                return {};
+            });
 }
 
 Result<bytes::Bytes> SubaruDensoSh7055_02Executor::ReadMem(IKlineFlashTransport& transport, IClock& clock,
@@ -527,25 +510,20 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::ReadBlockCrc(IKlineFlashTran
 {
     // Legacy check_romcrc(), lines 645-749: request the ECU CRC for the
     // physical [start, start + length) block.
-    Result<bytes::Bytes> response = DensoBeefKlineRequestBlockCrc(transport, cancellation, block);
-    if (Status more = response.and_then([&](bytes::Bytes& first)
-                                        { return ReadCrcContinuation(transport, clock, cancellation, first); });
-        !more.has_value())
-    {
-        return std::unexpected(more.error());
-    }
-    const Result<std::uint32_t> crc = UnwrapCrc(*response);
+    const Result<std::uint32_t> crc = DensoBeefKlineRequestBlockCrc(transport, cancellation, block)
+                                          .and_then(
+                                              [&](bytes::Bytes response)
+                                              {
+                                                  return ReadCrcContinuation(transport, clock, cancellation, response)
+                                                      .and_then([&] { return UnwrapCrc(response); });
+                                              });
     if (!crc.has_value())
     {
         return crc;
     }
     // Legacy lines 742 and 748 perform a short read after either compare
     // outcome, so drain every successful CRC decode before returning it.
-    if (Status drained = Drain(transport, cancellation, 200ms, "CRC response drain"); !drained.has_value())
-    {
-        return std::unexpected(drained.error());
-    }
-    return crc;
+    return Drain(transport, cancellation, 200ms, "CRC response drain").transform([&] { return *crc; });
 }
 
 Status SubaruDensoSh7055_02Executor::FlashBlock(IKlineFlashTransport& transport, IClock& clock,
@@ -646,12 +624,8 @@ Result<KlineConfig> SubaruDensoSh7055_02Executor::Setup(const SubaruDensoSh7055_
 
 Status SubaruDensoSh7055_02Executor::BeforeTransportOpen(const ICancellationToken& cancellation) const
 {
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled after transport configuration");
-        !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    return CheckCancelled(cancellation, "cancelled before opening transport");
+    return CheckCancelled(cancellation, "cancelled after transport configuration")
+        .and_then([&] { return CheckCancelled(cancellation, "cancelled before opening transport"); });
 }
 
 Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::Run(const SubaruDensoSh7055_02Plan& family_plan,
@@ -659,24 +633,19 @@ Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::Run(const SubaruDenso
                                                                IClock& clock, const ICancellationToken& cancellation,
                                                                IEventSink& events)
 {
-    // Plan admission is the cancellation checkpoint before the LEC lines.
-    if (Status disabled = kline.DisableLecLines(); !disabled.has_value())
-    {
-        return std::unexpected(disabled.error());
-    }
-    if (Status cancelled = CheckCancelled(cancellation, "cancelled after disabling LEC lines"); !cancelled.has_value())
-    {
-        return std::unexpected(cancelled.error());
-    }
-    if (Status drained = Drain(kline, cancellation, 10ms, "initial drain"); !drained.has_value())
-    {
-        return std::unexpected(drained.error());
-    }
-
     bool kernel_alive = false;
     std::optional<std::string> ecu_id;
-    if (Status connected = ConnectBootloader(kline, clock, cancellation, events, family_plan, family_plan.read_ecu_id,
-                                             kernel_alive, ecu_id);
+    // Plan admission is the cancellation checkpoint before the LEC lines.
+    if (Status connected =
+            kline.DisableLecLines()
+                .and_then([&] { return CheckCancelled(cancellation, "cancelled after disabling LEC lines"); })
+                .and_then([&] { return Drain(kline, cancellation, 10ms, "initial drain"); })
+                .and_then(
+                    [&]
+                    {
+                        return ConnectBootloader(kline, clock, cancellation, events, family_plan,
+                                                 family_plan.read_ecu_id, kernel_alive, ecu_id);
+                    });
         !connected.has_value())
     {
         return std::unexpected(connected.error());
