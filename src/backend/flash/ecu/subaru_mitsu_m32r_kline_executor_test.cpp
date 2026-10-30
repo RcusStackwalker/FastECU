@@ -197,6 +197,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     EXPECT_EQ(*result->read_bytes, expected);
     EXPECT_EQ(transport.WritesConsumed(), 6U + 3840U);
     EXPECT_EQ(transport.read_timeouts.size(), 6U + 3840U);
+    EXPECT_THAT(events.logs, ::testing::Contains(::testing::Pair(LogLevel::kInfo, "ECU ID: 123456789A")));
     EXPECT_THAT(events.logs, ::testing::Contains(::testing::Pair(
                                  LogLevel::kWarning,
                                  "The first 0x8000 ROM bytes are synthetic 0xFF; this protocol reads userspace only")));

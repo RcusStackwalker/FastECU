@@ -55,6 +55,7 @@ using testing::Contains;
 using testing::Each;
 using ::testing::Eq;
 using testing::IsEmpty;
+using ::testing::Not;
 using ::testing::Optional;
 using testing::Pair;
 
@@ -473,6 +474,26 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadTimeoutAtTheTolerantDumpSetupStillPropa
 
     fastecu::flash::testing::ExpectReadFailsWith<SubaruDenso1n83m_4mCanExecutor>(ReadPlan(), transport,
                                                                                  ErrorKind::kTimeout);
+}
+
+// The channel strips the CAN envelope, so a correct dump-setup reply is
+// exactly the four payload bytes the tolerant check needs: both are accepted
+// without logging either error.
+TEST(SubaruDenso1n83m_4mCanExecutor, ExactFourByteDumpSetupRepliesAreAcceptedSilently)
+{
+    ScriptedCanFlashTransport transport;
+    ScriptBenchConnect(transport);
+    ScriptReadSetup(transport);
+    ScriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0x5A);
+    ScriptStopCommand(transport);
+
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    auto [clock, events, cancellation, result] = ExecutorRun<SubaruDenso1n83m_4mCanExecutor>(*plan, transport);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_TRUE(transport.ScriptConsumed());
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kError, _))));
 }
 
 // The same boundary one step later: a transport failure at the 0x35 upload
