@@ -145,16 +145,9 @@ Result<FlashPlan> BuildSubaruTcuHitachiM32rCanPlan(FlashOperation operation, std
                                                    .write_frame_size = kWriteFrameSize},
         .confirmations = {},
     };
-    Result<FlashPlan> plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (Status valid = ValidateSubaruTcuHitachiM32rCanPlan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return ValidateAndBuild(std::move(fields))
+        .and_then([](FlashPlan plan)
+                  { return ValidateSubaruTcuHitachiM32rCanPlan(plan).transform([&] { return std::move(plan); }); });
 }
 
 } // namespace fastecu::flash
