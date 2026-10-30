@@ -430,7 +430,7 @@ void ScriptIdentityQueries(ScriptedCanFlashTransport& transport)
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x49, 0x04, 0x00, 0x43, 0x41, 0x4C});
 }
 
-void ScriptStrictSessionAndSecurity(ScriptedCanFlashTransport& transport)
+void ScriptStrictSessionAndSecurity(ScriptedCanFlashTransport& transport, bytes::Byte programming_echo = 0x42)
 {
     // connect_bootloader(), r59f4e442 lines 216-359. Seed 11 22 33 44 maps
     // to 35 B6 83 BF; the literal is fixed independently of executor code.
@@ -441,7 +441,7 @@ void ScriptStrictSessionAndSecurity(ScriptedCanFlashTransport& transport)
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
     transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x67, 0x02});
     transport.ExpectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x02});
-    transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x42});
+    transport.QueueRead(Response(bytes::Bytes{0x50, programming_echo}));
 }
 
 void QueueUploadB6Reply(ScriptedCanFlashTransport& transport, UploadB6Reply reply)
@@ -1046,12 +1046,13 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeTreatsLegacyNonterminalR
         kAdapterError,
         kShort,
         kMalformedLength,
+        kTruncatedLength,
         kWrongCanId,
         kWrongOpcode,
     };
-    for (const ProbeReply reply :
-         {ProbeReply::kNoFrame, ProbeReply::kTimeout, ProbeReply::kAdapterError, ProbeReply::kShort,
-          ProbeReply::kMalformedLength, ProbeReply::kWrongCanId, ProbeReply::kWrongOpcode})
+    for (const ProbeReply reply : {ProbeReply::kNoFrame, ProbeReply::kTimeout, ProbeReply::kAdapterError,
+                                   ProbeReply::kShort, ProbeReply::kMalformedLength, ProbeReply::kTruncatedLength,
+                                   ProbeReply::kWrongCanId, ProbeReply::kWrongOpcode})
     {
         SCOPED_TRACE(static_cast<int>(reply));
         auto plan = ReadPlan(kCases[1]);
@@ -1087,6 +1088,10 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeTreatsLegacyNonterminalR
                 break;
             case ProbeReply::kMalformedLength:
                 transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x02, 0x41});
+                transport.QueueNoFrame();
+                break;
+            case ProbeReply::kTruncatedLength:
+                transport.QueueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41});
                 transport.QueueNoFrame();
                 break;
             case ProbeReply::kWrongCanId:
@@ -2197,7 +2202,8 @@ class SubaruTcuDensoSh705xCanColdTest : public ::testing::Test
     using Logs = std::vector<std::pair<LogLevel, std::string>>;
 
     Result<FlashExecutionResult> ExecuteCold(const Outcome& ecu_reply,
-                                             bytes::Bytes cal_reply = {0x49, 0x04, 0x01, 'C', 'A', 'L'})
+                                             bytes::Bytes cal_reply = {0x49, 0x04, 0x01, 'C', 'A', 'L'},
+                                             bytes::Byte programming_echo = 0x42)
     {
         auto plan = ReadPlan(kCases.front());
         if (!plan.has_value())
@@ -2219,9 +2225,8 @@ class SubaruTcuDensoSh705xCanColdTest : public ::testing::Test
                                                          ecu_reply.error().kind == ErrorKind::kDisconnected);
         if (!terminal)
         {
-            transport_.ExpectWrite(Request(bytes::Bytes{0x09, 0x04}));
-            transport_.QueueRead(Response(cal_reply));
-            ScriptStrictSessionAndSecurity(transport_);
+            transport_.Exchange(Request(bytes::Bytes{0x09, 0x04}), Response(cal_reply));
+            ScriptStrictSessionAndSecurity(transport_, programming_echo);
             ScriptKernelUpload(transport_, kCases.front());
             ScriptKernelAlive(transport_);
             ScriptReadPages(transport_, kCases.front().rom_size);
@@ -2288,6 +2293,28 @@ TEST_F(SubaruTcuDensoSh705xCanColdTest, IdentityWrongReplyKeepsTcuPduWording)
     EXPECT_THAT(Section("Requesting CAL ID", "Requesting session mode"),
                 ElementsAre(Pair(LogLevel::kError, "Wrong response from TCU: 7f 09 ")));
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Requesting CAL ID")));
+}
+
+TEST_F(SubaruTcuDensoSh705xCanColdTest, OpcodeOnlyKernelIdContinuesToReadWithoutColdInitialization)
+{
+    auto plan = ReadPlan(kCases.front());
+    ASSERT_THAT(plan, IsOk());
+    ConfigureAndOpen(executor_, *plan, transport_);
+    transport_.Exchange(KernelIdRequest(), bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x41});
+    transport_.QueueNoFrame();
+    ScriptReadPages(transport_, kCases.front().rom_size);
+    EXPECT_THAT(executor_.Execute(*plan, transport_, clock_, cancellation_, events_), IsOk());
+    EXPECT_TRUE(transport_.ScriptConsumed());
+    EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Kernel ID: ")));
+}
+
+TEST_F(SubaruTcuDensoSh705xCanColdTest, MinimalCalIdAndProgrammingSessionRepliesRemainAccepted)
+{
+    const auto result = ExecuteCold(Fail(ErrorKind::kTimeout, ""), {0x49, 0x04, 0x01}, 0x02);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_THAT(result->rom_id, Optional(Eq("_")));
+    EXPECT_THAT(Section("Requesting CAL ID", "Requesting session mode"),
+                ElementsAre(Pair(LogLevel::kInfo, "CAL ID: ")));
 }
 
 } // namespace

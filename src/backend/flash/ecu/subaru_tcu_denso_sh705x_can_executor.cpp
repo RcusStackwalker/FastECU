@@ -84,27 +84,12 @@ void LogWrongPdu(const Context& context, bytes::ByteView pdu)
     LogError(context, std::format("Wrong response from TCU: {}", bytes::ToHex(pdu)));
 }
 
-Result<std::optional<bytes::Bytes>> IdentityQuery(Context& context, bytes::ByteView pdu)
-{
-    if (const Status checkpoint = CancelledIfRequested(context, "cancelled before CAN request");
-        !checkpoint.has_value())
-    {
-        return std::unexpected(checkpoint.error());
-    }
-    if (const Status sent = context.channel.Send(pdu, context.cancellation); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    if (const Status delayed = context.clock.Sleep(kExtraShortTimeout, context.cancellation); !delayed.has_value())
-    {
-        return std::unexpected(delayed.error());
-    }
-    return context.channel.Receive(kReadTimeout, context.cancellation);
-}
-
 Result<std::optional<bytes::Bytes>> NonfatalQuery(Context& context, bytes::ByteView pdu)
 {
-    auto received = IdentityQuery(context, pdu);
+    auto received = CancelledIfRequested(context, "cancelled before CAN request")
+                        .and_then([&] { return context.channel.Send(pdu, context.cancellation); })
+                        .and_then([&] { return context.clock.Sleep(kExtraShortTimeout, context.cancellation); })
+                        .and_then([&] { return context.channel.Receive(kReadTimeout, context.cancellation); });
     if (!received.has_value())
     {
         const Error& failure = received.error();
@@ -138,20 +123,6 @@ Result<std::optional<std::string>> Malformed(bool tolerate_malformed, Error erro
         return std::optional<std::string>{};
     }
     return std::unexpected(std::move(error));
-}
-
-Status SendKernelIdProbe(Context& context, bytes::ByteView request, bytes::ByteView wire_request)
-{
-    if (const Status checkpoint = CancelledIfRequested(context, "kernel ID probe cancelled"); !checkpoint.has_value())
-    {
-        return checkpoint;
-    }
-    if (const Status sent = context.channel.Send(request, context.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    LogInfo(context, std::format("Kernel ID request: {}", bytes::ToHex(wire_request)));
-    return context.clock.Sleep(kProbeDelay, context.cancellation);
 }
 
 // Legacy lines 1621-1625 keep reading at the short timeout and append every
@@ -249,12 +220,21 @@ Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolera
     // PDU is intentionally kept here instead of deriving it from BEEF
     // constants: 0x7A 0xA0 is the legacy kernel probe, not a BEEF command.
     const bytes::Bytes request{0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    const bytes::Bytes wire_request = ComposeBe(context.request_id, request);
     for (int attempt = 0; attempt < 5; ++attempt)
     {
-        if (const Status sent = SendKernelIdProbe(context, request, wire_request); !sent.has_value())
+        if (const Status checkpoint = CancelledIfRequested(context, "kernel ID probe cancelled");
+            !checkpoint.has_value())
+        {
+            return std::unexpected(checkpoint.error());
+        }
+        if (const Status sent = context.channel.Send(request, context.cancellation); !sent.has_value())
         {
             return std::unexpected(sent.error());
+        }
+        LogInfo(context, std::format("Kernel ID request: {}", bytes::ToHex(ComposeBe(context.request_id, request))));
+        if (const Status delayed = context.clock.Sleep(kProbeDelay, context.cancellation); !delayed.has_value())
+        {
+            return std::unexpected(delayed.error());
         }
         Result<std::optional<bytes::Bytes>> received = context.transport.Read(kLongTimeout, context.cancellation);
         LogInfo(context,
@@ -290,23 +270,6 @@ Status StrictPayload(Context& context, bytes::ByteView pdu, bytes::ByteView expe
         LogError(context, std::format("Wrong response from TCU during {}", label));
         return Fail(ErrorKind::kBadResponse, std::format("unexpected response during {}", label));
     }
-    return {};
-}
-
-Status StrictSeed(Context& context, bytes::Bytes& key)
-{
-    Result<bytes::Bytes> seed_reply = context.uds.Request(
-        bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, kStrictPolicy, context.cancellation);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    const bytes::ByteView payload = uds::Payload(*seed_reply);
-    if (payload.size() < 5 || payload[0] != uds::kSecurityAccessRequestSeed)
-    {
-        return Fail(ErrorKind::kBadResponse, "invalid TCU seed response");
-    }
-    key = DensoSeedKey(payload.subspan(1, 4));
     return {};
 }
 
@@ -376,16 +339,23 @@ Status EnterProgrammingSession(Context& context)
     {
         return session;
     }
-    bytes::Bytes key;
-    if (const Status seed = StrictSeed(context, key); !seed.has_value())
+    const auto seed_reply = context.uds.Request(bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed},
+                                                kStrictPolicy, context.cancellation);
+    if (!seed_reply.has_value())
     {
-        return seed;
+        return std::unexpected(seed_reply.error());
     }
+    const bytes::ByteView seed = uds::Payload(*seed_reply);
+    if (seed.size() < 5 || seed[0] != uds::kSecurityAccessRequestSeed)
+    {
+        return Fail(ErrorKind::kBadResponse, "invalid TCU seed response");
+    }
+    const bytes::Bytes key = DensoSeedKey(seed.subspan<1, 4>());
     LogInfo(context, "Seed request ok");
     LogInfo(context, "Sending seed key");
-    bytes::Bytes key_request{uds::kSidSecurityAccess, uds::kSecurityAccessSendKey};
-    key_request.insert(key_request.end(), key.begin(), key.end());
-    if (const Status key_status = StrictPayload(context, key_request, bytes::Bytes{0x02}, "seed key");
+    if (const Status key_status =
+            StrictPayload(context, ComposeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, key),
+                          bytes::Bytes{0x02}, "seed key");
         !key_status.has_value())
     {
         return key_status;
