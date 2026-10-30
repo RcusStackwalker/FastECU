@@ -220,11 +220,8 @@ constexpr std::string_view kAckWrite = "ACK_WR";
 Status SendAndAck(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                   bytes::ByteView request, std::string_view token, std::chrono::milliseconds budget)
 {
-    if (auto written = WriteExact(transport, request); !written.has_value())
-    {
-        return written;
-    }
-    return ExpectAck(transport, clock, cancellation, token, budget);
+    return WriteExact(transport, request)
+        .and_then([&] { return ExpectAck(transport, clock, cancellation, token, budget); });
 }
 
 // write_mem() :296-305 reads and logs these replies without checking them;
@@ -248,15 +245,17 @@ Status WriteKernelToRam(bytes::ByteView kernel, IKlineFlashTransport& transport,
                         const ICancellationToken& cancellation, IEventSink& events)
 {
     // write_mem() :226.
-    if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
-    {
-        return cleared;
-    }
-    // flash_block() :378-399.
-    events.Log(LogLevel::kInfo, std::format("Writing block: 00 at address 0x{:08X}", kRamStart));
-    if (auto started = SendAndAck(transport, clock, cancellation,
-                                  Ascii(std::format("wdmem 0x{:08X} 0x{:08X}", kRamStart, kernel.size())), kAckCommand,
-                                  kExtraLongTimeout);
+    if (auto started =
+            Discard(transport, clock, cancellation, events, kShortTimeout)
+                .and_then(
+                    [&]
+                    {
+                        // flash_block() :378-399.
+                        events.Log(LogLevel::kInfo, std::format("Writing block: 00 at address 0x{:08X}", kRamStart));
+                        return SendAndAck(transport, clock, cancellation,
+                                          Ascii(std::format("wdmem 0x{:08X} 0x{:08X}", kRamStart, kernel.size())),
+                                          kAckCommand, kExtraLongTimeout);
+                    });
         !started.has_value())
     {
         return started;
@@ -290,28 +289,16 @@ Status EnableScib(IKlineFlashTransport& transport, IClock& clock, const ICancell
                   IEventSink& events)
 {
     // write_mem() :258-275: enable SCIB (the kernel sets 62500 baud itself).
-    if (auto scib =
-            SendAndAck(transport, clock, cancellation, Ascii("wdmem 0xFFC28 0x4"), kAckCommand, kExtraLongTimeout);
-        !scib.has_value())
-    {
-        return scib;
-    }
-    if (auto cleared = Discard(transport, clock, cancellation, events, kLongTimeout); !cleared.has_value())
-    {
-        return cleared;
-    }
-    // write_mem() :277-294.
-    if (auto scib =
-            SendAndAck(transport, clock, cancellation, bytes::Bytes{0x00, 0x0d, 0x00, 0x0c}, kAckWrite, kLongTimeout);
-        !scib.has_value())
-    {
-        return scib;
-    }
-    if (auto cleared = Discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
-    {
-        return cleared;
-    }
-    return {};
+    return SendAndAck(transport, clock, cancellation, Ascii("wdmem 0xFFC28 0x4"), kAckCommand, kExtraLongTimeout)
+        .and_then([&] { return Discard(transport, clock, cancellation, events, kLongTimeout); })
+        // write_mem() :277-294.
+        .and_then(
+            [&]
+            {
+                return SendAndAck(transport, clock, cancellation, bytes::Bytes{0x00, 0x0d, 0x00, 0x0c}, kAckWrite,
+                                  kLongTimeout);
+            })
+        .and_then([&] { return Discard(transport, clock, cancellation, events, kShortTimeout); });
 }
 
 Status StartKernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
@@ -331,11 +318,8 @@ Status StartKernel(IKlineFlashTransport& transport, IClock& clock, const ICancel
     }
     // write_mem() :317-323. Once `go` is sent the kernel is running: nothing
     // after it can fail or cancel the operation.
-    if (auto cancelled = CancelledIfRequested(cancellation); !cancelled.has_value())
-    {
-        return cancelled;
-    }
-    if (auto written = WriteExact(transport, Ascii("go")); !written.has_value())
+    if (auto written = CancelledIfRequested(cancellation).and_then([&] { return WriteExact(transport, Ascii("go")); });
+        !written.has_value())
     {
         return written;
     }
@@ -354,15 +338,9 @@ Status BootstrapKernel(bytes::ByteView kernel, IKlineFlashTransport& transport, 
                        const ICancellationToken& cancellation, IEventSink& events)
 {
     events.Log(LogLevel::kInfo, "Uploading kernel to Subaru Denso MC68HC16 RAM with BDM");
-    if (auto written = WriteKernelToRam(kernel, transport, clock, cancellation, events); !written.has_value())
-    {
-        return written;
-    }
-    if (auto scib = EnableScib(transport, clock, cancellation, events); !scib.has_value())
-    {
-        return scib;
-    }
-    return StartKernel(transport, clock, cancellation, events);
+    return WriteKernelToRam(kernel, transport, clock, cancellation, events)
+        .and_then([&] { return EnableScib(transport, clock, cancellation, events); })
+        .and_then([&] { return StartKernel(transport, clock, cancellation, events); });
 }
 } // namespace
 

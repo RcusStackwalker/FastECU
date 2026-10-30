@@ -5,8 +5,10 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <format>
 #include <iterator>
+#include <optional>
 #include <ranges>
 #include <string_view>
 #include <vector>
@@ -14,6 +16,7 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_plan.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/testing/faulting_kline_flash_transport.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -761,6 +764,107 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, DiscardLogsAnyBytesItDrainsAtDebugLeve
     ASSERT_THAT(result, IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kDebug, "BDM discarded: de ad ")));
+}
+
+// Writes up to and including `go`; once it is sent the kernel is running and
+// nothing after it fails the bootstrap.
+constexpr std::size_t kWritesThroughGo = 7;
+
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, EveryRawTransportFaultBeforeGoStopsTheBootstrap)
+{
+    auto plan = WritePlan();
+    ASSERT_THAT(plan, IsOk());
+    for (const KlineFaultOp op : {KlineFaultOp::kWriteRaw, KlineFaultOp::kReadRaw})
+    {
+        SCOPED_TRACE(::testing::Message() << "op " << static_cast<int>(op));
+        std::size_t count = 0;
+        {
+            FaultingKlineFlashTransport transport;
+            transport.op = op;
+            ScriptBootstrap(*plan, transport);
+            FakeClock clock;
+            FakeCancellationToken cancellation;
+            RecordingEventSink events;
+            ASSERT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                        IsOk());
+            count = transport.calls;
+        }
+        ASSERT_GT(count, 0U);
+        for (std::size_t k = 1; k <= count; ++k)
+        {
+            SCOPED_TRACE(::testing::Message() << "call " << k);
+            FaultingKlineFlashTransport transport;
+            transport.op = op;
+            transport.fail_at = k;
+            ScriptBootstrap(*plan, transport);
+            FakeClock clock;
+            FakeCancellationToken cancellation;
+            RecordingEventSink events;
+            const auto result =
+                SubaruDensoMc68hc16y5_02BdmExecutor{}.Execute(*plan, transport, clock, cancellation, events);
+            ASSERT_THAT(transport.writes_at_fault, Optional(_));
+            if (*transport.writes_at_fault >= kWritesThroughGo)
+            {
+                EXPECT_THAT(result, IsOk());
+                continue;
+            }
+            EXPECT_THAT(result, IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
+            EXPECT_EQ(transport.writes_at_fault, std::optional<std::size_t>{transport.WritesConsumed()});
+        }
+    }
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, EveryCancellationCheckBeforeGoStopsTheBootstrap)
+{
+    auto plan = WritePlan();
+    ASSERT_THAT(plan, IsOk());
+    std::size_t checks = 0;
+    {
+        ScriptedKlineFlashTransport transport;
+        ScriptBootstrap(*plan, transport);
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        cancellation.SetPredicate(
+            [&]
+            {
+                ++checks;
+                return false;
+            });
+        RecordingEventSink events;
+        ASSERT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+                    IsOk());
+    }
+    ASSERT_GT(checks, 0U);
+    for (std::size_t n = 1; n <= checks; ++n)
+    {
+        SCOPED_TRACE(n);
+        ScriptedKlineFlashTransport transport;
+        ScriptBootstrap(*plan, transport);
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        std::size_t seen = 0;
+        std::optional<std::size_t> writes_at_cancel;
+        cancellation.SetPredicate(
+            [&]
+            {
+                if (++seen == n)
+                {
+                    writes_at_cancel = transport.WritesConsumed();
+                }
+                return seen >= n;
+            });
+        RecordingEventSink events;
+        const auto result =
+            SubaruDensoMc68hc16y5_02BdmExecutor{}.Execute(*plan, transport, clock, cancellation, events);
+        ASSERT_THAT(writes_at_cancel, Optional(_));
+        if (*writes_at_cancel >= kWritesThroughGo)
+        {
+            EXPECT_THAT(result, IsOk());
+            continue;
+        }
+        EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
+        EXPECT_EQ(writes_at_cancel, std::optional<std::size_t>{transport.WritesConsumed()});
+    }
 }
 } // namespace
 } // namespace fastecu::flash

@@ -16,6 +16,8 @@ enum class KlineFaultOp
     kHeaderMode,
     kDisableLecLines,
     kPulseLec2Line,
+    kWriteRaw,
+    kReadRaw,
 };
 
 // A scripted K-Line transport that fails the `fail_at`-th call (1-based) of
@@ -80,6 +82,23 @@ class FaultingKlineFlashTransport final : public ScriptedKlineFlashTransport
             return Fail(ErrorKind::kDisconnected, "injected");
         }
         return ScriptedKlineFlashTransport::PulseLec2Line(timeout);
+    }
+
+    Result<std::size_t> WriteRaw(bytes::ByteView data) override
+    {
+        if (Fault(KlineFaultOp::kWriteRaw))
+        {
+            return Fail(ErrorKind::kDisconnected, "injected");
+        }
+        return ScriptedKlineFlashTransport::WriteRaw(data);
+    }
+    Result<OptionalBytes> ReadRaw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    {
+        if (Fault(KlineFaultOp::kReadRaw))
+        {
+            return Fail(ErrorKind::kDisconnected, "injected");
+        }
+        return ScriptedKlineFlashTransport::ReadRaw(timeout, cancellation);
     }
 
   private:
