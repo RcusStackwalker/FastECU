@@ -153,15 +153,8 @@ Result<FlashPlan> BuildSubaruDensoSh705502Plan(FlashOperation operation, std::st
         .family_plan = WireParams(operation),
         .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}},
     };
-    auto plan = ValidateAndBuild(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (auto valid = ValidateSubaruDensoSh705502Plan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return ValidateAndBuild(std::move(fields))
+        .and_then([](FlashPlan plan)
+                  { return ValidateSubaruDensoSh705502Plan(plan).transform([&] { return std::move(plan); }); });
 }
 } // namespace fastecu::flash
