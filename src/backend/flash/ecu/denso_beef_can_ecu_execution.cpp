@@ -99,23 +99,11 @@ Result<std::optional<bytes::Bytes>>
 ChannelRequestOptional(Context& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout,
                        std::chrono::milliseconds delay = std::chrono::milliseconds{0})
 {
-    if (const Status checkpoint = CancelledIfRequested(ctx, "cancelled before CAN request"); !checkpoint.has_value())
-    {
-        return std::unexpected(checkpoint.error());
-    }
-    if (const Status sent = ctx.channel.Send(pdu, ctx.cancellation); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    if (delay > std::chrono::milliseconds{0})
-    {
-        const Status delayed = ctx.clock.Sleep(delay, ctx.cancellation);
-        if (!delayed.has_value())
-        {
-            return std::unexpected(delayed.error());
-        }
-    }
-    return ctx.channel.Receive(timeout, ctx.cancellation);
+    return CancelledIfRequested(ctx, "cancelled before CAN request")
+        .and_then([&] { return ctx.channel.Send(pdu, ctx.cancellation); })
+        .and_then(
+            [&] { return delay > std::chrono::milliseconds{0} ? ctx.clock.Sleep(delay, ctx.cancellation) : Status{}; })
+        .and_then([&] { return ctx.channel.Receive(timeout, ctx.cancellation); });
 }
 
 constexpr std::chrono::milliseconds kNonfatalReadTimeout{2000};
@@ -399,24 +387,28 @@ Result<RaceRomAltValues> ReadRaceRomAltValues(Context& context, const std::optio
         LogInfo(context, "Unknown EcuTek ROM found... exiting...");
         return Fail(ErrorKind::kBadResponse, "unsupported RaceRom-alt CAL ID");
     }
-    Result<std::uint32_t> seed_alter = ReadRamLocation(context, addresses->seed_address);
-    if (!seed_alter.has_value())
-    {
-        return std::unexpected(seed_alter.error());
-    }
-    LogDebug(context, std::format("Value at RAM loc 0x{:x} is: 0x{:x}", addresses->seed_address, *seed_alter));
-    Result<std::uint32_t> xor_value = ReadRamLocation(context, addresses->xor_address);
-    if (!xor_value.has_value())
-    {
-        return std::unexpected(xor_value.error());
-    }
-    LogDebug(context, std::format("Value at RAM loc 0x{:x} is: 0x{:x}", addresses->xor_address, *xor_value));
-    const RaceRomAltValues values{.seed_alter = *seed_alter,
-                                  .xor_byte_1 = static_cast<bytes::Byte>((*xor_value >> 8U) & 0xFFU),
-                                  .xor_byte_2 = static_cast<bytes::Byte>(*xor_value & 0xFFU)};
-    LogInfo(context, std::format("Seed alter is: 0x{:x}", values.seed_alter));
-    LogInfo(context, std::format("XOR values are: 0x{:x} and 0x{:x}", values.xor_byte_1, values.xor_byte_2));
-    return values;
+    return ReadRamLocation(context, addresses->seed_address)
+        .and_then(
+            [&](std::uint32_t seed_alter)
+            {
+                LogDebug(context,
+                         std::format("Value at RAM loc 0x{:x} is: 0x{:x}", addresses->seed_address, seed_alter));
+                return ReadRamLocation(context, addresses->xor_address)
+                    .transform(
+                        [&](std::uint32_t xor_value)
+                        {
+                            LogDebug(context, std::format("Value at RAM loc 0x{:x} is: 0x{:x}", addresses->xor_address,
+                                                          xor_value));
+                            const RaceRomAltValues values{.seed_alter = seed_alter,
+                                                          .xor_byte_1 =
+                                                              static_cast<bytes::Byte>((xor_value >> 8U) & 0xFFU),
+                                                          .xor_byte_2 = static_cast<bytes::Byte>(xor_value & 0xFFU)};
+                            LogInfo(context, std::format("Seed alter is: 0x{:x}", values.seed_alter));
+                            LogInfo(context, std::format("XOR values are: 0x{:x} and 0x{:x}", values.xor_byte_1,
+                                                         values.xor_byte_2));
+                            return values;
+                        });
+            });
 }
 
 template <typename Family> struct EcuFamilyTraits;
