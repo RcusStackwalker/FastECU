@@ -176,6 +176,20 @@ more earlier steps, and when a failure branch does more than propagate
 (cleanup, logging, a different error). A qualifying run inside a longer
 function is chained on its own.
 
+**A lambda that only logs and runs one step is a `LogThen`.** When an
+`and_then` lambda's body is info logs plus one `return` of a step that ignores
+the incoming value, use `LogThen` from
+[logged_step.h](../src/backend/ports/logged_step.h); a multi-line `.transform`
+that only logs is a `LogDone`. Messages are captured when the chain is built,
+so one that depends on an earlier step's result stays in a hand-written
+lambda, as does any lambda that logs at another level:
+
+```cpp
+return Handshake(...)
+    .and_then(LogThen(events, "Seed key ok", "Jumping to kernel", [&] { return Jump(...); }))
+    .and_then(LogThen(events, "Requesting kernel ID", [&] { return RequestKernelId(...); }));
+```
+
 **Exceptions never cross a port.** The `ErrorKind` set in
 [error.h](../src/backend/ports/error.h) is closed; adding a value needs an
 [ADR](adr/README.md).

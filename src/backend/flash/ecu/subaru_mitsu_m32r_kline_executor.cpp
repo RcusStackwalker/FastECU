@@ -9,6 +9,7 @@
 #include "src/backend/flash/ecu/m32r_ssm_exchange.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
 #include "src/backend/ports/cancellation.h"
+#include "src/backend/ports/logged_step.h"
 
 namespace fastecu::flash
 {
@@ -67,20 +68,14 @@ bytes::Bytes Encrypt(bytes::ByteView image)
 Result<std::string> Handshake(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                               IEventSink& events, const SubaruMitsuM32rKlinePlan& p)
 {
-    // Legacy wire sequence and delays: flash_ecu_subaru_mitsu_m32r_kline_operation.cpp
-    // connect_bootloader() lines 85-248 and send_sid_bf/81/83/27/10 lines 691-815.
     const auto request = [&](bytes::Bytes payload, std::initializer_list<bytes::Byte> expected)
     {
         return Exchange(transport, cancellation, payload, p)
             .and_then([&](const bytes::Bytes& response) { return ExpectService(response, expected); });
     };
     return clock.Sleep(100ms, cancellation)
-        .and_then(
-            [&]
-            {
-                events.Log(LogLevel::kInfo, "Requesting ECU ID");
-                return Exchange(transport, cancellation, bytes::Bytes{0xbf}, p);
-            })
+        .and_then(LogThen(events, "Requesting ECU ID",
+                          [&] { return Exchange(transport, cancellation, bytes::Bytes{0xbf}, p); }))
         .and_then(
             [&](const bytes::Bytes& id)
             {
@@ -107,21 +102,15 @@ Result<std::string> Handshake(IKlineFlashTransport& transport, IClock& clock, co
             {
                 events.Log(LogLevel::kInfo, "Requesting to start communication");
                 return request({0x81}, {0xc1})
-                    .and_then(
+                    .and_then(LogThen(events, "Start communication ok", "Requesting timings params",
+                                      [&] { return request({0x83, 0x00}, {0xc3}); }))
+                    .and_then(LogThen(
+                        events, "Timing parameters ok", "Requesting seed",
                         [&]
                         {
-                            events.Log(LogLevel::kInfo, "Start communication ok");
-                            events.Log(LogLevel::kInfo, "Requesting timings params");
-                            return request({0x83, 0x00}, {0xc3});
-                        })
-                    .and_then(
-                        [&]
-                        {
-                            events.Log(LogLevel::kInfo, "Timing parameters ok");
-                            events.Log(LogLevel::kInfo, "Requesting seed");
                             return Exchange(transport, cancellation,
                                             bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, p);
-                        })
+                        }))
                     .and_then(
                         [&](const bytes::Bytes& seed_response)
                         {
@@ -140,13 +129,8 @@ Result<std::string> Handshake(IKlineFlashTransport& transport, IClock& clock, co
                                         return request(std::move(key_request), {0x67, uds::kSecurityAccessSendKey});
                                     });
                         })
-                    .and_then(
-                        [&]
-                        {
-                            events.Log(LogLevel::kInfo, "Seed key ok");
-                            events.Log(LogLevel::kInfo, "Set session mode");
-                            return request({uds::kSidDiagnosticSessionControl, 0x85, 0x02}, {0x50});
-                        })
+                    .and_then(LogThen(events, "Seed key ok", "Set session mode",
+                                      [&] { return request({uds::kSidDiagnosticSessionControl, 0x85, 0x02}, {0x50}); }))
                     .transform(
                         [&]
                         {
@@ -159,7 +143,6 @@ Result<std::string> Handshake(IKlineFlashTransport& transport, IClock& clock, co
 Result<bytes::Bytes> ReadRom(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
                              IEventSink& events, const SubaruMitsuM32rKlinePlan& p, MemoryRegion region)
 {
-    // Legacy SID A0 request and 128-byte loop: operation.cpp lines 250-344 and 665-689.
     bytes::Bytes rom(region.start, p.unread_prefix_fill);
     rom.reserve(region.start + region.length);
     for (std::uint32_t offset = 0; offset < region.length; offset += p.chunk_size)
@@ -189,9 +172,8 @@ Result<bytes::Bytes> ReadRom(IKlineFlashTransport& transport, const ICancellatio
 Status WriteRom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                 IEventSink& events, const SubaruMitsuM32rKlinePlan& p, const FlashPlan& plan)
 {
-    // Legacy baud switch, SID 34/31/36 traffic, acknowledgement tolerance, and checksum:
-    // operation.cpp lines 425-641. Appending below deliberately replaces the legacy
-    // out-of-bounds operator[] construction while preserving the transmitted bytes.
+    // Appending below deliberately replaces the legacy out-of-bounds
+    // operator[] construction while preserving the transmitted bytes.
     const Status erased =
         transport.SetBaud(p.flash_baud)
             .and_then(
@@ -201,14 +183,14 @@ Status WriteRom(IKlineFlashTransport& transport, IClock& clock, const ICancellat
                                     bytes::Bytes{uds::kSidRequestDownload, 0, 0, 0, 0x04, 0x07, 0x80, 0}, p);
                 })
             .and_then([](const bytes::Bytes& setup) { return ExpectService(setup, {0x74}); })
-            .and_then(
-                [&]
-                {
-                    events.Log(LogLevel::kInfo, "Erasing...");
-                    return Exchange(
-                        transport, cancellation,
-                        bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x0f, 0xff, 0xff, 0xff}, p);
-                })
+            .and_then(LogThen(events, "Erasing...",
+                              [&]
+                              {
+                                  return Exchange(transport, cancellation,
+                                                  bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x0f,
+                                                               0xff, 0xff, 0xff},
+                                                  p);
+                              }))
             .and_then([](const bytes::Bytes& erase_reply) { return ExpectService(erase_reply, {0x71}); })
             .and_then([&] { return CheckCancelled(cancellation, "cancelled after erase"); });
     if (!erased.has_value())
@@ -252,12 +234,8 @@ Result<FlashExecutionResult> ExecuteOpenTransport(const FlashPlan& plan, IKlineF
                                                   const SubaruMitsuM32rKlinePlan& parameters)
 {
     return transport.SetAddIso14230Header(false)
-        .and_then(
-            [&]
-            {
-                events.Log(LogLevel::kInfo, "Connecting to ECU K-Line bootloader, please wait...");
-                return Handshake(transport, clock, cancellation, events, parameters);
-            })
+        .and_then(LogThen(events, "Connecting to ECU K-Line bootloader, please wait...",
+                          [&] { return Handshake(transport, clock, cancellation, events, parameters); }))
         .and_then(
             [&](std::string rom_id) -> Result<FlashExecutionResult>
             {

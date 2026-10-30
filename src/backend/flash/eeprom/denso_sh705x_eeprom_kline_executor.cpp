@@ -5,6 +5,7 @@
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/ecu/denso_sh705x_kline_common.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
+#include "src/backend/ports/logged_step.h"
 
 #include <algorithm>
 #include <chrono>
@@ -45,20 +46,18 @@ constexpr std::uint32_t kNp10MaxBlocks = 32;      // NP10_MAXBLKS
 constexpr std::chrono::milliseconds kExtraLongTimeout = 3000ms; // serial_read_extra_long_timeout
 constexpr std::chrono::milliseconds kShortTimeout = 2000ms;     // serial_read_timeout
 
-// delay()/QThread::msleep() call sites, transcribed 1:1 from
-// eeprom_ecu_subaru_denso_sh705x_kline_operation.cpp's line numbers noted
-// at each use below.
-constexpr std::chrono::milliseconds kProbeSettleDelay = 100ms;       // connect_bootloader():169
-constexpr std::chrono::milliseconds kInitSettleDelay = 100ms;        // connect_bootloader():200
-constexpr std::chrono::milliseconds kKernelIdRequestDelay = 200ms;   // request_kernel_id():986
-constexpr std::chrono::milliseconds kKernelAliveSettleDelay = 100ms; // upload_kernel():438
-constexpr std::chrono::milliseconds kKernelPollRetryDelay = 200ms;   // upload_kernel():443
+// Legacy delay()/QThread::msleep() durations, transcribed 1:1.
+constexpr std::chrono::milliseconds kProbeSettleDelay = 100ms;
+constexpr std::chrono::milliseconds kInitSettleDelay = 100ms;
+constexpr std::chrono::milliseconds kKernelIdRequestDelay = 200ms;
+constexpr std::chrono::milliseconds kKernelAliveSettleDelay = 100ms;
+constexpr std::chrono::milliseconds kKernelPollRetryDelay = 200ms;
 constexpr int kMaxKernelAlivePollIterations = 10;
 
-constexpr std::chrono::milliseconds kReadMemPreReadDelay = 500ms;  // read_mem():523
-constexpr std::chrono::milliseconds kReadMemPollDelay = 100ms;     // read_mem():532
-constexpr std::chrono::milliseconds kReadMemInterBlockDelay = 1ms; // read_mem():582
-constexpr int kMaxReadMemInnerRetries = 5;                         // read_mem():526 (`timeout < 5`)
+constexpr std::chrono::milliseconds kReadMemPreReadDelay = 500ms;
+constexpr std::chrono::milliseconds kReadMemPollDelay = 100ms;
+constexpr std::chrono::milliseconds kReadMemInterBlockDelay = 1ms;
+constexpr int kMaxReadMemInnerRetries = 5; // `timeout < 5`
 
 // ---------------------------------------------------------------------
 // Request builders -- transcribed from each send_sid_*()/request_kernel_id()
@@ -103,7 +102,7 @@ bytes::Bytes Sid31Request()
     return {0x31, 0x01, 0x01};
 }
 
-// request_kernel_id(), lines 964-994: NOT SsmProtocol::addHeader-framed.
+// request_kernel_id(): NOT SsmProtocol::addHeader-framed.
 std::array<bytes::Byte, 6> RequestKernelIdFrame()
 {
     return ComposeBeWithChecksum(bytes::Sum8, kSubKernelStartComm, std::uint16_t{1}, kSubKernelId);
@@ -151,8 +150,7 @@ Result<bytes::Bytes> SsmExchange(IKlineFlashTransport& transport, IClock&, const
             });
 }
 
-// request_kernel_id(), lines 964-994 (write) + 984-987 (delay(200) then
-// read). Unlike ssm_exchange(), an empty response here is NOT an error --
+// request_kernel_id(): write, delay(200), then read. Unlike ssm_exchange(), an empty response here is NOT an error --
 // it is the normal "kernel not (yet) running" signal that both
 // connect_bootloader()'s initial probe and upload_kernel()'s alive-poll loop
 // interpret themselves.
@@ -174,7 +172,7 @@ Result<bytes::Bytes> RequestKernelId(IKlineFlashTransport& transport, IClock& cl
         .transform([](OptionalBytes received) { return std::move(received).value_or(bytes::Bytes{}); });
 }
 
-// send_sid_36_transferdata(), lines 755-831: transfers `encrypted` in
+// send_sid_36_transferdata(): transfers `encrypted` in
 // kUploadChunkBytes (128-byte) blocks, cancellation-checked "between
 // chunks" per the Global Constraints. `len` is mutated across iterations
 // exactly as legacy does (decremented on every non-final block so the final
@@ -253,7 +251,7 @@ Status SetBaudAndSettle(IKlineFlashTransport& transport, IClock& clock, const IC
         .and_then([&] { return CheckCancelled(cancellation, std::string(cancelled_after)); });
 }
 
-// lines 198-294: the SSM init handshake, seed/key and programming session.
+// The SSM init handshake, seed/key and programming session.
 Status InitProgrammingSession(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                               IEventSink& events, const DensoSh705xEepromKlinePlan& kline_plan)
 {
@@ -287,22 +285,20 @@ Status InitProgrammingSession(IKlineFlashTransport& transport, IClock& clock, co
                                                   ? DensoSh705xKlineEcutekSeedKey(seed)
                                                   : DensoSh705xKlineStockSeedKey(seed);
                 events.Log(LogLevel::kInfo, "Sending seed key to ECU");
-                // line 277: same positive-response code (0x67) as the request-seed step.
+                // Same positive-response code (0x67) as the request-seed step.
                 return Require(transport, clock, cancellation, kline_plan, Sid27SendKeyRequest(seed_key), 0x67,
                                "SID 27 (send seed key) rejected");
             })
-        .and_then(
-            [&](const bytes::Bytes&)
-            {
-                events.Log(LogLevel::kInfo, "Set session mode");
-                return Require(transport, clock, cancellation, kline_plan, Sid10Request(), 0x50,
-                               "SID 10 (start diagnostic) rejected");
-            })
-        .transform([&](const bytes::Bytes&)
-                   { events.Log(LogLevel::kInfo, "Successfully set to programming session"); });
+        .and_then(LogThen(events, "Set session mode",
+                          [&]
+                          {
+                              return Require(transport, clock, cancellation, kline_plan, Sid10Request(), 0x50,
+                                             "SID 10 (start diagnostic) rejected");
+                          }))
+        .transform(LogDone(events, "Successfully set to programming session"));
 }
 
-// lines 386-405: the checksum-bypass 4-byte trailer after the kernel.
+// The checksum-bypass 4-byte trailer after the kernel.
 Status UploadChecksumBypass(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                             const DensoSh705xEepromKlinePlan& kline_plan, std::uint32_t address)
 {
@@ -322,7 +318,7 @@ Status UploadChecksumBypass(IKlineFlashTransport& transport, IClock& clock, cons
             });
 }
 
-// lines 422-445: up to 10 iterations, 200ms between attempts, 100ms extra
+// Up to 10 iterations, 200ms between attempts, 100ms extra
 // settle once alive.
 Status AwaitKernel(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                    IEventSink& events)
@@ -358,7 +354,7 @@ Status AwaitKernel(IKlineFlashTransport& transport, IClock& clock, const ICancel
 
 // One SID_DUMP request's raw reply: polled until `pagesize` bytes arrive or
 // kMaxReadMemInnerRetries reads time out.
-// line 551: `if (timeout >= 1000)` is legacy dead code -- the loop can only
+// `if (timeout >= 1000)` is legacy dead code -- the loop can only
 // ever reach timeout==kMaxReadMemInnerRetries (5), so it never trips. A page
 // that never fully arrives is therefore silently accepted short rather than
 // erroring; preserved faithfully here (this is not the documented OOB-read
@@ -408,7 +404,7 @@ Result<bytes::Bytes> ReadDumpPage(IKlineFlashTransport& transport, IClock& clock
     return pagedata;
 }
 
-// lines 545-550: strip the [2-byte prefix][32 data][1 trailing] framing per
+// Strip the [2-byte prefix][32 data][1 trailing] framing per
 // block. Bounds-checked rather than mirroring Qt's clamping remove() calls,
 // since pagedata can be short when a partial page gets through -- both
 // approaches take "however much arrived" and neither indexes out of range.
@@ -443,8 +439,7 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::Run(const DensoSh70
     // Force a known-good starting state for the driver's ISO14230 auto-header
     // flag before connect_bootloader()/upload_kernel(), which self-frame
     // every exchange via SsmProtocol::addHeader() and need this OFF to avoid
-    // double-framing (legacy's implicit reliance on the default false --
-    // eeprom_ecu_subaru_denso_sh705x_kline_operation.cpp lines 199/329,
+    // double-framing (legacy's implicit reliance on the default false,
     // commented out). Explicit here (rather than trusting the default)
     // because DesktopKlineFlashTransport's non-owning constructor wraps a
     // SerialPortActions instance that outlives a single execute() call
@@ -481,8 +476,8 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::Run(const DensoSh70
     // -- it needs the real serial driver to add the ISO14230 header itself,
     // which only happens with this flag ON. This is the exact regression
     // this call fixes: the legacy, now-deleted
-    // EepromEcuSubaruDensoSH705xKlineOperation::read_mem() (commit 8ac6ba2,
-    // line 477) called serial->set_add_iso14230_header(true) at exactly
+    // EepromEcuSubaruDensoSH705xKlineOperation::read_mem() (commit 8ac6ba2)
+    // called serial->set_add_iso14230_header(true) at exactly
     // this point, and the portable rewrite never called it at all.
     if (Status header_on = kline_transport.SetAddIso14230Header(true); !header_on.has_value())
     {
@@ -513,7 +508,6 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::Run(const DensoSh70
     };
 }
 
-// connect_bootloader(), lines 152-296.
 Status DensoSh705xEepromKlineExecutor::ConnectBootloader(IKlineFlashTransport& transport, IClock& clock,
                                                          const ICancellationToken& cancellation, IEventSink& events,
                                                          const DensoSh705xEepromKlinePlan& kline_plan,
@@ -523,7 +517,7 @@ Status DensoSh705xEepromKlineExecutor::ConnectBootloader(IKlineFlashTransport& t
                                      .and_then(
                                          [&]
                                          {
-                                             // line 167: probe at bootloader speed first.
+                                             // Probe at bootloader speed first.
                                              return SetBaudAndSettle(transport, clock, cancellation, 62500,
                                                                      kProbeSettleDelay, "cancelled after probe delay");
                                          })
@@ -539,22 +533,21 @@ Status DensoSh705xEepromKlineExecutor::ConnectBootloader(IKlineFlashTransport& t
     }
     if (LooksKernelAlive(*probe))
     {
-        // lines 185-189: any well-formed alive response short-circuits the
+        // Any well-formed alive response short-circuits the
         // rest of connect_bootloader() -- upload_kernel() is skipped too.
         kernel_alive = true;
         events.Log(LogLevel::kInfo, "Kernel already running");
         return {};
     }
-    // lines 179-194: BOTH "no frame at all" and "frame present but markers
+    // BOTH "no frame at all" and "frame present but markers
     // wrong" fall through to the full init sequence below -- neither is a
     // hard failure at this point.
     events.Log(LogLevel::kWarning, "No response from kernel, initialising ECU...");
-    // lines 198-200: drop back to 4800 baud for the SSM init handshake.
+    // Drop back to 4800 baud for the SSM init handshake.
     return SetBaudAndSettle(transport, clock, cancellation, 4800, kInitSettleDelay, "cancelled after init delay")
         .and_then([&] { return InitProgrammingSession(transport, clock, cancellation, events, kline_plan); });
 }
 
-// upload_kernel(), lines 303-446.
 Status DensoSh705xEepromKlineExecutor::UploadKernel(IKlineFlashTransport& transport, IClock& clock,
                                                     const ICancellationToken& cancellation, IEventSink& events,
                                                     const DensoSh705xEepromKlinePlan& kline_plan,
@@ -580,12 +573,11 @@ Status DensoSh705xEepromKlineExecutor::UploadKernel(IKlineFlashTransport& transp
     const std::uint32_t pl_len = upload_sizes->payload_bytes;
 
     // INTENTIONAL DEVIATION from legacy (documented per Global Constraints,
-    // not a silent behavior change): eeprom_ecu_subaru_denso_sh705x_kline_
-    // operation.cpp:345-347,375 rounds pl_len UP but then calls
+    // not a silent behavior change): legacy rounds pl_len UP but then calls
     // encrypt_payload() on the ORIGINAL, unpadded file buffer.
     // SsmProtocol::calculatePayload() silently clamps its output to
     // buf.size()&~3 whenever the requested len exceeds buf.size()
-    // (ssm_protocol_core.cpp:96-100), and send_sid_36_transferdata() then
+    // (ssm_protocol_core.cpp), and send_sid_36_transferdata() then
     // indexes the encrypted buffer up to pl_len-1 regardless -- an
     // out-of-bounds read on any kernel file whose length isn't already a
     // multiple of 4 (see task-6-report.md, "Legacy behavior surprises" #1).
@@ -597,15 +589,15 @@ Status DensoSh705xEepromKlineExecutor::UploadKernel(IKlineFlashTransport& transp
     bytes::Bytes padded_kernel = kernel.bytes;
     padded_kernel.resize(pl_len, 0);
 
-    // line 361: change port speed to upload kernel.
+    // Change port speed to upload kernel.
     return transport.SetBaud(kline_plan.kernel_baud)
-        .and_then(
-            [&]
-            {
-                events.Log(LogLevel::kInfo, "Requesting kernel upload");
-                return Require(transport, clock, cancellation, kline_plan, Sid34Request(start_address, pl_len), 0x74,
-                               "kernel upload request rejected");
-            })
+        .and_then(LogThen(events, "Requesting kernel upload",
+                          [&]
+                          {
+                              return Require(transport, clock, cancellation, kline_plan,
+                                             Sid34Request(start_address, pl_len), 0x74,
+                                             "kernel upload request rejected");
+                          }))
         .and_then(
             [&](const bytes::Bytes&)
             {
@@ -620,28 +612,22 @@ Status DensoSh705xEepromKlineExecutor::UploadKernel(IKlineFlashTransport& transp
             [&]
             {
                 events.Log(LogLevel::kInfo, "Kernel uploaded");
-                // line 410-415: jump to kernel. Cancellation is checked immediately
+                // Jump to kernel. Cancellation is checked immediately
                 // before this write per the portable seam's cancellation contract
                 // ("before kernel jump").
                 return CheckCancelled(cancellation, "cancelled before kernel jump");
             })
-        .and_then(
-            [&]
-            {
-                events.Log(LogLevel::kInfo, "Jump to kernel");
-                return Require(transport, clock, cancellation, kline_plan, Sid31Request(), 0x71,
-                               "kernel start routine rejected");
-            })
-        .and_then(
-            [&](const bytes::Bytes&)
-            {
-                events.Log(LogLevel::kInfo, "Kernel started, initializing...");
-                return transport.SetBaud(62500);
-            })
+        .and_then(LogThen(events, "Jump to kernel",
+                          [&]
+                          {
+                              return Require(transport, clock, cancellation, kline_plan, Sid31Request(), 0x71,
+                                             "kernel start routine rejected");
+                          }))
+        .and_then(LogThen(events, "Kernel started, initializing...", [&] { return transport.SetBaud(62500); }))
         .and_then([&] { return AwaitKernel(transport, clock, cancellation, events); });
 }
 
-// read_mem(), lines 453-602 ("nisprog kernel" SID_DUMP protocol).
+// read_mem() ("nisprog kernel" SID_DUMP protocol).
 Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::ReadMem(IKlineFlashTransport& transport, IClock& clock,
                                                              const ICancellationToken& cancellation, IEventSink& events,
                                                              const MemoryRegion& region, EepromReadMode mode) const
