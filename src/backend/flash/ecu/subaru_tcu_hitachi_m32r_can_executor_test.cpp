@@ -2368,6 +2368,75 @@ TEST(SubaruTcuHitachiM32rCanExecutor, TransportErrorDuringTheReadLoopStopsWithou
     // ever requested.
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 2);
 }
+TEST(SubaruTcuHitachiM32rCanExecutor, AcceptedEraseCancellationStopsBeforeData)
+{
+    auto plan = WritePlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ManualCancellationToken cancellation;
+    auto transport = std::make_unique<fastecu::flash::testing::CancellationBlindCanTransport>();
+    auto *inner = transport.get();
+    ScriptFullConnect(*inner);
+    ScriptErase(*inner);
+    int data_write_attempts = 0;
+    RecordingEventSink events;
+    std::size_t accepted_erase_logs = 0;
+    inner->on_write = [&data_write_attempts](bytes::ByteView data)
+    {
+        if (data.size() > 4 && data[4] == 0xB6)
+        {
+            ++data_write_attempts;
+        }
+    };
+    inner->on_read = [&cancellation, &events, &accepted_erase_logs](bytes::ByteView data)
+    {
+        if (std::ranges::equal(data, Response({0x31, 0x02, 0x01})))
+        {
+            accepted_erase_logs = events.logs.size();
+            cancellation.Cancel();
+        }
+    };
+    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruTcuHitachiM32rCanExecutor>(),
+                                                    std::move(transport));
+    FakeClock clock;
+    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(data_write_attempts, 0);
+    EXPECT_EQ(inner->write_attempts, kConnectFrames + 1);
+    ASSERT_GT(accepted_erase_logs, 0U);
+    const auto tail = std::ranges::subrange(events.logs.begin() + static_cast<std::ptrdiff_t>(accepted_erase_logs),
+                                            events.logs.end());
+    EXPECT_THAT(tail, testing::ElementsAre(
+                          Pair(fastecu::LogLevel::kInfo, "--- start writing ROM file to ECU flash memory ---"),
+                          Pair(fastecu::LogLevel::kInfo, "Flash block addr: 0x00008000 len: 0x00008000"),
+                          Pair(fastecu::LogLevel::kInfo, "Setting flash start & length..."),
+                          Pair(fastecu::LogLevel::kWarning, HasSubstr("Cancelled by operator during the block window")),
+                          Pair(fastecu::LogLevel::kError, "Block 3 reflash failed.")));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, KernelProbeCancellationDoesNotDelegateReply)
+{
+    auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ManualCancellationToken cancellation;
+    auto transport = std::make_unique<fastecu::flash::testing::CancellationBlindCanTransport>();
+    auto *inner = transport.get();
+    inner->Exchange(Framed(0x7E1, {0x31, 0x02, 0x02, 0x01}), Response(kAlive));
+    inner->on_write = [&cancellation](bytes::ByteView) { cancellation.Cancel(); };
+    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruTcuHitachiM32rCanExecutor>(),
+                                                    std::move(transport));
+    FakeClock clock;
+    RecordingEventSink events;
+    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(inner->write_attempts, 1);
+    EXPECT_EQ(inner->read_attempts, 0);
+    EXPECT_FALSE(inner->ScriptConsumed());
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, SelectedGuardIsUsedByBoundAttempt)
+{
+    auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruTcuHitachiM32rCanExecutor>(*plan);
+}
 
 // The connect frames, then the read window or the erase: the span the
 // sweeps below cover. Each sweep ends where the next step is unscripted.
@@ -2483,74 +2552,4 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellingAtEveryConnectAndEraseCheckWrite
         }
     }
 }
-TEST(SubaruTcuHitachiM32rCanExecutor, AcceptedEraseCancellationStopsBeforeData)
-{
-    auto plan = WritePlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ManualCancellationToken cancellation;
-    auto transport = std::make_unique<fastecu::flash::testing::CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    ScriptFullConnect(*inner);
-    ScriptErase(*inner);
-    int dataWriteAttempts = 0;
-    RecordingEventSink events;
-    std::size_t accepted_erase_logs = 0;
-    inner->on_write = [&dataWriteAttempts](bytes::ByteView data)
-    {
-        if (data.size() > 4 && data[4] == 0xB6)
-        {
-            ++dataWriteAttempts;
-        }
-    };
-    inner->on_read = [&cancellation, &events, &accepted_erase_logs](bytes::ByteView data)
-    {
-        if (std::ranges::equal(data, Response({0x31, 0x02, 0x01})))
-        {
-            accepted_erase_logs = events.logs.size();
-            cancellation.Cancel();
-        }
-    };
-    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruTcuHitachiM32rCanExecutor>(),
-                                                    std::move(transport));
-    FakeClock clock;
-    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(dataWriteAttempts, 0);
-    EXPECT_EQ(inner->write_attempts, kConnectFrames + 1);
-    ASSERT_GT(accepted_erase_logs, 0U);
-    const auto tail = std::ranges::subrange(events.logs.begin() + static_cast<std::ptrdiff_t>(accepted_erase_logs),
-                                            events.logs.end());
-    EXPECT_THAT(tail, testing::ElementsAre(
-                          Pair(fastecu::LogLevel::kInfo, "--- start writing ROM file to ECU flash memory ---"),
-                          Pair(fastecu::LogLevel::kInfo, "Flash block addr: 0x00008000 len: 0x00008000"),
-                          Pair(fastecu::LogLevel::kInfo, "Setting flash start & length..."),
-                          Pair(fastecu::LogLevel::kWarning, HasSubstr("Cancelled by operator during the block window")),
-                          Pair(fastecu::LogLevel::kError, "Block 3 reflash failed.")));
-}
-
-TEST(SubaruTcuHitachiM32rCanExecutor, KernelProbeCancellationDoesNotDelegateReply)
-{
-    auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ManualCancellationToken cancellation;
-    auto transport = std::make_unique<fastecu::flash::testing::CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    inner->Exchange(Framed(0x7E1, {0x31, 0x02, 0x02, 0x01}), Response(kAlive));
-    inner->on_write = [&cancellation](bytes::ByteView) { cancellation.Cancel(); };
-    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruTcuHitachiM32rCanExecutor>(),
-                                                    std::move(transport));
-    FakeClock clock;
-    RecordingEventSink events;
-    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(inner->write_attempts, 1);
-    EXPECT_EQ(inner->read_attempts, 0);
-    EXPECT_FALSE(inner->ScriptConsumed());
-}
-
-TEST(SubaruTcuHitachiM32rCanExecutor, SelectedGuardIsUsedByBoundAttempt)
-{
-    auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruTcuHitachiM32rCanExecutor>(*plan);
-}
-
 } // namespace
