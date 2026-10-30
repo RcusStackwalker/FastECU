@@ -322,22 +322,17 @@ Result<FlashExecutionResult> SubaruHitachiSh7058CanExecutor::Run(const SubaruHit
                                                                  IEventSink& events)
 {
     Session session(transport, clock, cancel, events);
-    if (auto status = session.Connect(); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    // Only the flash-sized prefix of the image is sent.
-    const bytes::ByteView image(plan.ImageOrEmpty());
-    const Bytes encrypted = ssm_protocol::CalculatePayload(image.first(std::min<std::size_t>(image.size(), 0x100000)),
-                                                           kPayloadTable, ssm_protocol::kStockPairTable);
-    if (auto status = session.Erase(); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = session.Program(encrypted); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    return FlashExecutionResult{FlashOperation::kWrite, std::nullopt, std::nullopt};
+    return session.Connect()
+        .and_then(
+            [&]
+            {
+                // Only the flash-sized prefix of the image is sent.
+                const bytes::ByteView image(plan.ImageOrEmpty());
+                const Bytes encrypted =
+                    ssm_protocol::CalculatePayload(image.first(std::min<std::size_t>(image.size(), 0x100000)),
+                                                   kPayloadTable, ssm_protocol::kStockPairTable);
+                return session.Erase().and_then([&] { return session.Program(encrypted); });
+            })
+        .transform([] { return FlashExecutionResult{FlashOperation::kWrite, std::nullopt, std::nullopt}; });
 }
 } // namespace fastecu::flash
