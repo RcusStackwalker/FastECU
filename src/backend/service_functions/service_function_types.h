@@ -25,8 +25,8 @@ struct SsmTransportConfig
     int bitrate_or_baud{500000};
     std::uint32_t request_id{0x7e1};  // ISO-15765 only
     std::uint32_t response_id{0x7e9}; // ISO-15765 only
-    bytes::Byte tester_id{0x00};      // K-Line only; legacy :151
-    bytes::Byte target_id{0x00};      // K-Line only; legacy :152
+    bytes::Byte tester_id{0x00};      // K-Line only;
+    bytes::Byte target_id{0x00};      // K-Line only;
     bool add_iso14230_header{false};  // sessions self-frame via addHeader
 
     bool operator==(const SsmTransportConfig&) const = default;
@@ -34,8 +34,8 @@ struct SsmTransportConfig
 
 enum class OperatorGateId
 {
-    kRelearnStaticSetup,   // legacy :648
-    kRelearnEngineRunning, // legacy :735
+    kRelearnStaticSetup,
+    kRelearnEngineRunning,
 };
 
 enum class GateResponse
@@ -46,7 +46,7 @@ enum class GateResponse
 
 struct TcuParameterReadout
 {
-    // legacy :611-624 decodes these nine values from response bytes 5..14.
+    // Legacy decodes these nine values from response bytes 5..14.
     bytes::Byte input_clutch{};            // 0x16c, byte 5
     bytes::Byte high_low_reverse_clutch{}; // 0x16d, byte 6
     bytes::Byte direct_clutch{};           // 0x16e, byte 7

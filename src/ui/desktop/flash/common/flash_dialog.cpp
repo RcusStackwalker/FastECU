@@ -179,7 +179,7 @@ ProgrammingVoltageNotice FlashDialog::programmingVoltageNotice(const FlashPrompt
     }
     else if (!powerOffAdvice)
     {
-        // Legacy bootmode write_mem() :581.
+        // Legacy bootmode write_mem().
         paragraphs << QObject::tr("Power cycle the ECU and request SSM Init to confirm the write.");
     }
     return {externalVpp ? QObject::tr("Programming voltage") : QObject::tr("ECU operation"),
@@ -260,7 +260,7 @@ PromptQuestion FlashDialog::promptQuestion(const FlashPromptStep& prompt)
                        tr("Connect VPP and MOD1 to the ECU, turn ignition ON, then press OK to continue."),
                        QMessageBox::Ok);
     case FlashPromptKind::kRemoveMod1:
-        // Legacy write_mem() :367 offered OK only; Cancel stops before erase.
+        // Legacy write_mem() offered OK only; Cancel stops before erase.
         return confirm(true, tr("Flash file"),
                        tr("The kernel has been uploaded. Remove MOD1 voltage, then press OK to erase and program the "
                           "ECU, or Cancel to stop before anything is erased."),

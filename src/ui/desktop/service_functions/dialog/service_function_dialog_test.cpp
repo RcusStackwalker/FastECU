@@ -23,9 +23,9 @@ QSpinBox *box(ServiceFunctionDialog& dialog, const char *name)
 
 TEST(ServiceFunctionDialogTest, setParametersSpinBoxesCarryTheLegacyPromptBounds)
 {
-    // legacy :162-202 -- eight prompts bounded 0-255 and one bounded
-    // 0-65535. The value model makes these unrepresentable rather than
-    // rejectable, so this is where the bounds are actually asserted.
+    // Eight prompts bounded 0-255 and one bounded 0-65535. The value model
+    // makes these unrepresentable rather than rejectable, so this is where the
+    // bounds are actually asserted.
     ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::kSetParameters};
 
     for (const char *name :
@@ -76,8 +76,8 @@ TEST(ServiceFunctionDialogTest, everyFormFieldLandsInItsOwnStructMember)
 
 TEST(ServiceFunctionDialogTest, setParametersFormIsOneDialogNotNineModals)
 {
-    // The legacy asks nine sequential QInputDialogs (:162-202); this shows
-    // all nine at once so the operator can review before any write.
+    // The legacy asks nine sequential QInputDialogs; this shows all nine at
+    // once so the operator can review before any write.
     ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::kSetParameters};
     ASSERT_EQ(dialog.findChildren<QSpinBox *>().count(), 9);
 }

@@ -164,12 +164,10 @@ bool ServiceFunctionDialog::askGate(OperatorGateId id)
     switch (id)
     {
     case OperatorGateId::kRelearnStaticSetup:
-        // legacy :649-651
         text = tr("Engine must be at operating temperature. Car must be off the ground! "
                   "Start with Engine off, Ignition on, stick in P, press OK to continue");
         break;
     case OperatorGateId::kRelearnEngineRunning:
-        // legacy :736
         text = tr("Start Engine, let revs settle, move stick into D, fully press brake, press OK to continue");
         break;
     }

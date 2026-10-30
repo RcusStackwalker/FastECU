@@ -13,13 +13,13 @@ namespace fastecu::flash
 namespace
 {
 
-// Mirrors mainwindow.cpp's EEPROM dispatch (lines 1257-1286): protocol names
-// ending "_kline" route to EepromEcuSubaruDensoSH705xKline; every other
-// Denso SH705x EEPROM protocol name in that block ("_densocan", "_can",
-// "_can_diesel") routes to EepromEcuSubaruDensoSH705xCan. This use case only
-// ever builds a plan for one of those two families, so a substring check on
-// "kline" (rather than reproducing every full protocol-name literal) is
-// sufficient and matches the legacy branch structure.
+// Mirrors mainwindow.cpp's EEPROM dispatch: protocol names ending "_kline"
+// route to EepromEcuSubaruDensoSH705xKline; every other Denso SH705x EEPROM
+// protocol name in that block ("_densocan", "_can", "_can_diesel") routes to
+// EepromEcuSubaruDensoSH705xCan. This use case only ever builds a plan for one
+// of those two families, so a substring check on "kline" (rather than
+// reproducing every full protocol-name literal) is sufficient and matches the
+// legacy branch structure.
 FlashFamily FamilyForProtocol(std::string_view protocol_name)
 {
     if (protocol_name.contains("kline"))

@@ -25,15 +25,15 @@ TcuParameterValues Sample()
 TEST(TcuParameterTable, WritesTwelveFramesNotNine)
 {
     // Ten parameter writes (nine values; AWD torque spans two addresses) plus
-    // the two-write commit. legacy :213-479.
+    // the two-write commit.
     EXPECT_EQ(kTcuParameterWriteCount, 12U);
     EXPECT_EQ(TcuParameterWrites(Sample()).size(), 12U);
 }
 
 TEST(TcuParameterTable, PreservesTheLegacyWireOrderNotThePromptOrder)
 {
-    // Prompts run 1->2, 2->3, 3->4, 4->5, ... (legacy :162-202). Writes run
-    // 0x16c = 3->4, 0x16d = 2->3, 0x16e = 1->2, 0x16f = 4->5 (legacy :213-286).
+    // Prompts run 1->2, 2->3, 3->4, 4->5, and so on. Writes run 0x16c = 3->4, 0x16d =
+    // 2->3, 0x16e = 1->2, 0x16f = 4->5.
     const auto writes = TcuParameterWrites(Sample());
 
     EXPECT_EQ(writes[0].address, 0x00016cU);
@@ -48,7 +48,6 @@ TEST(TcuParameterTable, PreservesTheLegacyWireOrderNotThePromptOrder)
 
 TEST(TcuParameterTable, SplitsAwdTorqueAcrossTwoAddressesHighFirst)
 {
-    // legacy :309-334.
     const auto writes = TcuParameterWrites(Sample());
 
     EXPECT_EQ(writes[4].address, 0x000170U);
@@ -59,7 +58,6 @@ TEST(TcuParameterTable, SplitsAwdTorqueAcrossTwoAddressesHighFirst)
 
 TEST(TcuParameterTable, WritesTheRemainingFourCorrections)
 {
-    // legacy :357-430.
     const auto writes = TcuParameterWrites(Sample());
 
     EXPECT_EQ(writes[6].address, 0x0001bcU);
@@ -74,9 +72,9 @@ TEST(TcuParameterTable, WritesTheRemainingFourCorrections)
 
 TEST(TcuParameterTable, EndsWithTheTwoWriteCommitToTheSameAddress)
 {
-    // legacy :453-479 forms B8 00 00 EC 55/AA. Not a parameter and not
-    // prompted: a table keyed on the nine prompted values would drop it and
-    // leave every write uncommitted.
+    // Legacy forms B8 00 00 EC 55/AA. Not a parameter and not prompted: a table
+    // keyed on the nine prompted values would drop it and leave every write
+    // uncommitted.
     const auto writes = TcuParameterWrites(Sample());
 
     EXPECT_EQ(writes[10].address, 0x0000ecU);

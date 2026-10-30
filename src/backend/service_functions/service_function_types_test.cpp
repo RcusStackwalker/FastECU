@@ -19,8 +19,8 @@ TEST(SsmTransportConfig, DefaultsToTheTcuIso15765Pair)
 
 TEST(SsmTransportConfig, TesterAndTargetAreZeroUnlessKline)
 {
-    // The two ISO-15765 sessions never reference them: legacy sets them only
-    // on the K-Line path (legacy :151-152) and uses them only there (:215).
+    // The two ISO-15765 sessions never reference them: legacy sets them only on
+    // the K-Line path and uses them only there.
     const SsmTransportConfig config;
     EXPECT_EQ(config.tester_id, 0x00);
     EXPECT_EQ(config.target_id, 0x00);
@@ -42,8 +42,8 @@ TEST(ServiceFunctionStep, HoldsGateCompletedAndFailedAlternatives)
 
 TEST(TcuParameterReadout, ValueTypesEncodeTheLegacyPromptBounds)
 {
-    // legacy :162-202 -- eight 0-255 prompts and one 0-65535 prompt. The value
-    // model enforces those bounds instead of a runtime range check.
+    // Eight 0-255 prompts and one 0-65535 prompt. The value model enforces
+    // those bounds instead of a runtime range check.
     static_assert(sizeof(TcuParameterReadout::input_clutch) == 1);
     static_assert(sizeof(TcuParameterReadout::awd_clutch_torque) == 2);
     SUCCEED();

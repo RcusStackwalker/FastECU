@@ -15,7 +15,7 @@ namespace fastecu::service_functions
 //
 // Deliberately NOT an IFlashExecutor: ConfirmationSpec requires every operator
 // answer to be collected before execution begins, and relearn issues an
-// instruction mid-sequence (legacy :735). See the design doc.
+// instruction mid-sequence. See the design doc.
 class ServiceFunctionSession
 {
   public:

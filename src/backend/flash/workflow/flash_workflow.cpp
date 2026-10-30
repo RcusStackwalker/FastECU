@@ -215,8 +215,8 @@ template <typename Transport> std::unique_ptr<Transport> MakeTransport(IFlashTra
     }
 }
 
-// The transport source answers whether the adapter supplies programming
-// voltage (legacy write_mem() :434); one that does needs no operator prompt.
+// The transport source answers whether the adapter supplies programming voltage
+// (legacy write_mem()); one that does needs no operator prompt.
 class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
 {
   public:
@@ -329,11 +329,10 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
     FlashAttemptOutcome outcome_;
 };
 
-// Read is the 6c-3 K-Line read. Write is two attempts with an
-// operator step between them, where legacy reset the connection anyway
-// (flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp:361-367):
-// kernel upload, RemoveMod1, erase and program. Both plans are built before
-// Begin so a missing kernel or a wrong-size image fails before any prompt.
+// Read is the 6c-3 K-Line read. Write is two attempts with an operator step
+// between them, where legacy reset the connection anyway: kernel upload,
+// RemoveMod1, erase and program. Both plans are built before Begin so a missing
+// kernel or a wrong-size image fails before any prompt.
 class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
 {
   public:

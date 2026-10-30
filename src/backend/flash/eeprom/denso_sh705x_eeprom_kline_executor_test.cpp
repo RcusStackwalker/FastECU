@@ -46,9 +46,8 @@ using bytes::ComposeBeWithChecksum;
 using bytes::U24;
 using namespace bytes::literals;
 
-// eeprom_ecu_subaru_denso_sh705x_kline_operation.cpp:62-63 -- tester_id =
-// 0xF0, target_id = 0x10, hardcoded in execute() and mirrored by the
-// builder's DensoSh705xEepromKlinePlan.
+// tester_id = 0xF0, target_id = 0x10, hardcoded in execute() and mirrored by
+// the builder's DensoSh705xEepromKlinePlan.
 constexpr std::uint8_t kTesterId = 0xf0;
 constexpr std::uint8_t kTargetId = 0x10;
 
@@ -96,7 +95,7 @@ bytes::Bytes Sid31StartRoutineRequest()
     return ssm_protocol::AddHeader(bytes::Bytes{0x31, 0x01, 0x01}, kTesterId, kTargetId);
 }
 
-// request_kernel_id(), lines 964-994: NOT addHeader-framed.
+// NOT addHeader-framed.
 bytes::Bytes RequestKernelIdRequest()
 {
     const auto frame = ComposeBeWithChecksum(bytes::Sum8, std::uint16_t{0xBEEF}, std::uint16_t{1}, 0x01_b);
@@ -138,7 +137,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, Sid27SendKeyRequestMatchesHardcodedWire
                 ElementsAre(0x80, 0x10, 0xF0, 0x04, 0x27, 0x02, 0x11, 0x22, 0xE0));
 }
 
-// generate_seed_key(), lines 854-879 (stock / non-"_ecutek" table pair).
+// generate_seed_key(), (stock / non-"_ecutek" table pair).
 bytes::Bytes GenerateSeedKey(bytes::ByteView seed)
 {
     static constexpr auto kIndex =
@@ -147,10 +146,10 @@ bytes::Bytes GenerateSeedKey(bytes::ByteView seed)
     return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kStockPairTable);
 }
 
-// generate_ecutek_seed_key(), lines 886-911: the same key table as stock,
-// paired with the ECUTEK index transformation, which differs from the stock
-// one in exactly its first five entries. Transcribed independently of
-// production, so binding the wrong one of the two fails here.
+// The same key table as stock, paired with the ECUTEK index transformation,
+// which differs from the stock one in exactly its first five entries.
+// Transcribed independently of production, so binding the wrong one of the two
+// fails here.
 bytes::Bytes GenerateEcutekSeedKey(bytes::ByteView seed)
 {
     static constexpr auto kIndex =
@@ -159,7 +158,6 @@ bytes::Bytes GenerateEcutekSeedKey(bytes::ByteView seed)
     return ssm_protocol::CalculateSeedKey(seed, kIndex, ssm_protocol::kEcutekPairTable);
 }
 
-// encrypt_payload(), lines 923-939.
 bytes::Bytes EncryptPayload(bytes::ByteView buf)
 {
     static constexpr auto kIndex = std::to_array<std::uint16_t>({0x7856, 0xCE22, 0xF513, 0x6E86});
@@ -168,17 +166,17 @@ bytes::Bytes EncryptPayload(bytes::ByteView buf)
 
 // For McuType "SH7055", kEepromBlocksSH7055[0] == {start=0, len=0x100}
 // (src/backend/flash/kernel/kernelmemorymodels.h:279-281). read_mem()'s
-// skip_start/willget/numblocks/curblock arithmetic (lines 469-510) reduces,
-// for this start/length, to a single request with numblocks=8, curblock=0,
-// for every EEPROM_MODE value.
+// skip_start/willget/numblocks/curblock arithmetic reduces, for this
+// start/length, to a single request with numblocks=8, curblock=0, for every
+// EEPROM_MODE value.
 bytes::Bytes SidDumpRequestForSh7055(std::uint8_t eeprom_mode)
 {
     return {0xbd, eeprom_mode, 0x00, 0x08, 0x00, 0x00};
 }
 
-// read_mem()'s per-block unframing (lines 545-550): each 35-byte wire block
-// is [2 prefix][32 data][1 trailing]; prefix/trailing are stripped and never
-// inspected. 8 blocks * 35 bytes = 280 bytes.
+// read_mem()'s per-block unframing: each 35-byte wire block is [2 prefix][32
+// data][1 trailing]; prefix/trailing are stripped and never inspected. 8 blocks
+// * 35 bytes = 280 bytes.
 bytes::Bytes EepromPayload280Bytes()
 {
     bytes::Bytes out;

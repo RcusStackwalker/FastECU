@@ -10,22 +10,20 @@ namespace
 {
 using namespace std::chrono_literals;
 
-constexpr int kWriteAttempts = 6;                         // legacy :702
-constexpr int kPollIterations = 200;                      // legacy :748
-constexpr std::chrono::milliseconds kReadTimeout = 200ms; // serial_read_short_timeout, legacy header :62
+constexpr int kWriteAttempts = 6;
+constexpr int kPollIterations = 200;
+constexpr std::chrono::milliseconds kReadTimeout = 200ms; // serial_read_short_timeout
 constexpr bytes::Byte kWriteAck = 0xf8;
 constexpr bytes::Byte kReadAck = 0xe8;
 
-// legacy :655-663.
 const bytes::Bytes kStepOne{0x00, 0x00, 0x07, 0xe1, 0xb8, 0x00, 0x01, 0xfc, 0x01};
-// legacy :699-700.
 const bytes::Bytes kStepTwo{0x00, 0x00, 0x07, 0xe1, 0xb8, 0x00, 0x01, 0xfd, 0x09};
-// legacy :740-747 intends this; see the header for why it cannot build it.
+// Legacy intends this; see the header for why it cannot build it.
 const bytes::Bytes kPoll{0x00, 0x00, 0x07, 0xe1, 0xa8, 0x00, 0x00, 0x01, 0xfc, 0x00, 0x01, 0xfd};
 
 // Sends `frame` up to six times, accepting `expected` at index 4. Returns the
 // last frame seen. A bad or absent response is tolerated by the caller, which
-// is what legacy :688/:694/:722/:733 do with their commented-out returns.
+// is what legacy does with its commented-out returns.
 Result<bytes::Bytes> ExchangeTolerantly(ISsmTransport& transport, const ICancellationToken& cancellation,
                                         bytes::ByteView frame, bytes::Byte expected)
 {
@@ -60,7 +58,7 @@ Result<bytes::Bytes> ExchangeTolerantly(ISsmTransport& transport, const ICancell
     return last;
 }
 
-// A wrong response is logged, not fatal: legacy :688/:694 and :722/:733.
+// A wrong response is logged, not fatal, as in legacy.
 Status WriteStep(ISsmTransport& transport, const ICancellationToken& cancellation, IEventSink& events, int step,
                  bytes::ByteView frame)
 {
@@ -108,7 +106,7 @@ Result<RelearnOutcome> PollStatus(ISsmTransport& transport, const ICancellationT
         outcome.last_status_frame = **received;
         if (outcome.last_status_frame.size() > 4 && outcome.last_status_frame[4] != kReadAck)
         {
-            // legacy :771/:777 -- logged, not fatal.
+            // Logged, not fatal.
             events.Log(LogLevel::kError, "Unexpected relearn status response; continuing");
         }
     }
@@ -127,7 +125,7 @@ Result<SsmTransportConfig> RelearnSession::TransportSetup() const
     {
         return Fail(ErrorKind::kUnsupported, std::format("not a Subaru Denso SH705x TCU protocol: {}", protocol_));
     }
-    // legacy :70 -- configureIso15765Can(serial, "500000", 0x7E1, 0x7E9).
+    // configureIso15765Can(serial, "500000", 0x7E1, 0x7E9).
     return SsmTransportConfig{};
 }
 
@@ -156,8 +154,8 @@ ServiceFunctionStep RelearnSession::Resume(ISsmTransport& transport, IClock&, co
     switch (stage_)
     {
     case Stage::kAwaitStaticSetupGate:
-        // legacy :648 -- engine at temperature, car off the ground, engine off,
-        // ignition on, stick in P.
+        // Engine at temperature, car off the ground, engine off, ignition on,
+        // stick in P.
         stage_ = Stage::kWriteSteps;
         gate_outstanding_ = true;
         return GateStep{OperatorGateId::kRelearnStaticSetup};
@@ -170,7 +168,7 @@ ServiceFunctionStep RelearnSession::Resume(ISsmTransport& transport, IClock&, co
                 return FailedStep{written.error()};
             }
         }
-        // legacy :735 -- the gate that cannot be pre-collected.
+        // The gate that cannot be pre-collected.
         stage_ = Stage::kPoll;
         gate_outstanding_ = true;
         return GateStep{OperatorGateId::kRelearnEngineRunning};

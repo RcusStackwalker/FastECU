@@ -32,7 +32,7 @@ TcuParameterValues Sample()
     };
 }
 
-// legacy :210-215 -- payload 0xB8 + 24-bit address + value, framed once.
+// Payload 0xB8 + 24-bit address + value, framed once.
 bytes::Bytes Framed(std::uint32_t address, bytes::Byte value)
 {
     bytes::Bytes payload{0xb8};
@@ -61,7 +61,7 @@ const std::array<bytes::Bytes, 12> kLiteralFrames{
     bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0xbd, 0x66, 0x69},
     bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0xbe, 0x77, 0x7b},
     bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x01, 0xbf, 0x88, 0x8d},
-    // legacy :453-479 -- B8 00 00 EC 55/AA, each independently framed.
+    // B8 00 00 EC 55/AA, each independently framed.
     bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x00, 0xec, 0x55, 0x86},
     bytes::Bytes{0x80, 0x18, 0xf0, 0x05, 0xb8, 0x00, 0x00, 0xec, 0xaa, 0xdb},
 };
@@ -86,8 +86,8 @@ void ScriptAllTwelve(ScriptedSsmTransport& transport)
 
 TEST(SetParametersSession, RequiresTheKlineConfigurationNotTheCanOne)
 {
-    // legacy :141-152 -- K-Line, 4800 baud, tester 0xF0, target 0x18, and the
-    // driver's ISO14230 auto-header off because the session frames its own.
+    // K-Line, 4800 baud, tester 0xF0, target 0x18, and the driver's ISO14230
+    // auto-header off because the session frames its own.
     const Fixture fixture;
     const auto setup = fixture.session.TransportSetup();
     ASSERT_THAT(setup, fastecu::testing::IsOk());
@@ -109,9 +109,9 @@ TEST(SetParametersSession, RejectsAnUnknownProtocolBeforeAnyIo)
 
 TEST(SetParametersSession, WritesAllTwelveFramesEachFramedExactlyOnce)
 {
-    // The legacy corrupts every frame after the first (:215 reassigns `output`
-    // to the framed array; :237 onward mutate the length byte and service ID
-    // and re-frame it), so it aborts on write 2 leaving the TCU half set.
+    // The legacy corrupts every frame after the first (the first write reassigns `output` to
+    // the framed array; later writes mutate the length byte and service ID and
+    // re-frame it), so it aborts on write 2 leaving the TCU half set.
     Fixture fixture;
     ScriptAllTwelve(fixture.transport);
 
@@ -125,8 +125,8 @@ TEST(SetParametersSession, WritesAllTwelveFramesEachFramedExactlyOnce)
 
 TEST(SetParametersSession, FirstFrameMatchesTheOneFrameTheLegacyGetsRight)
 {
-    // legacy :210-215 is the only well-formed legacy frame; ours must equal it
-    // byte for byte: 80 18 F0 05 B8 00 01 6C 33 <sum8>.
+    // Legacy's first write is the only well-formed legacy frame; ours must equal it byte for
+    // byte: 80 18 F0 05 B8 00 01 6C 33 <sum8>.
     const bytes::Bytes first = Framed(0x00016c, 0x33);
     ASSERT_EQ(first.size(), 10U);
     EXPECT_EQ(first[0], 0x80);
@@ -157,7 +157,7 @@ TEST(SetParametersSession, StopsAfterOneSilentReadWithoutRetrying)
 
 TEST(SetParametersSession, StopsAfterOneNonPositiveResponseWithoutRetrying)
 {
-    // legacy :227 returns STATUS_ERROR without commenting the return out.
+    // Legacy returns STATUS_ERROR without commenting the return out.
     Fixture fixture;
     fixture.transport.ExpectWrite(kLiteralFrames[0]);
     fixture.transport.QueueRead(bytes::Bytes{0x80, 0xf0, 0x18, 0x02, 0x7f, 0xb8, 0x11});

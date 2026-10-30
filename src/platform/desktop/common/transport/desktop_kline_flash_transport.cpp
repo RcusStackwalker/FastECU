@@ -160,8 +160,6 @@ Status DesktopKlineFlashTransport::EnableProgrammingVoltageLine()
         ErrorKind::kInternal, "enable_programming_voltage_line exception",
         [&]() -> Status
         {
-            // Legacy
-            // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:513.
             if (serial_->SetLecLines(serial_->GetRequestToSendEnabled(), serial_->GetDataTerminalDisabled()) != 0)
             {
                 return Fail(ErrorKind::kInternal, "set_lec_lines programming state failed");
@@ -180,7 +178,6 @@ Status DesktopKlineFlashTransport::EnableBootModeLines()
         ErrorKind::kInternal, "enable_boot_mode_lines exception",
         [&]() -> Status
         {
-            // Legacy flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp:66.
             if (serial_->SetLecLines(serial_->GetRequestToSendEnabled(), serial_->GetDataTerminalEnabled()) != 0)
             {
                 return Fail(ErrorKind::kInternal, "set_lec_lines boot mode state failed");
