@@ -627,7 +627,7 @@ Status InitFlashWrite(IMixedCanFlashTransport& transport, bool test_write, const
     {
         return mode;
     }
-    events.Log(LogLevel::kError, "Flash mode succesfully set");
+    events.Log(LogLevel::kError, "Flash mode successfully set");
     return {};
 }
 

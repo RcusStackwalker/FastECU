@@ -209,7 +209,7 @@ Status SendStop(Ctx& ctx)
 
 Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 {
-    // "Settting dump start & length...". The sent PDU's SID is 0x35, but the
+    // "Setting dump start & length...". The sent PDU's SID is 0x35, but the
     // checked ack is 0x74 -- the same "set up transfer" ack byte
     // unlock_and_reflash_block's own (0x34-prefixed) setup exchange checks, not
     // the standard SID+0x40 response to 0x35 (which would be 0x75). The
@@ -219,7 +219,7 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
     // own SID, this cannot go through FatalRequest()/ ctx.uds either -- routed
     // through the channel directly, mirroring the alive-check exchange's own
     // necessity in connect_bootloader.
-    LogInfo(ctx, "Settting dump start & length...");
+    LogInfo(ctx, "Setting dump start & length...");
     return RawExpect(ctx, bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
                      bytes::Bytes{0x74, 0x20, 0x01, 0x04}, "dump start & length setup rejected")
         .and_then(
@@ -372,13 +372,13 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
     constexpr std::uint32_t kMaxBlocks = kWriteRegion.length / kChunkSize; // 4096
     constexpr std::uint32_t kSetupDataLen = kMaxBlocks * 128;              // 0x80000
 
-    // "Settting flash start & length...": retried up to 6 times, fatal after 6.
+    // "Setting flash start & length...": retried up to 6 times, fatal after 6.
     // Legacy DOES check content here (`received.at(4) == 0x74`, confirmed
     // directly against the source -- the brief's Step 7 description of this
     // step as content-blind does not match), but that check is exactly the
     // standard SID+0x40 match ctx.uds.request() already enforces (0x34 ->
     // 0x74), so no extra check is added here beyond the retry-count wrapper.
-    LogInfo(ctx, "Settting flash start & length...");
+    LogInfo(ctx, "Setting flash start & length...");
     if (!RequestWithRetries(ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{0}, U24{kSetupDataLen}), 6))
     {
         return Fail(ErrorKind::kBadResponse, "flash start & length setup rejected");

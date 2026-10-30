@@ -50,7 +50,7 @@ Run `bazel test --config=release //...` first.
 | 2 | DTC read, iso9141, direct K-Line cable | Same as #1, via the OBD-framed (`read_obd`) path | Not yet tested |
 | 3 | DTC read, iso14230, fast init succeeds | Fast init accepted (`83 F1 10 C1 E9 8F`); vehicle info and DTC read proceed as in #1 | Not yet tested |
 | 4 | DTC read, iso14230, fast init rejected | Falls back to five-baud init, which succeeds; vehicle info and DTC read proceed as in #1 | Not yet tested |
-| 5 | DTC clear, each protocol that read succeeded on in #1-#4 | Log shows "Diagnostic trouble codes succesfully cleared!" | Not yet tested |
+| 5 | DTC clear, each protocol that read succeeded on in #1-#4 | Log shows "Diagnostic trouble codes successfully cleared!" | Not yet tested |
 | 6 | DTC read, iso15765, OpenPort 2.0 | CAN init accepted (`0x41` at response index 4); vehicle info and DTC read proceed as in #1 | Not yet tested |
 | 7 | Close the DTC dialog during vehicle info | Dialog closes promptly (worker is stopped and joined, not left running); the next DTC run on the same connection works | Not yet tested |
 | 8 | BIU connect and keep-alive | Connects and exchanges keep-alive messages for at least 30 s with no dropped connection | Not yet tested |

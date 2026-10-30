@@ -188,7 +188,7 @@ void ScriptBenchConnect(ScriptedCanFlashTransport& transport)
                        Response({0x74, 0x20, 0x01, 0x04}));
 }
 
-// Scripts the "Settting dump start & length..." exchange (legacy read_mem).
+// Scripts the "Setting dump start & length..." exchange (legacy read_mem).
 void ScriptDumpSetup(ScriptedCanFlashTransport& transport)
 {
     const auto section = transport.Section("dump setup");

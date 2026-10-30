@@ -681,7 +681,7 @@ std::vector<LogRecord> ExpectedLegacyWriteLogs(const FlashDevice& device, FlashO
     logs.emplace_back(LogLevel::kInfo, ": 0x1000");
     logs.emplace_back(LogLevel::kInfo, test_write ? "Test write mode on, no actual flash write is performed"
                                                   : "Test write mode off, perform actual flash write");
-    logs.emplace_back(LogLevel::kError, "Flash mode succesfully set");
+    logs.emplace_back(LogLevel::kError, "Flash mode successfully set");
     logs.emplace_back(LogLevel::kInfo, "Flash block addr: 0x00000000 len: 0x00001000");
     logs.emplace_back(LogLevel::kInfo, "Check flash voltage");
     logs.emplace_back(LogLevel::kInfo, ": 2V");

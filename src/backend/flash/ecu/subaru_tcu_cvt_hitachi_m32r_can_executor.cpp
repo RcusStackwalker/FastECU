@@ -317,11 +317,11 @@ Status ConnectBootloader(Ctx& ctx)
 // -- see the plan's kReadRegion comment).
 Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 {
-    // "Settting dump start & length...": fatal on mismatch or empty reply --
+    // "Setting dump start & length...": fatal on mismatch or empty reply --
     // unlike subaru_hitachi_m32r_can_executor.cpp's analogous step, this one IS
     // fatal in this family's legacy source (both branches of the length check
     // return STATUS_ERROR).
-    LogInfo(ctx, "Settting dump start & length...");
+    LogInfo(ctx, "Setting dump start & length...");
     if (Result<bytes::Bytes> setup = FatalQuery(
             ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{kWindow.start}, U24{kWindow.length}),
             bytes::Bytes{0x20, 0x01, 0x04}, "dump start & length setup");
@@ -410,10 +410,10 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
 {
     constexpr std::uint32_t kChunkSize = 128;
 
-    // "Settting flash start & length...": fatal, and only the SID is checked
+    // "Setting flash start & length...": fatal, and only the SID is checked
     // (received.at(4) != 0x74) -- FatalRequest()'s own SID+0x40 matching
     // already enforces exactly that.
-    LogInfo(ctx, "Settting flash start & length...");
+    LogInfo(ctx, "Setting flash start & length...");
     if (Result<bytes::Bytes> setup =
             FatalRequest(ctx, ComposeBe(uds::kSidRequestDownload, 0x04_b, 0x33_b, U24{start}, U24{length}),
                          "the flash start & length setup");

@@ -659,7 +659,7 @@ Status InitFlashWrite(IKlineFlashTransport& transport, IClock& clock, const ICan
         // `> 5`; a rejected mode stops the write (legacy returned
         // STATUS_ERROR, and write_mem() stopped before any erase).
         .and_then([&](const bytes::Bytes& reply) { return RequireKernelReply(reply, mode, 6, events, "flash mode"); })
-        .transform([&] { events.Log(LogLevel::kError, "Flash mode succesfully set"); }); // Legacy LOG_E
+        .transform([&] { events.Log(LogLevel::kError, "Flash mode successfully set"); }); // Legacy LOG_E
 }
 
 std::uint64_t ElapsedMilliseconds(std::chrono::steady_clock::time_point start,

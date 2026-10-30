@@ -234,7 +234,7 @@ class Session
     }
     Result<Bytes> Read(PhaseReporter& progress)
     {
-        events_.Log(LogLevel::kInfo, "Settting dump start & length...");
+        events_.Log(LogLevel::kInfo, "Setting dump start & length...");
         if (auto s = TolerantSession(3).and_then([&] { return Access(); }); !s.has_value())
         {
             return std::unexpected(s.error());
@@ -297,7 +297,7 @@ class Session
                     .and_then(LogThen(events_, "Jumping to onboad kernel...",
                                       [&] { return Required(Bytes{0x10, 0x42}, 200ms, {0x50, 0x42}); }))
                     .and_then(LogThen(
-                        events_, "Settting flash start & length...",
+                        events_, "Setting flash start & length...",
                         [&] { return Required(Bytes{0x34, 4, 0x33, 0, 0x60, 0, 0x1f, 0xa0, 0}, 200ms, {0x74, 0x20}); }))
                     .and_then(
                         [&](const Bytes&)

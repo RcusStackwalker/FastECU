@@ -221,9 +221,9 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 {
     constexpr std::uint32_t kLength = 0x80000;
 
-    // "Settting dump start & length...": non-fatal on mismatch or empty reply
+    // "Setting dump start & length...": non-fatal on mismatch or empty reply
     // -- legacy only logs here, never returns early.
-    LogInfo(ctx, "Settting dump start & length...");
+    LogInfo(ctx, "Setting dump start & length...");
     if (Result<bytes::Bytes> setup =
             ctx.uds.Request(bytes::Bytes{uds::kSidRequestUpload, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00},
                             kExchangePolicy, ctx.cancellation);
@@ -358,7 +358,7 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
                 ctx.uds.Request(bytes::Bytes{uds::kSidRequestTransferExit}, kExchangePolicy, ctx.cancellation);
             closed.has_value())
         {
-            LogInfo(ctx, "Closed succesfully");
+            LogInfo(ctx, "Closed successfully");
             break;
         }
     }

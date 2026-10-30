@@ -269,7 +269,7 @@ Status InitializeFlash(KernelContext& ctx, bool test_write)
     LogInfo(ctx, test_write ? "Test write mode on, no actual flash write is performed"
                             : "Test write mode off, perform actual flash write");
     return Exchange(ctx, test_write ? bytes::Byte{0x21} : bytes::Byte{0x20}, {}, 0, ctx.profile.init_timeout)
-        .transform([&](const bytes::Bytes&) { LogError(ctx, "Flash mode succesfully set"); });
+        .transform([&](const bytes::Bytes&) { LogError(ctx, "Flash mode successfully set"); });
 }
 
 constexpr std::size_t kBeefFlashBufferSize = 0x200;
