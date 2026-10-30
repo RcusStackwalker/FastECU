@@ -17,6 +17,18 @@ style guide.
   the last step.
 - **Excluded:** runs inside loops; steps that need values from two or more
   earlier steps; failure branches that do more than propagate.
+- **Not a run:** one fallible call followed only by reply checks or a value
+  construction (`ExchangeImpl`, `Required`, `ParseRomId`, `ResolveKernel`,
+  a `Run` read tail). These stay early returns (settled in #935-#940).
+- **A value used after later steps** may still be chained: nest the later
+  steps inside the lambda that receives it and hand it back with
+  `.transform([&] { return std::move(value); })` (`Connect` in #938,
+  `PrepareRead` in #939). A final `.transform` may combine the chain's value
+  with a local checked before the chain (`BuildPlans` in #940).
+- **Non-log statements between steps** are fine inside a lambda when they
+  have no ordering side effect beyond the step itself; check destructors
+  (`PhaseReporter` emits nothing on destruction, so phase start/complete
+  calls moved into the lambdas in #938).
 - **Partial runs** inside longer functions are converted. Extract a named
   helper only when that also removes duplication.
 - **Behavior is byte-identical:** log text, log order, error kind and message
@@ -24,7 +36,15 @@ style guide.
   without a log change stays an early return.
 - **Untested failure branches:** if a converted step's failure branch is not
   exercised, add the failing-path test first, in the same PR, against the
-  unconverted code. Split a file across PRs when that grows large.
+  unconverted code. Split a file across PRs when that grows large. A branch
+  that plan validation makes unreachable through `Execute` (empty kernel,
+  unplaced image in #936) is converted anyway and named in the PR body.
+- **Test cost:** sweeps must stay cheap; the CI Mull job reruns targets per
+  mutant. Script only what a sweep can reach (stop when the fault no longer
+  fires), build multi-MiB plans once, memoize test-side encryption, and
+  anchor cancellation sweeps on a log line (`events.logs.back()`) instead of
+  counting thousands of checks. Note the target's run time in the PR body
+  when it grows noticeably.
 - **NLOC:** record the production and test change and the SonarCloud
   duplication change in the PR body. Reject a PR that adds more than 5
   production NLOC; failure-path tests added under the rule below are exempt.
@@ -34,7 +54,8 @@ style guide.
 - **Order:** one PR per file, or per small same-family group for files with
   two or fewer candidates, highest candidate count first (table below).
 - **Phase 2** (`src/backend/diagnostics`, `definition`, `src/platform`) is
-  decided after phase 1. A `/loop` skill is considered after 3-4 merged PRs.
+  decided after phase 1. A `/loop` skill was offered after #935; the series
+  stays manual, run in user-sized batches.
 
 ## Per-PR steps
 
@@ -44,8 +65,14 @@ style guide.
       tests first and see them pass against the unconverted code.
 - [ ] Convert; `clang-format`; build and run the package's tests.
 - [ ] Measure NLOC before and after; open the PR with the `expected-chains`
-      label; hold auto-merge until Mull is clean.
-- [ ] Tick the file off below.
+      label; hold auto-merge until Mull is clean ("No mutants found" on the
+      changed lines counts as clean).
+- [ ] After each push, confirm `git ls-remote origin <branch>` matches
+      `HEAD` (SSH pushes fail intermittently and quietly); after `gh pr
+      create`, confirm the label landed.
+- [ ] Tick the file off below. PRs prepared in parallel all add a row at the
+      same spot: land them one at a time, leaving `#TBD` until the rebase
+      onto the previous merge.
 
 ## Progress
 
@@ -70,7 +97,10 @@ grouped by block, then spot-checked by hand. Each PR re-verifies its file.
 The scan misses runs whose calls carry a brace initializer
 (`SsmStep(..., bytes::Bytes{0x81}, ...)`) and runs whose last step is a
 reply check on the previous value, so reading the file finds more than it
-lists.
+lists. It also missed runs written as an `else if` ladder over an outcome
+variable (`Run` in `subaru_hitachi_m32r_kline_executor.cpp`, #939) and runs
+whose last call takes lambdas (`WriteMem` in the MC68HC16Y5 02 executor,
+#936).
 
 - `candidate`: matches the rule as scanned.
 - `review`: non-log statements sit between steps (locals, phase reporters,
