@@ -39,6 +39,7 @@ cc_library(
     implementation_deps = [
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/ports",
     ],
     deps = [
         ":subaru_hitachi_sh7058_plan",
@@ -574,6 +575,7 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/uds:uds_service_ids",
+        "//src/backend/ports",
     ],
     deps = [
         ":subaru_mitsu_m32r_kline_plan",
@@ -1205,6 +1207,7 @@ cc_library(
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/ports",
         "//src/backend/protocol/uds:uds_client",
     ],
     deps = [

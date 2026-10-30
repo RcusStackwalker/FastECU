@@ -126,6 +126,7 @@ cc_library(
     implementation_deps = [
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
+        "//src/backend/ports",
     ],
     visibility = [
         # Backend workflow owns EEPROM attempt staging.
