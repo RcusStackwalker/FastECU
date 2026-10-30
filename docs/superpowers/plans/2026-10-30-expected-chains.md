@@ -56,6 +56,9 @@ style guide.
 - **Phase 2** (`src/backend/definition`, `src/backend/diagnostics`,
   `src/platform`) lands in one PR, one commit per file, tests first (user
   decision, 2026-10-30). Its inventory is at the end of this plan.
+- **Phase 3** (`src/backend/{logging,calibration,protocol,service_functions,config}`,
+  `src/algorithms`, `src/ui`) lands in one PR the same way (user decision,
+  2026-10-30). Its inventory follows phase 2's.
 
 ## Per-PR steps
 
@@ -134,6 +137,19 @@ style guide.
 | `platform/.../service_functions/serial_facade_configurator.cpp` | #944 | -5 | 0 |
 | `platform/.../transport/desktop_transport_factory.cpp` | #944 | -6 | +15 |
 | `platform/.../service_functions/worker/service_function_worker.cpp` | #944 | -4 | +22 |
+| `logging/protocols/portable_ssm_logging_protocol.cpp` | #945 | -14 | +15 |
+| `protocol/mitsu_colt_can_cdbg_driver.cpp` | #945 | -2 | +123 |
+| `protocol/testing/scripted_can_transport.h` (shared, gains `ExpectShortWrite`) | #945 | 0 | +4 |
+| `logging/logger_definition_service.cpp` | #945 | -14 | 0 |
+| `calibration/numeric_map_edit.cpp` | #945 | -10 | +19 |
+| `logging/protocols/portable_cdbg_logging_protocol.cpp` | #945 | 0 | +13 |
+| `logging/protocols/portable_mut_dma_logging_protocol.cpp` | #945 | -2 | +15 |
+| `calibration/session/numeric_target_internal.cpp` | #945 | -8 | 0 |
+| `protocol/mut_dma_driver.cpp` | #945 | -10 | +66 |
+| `calibration/session/map_operations.cpp` | #945 | -3 | 0 |
+| `config/catalog.cpp` | #945 | -4 | 0 |
+| `algorithms/expression/expression.cpp` (under `src/`) | #945 | -5 | 0 |
+| `calibration/session/calibration_session.cpp` | #945 | -2 | 0 |
 
 The rest of phase 1 landed in one PR (#943), one commit per file. Kept on
 purpose: `ecu/subaru_hitachi_sh7058_can_executor.cpp`'s `Exchange` (its read
@@ -156,6 +172,15 @@ mixed CAN transitions and `ServiceFunctionWorker::run` chain their steps
 into the one shared failure branch. Kept: `romraider_parser.cpp`'s
 `ParseScaling` (the owner fallback is a conditional single read; chaining
 saves nothing).
+
+Phase 3 (`src/backend/{logging,calibration,protocol,service_functions,config}`,
+`src/algorithms`, `src/ui`) landed in one PR the same way. Its review item,
+`calibration_session.cpp`'s `DecodeMap`, nests the read inside the placement
+lambda, so the decode sees both the extent and the window. Uncovered by
+design: `DecodeMap`'s and `PreparedNumericTarget::Apply`'s read failures (the
+placement check already proved the range readable) and the CDBG logging
+protocol's frame-bounds guard (the driver's frames come from the same
+channels).
 
 ## Inventory
 
@@ -656,3 +681,114 @@ phase 2 file builds and tests on macOS.
 `platform/...`: `qt_resource_bundle.cpp`, `logging/logging_csv_file.cpp`,
 `logging/logging_value_adapter.cpp`, `transport/desktop_logging_protocol_registration.cpp`,
 `diagnostics/serial_diagnostic_link.cpp` and the Qt workers (single calls).
+
+## Phase 3 inventory
+
+Read by hand on 2026-10-30 from `master` at `3c65953b`: every non-test file
+under `src/backend/logging`, `src/backend/calibration`, `src/backend/protocol`,
+`src/backend/service_functions`, `src/backend/config`, `src/algorithms` and
+`src/ui` that checks a `Result`. Labels as in phase 2.
+
+Totals: 22 candidate runs, 1 to review, across 12 files.
+
+| # | File | Candidate | Review |
+|---|---|---|---|
+| 1 | `logging/protocols/portable_ssm_logging_protocol.cpp` | 3 | 0 |
+| 2 | `protocol/mitsu_colt_can_cdbg_driver.cpp` | 3 | 0 |
+| 3 | `logging/logger_definition_service.cpp` | 3 | 0 |
+| 4 | `calibration/numeric_map_edit.cpp` | 3 | 0 |
+| 5 | `logging/protocols/portable_cdbg_logging_protocol.cpp` | 2 | 0 |
+| 6 | `logging/protocols/portable_mut_dma_logging_protocol.cpp` | 2 | 0 |
+| 7 | `calibration/session/numeric_target_internal.cpp` | 2 | 0 |
+| 8 | `protocol/mut_dma_driver.cpp` | 1 | 0 |
+| 9 | `calibration/session/map_operations.cpp` | 1 | 0 |
+| 10 | `config/catalog.cpp` | 1 | 0 |
+| 11 | `algorithms/expression/expression.cpp` | 1 | 0 |
+| 12 | `calibration/session/calibration_session.cpp` | 0 | 1 |
+
+Paths are under `src/backend/` except `algorithms/...` (`src/algorithms`).
+
+### `src/backend/logging/protocols/portable_ssm_logging_protocol.cpp`
+
+- 177-193 `ReadFramedResponse`'s `read_and_append` (2 steps + append, tail): candidate
+- 233-258 `Start` (3 steps + reply check, tail): candidate — the buffer clear moves into the lambda
+- 260-292 `Poll` (3 steps + checks, decode, tail): candidate — an empty reply returns early inside the lambda
+- not a run: `ReadFramedResponse`'s OpenPort branch; excluded — loop: its frame loop, `DecodeSamples`
+
+### `src/backend/protocol/mitsu_colt_can_cdbg_driver.cpp`
+
+- 17-40 `SendAndReceive` (2 steps + checks, tail): candidate
+- 53-76 `Unlock` (3 steps + grant check, tail): candidate
+- 102-138 `StartFreeFormLog` (3 steps + batch check, tail): candidate — `streaming_ = true` is the final `transform`
+- not a run: `Send`, `PollOnce`; excluded — loop: `ConfigureFrames`
+
+### `src/backend/logging/logger_definition_service.cpp`
+
+- 43-51 `LoadDefinition` (2 steps, tail): candidate
+- 53-62 `LoadSelection` (2 steps, tail): candidate
+- 64-78 `SaveSelection` (3 steps, tail): candidate
+
+### `src/backend/calibration/numeric_map_edit.cpp`
+
+- 166-175 `BuildPatch` (2 steps, partial, before the cell loop): candidate
+- 368-377 `CalculatePaste` (2 steps, partial, before the cell loop): candidate
+- 334-353 `CalculateAssignment` (2 steps, tail): candidate — `needs_input` reaches `BuildPatch`'s lambda
+- excluded: `LimitsFor`, `InterpolatePair`, `Interpolated` (the result needs two earlier values); `CalculateAssignment`'s per-cell lambda (rewraps the error); not a run: `ParseLimit`, `EncodeValue`, `AppendWrite`, `CalculateIncrement`
+
+### `src/backend/logging/protocols/portable_cdbg_logging_protocol.cpp`
+
+- 36-43 `Start` (2 steps, tail): candidate
+- 45-84 `Poll` (2 steps + checks, tail): candidate — the not-streaming reply returns early inside the lambda
+
+### `src/backend/logging/protocols/portable_mut_dma_logging_protocol.cpp`
+
+- 38-45 `Start` (2 steps, tail): candidate
+- 47-82 `Poll` (2 steps + checks, tail): candidate — likewise
+
+### `src/backend/calibration/session/numeric_target_internal.cpp`
+
+- 90-95 `Calculate` paste branch (2 steps, tail): candidate
+- 216-244 `PreparedNumericTarget::Apply` (3 steps + unchanged check, tail): candidate
+- excluded — loop: `ParsePaste`, `WritePatch`
+
+### `src/backend/protocol/mut_dma_driver.cpp`
+
+- 31-70 `StartFreeFormLog` (5 steps + checks, tail): candidate
+- not a run: `WriteFrame`, `PollOnce`; excluded — loop: `WriteMemory`
+
+### `src/backend/calibration/session/map_operations.cpp`
+
+- 43-74 `EditSelectable` (2 steps + checks, tail): candidate — the unchanged probe read is not a step
+
+### `src/backend/config/catalog.cpp`
+
+- 156-164 `PlaceRomFile` (2 steps, tail): candidate
+
+### `src/algorithms/expression/expression.cpp`
+
+- 351-359 `EvaluateChecked` (2 steps, tail): candidate
+- not a run: the parser's `Compile`, `Number`, `Binary`, `Factor`; excluded — loop: `Sum`, `Product`, `Evaluate`
+
+### `src/backend/calibration/session/calibration_session.cpp`
+
+- 110-134 `DecodeMap` (3 steps, tail): review — the decode step needs the extent as well as the window
+- excluded: `WriteBytes` (rewraps the write error)
+
+### No runs
+
+`logging/logging_channel_preparation.cpp` (`ParseEncoding`, `ParseChannel` need
+two earlier values; the rest rewrap or loop), `logging/logging_session.cpp`
+(`CompileChannel` rewraps; `MakeLoggingSession` needs two earlier values),
+`logging/logging_use_case.cpp` (loop), `logging/logging_run_snapshot.cpp`
+(loop, rewrap), `logging/logging_selection_use_case.cpp` (rewrap, state
+changes between steps), `logging/logger_conf.cpp`, `logging/logging_conversion.cpp`,
+`calibration/calibration_service.cpp` (rewraps), `calibration/session/rom_open.cpp`
+(failure branches log), `calibration/map_placement.cpp` (loop),
+`calibration/session/calibration_workspace.cpp`, `calibration/session/rom_save.cpp`,
+`protocol/uds/uds_client.cpp` and `protocol/mut_memory.cpp` (loop),
+`service_functions/*` (loops; failures become `FailedStep`),
+`config/provisioning.cpp` (loops, failure branches log or rewrap),
+`config/config_session.cpp` (rewraps), `config/app_config.cpp`,
+`algorithms/memory/*` (single steps before loops), `algorithms/crypto/subaru_key_recovery.cpp`
+(two earlier values), `algorithms/checksum/*`, and every file under `src/ui`
+(single calls; failure branches show notices).

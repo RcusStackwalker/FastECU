@@ -49,28 +49,25 @@ Result<SelectableEditOutcome> EditSelectable(CalibrationWorkspace& workspace, Ma
         return SelectableEditOutcome{*miss};
     }
     const auto& [session, definition, map] = std::get<internal::LocatedMap>(located);
-    const auto resolved = internal::ResolveBlobSelection(definition, map, selection);
-    if (!resolved.has_value())
-    {
-        return std::unexpected(resolved.error());
-    }
-    if (const auto *miss = std::get_if<internal::BlobMiss>(&*resolved); miss != nullptr)
-    {
-        return NotApplicable(*miss == internal::BlobMiss::kNotABlob ? NotApplicableReason::kUnavailableTarget
-                                                                    : NotApplicableReason::kUnknownSelection);
-    }
-    const auto& [offset, data] = std::get<internal::BlobPatch>(*resolved);
-    if (const auto current = session.Read(offset, data.size());
-        current.has_value() && std::ranges::equal(data, *current))
-    {
-        return SelectableEditOutcome{SelectableEditUnchanged{}};
-    }
-    const auto written = session.WriteBytes(offset, data);
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    return SelectableEditOutcome{SelectableEditChanged{}};
+    return internal::ResolveBlobSelection(definition, map, selection)
+        .and_then(
+            [&](const std::variant<internal::BlobPatch, internal::BlobMiss>& resolved) -> Result<SelectableEditOutcome>
+            {
+                if (const auto *miss = std::get_if<internal::BlobMiss>(&resolved); miss != nullptr)
+                {
+                    return NotApplicable(*miss == internal::BlobMiss::kNotABlob
+                                             ? NotApplicableReason::kUnavailableTarget
+                                             : NotApplicableReason::kUnknownSelection);
+                }
+                const auto& [offset, data] = std::get<internal::BlobPatch>(resolved);
+                if (const auto current = session.Read(offset, data.size());
+                    current.has_value() && std::ranges::equal(data, *current))
+                {
+                    return SelectableEditOutcome{SelectableEditUnchanged{}};
+                }
+                return session.WriteBytes(offset, data)
+                    .transform([] { return SelectableEditOutcome{SelectableEditChanged{}}; });
+            });
 }
 
 } // namespace fastecu::calibration

@@ -87,12 +87,8 @@ Result<NumericEditResult> Calculate(const DefinitionBytes& rom, const MapElement
             else
             {
                 static_assert(std::is_same_v<Edit, PasteEdit>);
-                const auto values = ParsePaste(edit);
-                if (!values.has_value())
-                {
-                    return std::unexpected(values.error());
-                }
-                return CalculatePaste(rom, spec, width, height, range, *values);
+                return ParsePaste(edit).and_then([&](const std::vector<std::vector<double>>& values)
+                                                 { return CalculatePaste(rom, spec, width, height, range, values); });
             }
         },
         operation);
@@ -220,27 +216,23 @@ Result<NumericEditOutcome> PreparedNumericTarget::Apply(const SelectionRange& ra
     // The target run's bytes, rendered from the session's memory image.
     const std::uint64_t end = ElementRunEnd(spec.address, spec.start_position, spec.interval, element_.byte_width,
                                             static_cast<std::uint32_t>(run_.cells.size()));
-    const auto window = session_->Read(spec.address, static_cast<std::size_t>(end - spec.address));
-    if (!window.has_value())
-    {
-        return std::unexpected(window.error());
-    }
-    const auto calculated = Calculate(DefinitionBytes(*window, spec.address), spec, range, element_.width,
-                                      element_.height, run_.cells, operation);
-    if (!calculated.has_value())
-    {
-        return std::unexpected(calculated.error());
-    }
-    if (calculated->writes.empty())
-    {
-        return NumericEditOutcome{NumericEditUnchanged{.reason = calculated->no_change}};
-    }
-    const auto written = WritePatch(*session_, spec, run_.cells.size(), calculated->writes);
-    if (!written.has_value())
-    {
-        return std::unexpected(written.error());
-    }
-    return NumericEditOutcome{NumericEditChanged{}};
+    return session_->Read(spec.address, static_cast<std::size_t>(end - spec.address))
+        .and_then(
+            [&](const bytes::Bytes& window)
+            {
+                return Calculate(DefinitionBytes(window, spec.address), spec, range, element_.width, element_.height,
+                                 run_.cells, operation);
+            })
+        .and_then(
+            [&](const NumericEditResult& calculated) -> Result<NumericEditOutcome>
+            {
+                if (calculated.writes.empty())
+                {
+                    return NumericEditOutcome{NumericEditUnchanged{.reason = calculated.no_change}};
+                }
+                return WritePatch(*session_, spec, run_.cells.size(), calculated.writes)
+                    .transform([] { return NumericEditOutcome{NumericEditChanged{}}; });
+            });
 }
 
 } // namespace fastecu::calibration::internal

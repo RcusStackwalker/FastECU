@@ -33,40 +33,30 @@ fastecu::Status MutDmaDriver::StartFreeFormLog(const std::vector<Channel>& chann
 {
     channels_ = channels;
     streaming_ = false;
-    if (auto wake = init_.Wake(t_); !wake.has_value())
-    {
-        return wake;
-    }
-    const auto setup = BuildSetupFrame(setup_cmd, static_cast<bytes::Byte>(channels.size()));
-    if (auto written = WriteFrame(t_, setup); !written.has_value())
-    {
-        return written;
-    }
-    auto resp1 = t_.Read(50ms, cancellation);
-    if (!resp1.has_value())
-    {
-        return std::unexpected(resp1.error());
-    }
-    if (!resp1->has_value() || !AckOk(resp1->value(), 0xA5, 0xB5))
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA setup acknowledgement invalid");
-    }
-    const auto id_list = BuildIdListFrame(list_cmd, channels);
-    if (auto written = WriteFrame(t_, id_list); !written.has_value())
-    {
-        return written;
-    }
-    auto resp2 = t_.Read(50ms, cancellation);
-    if (!resp2.has_value())
-    {
-        return std::unexpected(resp2.error());
-    }
-    if (!resp2->has_value() || !AckOk(resp2->value(), 0x05, 0x15))
-    {
-        return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA channel-list acknowledgement invalid");
-    }
-    streaming_ = true;
-    return {};
+    return init_.Wake(t_)
+        .and_then([&] { return WriteFrame(t_, BuildSetupFrame(setup_cmd, static_cast<bytes::Byte>(channels.size()))); })
+        .and_then([&] { return t_.Read(50ms, cancellation); })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& resp1) -> fastecu::Status
+            {
+                if (!resp1.has_value() || !AckOk(*resp1, 0xA5, 0xB5))
+                {
+                    return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA setup acknowledgement invalid");
+                }
+                return WriteFrame(t_, BuildIdListFrame(list_cmd, channels));
+            })
+        .and_then([&] { return t_.Read(50ms, cancellation); })
+        .and_then(
+            [&](const std::optional<bytes::Bytes>& resp2) -> fastecu::Status
+            {
+                if (!resp2.has_value() || !AckOk(*resp2, 0x05, 0x15))
+                {
+                    return fastecu::Fail(fastecu::ErrorKind::kBadResponse,
+                                         "MUT/DMA channel-list acknowledgement invalid");
+                }
+                streaming_ = true;
+                return {};
+            });
 }
 
 fastecu::Status MutDmaDriver::WriteMemory(std::uint16_t addr, bytes::ByteView data,

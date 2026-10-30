@@ -206,3 +206,18 @@ TEST(CdbgLoggingProtocolTest, OutOfOrderFramesPublishOnlyTheirMappedMeasurements
     EXPECT_EQ(earlier->samples[0].channel_id, "first");
     EXPECT_EQ(earlier->samples[0].raw_value, "2864434397");
 }
+
+TEST(CdbgLoggingProtocolTest, PollPropagatesReadFailureAfterStart)
+{
+    auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
+    ScriptValidHandshake(*transport);
+    auto *script = transport.get();
+    auto protocol = MakeProtocol(std::move(transport));
+    fastecu::FakeCancellationToken cancellation;
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
+    script->QueueError(fastecu::ErrorKind::kDisconnected, "sentinel CDBG poll read failure");
+
+    EXPECT_THAT(protocol->Poll(50ms, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "sentinel CDBG poll read failure"));
+    EXPECT_TRUE(script->ScriptConsumed());
+}
