@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_plan.h"
 
 #include <array>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -63,4 +64,9 @@ Result<FlashPlan> BuildSubaruDenso1n83m15mCanPlan(FlashOperation operation, std:
     return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
                                  SubaruDenso1n83m_1_5mCanPlan{0x7e0, 0x7e8, 500000, false, kLeadPad, kTailPad});
 }
+std::span<const std::string_view> SubaruDenso1n83m15mCanProtocols()
+{
+    return kProtocols;
+}
+
 } // namespace fastecu::flash

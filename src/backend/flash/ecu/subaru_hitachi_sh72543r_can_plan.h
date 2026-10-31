@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <span>
 #include <string_view>
 
 #include "src/backend/flash/flash_plan.h"
@@ -20,4 +21,6 @@ template <> struct PlanValidator<SubaruHitachiSh72543rCanPlan>
         return ValidateSubaruHitachiSh72543rCanPlan(plan);
     }
 };
+// Exact protocol ids this family accepts, in table order.
+std::span<const std::string_view> SubaruHitachiSh72543rCanProtocols();
 } // namespace fastecu::flash

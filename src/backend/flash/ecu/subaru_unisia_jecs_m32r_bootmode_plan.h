@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <span>
 #include <string_view>
 
 #include "src/backend/flash/flash_plan.h"
@@ -35,4 +36,6 @@ template <> struct PlanValidator<SubaruUnisiaJecsM32rBootModeKernelPlan>
         return ValidateSubaruUnisiaJecsM32rBootmodePlan(plan);
     }
 };
+// Exact protocol ids this family accepts, in table order.
+std::span<const std::string_view> SubaruUnisiaJecsM32rBootModeProtocols();
 } // namespace fastecu::flash

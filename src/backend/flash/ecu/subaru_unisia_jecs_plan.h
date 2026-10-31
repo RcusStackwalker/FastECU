@@ -1,5 +1,8 @@
 #pragma once
 
+#include <span>
+#include <string_view>
+
 #include "src/backend/flash/flash_plan.h"
 
 namespace fastecu::flash
@@ -15,4 +18,6 @@ template <> struct PlanValidator<SubaruUnisiaJecsPlan>
         return ValidateSubaruUnisiaJecsPlan(plan);
     }
 };
+// Exact protocol ids this family accepts, in table order.
+std::span<const std::string_view> SubaruUnisiaJecsProtocols();
 } // namespace fastecu::flash

@@ -1,7 +1,9 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_plan.h"
 
+#include <array>
 #include <cstddef>
 #include <format>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -175,4 +177,11 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502BdmPlan(FlashOperation operation, 
     }
     return plan;
 }
+constexpr std::array kExportedProtocols{kProtocol};
+
+std::span<const std::string_view> SubaruDensoMc68hc16y502BdmProtocols()
+{
+    return kExportedProtocols;
+}
+
 } // namespace fastecu::flash

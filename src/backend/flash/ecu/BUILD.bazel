@@ -594,6 +594,7 @@ cc_library(
     srcs = ["mitsu_colt_m32r_can_plan.cpp"],
     hdrs = ["mitsu_colt_m32r_can_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
@@ -854,6 +855,7 @@ cc_library(
     srcs = ["subaru_unisia_jecs_plan.cpp"],
     hdrs = ["subaru_unisia_jecs_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],
@@ -962,6 +964,7 @@ cc_library(
     srcs = ["subaru_unisia_jecs_m32r_kline_plan.cpp"],
     hdrs = ["subaru_unisia_jecs_m32r_kline_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],
@@ -1021,6 +1024,7 @@ cc_library(
     srcs = ["subaru_unisia_jecs_m32r_bootmode_plan.cpp"],
     hdrs = ["subaru_unisia_jecs_m32r_bootmode_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],

@@ -5,6 +5,8 @@
 #include <array>
 #include <format>
 #include <memory>
+#include <span>
+#include <string_view>
 #include <utility>
 
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
@@ -222,6 +224,13 @@ Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std:
     return ValidateAndBuild(std::move(fields))
         .and_then([](FlashPlan plan)
                   { return ValidateSubaruDensoSh705xKlinePlan(plan).transform([&] { return std::move(plan); }); });
+}
+
+constexpr auto kExportedProtocols = detail::ProtocolIdsOf<&Variant::protocol>(kVariants);
+
+std::span<const std::string_view> SubaruDensoSh705xKlineProtocols()
+{
+    return kExportedProtocols;
 }
 
 } // namespace fastecu::flash

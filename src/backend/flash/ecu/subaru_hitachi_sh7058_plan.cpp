@@ -1,6 +1,9 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
 
 #include <algorithm>
+#include <array>
+#include <span>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -120,4 +123,11 @@ Result<FlashPlan> BuildSubaruHitachiSh7058Plan(FlashOperation operation, std::st
     }
     return plan;
 }
+constexpr std::array kExportedProtocols{kProtocol};
+
+std::span<const std::string_view> SubaruHitachiSh7058Protocols()
+{
+    return kExportedProtocols;
+}
+
 } // namespace fastecu::flash

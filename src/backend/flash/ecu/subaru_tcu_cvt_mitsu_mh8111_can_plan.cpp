@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_plan.h"
 
 #include <array>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -75,4 +76,9 @@ Result<FlashPlan> BuildSubaruTcuCvtMitsuMh8111CanPlan(FlashOperation operation, 
     return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
                                  SubaruTcuCvtMitsuMh8111CanPlan{0x7e1, 0x7e9, 500000, false});
 }
+std::span<const std::string_view> SubaruTcuCvtMitsuMh8111CanProtocols()
+{
+    return kProtocols;
+}
+
 } // namespace fastecu::flash

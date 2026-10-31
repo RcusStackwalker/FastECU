@@ -27,4 +27,7 @@ namespace fastecu::flash
 Result<FlashPlan> BuildEepromReadPlan(const config::ConfigPaths& paths, const config::ProtocolSpec& protocol,
                                       EepromReadMode mode, IFileRepository& file_repository);
 
+// Exact protocol ids of the Denso SH705x EEPROM read catalog entries.
+std::span<const std::string_view> DensoSh705xEepromProtocols();
+
 } // namespace fastecu::flash

@@ -1,6 +1,9 @@
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
 
+#include <array>
 #include <format>
+#include <span>
+#include <string_view>
 #include <utility>
 
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_types.h"
@@ -148,6 +151,13 @@ Result<FlashPlan> BuildSubaruTcuHitachiM32rCanPlan(FlashOperation operation, std
     return ValidateAndBuild(std::move(fields))
         .and_then([](FlashPlan plan)
                   { return ValidateSubaruTcuHitachiM32rCanPlan(plan).transform([&] { return std::move(plan); }); });
+}
+
+constexpr std::array kExportedProtocols{kProtocol};
+
+std::span<const std::string_view> SubaruTcuHitachiM32rCanProtocols()
+{
+    return kExportedProtocols;
 }
 
 } // namespace fastecu::flash

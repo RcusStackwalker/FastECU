@@ -14,4 +14,6 @@ template <> struct PlanValidator<SubaruDenso1n83m_4mCanPlan>
         return ValidateSubaruDenso1n83m4mCanPlan(plan);
     }
 };
+// Exact protocol ids this family accepts, in table order.
+std::span<const std::string_view> SubaruDenso1n83m4mCanProtocols();
 } // namespace fastecu::flash

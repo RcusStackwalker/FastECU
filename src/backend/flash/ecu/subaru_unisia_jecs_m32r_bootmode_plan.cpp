@@ -1,15 +1,5 @@
+#include "src/backend/flash/ecu/plan_primitives.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_plan.h"
-
-#include <algorithm>
-#include <array>
-#include <cstdint>
-#include <format>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <variant>
-#include <vector>
-
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 
@@ -197,4 +187,11 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation op
     }
     return Build(FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram, *variant, std::move(*image), kProgramWire);
 }
+constexpr auto kExportedProtocols = detail::ProtocolIdsOf<&Variant::protocol>(kVariants);
+
+std::span<const std::string_view> SubaruUnisiaJecsM32rBootModeProtocols()
+{
+    return kExportedProtocols;
+}
+
 } // namespace fastecu::flash

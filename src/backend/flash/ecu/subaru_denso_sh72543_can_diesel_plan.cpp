@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_plan.h"
 
 #include <array>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -67,4 +68,9 @@ Result<FlashPlan> BuildSubaruDensoSh72543CanDieselPlan(FlashOperation operation,
     return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
                                  SubaruDensoSh72543CanDieselPlan{0x7e0, 0x7e8, 500000, false, kLeadPad, kTailPad});
 }
+std::span<const std::string_view> SubaruDensoSh72543CanDieselProtocols()
+{
+    return kProtocols;
+}
+
 } // namespace fastecu::flash
