@@ -29,6 +29,7 @@ template <> struct FamilyTraits<SubaruHitachiM32rKlinePlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiM32rKline;
     static constexpr TransportKind kTransport = TransportKind::kKline;
+    static constexpr bool kRequiresKernel = false;
 };
 
 template <> struct PlanValidator<SubaruHitachiM32rKlinePlan>

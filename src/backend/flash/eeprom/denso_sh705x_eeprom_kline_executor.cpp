@@ -1,4 +1,5 @@
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/bytes.h"

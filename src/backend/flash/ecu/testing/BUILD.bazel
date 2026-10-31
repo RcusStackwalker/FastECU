@@ -41,6 +41,7 @@ cc_library(
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_types",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",

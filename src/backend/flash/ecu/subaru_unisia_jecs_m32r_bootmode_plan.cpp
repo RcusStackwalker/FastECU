@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_plan.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_types.h"
 
 #include <algorithm>
 #include <array>
@@ -82,7 +83,7 @@ template <typename Wire> bool WireMatches(const Wire& wire, const Wire& expected
 
 Status ValidateKernel(const FlashPlan& plan)
 {
-    const auto *wire = std::get_if<SubaruUnisiaJecsM32rBootModeKernelPlan>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<SubaruUnisiaJecsM32rBootModeKernelPlan>();
     if (wire == nullptr || !WireMatches(*wire, kKernelWire))
     {
         return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode kernel wire parameters are invalid");
@@ -97,7 +98,7 @@ Status ValidateKernel(const FlashPlan& plan)
 
 Status ValidateProgram(const FlashPlan& plan, const Variant& variant)
 {
-    const auto *wire = std::get_if<SubaruUnisiaJecsM32rBootModeProgramPlan>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<SubaruUnisiaJecsM32rBootModeProgramPlan>();
     if (wire == nullptr || !WireMatches(*wire, kProgramWire))
     {
         return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R bootmode program wire parameters are invalid");

@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_executor.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_types.h"
 
 #include <array>
 #include <chrono>

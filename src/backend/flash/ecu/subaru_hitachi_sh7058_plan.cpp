@@ -40,7 +40,7 @@ std::vector<ConfirmationSpec> ConfirmationsFor(bool read)
 
 template <typename Wire> bool HasDefaultWire(const FlashPlan& plan, TransportKind transport)
 {
-    const auto *wire = std::get_if<Wire>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<Wire>();
     return plan.Transport() == transport && wire != nullptr && *wire == Wire{};
 }
 

@@ -1,5 +1,6 @@
 // src/backend/flash/eeprom/denso_sh705x_eeprom_common.cpp
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 
 #include <format>
 #include <limits>
@@ -302,12 +303,12 @@ Status ValidateDensoSh705xEepromPlan(const FlashPlan& plan)
     }
     EepromReadMode mode = EepromReadMode::kMode2; // overwritten below: the plan holds one of the two variants
     DensoSecurityVariant security = DensoSecurityVariant::kStock;
-    if (const auto *kline = std::get_if<DensoSh705xEepromKlinePlan>(&plan.FamilyPlan()))
+    if (const auto *kline = plan.FamilyPlan().As<DensoSh705xEepromKlinePlan>())
     {
         mode = kline->mode;
         security = kline->security;
     }
-    else if (const auto *can = std::get_if<DensoSh705xEepromCanPlan>(&plan.FamilyPlan()))
+    else if (const auto *can = plan.FamilyPlan().As<DensoSh705xEepromCanPlan>())
     {
         mode = can->mode;
         security = can->security;

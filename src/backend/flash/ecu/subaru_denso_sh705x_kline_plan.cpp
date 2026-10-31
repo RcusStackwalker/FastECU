@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan_detail.h"
 
 #include <algorithm>
@@ -155,7 +156,7 @@ Status ValidateSubaruDensoSh705xKlinePlan(const FlashPlan& plan)
     {
         return valid;
     }
-    if (const auto *family = std::get_if<SubaruDensoSh705xKlinePlan>(&plan.FamilyPlan());
+    if (const auto *family = plan.FamilyPlan().As<SubaruDensoSh705xKlinePlan>();
         family == nullptr || *family != WireFor(*variant))
     {
         return Fail(kInvalidConfig, "Denso SH705x K-Line wire parameters are invalid");

@@ -103,24 +103,22 @@ enum class TransportKind
     kCanRawIso15765,
 };
 
-// The FlashFamily tag and TransportKind each plan alternative belongs to.
+// The facts about a plan type: the FlashFamily tag and TransportKind it
+// belongs to, and whether ValidateAndBuild requires FlashPlanFields::kernel
+// for it. A specialization provides
+//   static constexpr FlashFamily kFamily;
+//   static constexpr TransportKind kTransport;
+//   static constexpr bool kRequiresKernel;
 //
-// Deliberately has no primary definition: a new alternative added to
-// FamilyPlan must specialize this in the plan type's <f>_types.h, or every use
-// fails to compile. That is stricter than
-// kFamilyRequiresKernel below, which has a default to fall
-// back on -- there is no safe default family or transport to guess, and a
-// wrong guess would let a plan reach the executor of a different family.
+// Deliberately has no primary definition, and kRequiresKernel no default: a
+// plan type must specialize this in its <f>_types.h and decide whether it
+// uploads a kernel, or wrapping it in a FamilyPlan fails to compile. There is
+// no safe default family or transport to guess, and a wrong guess would let a
+// plan reach the executor of a different family.
 //
-// validate_and_build consumes this instead of a hand-written switch over
-// FlashFamily, so adding a family is a single-file edit in that header and cannot
-// silently bind the wrong variant to a family.
+// FamilyPlan records these when it wraps a plan, so ValidateAndBuild reads
+// them without knowing every plan type (ADR 0030).
 template <typename PlanT> struct FamilyTraits;
-
-// Whether validate_and_build requires FlashPlanFields::kernel for this plan
-// type. Defaults false; a plan type that uploads a kernel opts in, in its
-// `<f>_types.h`.
-template <typename PlanT> inline constexpr bool kFamilyRequiresKernel = false;
 
 // A family's plan validator, reached by plan admission (FamilyExecutor in
 // flash_executor.h). A specialization provides

@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_types.h"
 
 #include <algorithm>
 #include <array>
@@ -117,8 +118,7 @@ Status ValidateSubaruUnisiaJecsM32rKlinePlan(const FlashPlan& plan)
     {
         return operation;
     }
-    if (const auto *wire = std::get_if<SubaruUnisiaJecsM32rKlinePlan>(&plan.FamilyPlan());
-        wire == nullptr || *wire != kWire)
+    if (const auto *wire = plan.FamilyPlan().As<SubaruUnisiaJecsM32rKlinePlan>(); wire == nullptr || *wire != kWire)
     {
         return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs M32R wire parameters are invalid");
     }

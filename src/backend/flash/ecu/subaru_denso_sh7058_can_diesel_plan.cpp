@@ -60,7 +60,7 @@ Status ValidateSubaruDensoSh7058CanDieselPlan(const FlashPlan& plan)
     {
         return std::unexpected(entry.error());
     }
-    const auto *wire = std::get_if<SubaruDensoSh7058CanDieselPlan>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<SubaruDensoSh7058CanDieselPlan>();
     if (wire == nullptr || !WireParametersMatch(*wire))
     {
         return Fail(ErrorKind::kInvalidConfig, "diesel CAN wire parameters are invalid");

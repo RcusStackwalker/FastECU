@@ -1,6 +1,7 @@
 #pragma once
 
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_types.h"
 #include "src/backend/flash/flash_executor.h"
 
 namespace fastecu::flash

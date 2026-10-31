@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_types.h"
 #include "src/backend/flash/flash_validation.h"
 
 #include <gmock/gmock.h>
@@ -78,7 +79,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, ReadCoversEachVariantFromTheReadBase)
         EXPECT_THAT(plan->Image(), Eq(std::nullopt));
         EXPECT_THAT(plan->Kernel(), Eq(std::nullopt));
         EXPECT_THAT(plan->Confirmations(), IsEmpty()) << "Read never raises programming voltage";
-        const auto& wire = std::get<SubaruUnisiaJecsM32rKlinePlan>(plan->FamilyPlan());
+        const auto& wire = plan->FamilyPlan().Get<SubaruUnisiaJecsM32rKlinePlan>();
         EXPECT_EQ(wire.initial_baud, 4800);
         EXPECT_EQ(wire.tester_id, 0xf0);
         EXPECT_EQ(wire.target_id, 0x10);

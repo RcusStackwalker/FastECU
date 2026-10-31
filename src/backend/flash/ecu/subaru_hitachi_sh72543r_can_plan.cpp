@@ -69,7 +69,7 @@ Status ValidateSubaruHitachiSh72543rCanPlan(const FlashPlan& plan)
     {
         return identity;
     }
-    const auto *wire = std::get_if<SubaruHitachiSh72543rCanPlan>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<SubaruHitachiSh72543rCanPlan>();
     if (wire == nullptr || !WireParametersMatch(*wire))
     {
         return Fail(ErrorKind::kInvalidConfig, "Subaru Hitachi SH72543R CAN wire parameters are invalid");

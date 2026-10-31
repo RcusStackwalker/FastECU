@@ -27,6 +27,7 @@ cc_library(
         "//src/backend/flash/eeprom:__subpackages__",
     ],
     deps = [
+        ":denso_sh705x_eeprom_types",
         "//src/backend/flash:flash_plan",
         "//src/backend/ports",
     ],
@@ -37,6 +38,7 @@ fastecu_portable_gtest(
     srcs = ["denso_sh705x_eeprom_common_test.cpp"],
     deps = [
         ":denso_sh705x_eeprom_common",
+        ":denso_sh705x_eeprom_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -47,6 +49,7 @@ fastecu_portable_gtest(
     name = "test_eeprom_read_plan_goldens",
     srcs = ["eeprom_read_plan_goldens_test.cpp"],
     deps = [
+        ":denso_sh705x_eeprom_types",
         ":eeprom_read_plan",
         "//src/backend/config:catalog",
         "//src/backend/ports/testing:in_memory_file_repository",
@@ -61,6 +64,7 @@ cc_library(
     hdrs = ["eeprom_read_plan.h"],
     implementation_deps = [":denso_sh705x_eeprom_common"],
     deps = [
+        ":denso_sh705x_eeprom_types",
         "//src/backend/config:catalog",
         "//src/backend/config:config_paths",
         "//src/backend/flash:flash_plan",
@@ -75,6 +79,7 @@ fastecu_portable_gtest(
     data = ["//resources/shared:kernel_files"],
     env = {"KERNEL_FILES": "$(locations //resources/shared:kernel_files)"},
     deps = [
+        ":denso_sh705x_eeprom_types",
         ":eeprom_read_plan",
         "//src/backend/config:builtin_catalog",
         "//src/backend/config:catalog",
@@ -102,6 +107,7 @@ cc_library(
     ],
     deps = [
         ":denso_sh705x_eeprom_common",
+        ":denso_sh705x_eeprom_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -112,6 +118,7 @@ fastecu_portable_gtest(
     deps = [
         ":denso_sh705x_eeprom_common",
         ":denso_sh705x_eeprom_kline",
+        ":denso_sh705x_eeprom_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_validation",
@@ -141,6 +148,7 @@ cc_library(
     ],
     deps = [
         ":denso_sh705x_eeprom_common",
+        ":denso_sh705x_eeprom_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -154,6 +162,7 @@ fastecu_portable_gtest(
     deps = [
         ":denso_sh705x_eeprom_can",
         ":denso_sh705x_eeprom_common",
+        ":denso_sh705x_eeprom_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_validation",

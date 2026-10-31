@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing
@@ -30,7 +31,7 @@ TEST(SubaruMitsuM32rKlinePlan, ReadPlanCarriesThisFamilysIdentityAndWireParamete
     EXPECT_EQ(plan->Family(), FlashFamily::kSubaruMitsuM32rKline);
     EXPECT_EQ(plan->Transport(), TransportKind::kKline);
 
-    const auto& family = std::get<SubaruMitsuM32rKlinePlan>(plan->FamilyPlan());
+    const auto& family = plan->FamilyPlan().Get<SubaruMitsuM32rKlinePlan>();
     EXPECT_EQ(family.tester_id, 0xf0);
     EXPECT_EQ(family.target_id, 0x10);
     EXPECT_EQ(family.initial_baud, 4800);

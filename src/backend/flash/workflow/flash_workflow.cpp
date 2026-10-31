@@ -1,4 +1,5 @@
 #include "src/backend/flash/workflow/flash_workflow.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 
 #include <algorithm>
 #include <array>

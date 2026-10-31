@@ -1,4 +1,5 @@
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_types.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_executor.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
@@ -407,7 +408,7 @@ TEST_F(Sh72543rExecutor, ForgedDryRunAndWireChangesAreRejectedBeforeIo)
         if (mutation)
         {
             f.operation = FlashOperation::kWrite;
-            std::get<SubaruHitachiSh72543rCanPlan>(f.family_plan).request_id = 0x7e1;
+            f.family_plan.Get<SubaruHitachiSh72543rCanPlan>().request_id = 0x7e1;
         }
         auto built = ValidateAndBuild(std::move(f));
         ASSERT_THAT(built, fastecu::testing::IsOk());

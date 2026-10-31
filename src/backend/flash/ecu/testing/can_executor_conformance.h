@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "src/backend/flash/flash_executor.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"

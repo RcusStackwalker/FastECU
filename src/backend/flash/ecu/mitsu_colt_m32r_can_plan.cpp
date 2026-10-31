@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
+#include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
 
 #include <array>
 #include <format>
@@ -65,7 +66,7 @@ Status ValidateMitsuColtM32rCanPlan(const FlashPlan& plan)
         return Fail(ErrorKind::kInvalidConfig, std::format("Protocol {} expects MCU {}; got {}", plan.TargetId(),
                                                            (*variant)->mcu, plan.McuName()));
     }
-    if (const auto *family = std::get_if<MitsuColtM32rCanPlan>(&plan.FamilyPlan());
+    if (const auto *family = plan.FamilyPlan().As<MitsuColtM32rCanPlan>();
         family == nullptr || family->use_vendor_challenge != (*variant)->vendor)
     {
         return Fail(ErrorKind::kInvalidConfig, "Mitsubishi Colt authorization variant does not match protocol");

@@ -377,7 +377,7 @@ class FamilyExecutor : public Interface
 
     Result<ConfigType> TransportSetup(const FlashPlan& plan) const final
     {
-        return CheckPlan(plan).and_then([&] { return Setup(std::get<Plan>(plan.FamilyPlan())); });
+        return CheckPlan(plan).and_then([&] { return Setup(plan.FamilyPlan().Get<Plan>()); });
     }
 
     Result<FlashExecutionResult> Execute(const FlashPlan& plan, TransportType& transport, IClock& clock,
@@ -390,7 +390,7 @@ class FamilyExecutor : public Interface
                 {
                     return Fail(ErrorKind::kCancelled, "cancelled before setup");
                 }
-                return Run(std::get<Plan>(plan.FamilyPlan()), plan, transport, clock, cancellation, events);
+                return Run(plan.FamilyPlan().Get<Plan>(), plan, transport, clock, cancellation, events);
             });
     }
 

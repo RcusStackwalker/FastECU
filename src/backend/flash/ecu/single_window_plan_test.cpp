@@ -35,7 +35,7 @@ bool GeometryOk(const FlashDevice& device)
 
 bool WireParamsOk(const fastecu::flash::FlashPlan& plan)
 {
-    const auto *p = std::get_if<SubaruDensoSh72531CanPlan>(&plan.FamilyPlan());
+    const auto *p = plan.FamilyPlan().As<SubaruDensoSh72531CanPlan>();
     return p != nullptr && p->request_id == 0x7e0U;
 }
 

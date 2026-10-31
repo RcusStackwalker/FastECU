@@ -1,5 +1,6 @@
 // subaru_hitachi_m32r_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing
@@ -27,7 +28,7 @@ TEST(SubaruHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
                                                     "M32R_512KB_1block", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruHitachiM32rCanPlan>(plan->FamilyPlan());
+    const auto& family = plan->FamilyPlan().Get<SubaruHitachiM32rCanPlan>();
     EXPECT_EQ(family.request_id, 0x7e0U);
     EXPECT_EQ(family.response_id, 0x7e8U);
     EXPECT_EQ(family.bitrate, 500000);

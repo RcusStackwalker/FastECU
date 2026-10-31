@@ -1,4 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 // Equivalence + error-matrix tests for DensoSh705xEepromKlineExecutor,
 // the portable replacement for the deleted
 // EepromEcuSubaruDensoSH705xKlineOperation. Every literal byte sequence

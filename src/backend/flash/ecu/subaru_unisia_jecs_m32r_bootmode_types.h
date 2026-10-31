@@ -26,6 +26,7 @@ template <> struct FamilyTraits<SubaruUnisiaJecsM32rBootModeKernelPlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel;
     static constexpr TransportKind kTransport = TransportKind::kKline;
+    static constexpr bool kRequiresKernel = false;
 };
 
 template <> struct PlanValidator<SubaruUnisiaJecsM32rBootModeKernelPlan>
@@ -44,6 +45,7 @@ template <> struct FamilyTraits<SubaruUnisiaJecsM32rBootModeProgramPlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram;
     static constexpr TransportKind kTransport = TransportKind::kKline;
+    static constexpr bool kRequiresKernel = false;
 };
 
 template <> struct PlanValidator<SubaruUnisiaJecsM32rBootModeProgramPlan>

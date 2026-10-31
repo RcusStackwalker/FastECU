@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_types.h"
 
 #include <array>
 #include <cstdint>

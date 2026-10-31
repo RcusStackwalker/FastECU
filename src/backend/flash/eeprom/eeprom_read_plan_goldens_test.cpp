@@ -1,4 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 // tests/test_eeprom_read_plan_goldens.cpp
 //
 // Characterization goldens for the EEPROM read plan (step 5d-6). Written
@@ -67,7 +68,7 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     // response_id=0x7e8, bitrate=500000, extended_id=false. FlashMethod
     // carries no security suffix here, so security_for_protocol falls
     // through to DensoSecurityVariant::kStock.
-    const auto *can_plan = std::get_if<DensoSh705xEepromCanPlan>(&plan->FamilyPlan());
+    const auto *can_plan = plan->FamilyPlan().As<DensoSh705xEepromCanPlan>();
     ASSERT_NE(can_plan, nullptr);
     EXPECT_EQ(can_plan->mode, EepromReadMode::kMode2);
     EXPECT_EQ(can_plan->security, DensoSecurityVariant::kStock);
@@ -105,7 +106,7 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     // target_id=0x10, initial_baud=4800, kernel_baud=15625 (the resolved
     // family value). FlashMethod carries no security suffix here, so
     // security_for_protocol falls through to DensoSecurityVariant::kStock.
-    const auto *kline_plan = std::get_if<DensoSh705xEepromKlinePlan>(&plan->FamilyPlan());
+    const auto *kline_plan = plan->FamilyPlan().As<DensoSh705xEepromKlinePlan>();
     ASSERT_NE(kline_plan, nullptr);
     EXPECT_EQ(kline_plan->mode, EepromReadMode::kMode4);
     EXPECT_EQ(kline_plan->security, DensoSecurityVariant::kStock);

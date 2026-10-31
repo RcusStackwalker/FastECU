@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing
@@ -52,7 +53,7 @@ TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToTheirSessionModeAndWirePara
         EXPECT_EQ(plan->Family(), FlashFamily::kSubaruHitachiM32rKline);
         EXPECT_EQ(plan->Transport(), TransportKind::kKline);
 
-        const auto& family = std::get<SubaruHitachiM32rKlinePlan>(plan->FamilyPlan());
+        const auto& family = plan->FamilyPlan().Get<SubaruHitachiM32rKlinePlan>();
         EXPECT_EQ(family.session_mode, mode);
         EXPECT_EQ(family.tester_id, 0xf0);
         EXPECT_EQ(family.target_id, 0x10);

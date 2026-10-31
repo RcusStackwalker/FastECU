@@ -1,4 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 // src/backend/flash/eeprom/denso_sh705x_eeprom_common_test.cpp
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
@@ -55,8 +56,8 @@ TEST(DensoSh705xEepromCommonTest, ValidKlineMode2ProducesReadPlanWithTwoConfirma
     EXPECT_EQ(plan->Confirmations()[0].id, ConfirmationSpec::Id::kBeginEepromRead);
     EXPECT_EQ(plan->Confirmations()[1].id, ConfirmationSpec::Id::kInspectEepromBytes);
 
-    ASSERT_TRUE(std::holds_alternative<DensoSh705xEepromKlinePlan>(plan->FamilyPlan()));
-    const auto& kline_plan = std::get<DensoSh705xEepromKlinePlan>(plan->FamilyPlan());
+    ASSERT_TRUE(plan->FamilyPlan().As<DensoSh705xEepromKlinePlan>() != nullptr);
+    const auto& kline_plan = plan->FamilyPlan().Get<DensoSh705xEepromKlinePlan>();
     EXPECT_EQ(kline_plan.tester_id, 0xf0);
     EXPECT_EQ(kline_plan.target_id, 0x10);
     EXPECT_EQ(kline_plan.initial_baud, 4800);
@@ -240,7 +241,7 @@ TEST(DensoSh705xEepromCommonTest, PlanValidatorRejectsHandBuiltPlans)
 {
     {
         auto fields = HandBuiltKlineFields();
-        std::get<DensoSh705xEepromKlinePlan>(fields.family_plan).security = DensoSecurityVariant::kCobb;
+        fields.family_plan.Get<DensoSh705xEepromKlinePlan>().security = DensoSecurityVariant::kCobb;
         const auto plan = ValidateAndBuild(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         EXPECT_THAT(

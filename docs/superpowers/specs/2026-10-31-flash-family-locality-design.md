@@ -49,10 +49,12 @@ headers, because the variant forces `flash_types.h` to include every
    FamilyPlan(P)`, records `FamilyTraits<P>::kFamily`, `::kTransport` and
    `::kRequiresKernel`. Existing assignments such as
    `fields.family_plan = DensoSh705xEepromCanPlan{…}` compile unchanged.
-2. **A typed accessor replaces `std::get_if`.** `FlashPlan::FamilyPlanAs<P>()`
-   returns `const P*`, null on a type mismatch. Executors that used
-   `std::get` keep their behaviour: plan admission has already run the
-   family validator, which rejects a null.
+2. **Typed accessors replace `std::get_if` and `std::get`.**
+   `FamilyPlan::As<P>()` returns a pointer, null on a different plan type;
+   `FamilyPlan::Get<P>()` returns a reference and throws `std::bad_any_cast`
+   on a different plan type, as `std::get` threw `std::bad_variant_access`.
+   Call sites keep their shape (`plan.FamilyPlan().As<P>()`), and executors
+   keep their behaviour.
 3. **The kernel requirement is a required trait.** `kFamilyRequiresKernel<T>`
    is replaced by `static constexpr bool kRequiresKernel` in each
    `FamilyTraits` specialization, with no default. All 30 plan types state it:
@@ -89,7 +91,7 @@ headers, because the variant forces `flash_types.h` to include every
 - `flash_types_test.cpp` keeps the per-plan-type kernel expectations it already
   has, read from `FamilyTraits<T>::kRequiresKernel`.
 - New tests for `FamilyPlan`: it records the traits of the type it wraps, and
-  `FamilyPlanAs` returns null for a different plan type, including SH7058's
+  `As` returns null for a different plan type, including SH7058's
   sibling plan type.
 - Wire transcripts and plan goldens do not change in any step.
 

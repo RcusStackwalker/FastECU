@@ -1,4 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 #include "src/backend/flash/flash_executor.h"
 
 #include <gmock/gmock.h>

@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_types.h"
 
 #include <array>
 #include <optional>
@@ -155,7 +156,7 @@ TEST(SubaruDensoSh705xDensoCanPlan, BuildsEveryExactProtocolMcuOperationAndGeome
             EXPECT_EQ(plan->Confirmations().front().id, ConfirmationSpec::Id::kCycleIgnition);
             EXPECT_THAT(plan->Confirmations().front().arguments, IsEmpty());
 
-            const auto& wire = std::get<SubaruDensoSh705xDensoCanPlan>(plan->FamilyPlan());
+            const auto& wire = plan->FamilyPlan().Get<SubaruDensoSh705xDensoCanPlan>();
             EXPECT_EQ(wire.iso_request_id, 0x7E0U);
             EXPECT_EQ(wire.iso_response_id, 0x7E8U);
             EXPECT_EQ(wire.raw_transmit_id, 0x000FFFFEU);
@@ -266,7 +267,7 @@ TEST(SubaruDensoSh705xDensoCanPlan, ValidatorRejectsWireGeometryAndConfirmationD
     {
         SCOPED_TRACE(::testing::PrintToString(mutation));
         auto fields = ValidFields(test_case, FlashOperation::kWrite);
-        auto& wire = std::get<SubaruDensoSh705xDensoCanPlan>(fields.family_plan);
+        auto& wire = fields.family_plan.Get<SubaruDensoSh705xDensoCanPlan>();
         switch (mutation)
         {
         case 0:

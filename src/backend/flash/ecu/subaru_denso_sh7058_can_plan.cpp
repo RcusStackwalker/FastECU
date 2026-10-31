@@ -81,7 +81,7 @@ Status ValidateSubaruDensoSh7058CanPlan(const FlashPlan& plan)
     {
         return std::unexpected(entry.error());
     }
-    const auto *wire = std::get_if<SubaruDensoSh7058CanPlan>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<SubaruDensoSh7058CanPlan>();
     if (wire == nullptr || !WireParametersMatch(*wire, *entry))
     {
         return Fail(ErrorKind::kInvalidConfig, "petrol SH7058 CAN wire/security parameters are invalid");

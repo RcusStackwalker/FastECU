@@ -1,5 +1,6 @@
 #pragma once
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_types.h"
 #include "src/backend/flash/flash_executor.h"
 
 namespace fastecu::flash

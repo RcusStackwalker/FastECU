@@ -8,6 +8,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_hitachi_sh7058_plan_test.cpp"],
     deps = [
         ":subaru_hitachi_sh7058_plan",
+        ":subaru_hitachi_sh7058_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -47,6 +48,7 @@ cc_library(
     ],
     deps = [
         ":subaru_hitachi_sh7058_plan",
+        ":subaru_hitachi_sh7058_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -79,6 +81,7 @@ cc_library(
     ],
     deps = [
         ":subaru_hitachi_sh7058_plan",
+        ":subaru_hitachi_sh7058_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -235,6 +238,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_sh7058_can_plan_test.cpp"],
     deps = [
         ":subaru_denso_sh7058_can_plan",
+        ":subaru_denso_sh7058_can_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -247,6 +251,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_sh7058_can_executor",
         ":subaru_denso_sh7058_can_plan",
+        ":subaru_denso_sh7058_can_types",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_validation",
@@ -297,6 +302,7 @@ cc_library(
     ],
     deps = [
         ":subaru_denso_sh7058_can_diesel_plan",
+        ":subaru_denso_sh7058_can_diesel_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -325,6 +331,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_denso_sh705x_can_plan_test.cpp"],
     deps = [
         ":subaru_tcu_denso_sh705x_can_plan",
+        ":subaru_tcu_denso_sh705x_can_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -411,7 +418,10 @@ cc_library(
     name = "subaru_hitachi_m32r_kline_plan",
     srcs = ["subaru_hitachi_m32r_kline_plan.cpp"],
     hdrs = ["subaru_hitachi_m32r_kline_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_hitachi_m32r_kline_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -427,6 +437,7 @@ cc_library(
     ],
     deps = [
         ":subaru_hitachi_m32r_kline_plan",
+        ":subaru_hitachi_m32r_kline_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -435,7 +446,10 @@ cc_library(
     name = "subaru_mitsu_m32r_kline_plan",
     srcs = ["subaru_mitsu_m32r_kline_plan.cpp"],
     hdrs = ["subaru_mitsu_m32r_kline_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_mitsu_m32r_kline_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -445,6 +459,7 @@ cc_library(
     hdrs = ["subaru_denso_mc68hc16y5_02_plan.h"],
     implementation_deps = [
         ":plan_primitives",
+        ":subaru_denso_mc68hc16y5_02_types",
         "//src/algorithms/memory:address",
         "//src/algorithms/memory:memory_map",
         "//src/backend/flash:flash_device_lookup",
@@ -463,6 +478,7 @@ cc_library(
     hdrs = ["subaru_denso_sh7055_02_plan.h"],
     implementation_deps = [
         ":plan_primitives",
+        ":subaru_denso_sh7055_02_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/kernel:memory_models",
@@ -530,6 +546,7 @@ cc_library(
     ],
     deps = [
         ":subaru_tcu_denso_sh705x_can_plan",
+        ":subaru_tcu_denso_sh705x_can_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -541,6 +558,7 @@ cc_library(
     implementation_deps = [":denso_beef_can_ecu_execution"],
     deps = [
         ":subaru_denso_sh7058_can_plan",
+        ":subaru_denso_sh7058_can_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -560,6 +578,7 @@ cc_library(
     ],
     deps = [
         ":subaru_denso_sh705x_densocan_plan",
+        ":subaru_denso_sh705x_densocan_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -581,6 +600,7 @@ cc_library(
     ],
     deps = [
         ":subaru_denso_mc68hc16y5_02_plan",
+        ":subaru_denso_mc68hc16y5_02_types",
         "//src/algorithms/memory:memory_image",
         "//src/backend/flash:flash_executor",
     ],
@@ -602,6 +622,7 @@ cc_library(
     ],
     deps = [
         ":subaru_denso_sh7055_02_plan",
+        ":subaru_denso_sh7055_02_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -612,6 +633,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_sh7055_02_executor",
         ":subaru_denso_sh7055_02_plan",
+        ":subaru_denso_sh7055_02_types",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_device_lookup",
@@ -634,6 +656,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_mc68hc16y5_02_executor",
         ":subaru_denso_mc68hc16y5_02_plan",
+        ":subaru_denso_mc68hc16y5_02_types",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
@@ -665,6 +688,7 @@ cc_library(
     ],
     deps = [
         ":subaru_mitsu_m32r_kline_plan",
+        ":subaru_mitsu_m32r_kline_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -674,6 +698,7 @@ cc_library(
     srcs = ["mitsu_colt_m32r_can_plan.cpp"],
     hdrs = ["mitsu_colt_m32r_can_plan.h"],
     implementation_deps = [
+        ":mitsu_colt_m32r_can_types",
         ":plan_primitives",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/backend/flash:flash_device_lookup",
@@ -693,6 +718,7 @@ fastecu_portable_gtest(
     srcs = ["mitsu_colt_m32r_can_plan_test.cpp"],
     deps = [
         ":mitsu_colt_m32r_can_plan",
+        ":mitsu_colt_m32r_can_types",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -715,6 +741,7 @@ fastecu_portable_gtest(
     deps = [
         ":bootloader_operation",
         ":subaru_hitachi_m32r_can_plan",
+        ":subaru_hitachi_m32r_can_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/backend/ports/testing:result_matchers",
@@ -785,6 +812,7 @@ cc_library(
     ],
     deps = [
         ":mitsu_colt_m32r_can_plan",
+        ":mitsu_colt_m32r_can_types",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:guarded_can_flash_transport",
     ],
@@ -796,6 +824,7 @@ fastecu_portable_gtest(
     deps = [
         ":mitsu_colt_m32r_can_executor",
         ":mitsu_colt_m32r_can_plan",
+        ":mitsu_colt_m32r_can_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
@@ -816,6 +845,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_mitsu_m32r_kline_plan_test.cpp"],
     deps = [
         ":subaru_mitsu_m32r_kline_plan",
+        ":subaru_mitsu_m32r_kline_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -825,6 +855,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_mc68hc16y5_02_plan_test.cpp"],
     deps = [
         ":subaru_denso_mc68hc16y5_02_plan",
+        ":subaru_denso_mc68hc16y5_02_types",
         "//src/algorithms/memory/testing:memory_views",
         "//src/backend/config:catalog",
         "//src/backend/flash:flash_device_lookup",
@@ -841,6 +872,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_sh7055_02_plan_test.cpp"],
     deps = [
         ":subaru_denso_sh7055_02_plan",
+        ":subaru_denso_sh7055_02_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/kernel:memory_models",
@@ -854,6 +886,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_sh705x_densocan_plan_test.cpp"],
     deps = [
         ":subaru_denso_sh705x_densocan_plan",
+        ":subaru_denso_sh705x_densocan_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -885,6 +918,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_tcu_denso_sh705x_can_executor",
         ":subaru_tcu_denso_sh705x_can_plan",
+        ":subaru_tcu_denso_sh705x_can_types",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_validation",
@@ -904,6 +938,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_hitachi_m32r_kline_plan_test.cpp"],
     deps = [
         ":subaru_hitachi_m32r_kline_plan",
+        ":subaru_hitachi_m32r_kline_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -912,7 +947,10 @@ cc_library(
     name = "subaru_tcu_hitachi_m32r_kline_plan",
     srcs = ["subaru_tcu_hitachi_m32r_kline_plan.cpp"],
     hdrs = ["subaru_tcu_hitachi_m32r_kline_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_tcu_hitachi_m32r_kline_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -921,6 +959,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_hitachi_m32r_kline_plan_test.cpp"],
     deps = [
         ":subaru_tcu_hitachi_m32r_kline_plan",
+        ":subaru_tcu_hitachi_m32r_kline_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -940,6 +979,7 @@ cc_library(
     hdrs = ["subaru_unisia_jecs_plan.h"],
     implementation_deps = [
         ":plan_primitives",
+        ":subaru_unisia_jecs_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],
@@ -951,6 +991,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_unisia_jecs_plan_test.cpp"],
     deps = [
         ":subaru_unisia_jecs_plan",
+        ":subaru_unisia_jecs_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -963,6 +1004,7 @@ cc_library(
     hdrs = ["subaru_unisia_jecs_executor.h"],
     deps = [
         ":subaru_unisia_jecs_plan",
+        ":subaru_unisia_jecs_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -997,6 +1039,7 @@ cc_library(
     hdrs = ["subaru_denso_mc68hc16y5_02_bdm_plan.h"],
     implementation_deps = [
         ":plan_primitives",
+        ":subaru_denso_mc68hc16y5_02_bdm_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],
@@ -1008,6 +1051,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_mc68hc16y5_02_bdm_plan_test.cpp"],
     deps = [
         ":subaru_denso_mc68hc16y5_02_bdm_plan",
+        ":subaru_denso_mc68hc16y5_02_bdm_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -1020,6 +1064,7 @@ cc_library(
     hdrs = ["subaru_denso_mc68hc16y5_02_bdm_executor.h"],
     deps = [
         ":subaru_denso_mc68hc16y5_02_bdm_plan",
+        ":subaru_denso_mc68hc16y5_02_bdm_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1030,6 +1075,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_mc68hc16y5_02_bdm_executor",
         ":subaru_denso_mc68hc16y5_02_bdm_plan",
+        ":subaru_denso_mc68hc16y5_02_bdm_types",
         ":subaru_unisia_jecs_plan",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:flash_validation",
@@ -1057,6 +1103,7 @@ cc_library(
     hdrs = ["subaru_unisia_jecs_m32r_kline_plan.h"],
     implementation_deps = [
         ":plan_primitives",
+        ":subaru_unisia_jecs_m32r_kline_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],
@@ -1068,6 +1115,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_unisia_jecs_m32r_kline_plan_test.cpp"],
     deps = [
         ":subaru_unisia_jecs_m32r_kline_plan",
+        ":subaru_unisia_jecs_m32r_kline_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -1086,6 +1134,7 @@ cc_library(
     ],
     deps = [
         ":subaru_unisia_jecs_m32r_kline_plan",
+        ":subaru_unisia_jecs_m32r_kline_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1121,6 +1170,7 @@ cc_library(
     hdrs = ["subaru_unisia_jecs_m32r_bootmode_plan.h"],
     implementation_deps = [
         ":plan_primitives",
+        ":subaru_unisia_jecs_m32r_bootmode_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],
@@ -1132,6 +1182,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_unisia_jecs_m32r_bootmode_plan_test.cpp"],
     deps = [
         ":subaru_unisia_jecs_m32r_bootmode_plan",
+        ":subaru_unisia_jecs_m32r_bootmode_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -1144,6 +1195,7 @@ cc_library(
     hdrs = ["subaru_unisia_jecs_m32r_bootmode_kernel_executor.h"],
     deps = [
         ":subaru_unisia_jecs_m32r_bootmode_plan",
+        ":subaru_unisia_jecs_m32r_bootmode_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1154,6 +1206,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_unisia_jecs_m32r_bootmode_kernel_executor",
         ":subaru_unisia_jecs_m32r_bootmode_plan",
+        ":subaru_unisia_jecs_m32r_bootmode_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
@@ -1177,6 +1230,7 @@ cc_library(
     ],
     deps = [
         ":subaru_unisia_jecs_m32r_bootmode_plan",
+        ":subaru_unisia_jecs_m32r_bootmode_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1215,6 +1269,7 @@ cc_library(
     ],
     implementation_deps = [
         ":plan_primitives",
+        ":subaru_denso_sh705x_kline_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],
@@ -1230,6 +1285,8 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_sh705x_kline_plan_test.cpp"],
     deps = [
         ":subaru_denso_sh705x_kline_plan",
+        ":subaru_denso_sh705x_kline_types",
+        ":subaru_unisia_jecs_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
         "//src/backend/flash:flash_validation",
@@ -1256,6 +1313,7 @@ cc_library(
     ],
     deps = [
         ":subaru_denso_sh705x_kline_plan",
+        ":subaru_denso_sh705x_kline_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1303,6 +1361,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_hitachi_m32r_can_plan_test.cpp"],
     deps = [
         ":subaru_tcu_hitachi_m32r_can_plan",
+        ":subaru_tcu_hitachi_m32r_can_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
@@ -1324,6 +1383,7 @@ cc_library(
     ],
     deps = [
         ":subaru_tcu_hitachi_m32r_can_plan",
+        ":subaru_tcu_hitachi_m32r_can_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1334,6 +1394,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_tcu_hitachi_m32r_can_executor",
         ":subaru_tcu_hitachi_m32r_can_plan",
+        ":subaru_tcu_hitachi_m32r_can_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_device_lookup",
@@ -1362,6 +1423,7 @@ cc_library(
     ],
     deps = [
         ":subaru_tcu_hitachi_m32r_kline_plan",
+        ":subaru_tcu_hitachi_m32r_kline_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1387,7 +1449,10 @@ cc_library(
     name = "subaru_hitachi_m32r_can_plan",
     srcs = ["subaru_hitachi_m32r_can_plan.cpp"],
     hdrs = ["subaru_hitachi_m32r_can_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_hitachi_m32r_can_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -1396,6 +1461,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_hitachi_m32r_can_plan_test.cpp"],
     deps = [
         ":subaru_hitachi_m32r_can_plan",
+        ":subaru_hitachi_m32r_can_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -1404,7 +1470,10 @@ cc_library(
     name = "subaru_tcu_cvt_hitachi_m32r_can_plan",
     srcs = ["subaru_tcu_cvt_hitachi_m32r_can_plan.cpp"],
     hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_tcu_cvt_hitachi_m32r_can_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -1413,6 +1482,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_cvt_hitachi_m32r_can_plan_test.cpp"],
     deps = [
         ":subaru_tcu_cvt_hitachi_m32r_can_plan",
+        ":subaru_tcu_cvt_hitachi_m32r_can_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -1421,7 +1491,10 @@ cc_library(
     name = "subaru_tcu_cvt_mitsu_mh8111_can_plan",
     srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan.cpp"],
     hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_tcu_cvt_mitsu_mh8111_can_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -1430,6 +1503,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan_test.cpp"],
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
+        ":subaru_tcu_cvt_mitsu_mh8111_can_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -1438,7 +1512,10 @@ cc_library(
     name = "subaru_denso_1n83m_1_5m_can_plan",
     srcs = ["subaru_denso_1n83m_1_5m_can_plan.cpp"],
     hdrs = ["subaru_denso_1n83m_1_5m_can_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_denso_1n83m_1_5m_can_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -1447,6 +1524,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_1n83m_1_5m_can_plan_test.cpp"],
     deps = [
         ":subaru_denso_1n83m_1_5m_can_plan",
+        ":subaru_denso_1n83m_1_5m_can_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -1455,7 +1533,10 @@ cc_library(
     name = "subaru_denso_sh72531_can_plan",
     srcs = ["subaru_denso_sh72531_can_plan.cpp"],
     hdrs = ["subaru_denso_sh72531_can_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_denso_sh72531_can_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -1464,6 +1545,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_sh72531_can_plan_test.cpp"],
     deps = [
         ":subaru_denso_sh72531_can_plan",
+        ":subaru_denso_sh72531_can_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -1472,7 +1554,10 @@ cc_library(
     name = "subaru_denso_sh72543_can_diesel_plan",
     srcs = ["subaru_denso_sh72543_can_diesel_plan.cpp"],
     hdrs = ["subaru_denso_sh72543_can_diesel_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_denso_sh72543_can_diesel_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -1481,6 +1566,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_sh72543_can_diesel_plan_test.cpp"],
     deps = [
         ":subaru_denso_sh72543_can_diesel_plan",
+        ":subaru_denso_sh72543_can_diesel_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -1489,7 +1575,10 @@ cc_library(
     name = "subaru_denso_1n83m_4m_can_plan",
     srcs = ["subaru_denso_1n83m_4m_can_plan.cpp"],
     hdrs = ["subaru_denso_1n83m_4m_can_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_denso_1n83m_4m_can_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -1498,6 +1587,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_1n83m_4m_can_plan_test.cpp"],
     deps = [
         ":subaru_denso_1n83m_4m_can_plan",
+        ":subaru_denso_1n83m_4m_can_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -1528,6 +1618,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_sh72543_can_diesel_executor",
         ":subaru_denso_sh72543_can_diesel_plan",
+        ":subaru_denso_sh72543_can_diesel_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
@@ -1557,6 +1648,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_1n83m_4m_can_executor",
         ":subaru_denso_1n83m_4m_can_plan",
+        ":subaru_denso_1n83m_4m_can_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
@@ -1575,6 +1667,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_sh72531_can_executor",
         ":subaru_denso_sh72531_can_plan",
+        ":subaru_denso_sh72531_can_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
@@ -1624,6 +1717,7 @@ cc_library(
     ],
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
+        ":subaru_tcu_cvt_mitsu_mh8111_can_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1634,6 +1728,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8111_can_executor",
         ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
+        ":subaru_tcu_cvt_mitsu_mh8111_can_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/testing:byte_matchers",
@@ -1652,7 +1747,10 @@ cc_library(
     name = "subaru_tcu_cvt_mitsu_mh8104_can_plan",
     srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_plan.cpp"],
     hdrs = ["subaru_tcu_cvt_mitsu_mh8104_can_plan.h"],
-    implementation_deps = [":single_window_plan"],
+    implementation_deps = [
+        ":single_window_plan",
+        ":subaru_tcu_cvt_mitsu_mh8104_can_types",
+    ],
     deps = ["//src/backend/flash:flash_plan"],
 )
 
@@ -1661,6 +1759,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_plan_test.cpp"],
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8104_can_plan",
+        ":subaru_tcu_cvt_mitsu_mh8104_can_types",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
@@ -1681,6 +1780,7 @@ cc_library(
     ],
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8104_can_plan",
+        ":subaru_tcu_cvt_mitsu_mh8104_can_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1691,6 +1791,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8104_can_executor",
         ":subaru_tcu_cvt_mitsu_mh8104_can_plan",
+        ":subaru_tcu_cvt_mitsu_mh8104_can_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/testing:byte_matchers",
@@ -1725,6 +1826,7 @@ cc_library(
     ],
     deps = [
         ":subaru_tcu_cvt_hitachi_m32r_can_plan",
+        ":subaru_tcu_cvt_hitachi_m32r_can_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1735,6 +1837,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_tcu_cvt_hitachi_m32r_can_executor",
         ":subaru_tcu_cvt_hitachi_m32r_can_plan",
+        ":subaru_tcu_cvt_hitachi_m32r_can_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/testing:byte_matchers",
@@ -1766,6 +1869,7 @@ cc_library(
     ],
     deps = [
         ":subaru_hitachi_m32r_can_plan",
+        ":subaru_hitachi_m32r_can_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -1776,6 +1880,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_hitachi_m32r_can_executor",
         ":subaru_hitachi_m32r_can_plan",
+        ":subaru_hitachi_m32r_can_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/testing:byte_matchers",
@@ -1871,6 +1976,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_1n83m_1_5m_can_executor",
         ":subaru_denso_1n83m_1_5m_can_plan",
+        ":subaru_denso_1n83m_1_5m_can_types",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
@@ -1926,6 +2032,8 @@ fastecu_portable_gtest(
     srcs = ["subaru_hitachi_sh72543r_can_plan_test.cpp"],
     deps = [
         ":subaru_hitachi_sh72543r_can_plan",
+        ":subaru_hitachi_sh72543r_can_types",
+        ":subaru_tcu_hitachi_m32r_can_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -1960,6 +2068,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_hitachi_sh72543r_can_executor",
         ":subaru_hitachi_sh72543r_can_plan",
+        ":subaru_hitachi_sh72543r_can_types",
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/testing:scripted_flash_transports",
@@ -1985,6 +2094,7 @@ cc_library(
     ],
     deps = [
         ":subaru_hitachi_sh72543r_can_plan",
+        ":subaru_hitachi_sh72543r_can_types",
         "//src/backend/flash:flash_executor",
     ],
 )
@@ -2006,7 +2116,9 @@ fastecu_portable_gtest(
     name = "plan_primitives_test",
     srcs = ["plan_primitives_test.cpp"],
     deps = [
+        ":mitsu_colt_m32r_can_types",
         ":plan_primitives",
+        ":subaru_denso_sh7058_can_diesel_types",
         "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
@@ -2133,12 +2245,16 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_1n83m_1_5m_can_executor",
         ":subaru_denso_1n83m_1_5m_can_plan",
+        ":subaru_denso_1n83m_1_5m_can_types",
         ":subaru_denso_1n83m_4m_can_executor",
         ":subaru_denso_1n83m_4m_can_plan",
+        ":subaru_denso_1n83m_4m_can_types",
         ":subaru_denso_sh72531_can_executor",
         ":subaru_denso_sh72531_can_plan",
+        ":subaru_denso_sh72531_can_types",
         ":subaru_denso_sh72543_can_diesel_executor",
         ":subaru_denso_sh72543_can_diesel_plan",
+        ":subaru_denso_sh72543_can_diesel_types",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:result_matchers",
@@ -2155,9 +2271,13 @@ cc_library(
         ":denso_iso15765_can_common",
         ":flash_phase_progress",
         ":subaru_denso_1n83m_1_5m_can_plan",
+        ":subaru_denso_1n83m_1_5m_can_types",
         ":subaru_denso_1n83m_4m_can_plan",
+        ":subaru_denso_1n83m_4m_can_types",
         ":subaru_denso_sh72531_can_plan",
+        ":subaru_denso_sh72531_can_types",
         ":subaru_denso_sh72543_can_diesel_plan",
+        ":subaru_denso_sh72543_can_diesel_types",
         ":uds_client_exchange_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/uds",
@@ -2228,6 +2348,7 @@ fastecu_portable_gtest(
         ":beef_can_kernel",
         ":subaru_denso_sh7058_can_diesel_types",
         ":subaru_denso_sh7058_can_plan",
+        ":subaru_denso_sh7058_can_types",
         ":subaru_tcu_denso_sh705x_can_types",
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:flash_validation",

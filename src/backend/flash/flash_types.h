@@ -1,39 +1,13 @@
 #pragma once
+#include <any>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "src/algorithms/protocol/bytes.h"
-#include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
-#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
-#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_types.h"
-#include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_types.h"
-#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
-#include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_types.h"
-#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_types.h"
-#include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_types.h"
-#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_types.h"
-#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_types.h"
-#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_types.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_types.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
-#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_types.h"
-#include "src/backend/flash/ecu/subaru_unisia_jecs_types.h"
-#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_types.h"
-#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_types.h"
-#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 #include "src/backend/flash/flash_family.h"
 
 namespace fastecu::flash
@@ -108,21 +82,67 @@ template <> struct std::hash<fastecu::flash::ConfirmationSpec::Id>
 namespace fastecu::flash
 {
 
-// Each alternative's struct lives in a per-family (or, once a cluster is
-// factored, per-cluster) types header included above -- see e.g.
-// ecu/mitsu_colt_m32r_can_types.h and eeprom/denso_sh705x_eeprom_types.h.
-// This file stays the single place that assembles the variant;
-// classification lives in each `<f>_types.h`. It does not own any individual family's fields.
-using FamilyPlan =
-    std::variant<DensoSh705xEepromKlinePlan, DensoSh705xEepromCanPlan, MitsuColtM32rCanPlan, SubaruMitsuM32rKlinePlan,
-                 SubaruHitachiM32rKlinePlan, SubaruDensoMc68hc16y5_02Plan, SubaruDensoSh7055_02Plan,
-                 SubaruHitachiM32rCanPlan, SubaruTcuCvtHitachiM32rCanPlan, SubaruTcuCvtMitsuMh8111CanPlan,
-                 SubaruTcuCvtMitsuMh8104CanPlan, SubaruDenso1n83m_1_5mCanPlan, SubaruDensoSh72531CanPlan,
-                 SubaruDensoSh72543CanDieselPlan, SubaruDenso1n83m_4mCanPlan, SubaruDensoSh705xDensoCanPlan,
-                 SubaruTcuDensoSh705xCanPlan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan,
-                 SubaruTcuHitachiM32rKlinePlan, SubaruTcuHitachiM32rCanPlan, SubaruHitachiSh72543rCanPlan,
-                 SubaruHitachiSh7058KlinePlan, SubaruHitachiSh7058CanPlan, SubaruUnisiaJecsPlan,
-                 SubaruDensoSh705xKlinePlan, SubaruDensoMc68hc16y5_02BdmPlan, SubaruUnisiaJecsM32rKlinePlan,
-                 SubaruUnisiaJecsM32rBootModeKernelPlan, SubaruUnisiaJecsM32rBootModeProgramPlan>;
+// The family-specific part of a FlashPlan: one plan type's value, with the
+// facts its FamilyTraits states, recorded when it is wrapped (ADR 0030).
+// Each plan type lives in its family's header; this file includes none of
+// them. A family reads its own plan type back with As (null on a different
+// type) or Get (throws std::bad_any_cast on a different type).
+class FamilyPlan
+{
+  public:
+    // Empty. ValidateAndBuild rejects a plan whose family plan is empty.
+    FamilyPlan() = default;
+
+    // Implicit, as assigning an alternative to a std::variant was. Fails to
+    // compile for a plan type without FamilyTraits or a kernel decision.
+    template <typename P>
+        requires(!std::same_as<P, FamilyPlan>)
+    FamilyPlan(P plan)
+        : value_(std::move(plan)), family_(FamilyTraits<P>::kFamily), transport_(FamilyTraits<P>::kTransport),
+          requires_kernel_(FamilyTraits<P>::kRequiresKernel)
+    {
+    }
+
+    bool HasValue() const
+    {
+        return value_.has_value();
+    }
+    FlashFamily Family() const
+    {
+        return family_;
+    }
+    TransportKind Transport() const
+    {
+        return transport_;
+    }
+    bool RequiresKernel() const
+    {
+        return requires_kernel_;
+    }
+
+    template <typename P> const P *As() const
+    {
+        return std::any_cast<P>(&value_);
+    }
+    template <typename P> const P& Get() const
+    {
+        return std::any_cast<const P&>(value_);
+    }
+    // Mutable access keeps the recorded facts true: the plan type cannot change.
+    template <typename P> P *As()
+    {
+        return std::any_cast<P>(&value_);
+    }
+    template <typename P> P& Get()
+    {
+        return std::any_cast<P&>(value_);
+    }
+
+  private:
+    std::any value_;
+    FlashFamily family_{};
+    TransportKind transport_{};
+    bool requires_kernel_ = false;
+};
 
 } // namespace fastecu::flash

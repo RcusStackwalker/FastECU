@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/bootloader_operation.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

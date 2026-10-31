@@ -1,5 +1,6 @@
 // subaru_denso_sh72531_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing
@@ -27,7 +28,7 @@ TEST(SubaruDensoSh72531CanPlan, ReadPlanCarriesThisFamilysWireParameters)
         BuildSubaruDensoSh72531CanPlan(FlashOperation::kRead, "sub_ecu_denso_sh72531_can", "SH72531", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruDensoSh72531CanPlan>(plan->FamilyPlan());
+    const auto& family = plan->FamilyPlan().Get<SubaruDensoSh72531CanPlan>();
     EXPECT_EQ(family.request_id, 0x7e0U);
     EXPECT_EQ(family.response_id, 0x7e8U);
     EXPECT_EQ(family.bitrate, 500000);
