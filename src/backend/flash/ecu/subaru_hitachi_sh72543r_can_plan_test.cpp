@@ -22,8 +22,6 @@ constexpr auto kProtocol = "sub_ecu_hitachi_sh72543r_can";
 FlashPlanFields Fields(FlashOperation op = FlashOperation::kWrite)
 {
     return {.operation = op,
-            .family = FlashFamily::kSubaruHitachiSh72543rCan,
-            .transport = TransportKind::kCanIso15765,
             .target_id = kProtocol,
             .mcu_name = "SH72543R",
             .transfer_region = op == FlashOperation::kRead ? MemoryRegion{0, 0x200000} : MemoryRegion{0x6000, 0x1FA000},
@@ -132,26 +130,17 @@ TEST(Sh72543rPlan, RejectsKernelAndReadWindowDrift)
     ASSERT_THAT(built, fastecu::testing::IsOk());
     EXPECT_THAT(ValidateSubaruHitachiSh72543rCanPlan(*built), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
-TEST(Sh72543rPlan, CoreRejectsMismatchedFamilyTransportAndVariant)
+// The plan's family comes from its plan type (ADR 0030), so a plan carrying
+// another family's plan type builds as that family's plan; this family's
+// validator is what turns it away.
+TEST(Sh72543rPlan, ValidatorRejectsAnotherFamilysPlanType)
 {
-    for (int mutation = 0; mutation < 3; ++mutation)
-    {
-        SCOPED_TRACE(::testing::PrintToString(mutation));
-        auto f = Fields();
-        if (mutation == 0)
-        {
-            f.family = FlashFamily::kSubaruTcuHitachiM32rCan;
-        }
-        if (mutation == 1)
-        {
-            f.transport = TransportKind::kKline;
-        }
-        if (mutation == 2)
-        {
-            f.family_plan = SubaruTcuHitachiM32rCanPlan{};
-        }
-        EXPECT_THAT(ValidateAndBuild(std::move(f)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    }
+    auto f = Fields();
+    f.family_plan = SubaruTcuHitachiM32rCanPlan{};
+    auto built = ValidateAndBuild(std::move(f));
+    ASSERT_THAT(built, fastecu::testing::IsOk());
+    EXPECT_EQ(built->Family(), FlashFamily::kSubaruTcuHitachiM32rCan);
+    EXPECT_THAT(ValidateSubaruHitachiSh72543rCanPlan(*built), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 } // namespace
 } // namespace fastecu::flash

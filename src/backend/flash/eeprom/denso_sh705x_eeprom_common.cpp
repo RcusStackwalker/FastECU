@@ -281,8 +281,6 @@ Result<FlashPlan> BuildDensoSh705xEepromPlan(DensoSh705xEepromInput input)
 
     FlashPlanFields fields{
         .operation = FlashOperation::kRead,
-        .family = input.family,
-        .transport = transport,
         .target_id = input.target_id,
         .mcu_name = input.mcu_name,
         .transfer_region = input.eeprom_region,

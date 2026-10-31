@@ -115,8 +115,6 @@ Result<FlashPlan> BuildSubaruDensoSh7058CanPlan(FlashOperation operation, std::s
     return detail::BuildWholeRomKernelPlan<128>(
         {
             .operation = operation,
-            .family = FlashFamily::kSubaruDensoSh7058Can,
-            .transport = TransportKind::kCanIso15765,
             .target_id = std::string(protocol_name),
             .mcu_name = std::string(mcu_type),
             .family_plan = SubaruDensoSh7058CanPlan{.security = entry->security},

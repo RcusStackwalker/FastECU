@@ -111,13 +111,11 @@ Status ValidateProgram(const FlashPlan& plan, const Variant& variant)
     return {};
 }
 
-Result<FlashPlan> Build(FlashFamily family, const Variant& variant, bytes::Bytes image, FamilyPlan wire)
+Result<FlashPlan> Build(const Variant& variant, bytes::Bytes image, FamilyPlan wire)
 {
     const auto length = static_cast<std::uint32_t>(image.size());
     auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = FlashOperation::kWrite,
-        .family = family,
-        .transport = TransportKind::kKline,
         .target_id = std::string(variant.protocol),
         .mcu_name = std::string(variant.mcu),
         .transfer_region = {0, length},
@@ -176,7 +174,7 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(FlashOperation ope
     }
     // Zero-pad to whole 128-byte chunks.
     kernel.resize((kernel.size() + kChunk - 1) / kChunk * kChunk, 0x00);
-    return Build(FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel, *variant, std::move(kernel), kKernelWire);
+    return Build(*variant, std::move(kernel), kKernelWire);
 }
 
 Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation operation, std::string_view protocol_name,
@@ -198,7 +196,7 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation op
                     std::format("{} write image must be exactly {} bytes, not {}", variant->protocol, variant->rom_size,
                                 image.has_value() ? image->size() : 0));
     }
-    return Build(FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram, *variant, std::move(*image), kProgramWire);
+    return Build(*variant, std::move(*image), kProgramWire);
 }
 constexpr auto kExportedProtocols = detail::ProtocolIdsOf<&Variant::protocol>(kVariants);
 

@@ -49,8 +49,6 @@ constexpr SingleWindowPlanSpec kSpec{
     .display_name = "Subaru TCU CVT Hitachi M32R CAN",
     .protocols = kProtocols,
     .mcu = "M32R_512KB",
-    .family = FlashFamily::kSubaruTcuCvtHitachiM32rCan,
-    .transport = TransportKind::kCanIso15765,
     .read_region = kReadRegion,
     .write_region = kWriteRegion,
     .image_size = kImageSize,

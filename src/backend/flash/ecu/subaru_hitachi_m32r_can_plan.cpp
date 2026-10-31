@@ -32,8 +32,6 @@ constexpr SingleWindowPlanSpec kSpec{
     .display_name = "Subaru Hitachi M32R CAN",
     .protocols = kProtocols,
     .mcu = "M32R_512KB_1block",
-    .family = FlashFamily::kSubaruHitachiM32rCan,
-    .transport = TransportKind::kCanIso15765,
     .read_region = kRom,
     .write_region = kRom,
     .image_size = kRom.length,

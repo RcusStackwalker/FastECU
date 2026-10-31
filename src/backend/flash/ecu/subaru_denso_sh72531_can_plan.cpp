@@ -42,8 +42,6 @@ constexpr SingleWindowPlanSpec kSpec{
     .display_name = "Subaru Denso SH72531 CAN",
     .protocols = kProtocols,
     .mcu = "SH72531",
-    .family = FlashFamily::kSubaruDensoSh72531Can,
-    .transport = TransportKind::kCanIso15765,
     .read_region = kMainBlock,
     .write_region = kMainBlock,
     .image_size = kImageSize,

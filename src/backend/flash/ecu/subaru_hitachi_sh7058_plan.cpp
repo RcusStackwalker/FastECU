@@ -102,8 +102,6 @@ Result<FlashPlan> BuildSubaruHitachiSh7058Plan(FlashOperation operation, std::st
     }
     FlashPlanFields fields{
         .operation = operation,
-        .family = FlashFamily::kSubaruHitachiSh7058,
-        .transport = read ? TransportKind::kKline : TransportKind::kCanIso15765,
         .target_id = std::string(protocol),
         .mcu_name = std::string(mcu),
         .transfer_region = TransferFor(read),

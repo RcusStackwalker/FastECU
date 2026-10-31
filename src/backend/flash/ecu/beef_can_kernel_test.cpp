@@ -402,8 +402,6 @@ class BeefCanKernelWrite : public BeefCanKernel
     {
         const auto size = static_cast<std::uint32_t>(image.size());
         return ValidateAndBuild({.operation = operation,
-                                 .family = FlashFamily::kSubaruDensoSh7058Can,
-                                 .transport = TransportKind::kCanIso15765,
                                  .target_id = "kernel-test",
                                  .mcu_name = "SH7058",
                                  .transfer_region = {base, std::max(size, 1U)},

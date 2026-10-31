@@ -211,8 +211,6 @@ Result<FlashPlan> BuildSubaruDensoSh705xKlinePlan(FlashOperation operation, std:
 
     FlashPlanFields fields{
         .operation = operation,
-        .family = FlashFamily::kSubaruDensoSh705xKline,
-        .transport = TransportKind::kKline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = MemoryRegion{0, (*device)->romsize},

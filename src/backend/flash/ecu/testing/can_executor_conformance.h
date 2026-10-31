@@ -91,8 +91,6 @@ TYPED_TEST_P(CanExecutorConformance, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
 
     FlashPlanFields fields;
     fields.operation = FlashOperation::kRead;
-    fields.family = FlashFamily::kDensoSh705xEepromCan;
-    fields.transport = TransportKind::kCanIso15765;
     fields.target_id = "sub_ecu_denso_sh705x_eeprom_can";
     fields.mcu_name = "SH7058";
     fields.transfer_region = MemoryRegion{.start = 0x0, .length = 0x100};

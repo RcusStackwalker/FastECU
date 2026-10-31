@@ -123,8 +123,6 @@ Result<FlashPlan> BuildSubaruHitachiSh72543rCanPlan(FlashOperation operation, st
 
     FlashPlanFields fields{
         .operation = operation,
-        .family = FlashFamily::kSubaruHitachiSh72543rCan,
-        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = operation == FlashOperation::kRead ? kReadWindow : kWriteWindow,

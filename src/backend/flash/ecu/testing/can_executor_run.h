@@ -76,14 +76,11 @@ inline void ScriptDensoPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte b
 // plan whose operation the builder itself would refuse can still reach the
 // executor -- the only way to prove the executor's own plan validation rejects
 // it before any I/O.
-inline Result<FlashPlan> HandBuiltCanPlan(FlashOperation operation, FlashFamily family, std::string_view protocol,
-                                          std::string_view mcu, const MemoryRegion& block, std::size_t image_size,
-                                          FamilyPlan family_plan)
+inline Result<FlashPlan> HandBuiltCanPlan(FlashOperation operation, std::string_view protocol, std::string_view mcu,
+                                          const MemoryRegion& block, std::size_t image_size, FamilyPlan family_plan)
 {
     FlashPlanFields fields;
     fields.operation = operation;
-    fields.family = family;
-    fields.transport = TransportKind::kCanIso15765;
     fields.target_id = std::string(protocol);
     fields.mcu_name = std::string(mcu);
     fields.transfer_region = block;

@@ -36,8 +36,6 @@ FlashPlanFields ReadFields()
 {
     return FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kSubaruDensoMc68hc16y502Bdm,
-        .transport = TransportKind::kKline,
         .target_id = std::string(kProtocol),
         .mcu_name = std::string(kMcu),
         .transfer_region = MemoryRegion{0, 0x30000},

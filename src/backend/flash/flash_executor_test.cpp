@@ -59,8 +59,6 @@ FlashPlanFields KlineReadFields()
 {
     return FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kDensoSh705xEepromKline,
-        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .transfer_region = MemoryRegion{.start = 0xf000, .length = 0x1000},
@@ -104,8 +102,6 @@ FlashPlanFields ForeignCanReadFields()
 {
     return FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kDensoSh705xEepromCan,
-        .transport = TransportKind::kCanIso15765,
         .target_id = "sub_ecu_denso_sh705x_eeprom_can",
         .mcu_name = "SH7058",
         .transfer_region = MemoryRegion{.start = 0x0, .length = 0x100},

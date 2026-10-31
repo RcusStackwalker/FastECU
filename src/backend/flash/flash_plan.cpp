@@ -20,7 +20,7 @@ const KernelImage& FlashPlan::KernelOrEmpty() const
 
 std::string_view FlashPlan::ExperimentalFamilyId() const
 {
-    return FlashFamilyName(fields_.family);
+    return FlashFamilyName(Family());
 }
 
 } // namespace fastecu::flash

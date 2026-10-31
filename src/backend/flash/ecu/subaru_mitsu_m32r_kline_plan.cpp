@@ -43,8 +43,6 @@ constexpr SingleWindowPlanSpec kSpec{
     .display_name = "Subaru Mitsubishi M32R K-Line",
     .protocols = kProtocols,
     .mcu = "M32R_512KB_4blocks",
-    .family = FlashFamily::kSubaruMitsuM32rKline,
-    .transport = TransportKind::kKline,
     .read_region = kUserspace,
     .write_region = kUserspace,
     .image_size = kImageSize,

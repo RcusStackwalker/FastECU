@@ -395,8 +395,6 @@ TEST_F(Sh72543rExecutor, ForgedDryRunAndWireChangesAreRejectedBeforeIo)
     {
         SCOPED_TRACE(::testing::PrintToString(mutation));
         FlashPlanFields f{.operation = FlashOperation::kTestWrite,
-                          .family = FlashFamily::kSubaruHitachiSh72543rCan,
-                          .transport = TransportKind::kCanIso15765,
                           .target_id = "sub_ecu_hitachi_sh72543r_can",
                           .mcu_name = "SH72543R",
                           .transfer_region = {0x6000, 0x1fa000},

@@ -126,8 +126,6 @@ Result<FlashPlan> BuildSingleWindowPlan(const SingleWindowPlanSpec& spec, FlashO
     }
     FlashPlanFields fields{
         .operation = operation,
-        .family = spec.family,
-        .transport = spec.transport,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = operation == FlashOperation::kRead ? spec.read_region : spec.write_region,

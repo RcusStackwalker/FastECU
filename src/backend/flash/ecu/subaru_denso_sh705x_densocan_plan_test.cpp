@@ -116,8 +116,6 @@ FlashPlanFields ValidFields(const Case& test_case, FlashOperation operation = Fl
 {
     return {
         .operation = operation,
-        .family = FlashFamily::kSubaruDensoSh705xDensoCan,
-        .transport = TransportKind::kCanRawIso15765,
         .target_id = std::string(test_case.protocol),
         .mcu_name = std::string(test_case.mcu),
         .transfer_region = {0x00000000, static_cast<std::uint32_t>(test_case.rom_size)},

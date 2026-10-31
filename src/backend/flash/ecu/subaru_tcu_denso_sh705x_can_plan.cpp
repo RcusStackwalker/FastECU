@@ -118,8 +118,6 @@ Result<FlashPlan> BuildSubaruTcuDensoSh705xCanPlan(FlashOperation operation, std
     return detail::BuildWholeRomKernelPlan<128>(
         {
             .operation = operation,
-            .family = FlashFamily::kSubaruTcuDensoSh705xCan,
-            .transport = TransportKind::kCanIso15765,
             .target_id = std::string(protocol_name),
             .mcu_name = std::string(mcu_type),
             .family_plan = WireParameters(),

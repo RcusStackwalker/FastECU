@@ -114,8 +114,6 @@ fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operatio
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
-    fields.family = fastecu::flash::FlashFamily::kSubaruTcuCvtMitsuMh8111Can;
-    fields.transport = fastecu::flash::TransportKind::kCanIso15765;
     fields.target_id = std::string(kProtocol);
     fields.mcu_name = std::string(kMcu);
     fields.transfer_region = fastecu::flash::MemoryRegion{kWriteStart, kWriteLength};

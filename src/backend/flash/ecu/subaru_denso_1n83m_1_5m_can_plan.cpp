@@ -44,8 +44,6 @@ constexpr SingleWindowPlanSpec kSpec{
     .display_name = "Subaru Denso 1N83M 1.5M CAN",
     .protocols = kProtocols,
     .mcu = "N83M_1_5MB",
-    .family = FlashFamily::kSubaruDenso1n83m15mCan,
-    .transport = TransportKind::kCanIso15765,
     .read_region = kMainBlock,
     .write_region = kMainBlock,
     .image_size = kImageSize,

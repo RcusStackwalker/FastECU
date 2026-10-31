@@ -103,8 +103,6 @@ FlashPlanFields ValidFields(const DieselCase& diesel, FlashOperation operation =
     const auto& blocks = BlocksFor(diesel);
     return {
         .operation = operation,
-        .family = FlashFamily::kSubaruDensoSh7058CanDiesel,
-        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(diesel.protocol),
         .mcu_name = std::string(diesel.mcu),
         .transfer_region = {0, static_cast<std::uint32_t>(diesel.rom_size)},

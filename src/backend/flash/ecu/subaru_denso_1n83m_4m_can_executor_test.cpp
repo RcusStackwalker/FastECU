@@ -84,8 +84,7 @@ fastecu::Result<fastecu::flash::FlashPlan> WritePlan(bytes::Bytes rom)
 fastecu::Result<fastecu::flash::FlashPlan> HandBuiltPlan(FlashOperation operation)
 {
     return fastecu::flash::testing::HandBuiltCanPlan(
-        operation, fastecu::flash::FlashFamily::kSubaruDenso1n83m4mCan, kProtocol, kMcu,
-        fastecu::flash::MemoryRegion{kBlockStart, kBlockLength}, kImageSize,
+        operation, kProtocol, kMcu, fastecu::flash::MemoryRegion{kBlockStart, kBlockLength}, kImageSize,
         SubaruDenso1n83m_4mCanPlan{0x7e0, 0x7e8, 500000, false, 0x10000, 0x100});
 }
 

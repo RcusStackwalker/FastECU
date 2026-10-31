@@ -28,8 +28,6 @@ FlashPlanFields ValidFields(FlashOperation operation = FlashOperation::kWrite)
 {
     return {
         .operation = operation,
-        .family = FlashFamily::kSubaruTcuHitachiM32rCan,
-        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(kProtocol),
         .mcu_name = std::string(kMcuName),
         .transfer_region = kWindow,

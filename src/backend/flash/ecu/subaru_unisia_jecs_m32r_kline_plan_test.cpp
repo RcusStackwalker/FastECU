@@ -43,8 +43,6 @@ FlashPlanFields ReadFields()
 {
     return FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kSubaruUnisiaJecsM32rKline,
-        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_unisia_jecs_20",
         .mcu_name = "M32R_128KB",
         .transfer_region = MemoryRegion{0x100000, 0x20000},
