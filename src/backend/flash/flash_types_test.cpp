@@ -1,12 +1,14 @@
 // src/backend/flash/flash_types_test.cpp
 #include "src/backend/flash/flash_types.h"
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <string>
 #include <string_view>
+#include <tuple>
+#include <type_traits>
 #include <variant>
-#include <vector>
 
 namespace fastecu::flash
 {
@@ -87,20 +89,45 @@ TEST(FlashTypesTest, EepromReadModeValuesMatchProtocolBytes)
     EXPECT_EQ(static_cast<std::uint8_t>(EepromReadMode::kMode4), 0x04);
 }
 
-template <typename... Ts> std::vector<std::string_view> KernelRequiringFamilyNames(std::variant<Ts...> *)
+static_assert(std::variant_size_v<FamilyPlan> == 30,
+              "A new FamilyPlan alternative: decide whether it uploads a kernel (opt in with kFamilyRequiresKernel in "
+              "its <f>_types.h, and list it in KernelPlanTypes), then bump this count.");
+
+using KernelPlanTypes =
+    std::tuple<DensoSh705xEepromKlinePlan, DensoSh705xEepromCanPlan, SubaruDensoMc68hc16y5_02Plan,
+               SubaruDensoSh7055_02Plan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan,
+               SubaruDensoSh705xDensoCanPlan, SubaruDensoSh705xKlinePlan, SubaruTcuDensoSh705xCanPlan>;
+
+template <typename T, typename... Ts> constexpr bool kIsOneOf = (std::is_same_v<T, Ts> || ...);
+template <typename T, typename Tuple> struct InTuple;
+template <typename T, typename... Ts> struct InTuple<T, std::tuple<Ts...>> : std::bool_constant<kIsOneOf<T, Ts...>>
 {
-    std::vector<std::string_view> names;
-    ((kFamilyRequiresKernel<Ts> ? names.push_back(FlashFamilyName(FamilyTraits<Ts>::kFamily)) : void()), ...);
-    return names;
+};
+
+template <typename Tuple, typename Variant> struct AllInVariant;
+template <typename... Ts, typename... Vs>
+struct AllInVariant<std::tuple<Ts...>, std::variant<Vs...>> : std::bool_constant<(kIsOneOf<Ts, Vs...> && ...)>
+{
+};
+static_assert(AllInVariant<KernelPlanTypes, FamilyPlan>::value,
+              "KernelPlanTypes names a type that is not a FamilyPlan alternative");
+
+template <typename T> void ExpectKernelRequirementMatchesList(std::size_t index)
+{
+    SCOPED_TRACE("FamilyPlan alternative " + std::to_string(index) + " (" +
+                 std::string(FlashFamilyName(FamilyTraits<T>::kFamily)) + ")");
+    EXPECT_EQ(kFamilyRequiresKernel<T>, (InTuple<T, KernelPlanTypes>::value));
+}
+
+template <typename... Ts> void ExpectKernelRequirements(std::variant<Ts...> *)
+{
+    std::size_t index = 0;
+    (ExpectKernelRequirementMatchesList<Ts>(index++), ...);
 }
 
 TEST(FlashTypesTest, exactlyTheKernelUploadingPlanTypesRequireAKernel)
 {
-    EXPECT_THAT(KernelRequiringFamilyNames(static_cast<FamilyPlan *>(nullptr)),
-                ::testing::UnorderedElementsAre(
-                    "DensoSh705xEepromKline", "DensoSh705xEepromCan", "SubaruDensoMc68hc16y5_02",
-                    "SubaruDensoSh7055_02", "SubaruDensoSh7058Can", "SubaruDensoSh7058CanDiesel",
-                    "SubaruDensoSh705xDensoCan", "SubaruDensoSh705xKline", "SubaruTcuDensoSh705xCan"));
+    ExpectKernelRequirements(static_cast<FamilyPlan *>(nullptr));
 }
 
 TEST(FlashTypes, DensoMc68AndSh7055FamilyPlansConstructAndHoldValues)

@@ -22,7 +22,7 @@ struct SubaruDenso1n83m_1_5mCanPlan
     std::uint32_t tail_pad_len; // 0x100, appended to a read image as 0xFF
 };
 
-// Jumps to the ECU's resident on-board kernel via
+// Requires no kernel: Jumps to the ECU's resident on-board kernel via
 // 0x10 0x42 (bench) or 0x10 0x62 (in-car), uploading no image.
 template <> struct FamilyTraits<SubaruDenso1n83m_1_5mCanPlan>
 {

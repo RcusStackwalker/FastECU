@@ -22,7 +22,7 @@ struct SubaruDenso1n83m_4mCanPlan
     std::uint32_t tail_pad_len; // 0x100, appended to a read image as 0xFF
 };
 
-// The 4MB variant of the 1N83M family: same resident
+// Requires no kernel: The 4MB variant of the 1N83M family: same resident
 // on-board kernel jump via 0x10 0x42 (bench) or 0x10 0x62 (in-car), no image
 // uploaded.
 template <> struct FamilyTraits<SubaruDenso1n83m_4mCanPlan>

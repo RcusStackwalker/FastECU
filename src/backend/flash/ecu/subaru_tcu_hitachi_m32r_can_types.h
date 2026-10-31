@@ -33,7 +33,7 @@ struct SubaruTcuHitachiM32rCanPlan
     std::uint32_t write_frame_size; // 128, the kernel's 0xB6 write frame size (reflash_block)
 };
 
-// Connects to the TCU's resident on-board kernel
+// Requires no kernel: Connects to the TCU's resident on-board kernel
 // (connect_bootloader) and drives it with page-read/block-write commands
 // over CAN; no image is uploaded.
 template <> struct FamilyTraits<SubaruTcuHitachiM32rCanPlan>

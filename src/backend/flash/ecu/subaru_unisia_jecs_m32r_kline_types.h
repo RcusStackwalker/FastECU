@@ -18,7 +18,7 @@ struct SubaruUnisiaJecsM32rKlinePlan
     bool operator==(const SubaruUnisiaJecsM32rKlinePlan&) const = default;
 };
 
-// The ECU's own boot ROM handles flash mode; no
+// Requires no kernel: The ECU's own boot ROM handles flash mode; no
 // kernel is uploaded.
 template <> struct FamilyTraits<SubaruUnisiaJecsM32rKlinePlan>
 {

@@ -127,6 +127,4 @@ class FlashPlan
     std::optional<memory::MemoryImage> rom_image_;
 };
 
-// PlanValidator is declared in flash_family.h; each plan type specializes it.
-
 } // namespace fastecu::flash

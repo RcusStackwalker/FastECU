@@ -111,8 +111,8 @@ namespace fastecu::flash
 // Each alternative's struct lives in a per-family (or, once a cluster is
 // factored, per-cluster) types header included above -- see e.g.
 // ecu/mitsu_colt_m32r_can_types.h and eeprom/denso_sh705x_eeprom_types.h.
-// This file stays the single place that assembles the variant and classifies
-// its alternatives; it does not own any individual family's fields.
+// This file stays the single place that assembles the variant;
+// classification lives in each `<f>_types.h`. It does not own any individual family's fields.
 using FamilyPlan =
     std::variant<DensoSh705xEepromKlinePlan, DensoSh705xEepromCanPlan, MitsuColtM32rCanPlan, SubaruMitsuM32rKlinePlan,
                  SubaruHitachiM32rKlinePlan, SubaruDensoMc68hc16y5_02Plan, SubaruDensoSh7055_02Plan,

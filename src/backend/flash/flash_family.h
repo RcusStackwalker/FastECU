@@ -128,8 +128,9 @@ template <typename PlanT> inline constexpr bool kFamilyRequiresKernel = false;
 // Validate...Plan function.
 //
 // Like FamilyTraits, it deliberately has no primary definition: a family
-// whose executor derives from FamilyExecutor must specialize it in its
-// *_plan.h, next to the validator, or the executor fails to compile.
+// whose executor derives from FamilyExecutor must specialize it, declared in
+// the plan type's `<f>_types.h` and defined in the family's plan `.cpp`, or
+// the executor fails to compile.
 template <typename PlanT> struct PlanValidator;
 
 class FlashPlan;

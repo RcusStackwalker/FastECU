@@ -19,7 +19,7 @@ struct SubaruTcuCvtHitachiM32rCanPlan
     bool extended_id;          // false
 };
 
-// Jumps to the TCU's resident on-board kernel via
+// Requires no kernel: Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x02, uploading no image.
 template <> struct FamilyTraits<SubaruTcuCvtHitachiM32rCanPlan>
 {

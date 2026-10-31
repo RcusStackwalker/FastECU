@@ -27,7 +27,7 @@ struct SubaruTcuCvtMitsuMh8104CanPlan
     bool extended_id;          // false
 };
 
-// Jumps to the TCU's resident on-board kernel via
+// Requires no kernel: Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x42, uploading no image -- the same shape as
 // SubaruTcuCvtMitsuMh8111CanPlan. Unlike MH8111, every response-content
 // check in legacy after the kernel-alive probe is commented out
