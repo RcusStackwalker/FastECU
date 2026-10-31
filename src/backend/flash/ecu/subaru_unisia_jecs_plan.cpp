@@ -1,5 +1,13 @@
-#include "src/backend/flash/ecu/plan_primitives.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
+
+#include <algorithm>
+#include <array>
+#include <format>
+#include <span>
+#include <string_view>
+#include <utility>
+
+#include "src/backend/flash/ecu/plan_primitives.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 

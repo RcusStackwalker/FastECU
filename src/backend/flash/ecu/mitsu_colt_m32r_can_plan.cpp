@@ -1,5 +1,14 @@
-#include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
+
+#include <array>
+#include <format>
+#include <memory>
+#include <ranges>
+#include <span>
+#include <string_view>
+#include <utility>
+
+#include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/backend/flash/ecu/plan_primitives.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
