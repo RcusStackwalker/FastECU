@@ -356,6 +356,78 @@ TEST(FlashRouteTest, everyFlashProtocolRoutesToAWorkflowThatAcceptsIt)
     }
 }
 
+bool CatalogFlagsOperation(const config::ProtocolSpec& spec, FlashOperation operation)
+{
+    switch (operation)
+    {
+    case FlashOperation::kRead:
+        return spec.read;
+    case FlashOperation::kTestWrite:
+        return spec.test_write;
+    case FlashOperation::kWrite:
+        return spec.write;
+    }
+    return false;
+}
+
+bool OperationIsRejected(const config::ProtocolSpec& spec, FlashOperation operation)
+{
+    FlashWorkflowRequest request{.operation = operation,
+                                 .protocol = spec,
+                                 .image = std::nullopt,
+                                 .paths = CatalogPaths(),
+                                 .display_filename = "test.bin"};
+    if (operation != FlashOperation::kRead)
+    {
+        request.image = bytes::Bytes(1, 0xff);
+    }
+    WorkflowTestPorts test_ports(false);
+    if (!spec.kernel.empty())
+    {
+        test_ports.files->files[config::KernelFileHandle(CatalogPaths(), spec.kernel)] = {0x01, 0x02, 0x03, 0x04};
+    }
+    auto workflow = CreateWorkflow(std::move(request), test_ports);
+    if (workflow == nullptr)
+    {
+        return true;
+    }
+    const FlashWorkflowStep step = DriveToAttemptOrFailure(*workflow);
+    const auto *failure = std::get_if<FlashFailureStep>(&step);
+    return failure != nullptr && failure->error.kind == ErrorKind::kUnsupported;
+}
+
+TEST(FlashRouteTest, routedWorkflowsAcceptExactlyTheOperationsTheCatalogFlags)
+{
+    // Pairs where the routed workflow and the catalog flags disagree today.
+    // Each needs a decision (see docs/tech-debt.md); do not fix them here.
+    constexpr std::array<std::pair<std::string_view, FlashOperation>, 0> kKnownFlagMismatches{};
+    const auto is_known_mismatch = [&](std::string_view name, FlashOperation operation)
+    { return std::ranges::find(kKnownFlagMismatches, std::pair{name, operation}) != kKnownFlagMismatches.end(); };
+
+    for (const config::ProtocolSpec *spec : CatalogFlashProtocols())
+    {
+        SCOPED_TRACE(spec->name);
+        for (const FlashOperation operation :
+             {FlashOperation::kRead, FlashOperation::kTestWrite, FlashOperation::kWrite})
+        {
+            SCOPED_TRACE(std::format("operation {}", static_cast<int>(operation)));
+            if (is_known_mismatch(spec->name, operation))
+            {
+                continue;
+            }
+            EXPECT_EQ(!OperationIsRejected(*spec, operation), CatalogFlagsOperation(*spec, operation));
+        }
+    }
+    for (const auto& [name, operation] : kKnownFlagMismatches)
+    {
+        SCOPED_TRACE(name);
+        const config::ProtocolSpec *spec = config::BuiltinCatalog().FindProtocol(name);
+        ASSERT_NE(spec, nullptr);
+        EXPECT_NE(!OperationIsRejected(*spec, operation), CatalogFlagsOperation(*spec, operation))
+            << "no longer mismatches; remove it from kKnownFlagMismatches";
+    }
+}
+
 TEST(FlashRouteTest, lookalikesOutsideTheCatalogHaveNoRoute)
 {
     for (const char *name :
