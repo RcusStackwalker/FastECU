@@ -906,6 +906,23 @@
       "outcome": "open",
       "pr": 969,
       "reason": ""
+    },
+    {
+      "date": "2026-10-31",
+      "group": "6d5d643b1138",
+      "members": [
+        [
+          "src/ui/desktop/definition/dialog/definition_authoring_dialog.cpp",
+          "fastecu::ui::DefinitionAuthoringDialog::createNewDefinition"
+        ],
+        [
+          "src/ui/desktop/definition/dialog/definition_authoring_dialog.cpp",
+          "fastecu::ui::DefinitionAuthoringDialog::useExistingDefinition"
+        ]
+      ],
+      "outcome": "merged",
+      "pr": 969,
+      "reason": ""
     }
   ]
 }
