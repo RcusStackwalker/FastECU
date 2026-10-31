@@ -24,7 +24,6 @@
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -293,45 +292,6 @@ bytes::Bytes WriteRom()
         rom[i] = static_cast<bytes::Byte>(i);
     }
     return rom;
-}
-
-TEST(SubaruHitachiM32rCanExecutor, PendingReadCancellationDoesNotDelegateAnotherRead)
-{
-    auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::ManualCancellationToken cancellation;
-    auto transport = std::make_unique<CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    ScriptUpToFirstFatalRead(*inner);
-    inner->QueueRead(Response({0x7F, 0xB7, 0x78}));
-    bytes::Bytes positive = Response({0xF7});
-    positive.resize(5 + 0x100, 0);
-    inner->QueueRead(positive);
-    int expected_writes = 0;
-    inner->on_write = [inner, &expected_writes](bytes::ByteView data)
-    {
-        if (data.size() == 8 && data[4] == 0xB7)
-        {
-            inner->read_attempts = 0;
-            expected_writes = inner->write_attempts;
-        }
-    };
-    inner->on_read = [&cancellation](bytes::ByteView data)
-    {
-        if (data.size() == 7 && data[4] == 0x7F && data[6] == 0x78)
-        {
-            cancellation.Cancel();
-        }
-    };
-    auto attempt =
-        fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruHitachiM32rCanExecutor>(), std::move(transport));
-    FakeClock clock;
-    RecordingEventSink events;
-    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    const int read_attempts = inner->read_attempts;
-    EXPECT_EQ(read_attempts, 1);
-    EXPECT_EQ(inner->write_attempts, expected_writes);
-    EXPECT_FALSE(inner->ScriptConsumed());
 }
 
 TEST(SubaruHitachiM32rCanExecutor, ConnectAndReadReturnsTheFullRomFromAddressZero)

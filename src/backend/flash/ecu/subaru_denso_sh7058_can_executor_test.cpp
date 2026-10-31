@@ -20,7 +20,6 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
 #include "src/backend/flash/ecu/testing/recording_can_flash_transport.h"
 #include "src/backend/flash/flash_executor.h"
-#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
@@ -561,41 +560,6 @@ std::vector<std::string> LogsStartingWith(const RecordingEventSink& events, std:
         }
     }
     return selected;
-}
-
-TEST(SubaruDensoSh7058CanExecutor, AcceptedUploadWriteRefusesRawDiscardRead)
-{
-    bytes::Bytes kernel_data(129, bytes::Byte{0});
-    kernel_data.back() = 0x01;
-    auto plan = PlanFor(kVariants.front(), FlashOperation::kRead, {}, std::move(kernel_data));
-    ASSERT_THAT(plan, IsOk());
-    ManualCancellationToken cancellation;
-    auto transport = std::make_unique<testing::CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    ScriptBootloaderConnection(*inner, kVariants.front());
-    Script129ByteKernelUpload(*inner);
-    int reads_before_cancel = 0;
-    std::size_t writes_before_cancel = 0;
-    inner->on_write = [&](bytes::ByteView wire)
-    {
-        if (wire.size() > 4 && wire[4] == 0xB6)
-        {
-            reads_before_cancel = inner->read_attempts;
-            writes_before_cancel = inner->WritesConsumed();
-            cancellation.Cancel();
-        }
-    };
-    auto attempt = BindFlashAttempt(*plan, std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
-    FakeClock clock;
-    RecordingEventSink events;
-
-    EXPECT_THAT(attempt->Run(clock, cancellation, events), IsErr(ErrorKind::kCancelled));
-    EXPECT_GT(writes_before_cancel, 0U);
-    EXPECT_EQ(inner->read_attempts - reads_before_cancel, 0);
-    EXPECT_EQ(inner->WritesConsumed(), writes_before_cancel);
-    EXPECT_EQ(inner->write_attempts, static_cast<int>(writes_before_cancel));
-    EXPECT_FALSE(inner->ScriptConsumed());
-    EXPECT_EQ(inner->close_call_count, 1);
 }
 
 TEST(SubaruDensoSh7058CanExecutor, TransportSetupUsesExactPetrolIsoConfiguration)

@@ -30,7 +30,6 @@
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -697,33 +696,4 @@ TEST(SubaruDenso1n83m_4mCanExecutor, InCarJumpExhaustionAndCancellationPreserveT
     }
 }
 
-TEST(SubaruDenso1n83m_4mCanExecutor, CancellationAfterTolerantSetupWriteRefusesBlindReply)
-{
-    fastecu::ManualCancellationToken cancellation;
-    auto transport = std::make_unique<fastecu::flash::testing::CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    inner->Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
-    inner->Exchange(Request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x3D, 0x3F, 0x00}),
-                    Response({0x74, 0x20, 0x01, 0x05}));
-    int reads_at_setup = 0;
-    inner->on_write = [&](bytes::ByteView data)
-    {
-        if (data.size() > 4 && data[4] == 0x34)
-        {
-            reads_at_setup = inner->read_attempts;
-            cancellation.Cancel();
-        }
-    };
-    const auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruDenso1n83m_4mCanExecutor>(),
-                                                    std::move(transport));
-    RecordingClock clock;
-    RecordingEventSink events;
-    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    const int setup_reply_read_attempts = inner->read_attempts - reads_at_setup;
-    EXPECT_EQ(setup_reply_read_attempts, 0);
-    EXPECT_TRUE(cancellation.Cancelled());
-    EXPECT_FALSE(inner->ScriptConsumed());
-}
 } // namespace

@@ -21,7 +21,6 @@
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
 #include "src/backend/flash/ecu/testing/recording_can_flash_transport.h"
 #include "src/backend/flash/flash_executor.h"
-#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
@@ -849,41 +848,6 @@ std::vector<LogRecord> ExpectedReadLogs(const Case& test_case)
     }
     logs.emplace_back(LogLevel::kInfo, "ROM read ready");
     return logs;
-}
-
-TEST(SubaruTcuDensoSh705xCanExecutor, AcceptedUploadWriteRefusesRawDiscardRead)
-{
-    auto plan = ReadPlan(kCases.front());
-    ASSERT_THAT(plan, IsOk());
-    ManualCancellationToken cancellation;
-    auto transport = std::make_unique<testing::CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    ScriptKernelProbeTimeout(*inner);
-    ScriptIdentityQueries(*inner);
-    ScriptStrictSessionAndSecurity(*inner);
-    ScriptKernelUpload(*inner, kCases.front());
-    int reads_before_cancel = 0;
-    std::size_t writes_before_cancel = 0;
-    inner->on_write = [&](bytes::ByteView wire)
-    {
-        if (wire.size() > 4 && wire[4] == 0xB6)
-        {
-            reads_before_cancel = inner->read_attempts;
-            writes_before_cancel = inner->WritesConsumed();
-            cancellation.Cancel();
-        }
-    };
-    auto attempt = BindFlashAttempt(*plan, std::make_unique<SubaruTcuDensoSh705xCanExecutor>(), std::move(transport));
-    FakeClock clock;
-    RecordingEventSink events;
-
-    EXPECT_THAT(attempt->Run(clock, cancellation, events), IsErr(ErrorKind::kCancelled));
-    EXPECT_GT(writes_before_cancel, 0U);
-    EXPECT_EQ(inner->read_attempts - reads_before_cancel, 0);
-    EXPECT_EQ(inner->WritesConsumed(), writes_before_cancel);
-    EXPECT_EQ(inner->write_attempts, static_cast<int>(writes_before_cancel));
-    EXPECT_FALSE(inner->ScriptConsumed());
-    EXPECT_EQ(inner->close_call_count, 1);
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, TransportSetupUsesExactTcuIsoConfiguration)

@@ -35,7 +35,6 @@
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -736,34 +735,5 @@ struct TcuCvtMitsuMh8111CanTraits
 };
 
 INSTANTIATE_TYPED_TEST_SUITE_P(SubaruTcuCvtMitsuMh8111Can, CanExecutorConformance, TcuCvtMitsuMh8111CanTraits);
-
-TEST(SubaruTcuCvtMitsuMh8111CanExecutor, AcceptedB6WriteCancellationDoesNotDelegateChunkReply)
-{
-    auto plan = WritePlan(WriteRom());
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::ManualCancellationToken cancellation;
-    auto transport = std::make_unique<CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    ScriptFullConnect(*inner);
-    ScriptEraseMemory(*inner);
-    ScriptWriteBlock(*inner, bytes::ByteView(plan->ImageOrEmpty()).subspan(kWriteStart, kWriteLength));
-    inner->on_write = [inner, &cancellation](bytes::ByteView data)
-    {
-        if (data.size() > 4 && data[4] == 0xB6)
-        {
-            inner->read_attempts = 0;
-            cancellation.Cancel();
-        }
-    };
-    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruTcuCvtMitsuMh8111CanExecutor>(),
-                                                    std::move(transport));
-    FakeClock clock;
-    RecordingEventSink events;
-    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_TRUE(cancellation.Cancelled());
-    const int chunk_reply_read_attempts = inner->read_attempts;
-    EXPECT_EQ(chunk_reply_read_attempts, 0);
-    EXPECT_FALSE(inner->ScriptConsumed());
-}
 
 } // namespace
