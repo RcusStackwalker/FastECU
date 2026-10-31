@@ -76,15 +76,16 @@ Each prefix row in `kRoutes` covers between one and four of those names.
    02, SH7058 CAN and SH7058 CAN diesel, SH705x DensoCAN, SH705x K-Line, and
    the Denso SH705x TCU CAN plan. Today the default is `true` and 21 plan types
    override it.
-6. **`<f>_plan.h` folds into `<f>_types.h`.** After decision 4, each `_plan.h`
-   holds three declarations: the builder, the family's `Validate…Plan`
-   function, and its `…Protocols()` list. `Result<FlashPlan>` and
-   `const FlashPlan&` can be named while `FlashPlan` is incomplete. The
-   builders' parameters also name `FlashOperation` and `KernelImage`, which
-   `flash_types.h` defines; since `flash_types.h` includes every
-   `<f>_types.h`, those two must move to `flash_family.h` or be
-   forward-declared there first. Each family keeps one header, its `plan.cpp`
-   and its executor. Gazelle regenerates the targets.
+6. **Each family keeps two headers (rejected: one header per family).**
+   `<f>_types.h` holds the plan struct and its facts; `<f>_plan.h` holds the
+   builder, the family's `Validate…Plan` function and its `…Protocols()` list.
+   Folding `<f>_plan.h` into `<f>_types.h` was the original decision, and it
+   cannot be built. Gazelle groups a header with the `.cpp` of the same stem
+   (`cc_group unit`, ADR 0017), and every `<f>_plan.cpp` depends on
+   `flash_types`, which includes every `<f>_types.h`. Folded, `<f>_plan.cpp`
+   either joins the `<f>_types` target (a dependency cycle) or stays in a
+   target that no header pulls in (the builders do not link). Lifting that
+   needs a type-erased `FamilyPlan`, a non-goal below.
 7. **Four central entries per family stay.** The enum value and its name row
    sit side by side in `flash_family.h`; the include and the `FamilyPlan`
    alternative sit in `flash_types.h`. The enum cannot stay in
@@ -132,7 +133,8 @@ rejection is the builder's, not the route's.
 
 ## Delivery
 
-Three PRs, each on its own feature branch, each green on the full CI:
+Two code PRs and a closing docs PR, each on its own feature branch, each green
+on the full CI:
 
 1. **Exact routes.** Family modules export their protocol lists; the registry
    in `workflow/` uses exact matching; the routing test lands; the per-family
@@ -140,10 +142,9 @@ Three PRs, each on its own feature branch, each green on the full CI:
 2. **Plan-type facts.** `FamilyTraits`, validator binding and kernel
    requirement move into each `<f>_types.h`; the default flips to `false`.
    Decisions 4–5.
-3. **One header per family.** `<f>_plan.h` folds into `<f>_types.h`; Gazelle
-   regenerates targets. Decision 6.
+3. **Close the design.** Decision 6 is rejected, for the reason it states.
 
-PR 1 changes behaviour and adds the guarding test; PRs 2 and 3 are refactors
+PR 1 changes behaviour and adds the guarding test; PR 2 is a refactor
 underneath it.
 
 ## Non-goals
@@ -154,11 +155,15 @@ underneath it.
   identity validation and file reads and needs its own tests.
 - Stating each single-window family's wire identity once.
 - Removing the `flash_types.h` include fan-out, which needs a type-erased
-  `FamilyPlan`.
+  `FamilyPlan`. That is also what one header per family would need
+  (Decision 6).
 - Changing the catalog's shape, or letting catalog entries name a family.
 
 ## Done when
 
-Adding a family touches its own module, one registry row with its workflow
-alias, and the four central entries (`flash_family.h` and `flash_types.h`). A protocol the catalog can flash
-with no route, or a route to a protocol the catalog lacks, fails a test.
+Adding a family touches its own module (its `<f>_types.h`, `<f>_plan.h`,
+plan source and executor), one registry row with its workflow alias, and the
+four central entries in `flash_family.h` and `flash_types.h`. A protocol the
+catalog can flash with no route, or a route to a protocol the catalog lacks,
+fails a test; a new plan type that has not decided whether it uploads a kernel
+fails to compile.
