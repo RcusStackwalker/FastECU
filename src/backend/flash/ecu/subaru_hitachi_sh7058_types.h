@@ -2,6 +2,9 @@
 
 #include <cstdint>
 
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
+
 namespace fastecu::flash
 {
 struct SubaruHitachiSh7058KlinePlan
@@ -14,6 +17,20 @@ struct SubaruHitachiSh7058KlinePlan
     bool operator==(const SubaruHitachiSh7058KlinePlan&) const = default;
 };
 
+template <> struct FamilyTraits<SubaruHitachiSh7058KlinePlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiSh7058;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
+};
+
+// The two transports share one plan validator and one builder. Each executor
+// supports one operation, so the mode guard sits in its own specialization and
+// the shared validator keeps accepting both.
+template <> struct PlanValidator<SubaruHitachiSh7058KlinePlan>
+{
+    static Status Validate(const FlashPlan& plan);
+};
+
 struct SubaruHitachiSh7058CanPlan
 {
     int bitrate = 500000;
@@ -23,5 +40,16 @@ struct SubaruHitachiSh7058CanPlan
     std::uint32_t frame_size = 0x100;
 
     bool operator==(const SubaruHitachiSh7058CanPlan&) const = default;
+};
+
+template <> struct FamilyTraits<SubaruHitachiSh7058CanPlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiSh7058;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
+};
+
+template <> struct PlanValidator<SubaruHitachiSh7058CanPlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 } // namespace fastecu::flash

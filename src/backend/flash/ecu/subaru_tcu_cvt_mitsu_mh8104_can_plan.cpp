@@ -82,4 +82,9 @@ std::span<const std::string_view> SubaruTcuCvtMitsuMh8104CanProtocols()
     return kProtocols;
 }
 
+Status PlanValidator<SubaruTcuCvtMitsuMh8104CanPlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruTcuCvtMitsuMh8104CanPlan(plan);
+}
+
 } // namespace fastecu::flash

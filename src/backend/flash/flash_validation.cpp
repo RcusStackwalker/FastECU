@@ -37,7 +37,7 @@ bool RegionEndNotRepresentable(const MemoryRegion& region)
 }
 
 // Each alternative's declared family and transport come from FamilyTraits in
-// flash_types.h, next to the variant itself, so this stays a single visit
+// its <f>_types.h, next to the plan struct, so this stays a single visit
 // rather than a switch that has to be kept in step with the variant by hand.
 bool FamilyMatchesTransportVariant(const FlashPlanFields& fields)
 {

@@ -72,20 +72,4 @@ Result<FlashPlan> BuildDensoSh705xEepromPlan(DensoSh705xEepromInput input);
 // what the builder hard-codes (wire parameters, per-mode confirmations).
 Status ValidateDensoSh705xEepromPlan(const FlashPlan& plan);
 
-template <> struct PlanValidator<DensoSh705xEepromKlinePlan>
-{
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateDensoSh705xEepromPlan(plan);
-    }
-};
-
-template <> struct PlanValidator<DensoSh705xEepromCanPlan>
-{
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateDensoSh705xEepromPlan(plan);
-    }
-};
-
 } // namespace fastecu::flash

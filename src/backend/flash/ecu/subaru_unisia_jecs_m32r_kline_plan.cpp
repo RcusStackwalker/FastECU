@@ -201,4 +201,9 @@ std::span<const std::string_view> SubaruUnisiaJecsM32rKlineProtocols()
     return kExportedProtocols;
 }
 
+Status PlanValidator<SubaruUnisiaJecsM32rKlinePlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruUnisiaJecsM32rKlinePlan(plan);
+}
+
 } // namespace fastecu::flash

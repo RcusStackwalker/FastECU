@@ -150,4 +150,9 @@ std::span<const std::string_view> SubaruHitachiSh72543rCanProtocols()
     return kProtocols;
 }
 
+Status PlanValidator<SubaruHitachiSh72543rCanPlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruHitachiSh72543rCanPlan(plan);
+}
+
 } // namespace fastecu::flash

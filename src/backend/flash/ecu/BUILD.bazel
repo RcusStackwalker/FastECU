@@ -30,6 +30,10 @@ cc_library(
 cc_library(
     name = "subaru_hitachi_sh7058_types",
     hdrs = ["subaru_hitachi_sh7058_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
@@ -125,61 +129,105 @@ fastecu_portable_gtest(
 cc_library(
     name = "mitsu_colt_m32r_can_types",
     hdrs = ["mitsu_colt_m32r_can_types.h"],
-    deps = ["//src/algorithms/protocol"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_mitsu_m32r_kline_types",
     hdrs = ["subaru_mitsu_m32r_kline_types.h"],
-    deps = ["//src/algorithms/protocol"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_hitachi_m32r_kline_types",
     hdrs = ["subaru_hitachi_m32r_kline_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_tcu_hitachi_m32r_kline_types",
     hdrs = ["subaru_tcu_hitachi_m32r_kline_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_tcu_hitachi_m32r_can_types",
     hdrs = ["subaru_tcu_hitachi_m32r_can_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_denso_mc68hc16y5_02_types",
     hdrs = ["subaru_denso_mc68hc16y5_02_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_denso_sh7055_02_types",
     hdrs = ["subaru_denso_sh7055_02_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_denso_sh705x_densocan_types",
     hdrs = ["subaru_denso_sh705x_densocan_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_tcu_denso_sh705x_can_types",
     hdrs = ["subaru_tcu_denso_sh705x_can_types.h"],
-    deps = [":denso_beef_can_profile"],
+    deps = [
+        ":denso_beef_can_profile",
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_denso_sh7058_can_types",
     hdrs = ["subaru_denso_sh7058_can_types.h"],
-    deps = [":denso_beef_can_profile"],
+    deps = [
+        ":denso_beef_can_profile",
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_denso_sh7058_can_diesel_types",
     hdrs = ["subaru_denso_sh7058_can_diesel_types.h"],
-    deps = [":denso_beef_can_profile"],
+    deps = [
+        ":denso_beef_can_profile",
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -286,45 +334,77 @@ fastecu_portable_gtest(
 cc_library(
     name = "subaru_hitachi_m32r_can_types",
     hdrs = ["subaru_hitachi_m32r_can_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_tcu_cvt_hitachi_m32r_can_types",
     hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_tcu_cvt_mitsu_mh8111_can_types",
     hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_tcu_cvt_mitsu_mh8104_can_types",
     hdrs = ["subaru_tcu_cvt_mitsu_mh8104_can_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_denso_1n83m_1_5m_can_types",
     hdrs = ["subaru_denso_1n83m_1_5m_can_types.h"],
-    deps = [":denso_iso15765_bootloader_profile"],
+    deps = [
+        ":denso_iso15765_bootloader_profile",
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_denso_sh72531_can_types",
     hdrs = ["subaru_denso_sh72531_can_types.h"],
-    deps = [":denso_iso15765_bootloader_profile"],
+    deps = [
+        ":denso_iso15765_bootloader_profile",
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_denso_sh72543_can_diesel_types",
     hdrs = ["subaru_denso_sh72543_can_diesel_types.h"],
-    deps = [":denso_iso15765_bootloader_profile"],
+    deps = [
+        ":denso_iso15765_bootloader_profile",
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "subaru_denso_1n83m_4m_can_types",
     hdrs = ["subaru_denso_1n83m_4m_can_types.h"],
-    deps = [":denso_iso15765_bootloader_profile"],
+    deps = [
+        ":denso_iso15765_bootloader_profile",
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
@@ -848,6 +928,10 @@ fastecu_portable_gtest(
 cc_library(
     name = "subaru_unisia_jecs_types",
     hdrs = ["subaru_unisia_jecs_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
@@ -901,6 +985,10 @@ fastecu_portable_gtest(
 cc_library(
     name = "subaru_denso_mc68hc16y5_02_bdm_types",
     hdrs = ["subaru_denso_mc68hc16y5_02_bdm_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
@@ -957,6 +1045,10 @@ fastecu_portable_gtest(
 cc_library(
     name = "subaru_unisia_jecs_m32r_kline_types",
     hdrs = ["subaru_unisia_jecs_m32r_kline_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
@@ -1017,6 +1109,10 @@ fastecu_portable_gtest(
 cc_library(
     name = "subaru_unisia_jecs_m32r_bootmode_types",
     hdrs = ["subaru_unisia_jecs_m32r_bootmode_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
@@ -1104,6 +1200,10 @@ fastecu_portable_gtest(
 cc_library(
     name = "subaru_denso_sh705x_kline_types",
     hdrs = ["subaru_denso_sh705x_kline_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
@@ -1848,6 +1948,10 @@ cc_library(
 cc_library(
     name = "subaru_hitachi_sh72543r_can_types",
     hdrs = ["subaru_hitachi_sh72543r_can_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 fastecu_portable_gtest(

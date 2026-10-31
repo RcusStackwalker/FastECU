@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
 
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
+
 namespace fastecu::flash
 {
 // Legacy: flash_tcu_subaru_hitachi_m32r_can_operation.{h,cpp}.
@@ -28,5 +31,19 @@ struct SubaruTcuHitachiM32rCanPlan
     bool extended_id;               // false
     std::uint32_t page_size;        // 0x100, the kernel's dump page size (read_mem)
     std::uint32_t write_frame_size; // 128, the kernel's 0xB6 write frame size (reflash_block)
+};
+
+// Requires no kernel: Connects to the TCU's resident on-board kernel
+// (connect_bootloader) and drives it with page-read/block-write commands
+// over CAN; no image is uploaded.
+template <> struct FamilyTraits<SubaruTcuHitachiM32rCanPlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruTcuHitachiM32rCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
+};
+
+template <> struct PlanValidator<SubaruTcuHitachiM32rCanPlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 } // namespace fastecu::flash

@@ -183,4 +183,9 @@ std::span<const std::string_view> MitsuColtM32rCanProtocols()
     return kExportedProtocols;
 }
 
+Status PlanValidator<MitsuColtM32rCanPlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateMitsuColtM32rCanPlan(plan);
+}
+
 } // namespace fastecu::flash

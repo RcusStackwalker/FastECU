@@ -67,19 +67,29 @@ Each prefix row in `kRoutes` covers between one and four of those names.
    specialization (family id, transport), its validator binding, and its
    kernel requirement move from `flash_types.h` and `<f>_plan.h` into the
    family's `<f>_types.h`, as one block. The validator is declared there
-   against a forward-declared `FlashPlan`.
+   against a forward-declared `FlashPlan`, and defined in the family's
+   `plan.cpp`. The primary templates, the `FlashFamily` enum and
+   `TransportKind` move to a leaf header, `flash/flash_family.h`, that every
+   `<f>_types.h` includes.
 5. **The kernel requirement defaults to `false`.** The 9 plan types that upload
    a kernel opt in: the two Denso SH705x EEPROM plans, MC68HC16Y5 02, SH7055
    02, SH7058 CAN and SH7058 CAN diesel, SH705x DensoCAN, SH705x K-Line, and
    the Denso SH705x TCU CAN plan. Today the default is `true` and 21 plan types
    override it.
 6. **`<f>_plan.h` folds into `<f>_types.h`.** After decision 4, each `_plan.h`
-   holds only a builder declaration, and `Result<FlashPlan>` can be named in a
-   declaration while `FlashPlan` is incomplete. Each family keeps one header,
-   its `plan.cpp` and its executor. Gazelle regenerates the targets.
-7. **`flash_types.h` keeps four entries per family.** These are the include,
-   the enum value, the name row and the `FamilyPlan` alternative. All four are
-   adjacent and checked at compile time; the name table already has a
+   holds three declarations: the builder, the family's `Validate…Plan`
+   function, and its `…Protocols()` list. `Result<FlashPlan>` and
+   `const FlashPlan&` can be named while `FlashPlan` is incomplete. The
+   builders' parameters also name `FlashOperation` and `KernelImage`, which
+   `flash_types.h` defines; since `flash_types.h` includes every
+   `<f>_types.h`, those two must move to `flash_family.h` or be
+   forward-declared there first. Each family keeps one header, its `plan.cpp`
+   and its executor. Gazelle regenerates the targets.
+7. **Four central entries per family stay.** The enum value and its name row
+   sit side by side in `flash_family.h`; the include and the `FamilyPlan`
+   alternative sit in `flash_types.h`. The enum cannot stay in
+   `flash_types.h`, because each `<f>_types.h` names it and `flash_types.h`
+   includes them. All four are checked at compile time; the name table has a
    `consteval` order check. Generating the enum from the descriptors is not
    worth it in C++.
 
@@ -150,5 +160,5 @@ underneath it.
 ## Done when
 
 Adding a family touches its own module, one registry row with its workflow
-alias, and the four `flash_types.h` entries. A protocol the catalog can flash
+alias, and the four central entries (`flash_family.h` and `flash_types.h`). A protocol the catalog can flash
 with no route, or a route to a protocol the catalog lacks, fails a test.

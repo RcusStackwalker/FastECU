@@ -2,6 +2,8 @@
 #include <cstdint>
 
 #include "src/algorithms/protocol/bytes.h"
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
 
 namespace fastecu::flash
 {
@@ -14,6 +16,17 @@ struct SubaruMitsuM32rKlinePlan
     int flash_baud;
     std::uint32_t chunk_size;
     bytes::Byte unread_prefix_fill;
+};
+
+template <> struct FamilyTraits<SubaruMitsuM32rKlinePlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruMitsuM32rKline;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
+};
+
+template <> struct PlanValidator<SubaruMitsuM32rKlinePlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 
 } // namespace fastecu::flash

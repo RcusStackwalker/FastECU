@@ -2,6 +2,9 @@
 
 #include <cstddef>
 
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
+
 namespace fastecu::flash
 {
 // The BDM bridge speaks a fixed-baud ASCII command
@@ -9,6 +12,19 @@ namespace fastecu::flash
 struct SubaruDensoMc68hc16y5_02BdmPlan
 {
     int baud;
+};
+
+// Requires no kernel: Write uploads the cfg kernel over BDM, but carries
+// it as the plan image (the bytes written to RAM), not as a KernelImage.
+template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02BdmPlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoMc68hc16y502Bdm;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
+};
+
+template <> struct PlanValidator<SubaruDensoMc68hc16y5_02BdmPlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 
 // Legacy write_mem() pads the kernel to 32 bytes and flash_block() uploads it

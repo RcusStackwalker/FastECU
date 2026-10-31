@@ -184,4 +184,9 @@ std::span<const std::string_view> SubaruDensoMc68hc16y502BdmProtocols()
     return kExportedProtocols;
 }
 
+Status PlanValidator<SubaruDensoMc68hc16y5_02BdmPlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruDensoMc68hc16y502BdmPlan(plan);
+}
+
 } // namespace fastecu::flash

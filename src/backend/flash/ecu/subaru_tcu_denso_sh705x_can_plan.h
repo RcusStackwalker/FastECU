@@ -14,14 +14,6 @@ Result<FlashPlan> BuildSubaruTcuDensoSh705xCanPlan(FlashOperation operation, std
                                                    KernelImage kernel);
 Status ValidateSubaruTcuDensoSh705xCanPlan(const FlashPlan& plan);
 
-template <> struct PlanValidator<SubaruTcuDensoSh705xCanPlan>
-{
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruTcuDensoSh705xCanPlan(plan);
-    }
-};
-
 // Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruTcuDensoSh705xCanProtocols();
 } // namespace fastecu::flash

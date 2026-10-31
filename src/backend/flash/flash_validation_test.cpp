@@ -451,10 +451,9 @@ TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
     ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
-// A family that isn't the kernel-less Mitsu Colt CAN family must still carry
-// a kernel -- the optional relaxation is scoped to
-// MitsuColtM32rCan (kFamilyRequiresKernel's specialization), not a
-// blanket relaxation for every family.
+// Plan types require no kernel by default; the EEPROM fixtures used here opt
+// in (kFamilyRequiresKernel), so they must still carry a kernel -- the
+// relaxation is not blanket for every family.
 TEST(FlashValidationTest, MissingKernelIsRejectedForKlineFamilyByDefault)
 {
     auto fields = ValidReadFields();

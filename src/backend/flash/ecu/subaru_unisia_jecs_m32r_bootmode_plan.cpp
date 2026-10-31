@@ -206,4 +206,14 @@ std::span<const std::string_view> SubaruUnisiaJecsM32rBootModeProtocols()
     return kExportedProtocols;
 }
 
+Status PlanValidator<SubaruUnisiaJecsM32rBootModeProgramPlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruUnisiaJecsM32rBootmodePlan(plan);
+}
+
+Status PlanValidator<SubaruUnisiaJecsM32rBootModeKernelPlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruUnisiaJecsM32rBootmodePlan(plan);
+}
+
 } // namespace fastecu::flash

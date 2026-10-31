@@ -70,4 +70,9 @@ std::span<const std::string_view> SubaruDenso1n83m15mCanProtocols()
     return kProtocols;
 }
 
+Status PlanValidator<SubaruDenso1n83m_1_5mCanPlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruDenso1n83m15mCanPlan(plan);
+}
+
 } // namespace fastecu::flash

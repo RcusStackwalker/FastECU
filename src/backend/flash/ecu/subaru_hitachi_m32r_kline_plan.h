@@ -12,13 +12,6 @@ Result<FlashPlan> BuildSubaruHitachiM32rKlinePlan(FlashOperation operation, std:
 
 Status ValidateSubaruHitachiM32rKlinePlan(const FlashPlan& plan);
 
-template <> struct PlanValidator<SubaruHitachiM32rKlinePlan>
-{
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruHitachiM32rKlinePlan(plan);
-    }
-};
 // Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruHitachiM32rKlineProtocols();
 } // namespace fastecu::flash

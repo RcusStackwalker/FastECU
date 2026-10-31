@@ -335,4 +335,14 @@ Status ValidateDensoSh705xEepromPlan(const FlashPlan& plan)
     return {};
 }
 
+Status PlanValidator<DensoSh705xEepromKlinePlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateDensoSh705xEepromPlan(plan);
+}
+
+Status PlanValidator<DensoSh705xEepromCanPlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateDensoSh705xEepromPlan(plan);
+}
+
 } // namespace fastecu::flash

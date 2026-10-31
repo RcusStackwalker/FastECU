@@ -74,4 +74,9 @@ std::span<const std::string_view> SubaruDensoSh72543CanDieselProtocols()
     return kProtocols;
 }
 
+Status PlanValidator<SubaruDensoSh72543CanDieselPlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruDensoSh72543CanDieselPlan(plan);
+}
+
 } // namespace fastecu::flash

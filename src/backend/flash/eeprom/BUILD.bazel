@@ -10,6 +10,10 @@ package(default_visibility = [
 cc_library(
     name = "denso_sh705x_eeprom_types",
     hdrs = ["denso_sh705x_eeprom_types.h"],
+    deps = [
+        "//src/backend/flash:flash_family",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(

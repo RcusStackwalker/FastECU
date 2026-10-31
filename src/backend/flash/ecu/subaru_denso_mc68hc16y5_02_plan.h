@@ -16,13 +16,6 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
                                                    KernelImage kernel);
 Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan);
 
-template <> struct PlanValidator<SubaruDensoMc68hc16y5_02Plan>
-{
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruDensoMc68hc16y502Plan(plan);
-    }
-};
 // Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruDensoMc68hc16y502Protocols();
 } // namespace fastecu::flash
