@@ -51,6 +51,7 @@ cc_library(
         ":denso_sh705x_eeprom_common",
         "//src/backend/config:catalog",
         "//src/backend/config:config_paths",
+        "//src/backend/flash:flash_family",
         "//src/backend/flash:flash_plan",
         "//src/backend/flash:flash_types",
         "//src/backend/ports",
