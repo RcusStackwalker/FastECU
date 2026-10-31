@@ -19,6 +19,8 @@ struct SubaruHitachiM32rCanPlan
     bool extended_id;          // false
 };
 
+// Jumps to the ECU's resident on-board kernel via
+// SecurityAccess + 0x10/0x42, uploading no image.
 template <> struct FamilyTraits<SubaruHitachiM32rCanPlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiM32rCan;

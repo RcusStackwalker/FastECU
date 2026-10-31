@@ -18,6 +18,10 @@ struct SubaruUnisiaJecsM32rBootModeKernelPlan
     std::uint8_t target_id;
 };
 
+// The kernel attempt carries the cfg kernel as its plan
+// image, as 6c-1 BDM does: the _bootmode cfg entries declare no kernel_addr,
+// and the M32R boot ROM places the kernel itself. The program attempt uploads
+// nothing.
 template <> struct FamilyTraits<SubaruUnisiaJecsM32rBootModeKernelPlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel;

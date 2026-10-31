@@ -108,7 +108,7 @@ enum class TransportKind
 // Deliberately has no primary definition: a new alternative added to
 // FamilyPlan must specialize this in the plan type's <f>_types.h, or every use
 // fails to compile. That is stricter than
-// kFamilyRequiresKernel below, which has a safe default (true) to fall
+// kFamilyRequiresKernel below, which has a default to fall
 // back on -- there is no safe default family or transport to guess, and a
 // wrong guess would let a plan reach the executor of a different family.
 //
@@ -117,11 +117,10 @@ enum class TransportKind
 // silently bind the wrong variant to a family.
 template <typename PlanT> struct FamilyTraits;
 
-// Whether validate_and_build requires FlashPlanFields::kernel to be set for
-// this family's plan type. Defaults true (fail-closed): a family that skips
-// the kernel must opt out explicitly, in the plan type's <f>_types.h -- never
-// by editing flash_validation.cpp.
-template <typename PlanT> inline constexpr bool kFamilyRequiresKernel = true;
+// Whether validate_and_build requires FlashPlanFields::kernel for this plan
+// type. Defaults false; a plan type that uploads a kernel opts in, in its
+// `<f>_types.h`.
+template <typename PlanT> inline constexpr bool kFamilyRequiresKernel = false;
 
 // A family's plan validator, reached by plan admission (FamilyExecutor in
 // flash_executor.h). A specialization provides

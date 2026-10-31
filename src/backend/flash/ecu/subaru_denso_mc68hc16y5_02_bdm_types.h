@@ -14,6 +14,8 @@ struct SubaruDensoMc68hc16y5_02BdmPlan
     int baud;
 };
 
+// Write uploads the cfg kernel over BDM, but carries
+// it as the plan image (the bytes written to RAM), not as a KernelImage.
 template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02BdmPlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoMc68hc16y502Bdm;

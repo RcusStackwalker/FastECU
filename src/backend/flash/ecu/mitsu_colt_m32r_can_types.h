@@ -19,6 +19,8 @@ struct MitsuColtM32rCanPlan
     bytes::Byte session_id;    // kSessionBootload (0x85) for Read and Write
 };
 
+// Mitsu Colt CAN drives the ECU's own vendor bootloader and uploads only
+// compile-time RAM helper routines, not a loaded kernel image.
 template <> struct FamilyTraits<MitsuColtM32rCanPlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kMitsuColtM32rCan;

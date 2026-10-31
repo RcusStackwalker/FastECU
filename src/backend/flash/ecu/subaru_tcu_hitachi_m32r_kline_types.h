@@ -19,6 +19,8 @@ struct SubaruTcuHitachiM32rKlinePlan
     std::uint32_t block_size; // 96, not the ECU family's 128
 };
 
+// Authenticates against the TCU's resident bootloader
+// via SecurityAccess and reads with 0xA0 block reads, uploading no image.
 template <> struct FamilyTraits<SubaruTcuHitachiM32rKlinePlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruTcuHitachiM32rKline;

@@ -40,6 +40,7 @@ template <> struct FamilyTraits<DensoSh705xEepromKlinePlan>
     static constexpr FlashFamily kFamily = FlashFamily::kDensoSh705xEepromKline;
     static constexpr TransportKind kTransport = TransportKind::kKline;
 };
+template <> inline constexpr bool kFamilyRequiresKernel<DensoSh705xEepromKlinePlan> = true;
 
 template <> struct PlanValidator<DensoSh705xEepromKlinePlan>
 {
@@ -61,6 +62,7 @@ template <> struct FamilyTraits<DensoSh705xEepromCanPlan>
     static constexpr FlashFamily kFamily = FlashFamily::kDensoSh705xEepromCan;
     static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
+template <> inline constexpr bool kFamilyRequiresKernel<DensoSh705xEepromCanPlan> = true;
 
 template <> struct PlanValidator<DensoSh705xEepromCanPlan>
 {
