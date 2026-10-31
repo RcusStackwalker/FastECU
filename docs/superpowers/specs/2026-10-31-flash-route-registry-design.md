@@ -87,8 +87,8 @@ Each prefix row in `kRoutes` covers between one and four of those names.
 
 One table-driven routing test over the real built-in catalog replaces the
 hand-written route list and the per-family "routes only" tests. A flash
-protocol is a catalog entry with `read`, `test_write` or `write` set. The test
-checks four things:
+protocol is a catalog entry with `read`, `test_write` or `write` set. Four
+things are checked:
 
 - every flash protocol in the catalog has exactly one flash route;
 - every protocol id in the registry is a flash protocol in the catalog;
@@ -96,10 +96,14 @@ checks four things:
   workflow;
 - each builder accepts exactly the operations its catalog entry flags.
 
-If the last check turns up mismatches (a flag set for an operation the builder
-rejects, or the reverse), the first PR records each one as a finding in an
-explicit skip list with its reason. Each fix gets its own PR, because changing
-a flag changes what the UI offers.
+The last check already exists:
+`BuiltinCatalogCapability.EveryOfferedOperationIsAcceptedAndEveryOtherIsUnsupported`
+drives every catalog entry with the bundled kernels and ROM-sized images, and
+finds no mismatch. It stays the owner of that check. A mismatch fails CI; each
+fix gets its own PR, because changing a flag changes what the UI offers.
+
+The EEPROM builder keeps its own name rules and does not check the EEPROM
+route's protocol list, because its tests use names outside the catalog.
 
 Tests that prove wire behaviour or plan goldens are unchanged. Family suites
 that prove a builder rejects a specific lookalike name keep that test when the
