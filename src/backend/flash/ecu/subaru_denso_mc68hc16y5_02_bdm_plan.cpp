@@ -155,8 +155,6 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502BdmPlan(FlashOperation operation, 
 
     auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = operation,
-        .family = FlashFamily::kSubaruDensoMc68hc16y502Bdm,
-        .transport = TransportKind::kKline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = region,

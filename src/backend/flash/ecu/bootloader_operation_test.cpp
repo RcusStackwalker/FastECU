@@ -27,8 +27,6 @@ TEST(RunBootloaderOperation, RefusesTestWriteAfterConnectingWithoutErasingOrWrit
 {
     FlashPlanFields fields;
     fields.operation = FlashOperation::kTestWrite;
-    fields.family = FlashFamily::kSubaruHitachiM32rCan;
-    fields.transport = TransportKind::kCanIso15765;
     fields.target_id = "sub_ecu_hitachi_m32r_can";
     fields.mcu_name = "M32R_512kB";
     fields.transfer_region = MemoryRegion{0, 0x80000};

@@ -390,8 +390,6 @@ TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
     ASSERT_NE(device, nullptr);
     auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kSubaruDensoMc68hc16y502,
-        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_denso_mc68hc16y5_02",
         .mcu_name = "MC68HC16Y5",
         .transfer_region = {device->fblocks[0].start, device->romsize},

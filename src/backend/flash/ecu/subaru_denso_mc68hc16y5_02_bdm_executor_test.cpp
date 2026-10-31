@@ -196,8 +196,6 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportSetupRejectsAWritePlanWithout
 {
     auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = FlashOperation::kWrite,
-        .family = FlashFamily::kSubaruDensoMc68hc16y502Bdm,
-        .transport = TransportKind::kKline,
         .target_id = std::string(kProtocol),
         .mcu_name = std::string(kMcu),
         .transfer_region = MemoryRegion{0x20000, 0x20},

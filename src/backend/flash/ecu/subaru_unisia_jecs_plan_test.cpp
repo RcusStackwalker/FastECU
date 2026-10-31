@@ -22,8 +22,6 @@ FlashPlanFields Fields()
 {
     return FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kSubaruUnisiaJecs,
-        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_unisia_jecs_m3779x",
         .mcu_name = "M3779x",
         .transfer_region = MemoryRegion{0, 0x10000},

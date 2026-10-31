@@ -80,8 +80,6 @@ FlashPlanFields ValidFields(const Variant& variant, FlashOperation operation = F
 {
     return {
         .operation = operation,
-        .family = FlashFamily::kSubaruDensoSh7058Can,
-        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(variant.protocol),
         .mcu_name = "SH7058",
         .transfer_region = {0x00000000, kRomSize},

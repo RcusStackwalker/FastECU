@@ -56,8 +56,6 @@ constexpr SingleWindowPlanSpec kSpec{
     .display_name = "Subaru TCU CVT Mitsu MH8111 CAN",
     .protocols = kProtocols,
     .mcu = "MH8111",
-    .family = FlashFamily::kSubaruTcuCvtMitsuMh8111Can,
-    .transport = TransportKind::kCanIso15765,
     .read_region = kReadRegion,
     .write_region = kWriteRegion,
     .image_size = kImageSize,

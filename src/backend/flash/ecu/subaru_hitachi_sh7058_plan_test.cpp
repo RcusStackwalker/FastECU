@@ -18,8 +18,6 @@ FlashPlanFields ReadFields()
 {
     return FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kSubaruHitachiSh7058,
-        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_hitachi_sh7058_can",
         .mcu_name = "SH7058_1block",
         .transfer_region = {0x100000, 0x100000},
@@ -35,8 +33,6 @@ FlashPlanFields WriteFields()
 {
     return FlashPlanFields{
         .operation = FlashOperation::kWrite,
-        .family = FlashFamily::kSubaruHitachiSh7058,
-        .transport = TransportKind::kCanIso15765,
         .target_id = "sub_ecu_hitachi_sh7058_can",
         .mcu_name = "SH7058_1block",
         .transfer_region = {0, 0x100000},
@@ -81,15 +77,13 @@ TEST(SubaruHitachiSh7058Plan, RejectsUnsafeOperationsAndNearMisses)
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
-TEST(SubaruHitachiSh7058Plan, RejectsForgedTransportAndWireParameters)
+TEST(SubaruHitachiSh7058Plan, RejectsForgedWireParameters)
 {
     auto fields = ReadFields();
     fields.family_plan = SubaruHitachiSh7058KlinePlan{.initial_baud = 9600};
     auto forged = ValidateAndBuild(fields);
     ASSERT_THAT(forged, fastecu::testing::IsOk());
     EXPECT_THAT(ValidateSubaruHitachiSh7058Plan(*forged), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    fields.transport = TransportKind::kCanIso15765;
-    EXPECT_THAT(ValidateAndBuild(fields), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SubaruHitachiSh7058Plan, ReadCarriesTheStartKlineReadConsentAndWriteNone)

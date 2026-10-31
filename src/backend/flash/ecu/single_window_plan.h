@@ -31,8 +31,6 @@ struct SingleWindowPlanSpec
     // accepts a normal and a recovery protocol name.
     std::span<const std::string_view> protocols;
     std::string_view mcu;
-    FlashFamily family;
-    TransportKind transport;
     MemoryRegion read_region;
     // Also the erase region: no family in this cluster erases anything other
     // than the window it writes.

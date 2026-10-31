@@ -2084,8 +2084,6 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RejectsInvalidPlanBeforeTransportInteracti
 {
     auto fields = FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kSubaruTcuDensoSh705xCan,
-        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(kCases[0].protocol),
         .mcu_name = std::string(kCases[0].mcu),
         .transfer_region = {0, kCases[0].rom_size},

@@ -135,8 +135,6 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, APlanWithoutTheConfirmationTouc
 {
     auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = FlashOperation::kWrite,
-        .family = FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel,
-        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_unisia_jecs_20_bootmode",
         .mcu_name = "M32R_128KB",
         .transfer_region = {0, 0x80},

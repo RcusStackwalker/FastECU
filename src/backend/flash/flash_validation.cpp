@@ -35,14 +35,6 @@ bool RegionEndNotRepresentable(const MemoryRegion& region)
     return static_cast<std::uint64_t>(region.start) + region.length > static_cast<std::uint64_t>(0xffffffffU);
 }
 
-// The family plan recorded its plan type's family and transport from
-// FamilyTraits when it was wrapped (ADR 0030); an empty one matches nothing.
-bool FamilyMatchesTransportVariant(const FlashPlanFields& fields)
-{
-    return fields.family_plan.HasValue() && fields.family == fields.family_plan.Family() &&
-           fields.transport == fields.family_plan.Transport();
-}
-
 Status ValidateTargetAndRegions(const FlashPlanFields& fields)
 {
     if (fields.target_id.empty())
@@ -152,9 +144,11 @@ Result<FlashPlan> ValidateAndBuild(FlashPlanFields fields)
     {
         return std::unexpected(valid.error());
     }
-    if (!FamilyMatchesTransportVariant(fields))
+    // The plan's family and transport are the facts its family plan recorded
+    // (ADR 0030), so an empty family plan leaves the plan with neither.
+    if (!fields.family_plan.HasValue())
     {
-        return Fail(ErrorKind::kInvalidConfig, "family_plan variant does not match transport kind or declared family");
+        return Fail(ErrorKind::kInvalidConfig, "family_plan must not be empty");
     }
     if (HasDuplicateConfirmation(fields))
     {

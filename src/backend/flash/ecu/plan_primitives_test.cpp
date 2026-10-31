@@ -74,8 +74,6 @@ TEST(PlanPrimitives, OperationImageShapeRequiresNoReadImageAndExactWriteSize)
         SCOPED_TRACE(::testing::PrintToString(operation));
         auto plan = ValidateAndBuild({
             .operation = operation,
-            .family = FlashFamily::kMitsuColtM32rCan,
-            .transport = TransportKind::kCanIso15765,
             .target_id = "test",
             .mcu_name = "test",
             .transfer_region = {0, 4},
@@ -107,8 +105,6 @@ TEST(PlanPrimitives, WholeRomKernelValidationRequiresKernelAndOperationImageShap
         SCOPED_TRACE(::testing::PrintToString(operation));
         auto plan = BuildWholeRomKernelPlan<128>(
             {.operation = operation,
-             .family = FlashFamily::kSubaruDensoSh7058CanDiesel,
-             .transport = TransportKind::kCanIso15765,
              .target_id = "test",
              .mcu_name = "test",
              .family_plan = SubaruDensoSh7058CanDieselPlan{}},

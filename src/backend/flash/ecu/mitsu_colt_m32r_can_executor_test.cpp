@@ -229,8 +229,6 @@ WritePlanGranting(std::initializer_list<fastecu::flash::ConfirmationSpec::Id> gr
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
-    fields.family = fastecu::flash::FlashFamily::kMitsuColtM32rCan;
-    fields.transport = fastecu::flash::TransportKind::kCanIso15765;
     fields.target_id = std::string(rom_size == 0x60000 ? kProtocol384 : kProtocol512);
     fields.mcu_name = std::string(rom_size == 0x60000 ? kMcu384 : kMcu512);
     fields.transfer_region =
@@ -256,8 +254,6 @@ fastecu::Result<fastecu::flash::FlashPlan> HandBuiltWritePlan(std::string_view t
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = FlashOperation::kWrite;
-    fields.family = fastecu::flash::FlashFamily::kMitsuColtM32rCan;
-    fields.transport = fastecu::flash::TransportKind::kCanIso15765;
     fields.target_id = std::string(target);
     fields.mcu_name = std::string(mcu);
     fields.transfer_region = region;

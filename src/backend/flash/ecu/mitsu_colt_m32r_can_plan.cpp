@@ -117,8 +117,6 @@ Result<FlashPlan> BuildMitsuColtM32rCanPlan(FlashOperation operation, std::strin
 
     FlashPlanFields fields;
     fields.operation = operation;
-    fields.family = FlashFamily::kMitsuColtM32rCan;
-    fields.transport = TransportKind::kCanIso15765;
     fields.target_id = std::string(protocol_name);
     fields.mcu_name = std::string(mcu_type);
     fields.kernel = std::nullopt;

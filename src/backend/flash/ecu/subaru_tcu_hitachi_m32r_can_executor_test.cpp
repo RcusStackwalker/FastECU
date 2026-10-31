@@ -2298,8 +2298,6 @@ TEST(SubaruTcuHitachiM32rCanExecutor, ExecuteRejectsTestWriteEvenWhenDirectlyCon
     constexpr MemoryRegion kWindow{.start = kRegionStart, .length = kRegionLength};
     FlashPlanFields fields{
         .operation = FlashOperation::kTestWrite,
-        .family = FlashFamily::kSubaruTcuHitachiM32rCan,
-        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(kProtocol),
         .mcu_name = std::string(kMcu),
         .transfer_region = kWindow,

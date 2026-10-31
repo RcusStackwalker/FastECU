@@ -125,8 +125,6 @@ Result<FlashPlan> BuildSubaruTcuHitachiM32rCanPlan(FlashOperation operation, std
 
     FlashPlanFields fields{
         .operation = operation,
-        .family = FlashFamily::kSubaruTcuHitachiM32rCan,
-        .transport = TransportKind::kCanIso15765,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = kWindow,

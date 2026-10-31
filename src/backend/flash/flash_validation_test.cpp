@@ -56,8 +56,6 @@ FlashPlanFields ValidReadFields()
 {
     return FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kDensoSh705xEepromKline,
-        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .transfer_region = MemoryRegion{.start = 0xf000, .length = 0x1000},
@@ -84,8 +82,6 @@ FlashPlanFields ValidReadFields()
 FlashPlanFields ValidCanReadFields()
 {
     auto fields = ValidReadFields();
-    fields.family = FlashFamily::kDensoSh705xEepromCan;
-    fields.transport = TransportKind::kCanIso15765;
     fields.kernel = KernelImage{.id = "k", .load_address = 0xffff3000, .bytes = {0x01}};
     fields.family_plan = DensoSh705xEepromCanPlan{
         .mode = EepromReadMode::kMode2,
@@ -514,49 +510,30 @@ TEST(FlashValidationTest, MissingKernelIsRejectedForCanFamilyByDefault)
     EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("kernel")));
 }
 
-TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
-{
-    auto fields = ValidReadFields();
-    // Kline transport but a Can family_plan variant.
-    fields.family_plan = DensoSh705xEepromCanPlan{
-        .mode = EepromReadMode::kMode2,
-        .security = DensoSecurityVariant::kStock,
-        .request_id = 0x7e0,
-        .response_id = 0x7e8,
-        .bitrate = 500000,
-        .extended_id = false,
-    };
-
-    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-}
-
 TEST(FlashValidationTest, EmptyFamilyPlanIsRejected)
 {
     auto fields = ValidReadFields();
     fields.family_plan = FamilyPlan{};
 
-    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(ValidateAndBuild(std::move(fields)),
+                fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::HasSubstr("family_plan")));
 }
 
-TEST(FlashValidationTest, FamilyAndVariantMustMatchExhaustively)
+// A builder states no family or transport: the plan reads both from the
+// FamilyTraits of the plan type it carries (ADR 0030).
+TEST(FlashValidationTest, EveryPlanTakesItsFamilyAndTransportFromItsPlanType)
 {
-    for (std::size_t declared_index = 0; declared_index < FamilyCases().size(); ++declared_index)
+    for (const auto& family_case : FamilyCases())
     {
-        SCOPED_TRACE(::testing::PrintToString(declared_index));
-        for (std::size_t variant_index = 0; variant_index < FamilyCases().size(); ++variant_index)
-        {
-            SCOPED_TRACE(::testing::PrintToString(variant_index));
-            auto fields = ValidReadFields();
-            const auto& declared = FamilyCases()[declared_index];
-            fields.family = declared.family;
-            fields.transport = declared.transport;
-            fields.family_plan = FamilyCases()[variant_index].family_plan;
+        SCOPED_TRACE(::testing::PrintToString(family_case));
+        auto fields = ValidReadFields();
+        fields.family_plan = family_case.family_plan;
 
-            const auto plan = ValidateAndBuild(std::move(fields));
+        const auto plan = ValidateAndBuild(std::move(fields));
 
-            EXPECT_EQ(plan.has_value(), declared_index == variant_index)
-                << "declared index " << declared_index << ", variant index " << variant_index;
-        }
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_EQ(plan->Family(), family_case.family);
+        EXPECT_EQ(plan->Transport(), family_case.transport);
     }
 }
 
@@ -566,8 +543,6 @@ TEST(FlashValidationTest, ExperimentalFamilyIdsCoverEveryFamily)
     {
         SCOPED_TRACE(::testing::PrintToString(family_case));
         auto fields = ValidReadFields();
-        fields.family = family_case.family;
-        fields.transport = family_case.transport;
         fields.family_plan = family_case.family_plan;
         const auto plan = ValidateAndBuild(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
@@ -578,7 +553,6 @@ TEST(FlashValidationTest, ExperimentalFamilyIdsCoverEveryFamily)
 TEST(FlashValidationTest, Sh7055_02KlinePlanIsAccepted)
 {
     auto fields = ValidReadFields();
-    fields.family = FlashFamily::kSubaruDensoSh705502;
     fields.target_id = "sub_ecu_denso_sh7055_02";
     fields.family_plan = SubaruDensoSh7055_02Plan{
         .tester_id = 0xf0,
@@ -627,8 +601,6 @@ fastecu::flash::FlashPlanFields KernellessReadFields()
     using namespace fastecu::flash;
     FlashPlanFields fields;
     fields.operation = FlashOperation::kRead;
-    fields.family = FlashFamily::kMitsuColtM32rCan;
-    fields.transport = TransportKind::kCanIso15765;
     fields.target_id = "mitsu_ecu_m32r_can";
     fields.mcu_name = "M32R_384KB_1block";
     fields.transfer_region = MemoryRegion{0x00008000, 0x00058000};
@@ -678,18 +650,6 @@ TEST(FlashValidation, RejectsAPresentKernelWithNoId)
     ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(plan,
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig, ::testing::HasSubstr("kernel id")));
-}
-
-TEST(FlashValidation, RejectsAColtPlanOnAKlineTransport)
-{
-    auto fields = KernellessReadFields();
-    fields.transport = fastecu::flash::TransportKind::kKline;
-
-    const auto plan = fastecu::flash::ValidateAndBuild(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
-    EXPECT_THAT(plan, fastecu::testing::IsErrWith(fastecu::ErrorKind::kInvalidConfig,
-                                                  ::testing::HasSubstr("does not match transport kind")));
 }
 
 TEST(FlashValidation, StillRejectsDuplicateConfirmationIds)

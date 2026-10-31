@@ -119,8 +119,6 @@ Result<FlashPlan> MalformedPlan(std::vector<ConfirmationSpec> confirmations, std
     }
     return ValidateAndBuild(FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kSubaruDensoSh705502,
-        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_denso_sh7055_02",
         .mcu_name = "SH7055",
         .transfer_region = {kFlashDevices[static_cast<std::size_t>(index)].fblocks[0].start,

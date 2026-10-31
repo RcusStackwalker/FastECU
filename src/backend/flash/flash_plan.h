@@ -23,8 +23,6 @@ namespace fastecu::flash
 struct FlashPlanFields
 {
     FlashOperation operation{};
-    FlashFamily family{};
-    TransportKind transport{};
     std::string target_id;
     std::string mcu_name;
     MemoryRegion transfer_region{};
@@ -52,13 +50,15 @@ class FlashPlan
     {
         return fields_.operation;
     }
+    // The family and transport of the plan type, recorded when it was
+    // wrapped in the family plan (ADR 0030); a builder does not state them.
     FlashFamily Family() const
     {
-        return fields_.family;
+        return fields_.family_plan.Family();
     }
     TransportKind Transport() const
     {
-        return fields_.transport;
+        return fields_.family_plan.Transport();
     }
     const std::string& TargetId() const
     {

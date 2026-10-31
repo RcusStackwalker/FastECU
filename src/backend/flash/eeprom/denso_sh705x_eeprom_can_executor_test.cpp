@@ -546,8 +546,6 @@ Result<FlashPlan> HandBuiltInvalidPlan()
 {
     return ValidateAndBuild(FlashPlanFields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kDensoSh705xEepromCan,
-        .transport = TransportKind::kCanIso15765,
         .target_id = "sub_ecu_eeprom_denso_sh7055_densocan",
         .mcu_name = "SH7055",
         .transfer_region = MemoryRegion{.start = 0, .length = 0xff},

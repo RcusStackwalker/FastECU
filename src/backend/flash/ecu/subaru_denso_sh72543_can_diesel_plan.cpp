@@ -48,8 +48,6 @@ constexpr SingleWindowPlanSpec kSpec{
     .display_name = "Subaru Denso SH72543 Diesel CAN",
     .protocols = kProtocols,
     .mcu = "SH72543d",
-    .family = FlashFamily::kSubaruDensoSh72543CanDiesel,
-    .transport = TransportKind::kCanIso15765,
     .read_region = kMainBlock,
     .write_region = kMainBlock,
     .image_size = kImageSize,

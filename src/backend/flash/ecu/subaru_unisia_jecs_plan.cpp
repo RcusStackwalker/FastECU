@@ -87,8 +87,6 @@ Result<FlashPlan> BuildSubaruUnisiaJecsPlan(FlashOperation operation, std::strin
     }
     auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = operation,
-        .family = FlashFamily::kSubaruUnisiaJecs,
-        .transport = TransportKind::kKline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = kRom,

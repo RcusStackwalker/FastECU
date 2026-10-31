@@ -173,8 +173,6 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation operation, s
 
     auto plan = ValidateAndBuild(FlashPlanFields{
         .operation = operation,
-        .family = FlashFamily::kSubaruUnisiaJecsM32rKline,
-        .transport = TransportKind::kKline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = RegionFor(*variant, operation),

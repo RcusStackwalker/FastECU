@@ -197,8 +197,6 @@ FlashPlanFields ValidFields(FlashOperation operation = FlashOperation::kTestWrit
 {
     return FlashPlanFields{
         .operation = operation,
-        .family = FlashFamily::kSubaruDensoSh705xKline,
-        .transport = TransportKind::kKline,
         .target_id = std::move(target_id),
         .mcu_name = "SH7055",
         .transfer_region = MemoryRegion{0, Romsize("SH7055")},
@@ -231,7 +229,6 @@ TEST(SubaruDensoSh705xKlinePlan, ValidatorRejectsEachSingleBadField)
         {"foreign family",
          [](FlashPlanFields& f)
          {
-             f.family = FlashFamily::kSubaruUnisiaJecs;
              f.target_id = "sub_ecu_unisia_jecs_m3779x";
              f.family_plan = SubaruUnisiaJecsPlan{.initial_baud = 1953, .even_parity = true};
          }},

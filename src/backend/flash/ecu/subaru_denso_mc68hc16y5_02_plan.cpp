@@ -221,8 +221,6 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
 
     FlashPlanFields fields{
         .operation = operation,
-        .family = FlashFamily::kSubaruDensoMc68hc16y502,
-        .transport = TransportKind::kKline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         // A byte count from flash start: romsize is the packed 160 KiB file's

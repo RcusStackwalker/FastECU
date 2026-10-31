@@ -1234,8 +1234,6 @@ TEST(SubaruDensoSh7058CanExecutor, RejectsInvalidSecurityPlanBeforeTransportInte
 {
     FlashPlanFields fields{
         .operation = FlashOperation::kRead,
-        .family = FlashFamily::kSubaruDensoSh7058Can,
-        .transport = TransportKind::kCanIso15765,
         .target_id = "sub_ecu_denso_sh7058_can",
         .mcu_name = "SH7058",
         .transfer_region = {0, kRomSize},
