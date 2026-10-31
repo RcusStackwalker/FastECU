@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "src/backend/flash/ecu/plan_primitives.h"
+#include "src/backend/flash/ecu/protocol_kernel.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 
@@ -185,6 +186,24 @@ std::span<const std::string_view> SubaruDensoMc68hc16y502BdmProtocols()
 Status PlanValidator<SubaruDensoMc68hc16y5_02BdmPlan>::Validate(const FlashPlan& plan)
 {
     return ValidateSubaruDensoMc68hc16y502BdmPlan(plan);
+}
+
+Result<FlashPlan> PrepareSubaruDensoMc68hc16y502BdmPlan(FlashOperation operation, const config::ProtocolSpec& protocol,
+                                                        const config::ConfigPaths& paths,
+                                                        std::optional<bytes::Bytes> /*rom_file*/,
+                                                        IFileRepository& files)
+{
+    if (operation != FlashOperation::kWrite)
+    {
+        return BuildSubaruDensoMc68hc16y502BdmPlan(operation, protocol.name, protocol.mcu, std::nullopt, std::nullopt);
+    }
+    return ReadProtocolKernel(protocol, paths, files)
+        .and_then(
+            [&](KernelImage kernel)
+            {
+                return BuildSubaruDensoMc68hc16y502BdmPlan(operation, protocol.name, protocol.mcu, std::nullopt,
+                                                           std::move(kernel));
+            });
 }
 
 } // namespace fastecu::flash

@@ -642,28 +642,9 @@ Result<FlashPlan> PrepareInFamily(FlashWorkflowRequest& request, IFileRepository
     return Prepare(request.operation, request.protocol, request.paths, std::move(request.image), files);
 }
 
-// MC68HC16Y5 BDM: only Write reads the kernel file -- its "write" uploads and
-// starts the protocol's kernel. The operator's ROM (request.image) is never
-// forwarded: BDM never writes the ROM.
-Result<FlashPlan> PrepareBdm(FlashWorkflowRequest& request, IFileRepository& files)
-{
-    if (request.operation != FlashOperation::kWrite)
-    {
-        return BuildSubaruDensoMc68hc16y502BdmPlan(request.operation, request.protocol.name, request.protocol.mcu,
-                                                   std::nullopt, std::nullopt);
-    }
-    return ReadProtocolKernel(request.protocol, request.paths, files)
-        .and_then(
-            [&](KernelImage kernel)
-            {
-                return BuildSubaruDensoMc68hc16y502BdmPlan(request.operation, request.protocol.name,
-                                                           request.protocol.mcu, std::nullopt, std::move(kernel));
-            });
-}
-
 template <KernelBackedPlanBuilder Build> using CachedKernelPlan = LazyPlan<&PrepareKernelBacked<Build>>;
 using Mc68KernelPlan = LazyPlan<&PrepareInFamily<&PrepareSubaruDensoMc68hc16y502Plan>>;
-using BdmKernelPlan = LazyPlan<&PrepareBdm>;
+using BdmKernelPlan = LazyPlan<&PrepareInFamily<&PrepareSubaruDensoMc68hc16y502BdmPlan>>;
 
 // The control flow shared by every family whose operation is one attempt:
 // preflight, Begin, the plan's confirmations in order, the attempt, then its
