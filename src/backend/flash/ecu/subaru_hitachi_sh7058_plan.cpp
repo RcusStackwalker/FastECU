@@ -32,6 +32,16 @@ std::vector<MemoryRegion> EraseFor(bool read)
     return read ? std::vector<MemoryRegion>{} : std::vector<MemoryRegion>{{0, kSize}};
 }
 
+// Reads run over K-Line and writes over CAN, each with its own plan type.
+FamilyPlan PlanTypeFor(bool read)
+{
+    if (read)
+    {
+        return SubaruHitachiSh7058KlinePlan{};
+    }
+    return SubaruHitachiSh7058CanPlan{};
+}
+
 std::vector<ConfirmationSpec> ConfirmationsFor(bool read)
 {
     return read ? std::vector{ConfirmationSpec{.id = ConfirmationSpec::Id::kStartKlineRead}}
@@ -110,7 +120,7 @@ Result<FlashPlan> BuildSubaruHitachiSh7058Plan(FlashOperation operation, std::st
         .erase_regions = EraseFor(read),
         .image = std::move(image),
         .kernel = std::nullopt,
-        .family_plan = read ? FamilyPlan{SubaruHitachiSh7058KlinePlan{}} : FamilyPlan{SubaruHitachiSh7058CanPlan{}},
+        .family_plan = PlanTypeFor(read),
         .confirmations = ConfirmationsFor(read),
     });
     if (!plan.has_value())
