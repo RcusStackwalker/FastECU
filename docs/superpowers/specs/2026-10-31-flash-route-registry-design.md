@@ -77,9 +77,14 @@ Each prefix row in `kRoutes` covers between one and four of those names.
    the Denso SH705x TCU CAN plan. Today the default is `true` and 21 plan types
    override it.
 6. **`<f>_plan.h` folds into `<f>_types.h`.** After decision 4, each `_plan.h`
-   holds only a builder declaration, and `Result<FlashPlan>` can be named in a
-   declaration while `FlashPlan` is incomplete. Each family keeps one header,
-   its `plan.cpp` and its executor. Gazelle regenerates the targets.
+   holds three declarations: the builder, the family's `Validate…Plan`
+   function, and its `…Protocols()` list. `Result<FlashPlan>` and
+   `const FlashPlan&` can be named while `FlashPlan` is incomplete. The
+   builders' parameters also name `FlashOperation` and `KernelImage`, which
+   `flash_types.h` defines; since `flash_types.h` includes every
+   `<f>_types.h`, those two must move to `flash_family.h` or be
+   forward-declared there first. Each family keeps one header, its `plan.cpp`
+   and its executor. Gazelle regenerates the targets.
 7. **Four central entries per family stay.** The enum value and its name row
    sit side by side in `flash_family.h`; the include and the `FamilyPlan`
    alternative sit in `flash_types.h`. The enum cannot stay in
