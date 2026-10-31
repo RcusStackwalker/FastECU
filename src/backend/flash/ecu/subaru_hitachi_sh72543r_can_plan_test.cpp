@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include <gmock/gmock.h>
@@ -53,33 +54,33 @@ TEST(Sh72543rPlan, BothAliasesHaveDistinctReadAndWriteWindows)
         EXPECT_EQ(write->ImageOrEmpty().size(), 0x200000U);
     }
 }
-TEST(Sh72543rPlan, RejectsUnsupportedOperationsWithoutImage)
+// Builder-side identity, operation and image checks: the shared contract.
+constexpr testing::SingleWindowPlanCase kCase{
+    .name = "SubaruHitachiSh72543rCan",
+    .build = &BuildSubaruHitachiSh72543rCanPlan,
+    .protocol = kProtocol,
+    .mcu = "SH72543R",
+    .foreign_protocol = "sub_ecu_hitachi_sh72543r_can_recovery_typo",
+    .foreign_mcu = "SH72543d",
+    .read_region = MemoryRegion{.start = 0, .length = 0x200000},
+    .erase_region = MemoryRegion{.start = 0x6000, .length = 0x1FA000},
+    .image_size = 0x200000,
+};
+using testing::SingleWindowPlanContract;
+INSTANTIATE_TEST_SUITE_P(SubaruHitachiSh72543rCan, SingleWindowPlanContract, ::testing::Values(kCase),
+                         testing::CaseName);
+TEST(Sh72543rPlan, RejectsAReadThatCarriesAnImage)
 {
-    constexpr auto kOp = FlashOperation::kTestWrite;
-    EXPECT_THAT(BuildSubaruHitachiSh72543rCanPlan(kOp, kProtocol, "SH72543R", std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::kUnsupported));
-    auto built = ValidateAndBuild(Fields(kOp));
-    ASSERT_THAT(built, fastecu::testing::IsOk());
-    EXPECT_THAT(ValidateSubaruHitachiSh72543rCanPlan(*built), fastecu::testing::IsErr(ErrorKind::kUnsupported));
-}
-TEST(Sh72543rPlan, RejectsIdentityAndImageErrors)
-{
-    EXPECT_THAT(BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, "sub_ecu_hitachi_sh72543r_can_recovery_typo",
-                                                  "SH72543R", std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, kProtocol, "SH72543d", std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kRead, kProtocol, "SH72543R", bytes::Bytes{}),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    EXPECT_THAT(BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kWrite, kProtocol, "SH72543R", std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    for (auto size : {0U, 0x1fffffU, 0x200001U})
-    {
-        SCOPED_TRACE(::testing::PrintToString(size));
-        EXPECT_THAT(
-            BuildSubaruHitachiSh72543rCanPlan(FlashOperation::kWrite, kProtocol, "SH72543R", bytes::Bytes(size)),
-            fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
-    }
+}
+// The builder rejects TestWrite (contract); a forged TestWrite plan is
+// rejected by the validator too.
+TEST(Sh72543rPlan, ValidatorRejectsTestWrite)
+{
+    auto built = ValidateAndBuild(Fields(FlashOperation::kTestWrite));
+    ASSERT_THAT(built, fastecu::testing::IsOk());
+    EXPECT_THAT(ValidateSubaruHitachiSh72543rCanPlan(*built), fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 SubaruHitachiSh72543rCanPlan& WireOf(FlashPlanFields& f)
 {

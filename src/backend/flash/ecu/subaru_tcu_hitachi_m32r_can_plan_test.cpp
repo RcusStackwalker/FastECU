@@ -78,6 +78,12 @@ TEST(SubaruTcuHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
     EXPECT_EQ(family.write_frame_size, 128U);
 }
 
+TEST(SubaruTcuHitachiM32rCanPlan, RejectsAReadThatCarriesAnImage)
+{
+    EXPECT_THAT(BuildSubaruTcuHitachiM32rCanPlan(FlashOperation::kRead, kProtocol, kMcuName, bytes::Bytes{}),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+}
+
 // Deliberate divergence 1, and the safety-critical assertion of this whole
 // task: the legacy reflash_block ignores its test_write_arg parameter
 // entirely (see subaru_tcu_hitachi_m32r_can_plan.h), so "test write" would

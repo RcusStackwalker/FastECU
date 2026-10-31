@@ -13,9 +13,9 @@ namespace fastecu::flash
 
 // A "single-window" family is one whose plan is fully described by a protocol
 // id (or a small set of them), one MCU, a read window, a write window, and one
-// image size. Ten families in this package share that shape. The three that do
-// not -- mc68hc16y5_02, sh7055_02 and mitsu_colt, which carry kernel images,
-// variant tables or confirmations -- keep their own hand-written builders.
+// image size, and which declares no confirmations. Families that carry kernel
+// images, variant tables or confirmations keep their own hand-written
+// builders.
 //
 // This shares plan *validation* only. Four of these families -- the Denso
 // ISO-15765 bootloader dialect -- share one executor and state their
@@ -27,8 +27,9 @@ struct SingleWindowPlanSpec
     // The one qualified name every message composes from, e.g.
     // "Subaru Denso SH72531 CAN".
     std::string_view display_name;
-    // One entry for most families; two for subaru_hitachi_m32r_kline, which
-    // accepts a normal and a recovery protocol name.
+    // One entry for most families; two for subaru_hitachi_m32r_kline and
+    // subaru_hitachi_sh72543r_can, which accept a normal and a recovery
+    // protocol name.
     std::span<const std::string_view> protocols;
     std::string_view mcu;
     MemoryRegion read_region;
@@ -50,15 +51,6 @@ struct SingleWindowPlanSpec
     // unchanged.
     bool supports_write = true;
 };
-
-// A plan's window geometry: the transfer covers `read_region` for a read and
-// `write_region` otherwise, and a write erases exactly `write_region` with an
-// image of `image_size` bytes. ValidateAndBuild already keeps erase regions
-// and images off reads. Failures are worded with the family's `name`. Shared by
-// the single-window families and the Hitachi SH72543R and TCU M32R CAN
-// families, whose plans have the same windows.
-Status ValidatePlanWindows(const FlashPlan& plan, std::string_view name, const MemoryRegion& read_region,
-                           const MemoryRegion& write_region, std::uint32_t image_size);
 
 Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPlan& plan);
 

@@ -1128,11 +1128,7 @@ cc_library(
     name = "subaru_tcu_hitachi_m32r_can_plan",
     srcs = ["subaru_tcu_hitachi_m32r_can_plan.cpp"],
     hdrs = ["subaru_tcu_hitachi_m32r_can_plan.h"],
-    implementation_deps = [
-        ":single_window_plan",
-        "//src/backend/flash:flash_device_lookup",
-        "//src/backend/flash:flash_validation",
-    ],
+    implementation_deps = [":single_window_plan"],
     deps = [
         "//src/backend/flash:flash_family",
         "//src/backend/flash:flash_plan",
@@ -1802,6 +1798,7 @@ fastecu_portable_gtest(
         ":subaru_hitachi_sh72543r_can_plan",
         ":subaru_tcu_hitachi_m32r_can_plan",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -1811,11 +1808,7 @@ cc_library(
     name = "subaru_hitachi_sh72543r_can_plan",
     srcs = ["subaru_hitachi_sh72543r_can_plan.cpp"],
     hdrs = ["subaru_hitachi_sh72543r_can_plan.h"],
-    implementation_deps = [
-        ":single_window_plan",
-        "//src/backend/flash:flash_device_lookup",
-        "//src/backend/flash:flash_validation",
-    ],
+    implementation_deps = [":single_window_plan"],
     deps = [
         "//src/backend/flash:flash_family",
         "//src/backend/flash:flash_plan",
