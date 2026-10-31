@@ -1051,7 +1051,7 @@ struct FlashRoute
     CreateWorkflow create;
 };
 
-// Each family owns the exact protocol ids it accepts; an id is never matched
+// Each family owns the exact protocol ids routed to it; an id is never matched
 // by prefix, so the order of these rows does not matter.
 std::span<const FlashRoute> FlashRoutes()
 {

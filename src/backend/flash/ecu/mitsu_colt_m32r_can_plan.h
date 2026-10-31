@@ -26,6 +26,6 @@ template <> struct PlanValidator<MitsuColtM32rCanPlan>
     }
 };
 
-// Exact protocol ids this family accepts, in table order.
+// Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> MitsuColtM32rCanProtocols();
 } // namespace fastecu::flash

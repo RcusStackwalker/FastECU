@@ -42,6 +42,6 @@ template <> struct PlanValidator<SubaruHitachiSh7058KlinePlan>
                    : Fail(ErrorKind::kUnsupported, "SH7058 K-Line supports read only");
     }
 };
-// Exact protocol ids this family accepts, in table order.
+// Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruHitachiSh7058Protocols();
 } // namespace fastecu::flash

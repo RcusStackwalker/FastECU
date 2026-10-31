@@ -52,6 +52,7 @@ Result<FlashPlan> BuildSubaruHitachiM32rCanPlan(FlashOperation operation, std::s
     return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
                                  SubaruHitachiM32rCanPlan{0x7e0, 0x7e8, 500000, false});
 }
+
 std::span<const std::string_view> SubaruHitachiM32rCanProtocols()
 {
     return kProtocols;

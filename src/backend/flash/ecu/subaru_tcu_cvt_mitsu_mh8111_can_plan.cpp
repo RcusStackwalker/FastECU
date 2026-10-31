@@ -76,6 +76,7 @@ Result<FlashPlan> BuildSubaruTcuCvtMitsuMh8111CanPlan(FlashOperation operation, 
     return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
                                  SubaruTcuCvtMitsuMh8111CanPlan{0x7e1, 0x7e9, 500000, false});
 }
+
 std::span<const std::string_view> SubaruTcuCvtMitsuMh8111CanProtocols()
 {
     return kProtocols;

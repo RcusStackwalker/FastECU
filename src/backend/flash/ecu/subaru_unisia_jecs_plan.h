@@ -18,6 +18,6 @@ template <> struct PlanValidator<SubaruUnisiaJecsPlan>
         return ValidateSubaruUnisiaJecsPlan(plan);
     }
 };
-// Exact protocol ids this family accepts, in table order.
+// Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruUnisiaJecsProtocols();
 } // namespace fastecu::flash

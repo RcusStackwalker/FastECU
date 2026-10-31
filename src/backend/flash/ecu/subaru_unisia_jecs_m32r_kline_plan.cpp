@@ -26,9 +26,8 @@ struct Variant
 };
 
 // Built-in catalog: _20 and _30 are read/write; _40 and _70 are read-only.
-// test_write is "no" for all four. The two _bootmode names are Read-only
-// here: their Read is this family's wire sequence, and their Write
-// is the bootmode family's two-attempt kernel upload and program.
+// test_write is "no" for all four. The two _bootmode names are not here; they
+// are in kBootModeReadVariants below.
 constexpr auto kVariants = std::to_array<Variant>({
     {"sub_ecu_unisia_jecs_20", "M32R_128KB", 0x20000, true},
     {"sub_ecu_unisia_jecs_30", "M32R_256KB", 0x40000, true},

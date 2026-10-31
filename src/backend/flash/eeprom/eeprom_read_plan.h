@@ -1,5 +1,9 @@
 // src/backend/flash/eeprom/eeprom_read_plan.h
 #pragma once
+
+#include <span>
+#include <string_view>
+
 #include "src/backend/config/catalog.h"
 #include "src/backend/config/config_paths.h"
 #include "src/backend/flash/flash_plan.h"
@@ -28,6 +32,7 @@ Result<FlashPlan> BuildEepromReadPlan(const config::ConfigPaths& paths, const co
                                       EepromReadMode mode, IFileRepository& file_repository);
 
 // Exact protocol ids of the Denso SH705x EEPROM read catalog entries.
+// The EEPROM builder keeps its own name rules and does not check this list.
 std::span<const std::string_view> DensoSh705xEepromProtocols();
 
 } // namespace fastecu::flash

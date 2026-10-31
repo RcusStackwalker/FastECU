@@ -241,6 +241,7 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
         .and_then([](FlashPlan plan)
                   { return ValidateSubaruDensoMc68hc16y502Plan(plan).transform([&] { return std::move(plan); }); });
 }
+
 std::span<const std::string_view> SubaruDensoMc68hc16y502Protocols()
 {
     return kProtocols;

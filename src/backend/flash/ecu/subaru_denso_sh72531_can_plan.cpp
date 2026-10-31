@@ -62,6 +62,7 @@ Result<FlashPlan> BuildSubaruDensoSh72531CanPlan(FlashOperation operation, std::
     return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
                                  SubaruDensoSh72531CanPlan{0x7e0, 0x7e8, 500000, false, kLeadPad, kTailPad});
 }
+
 std::span<const std::string_view> SubaruDensoSh72531CanProtocols()
 {
     return kProtocols;

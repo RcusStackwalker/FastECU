@@ -25,6 +25,6 @@ template <> struct PlanValidator<SubaruUnisiaJecsM32rKlinePlan>
         return ValidateSubaruUnisiaJecsM32rKlinePlan(plan);
     }
 };
-// Exact protocol ids this family accepts, in table order.
+// Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruUnisiaJecsM32rKlineProtocols();
 } // namespace fastecu::flash

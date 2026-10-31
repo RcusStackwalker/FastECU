@@ -56,6 +56,7 @@ Result<FlashPlan> BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation operation, s
     return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
                                  SubaruTcuHitachiM32rKlinePlan{0xf0, 0x18, 4800, 96});
 }
+
 std::span<const std::string_view> SubaruTcuHitachiM32rKlineProtocols()
 {
     return kProtocols;

@@ -22,6 +22,6 @@ template <> struct PlanValidator<SubaruTcuDensoSh705xCanPlan>
     }
 };
 
-// Exact protocol ids this family accepts, in table order.
+// Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruTcuDensoSh705xCanProtocols();
 } // namespace fastecu::flash

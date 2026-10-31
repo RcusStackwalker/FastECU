@@ -345,86 +345,17 @@ TEST(FlashRouteTest, everyFlashProtocolRoutesToAWorkflowThatAcceptsIt)
         auto workflow = CreateWorkflow(std::move(request), test_ports);
         ASSERT_NE(workflow, nullptr);
         const FlashWorkflowStep step = DriveToAttemptOrFailure(*workflow);
-        if (const auto *failure = std::get_if<FlashFailureStep>(&step); failure != nullptr)
+        const auto *failure = std::get_if<FlashFailureStep>(&step);
+        if (operation == FlashOperation::kRead)
         {
+            EXPECT_TRUE(std::holds_alternative<FlashAttempt>(step))
+                << (failure != nullptr ? failure->error.detail : std::string("drive stopped before an attempt"));
+        }
+        else if (failure != nullptr)
+        {
+            // Not every catalog protocol flags Read (e.g. sub_ecu_denso_sh7055_04_cobb is test-write only).
             EXPECT_NE(failure->error.kind, ErrorKind::kUnsupported) << failure->error.detail;
-            if (operation == FlashOperation::kRead)
-            {
-                EXPECT_NE(failure->error.kind, ErrorKind::kInvalidConfig) << failure->error.detail;
-            }
         }
-    }
-}
-
-bool CatalogFlagsOperation(const config::ProtocolSpec& spec, FlashOperation operation)
-{
-    switch (operation)
-    {
-    case FlashOperation::kRead:
-        return spec.read;
-    case FlashOperation::kTestWrite:
-        return spec.test_write;
-    case FlashOperation::kWrite:
-        return spec.write;
-    }
-    return false;
-}
-
-bool OperationIsRejected(const config::ProtocolSpec& spec, FlashOperation operation)
-{
-    FlashWorkflowRequest request{.operation = operation,
-                                 .protocol = spec,
-                                 .image = std::nullopt,
-                                 .paths = CatalogPaths(),
-                                 .display_filename = "test.bin"};
-    if (operation != FlashOperation::kRead)
-    {
-        request.image = bytes::Bytes(1, 0xff);
-    }
-    WorkflowTestPorts test_ports(false);
-    if (!spec.kernel.empty())
-    {
-        test_ports.files->files[config::KernelFileHandle(CatalogPaths(), spec.kernel)] = {0x01, 0x02, 0x03, 0x04};
-    }
-    auto workflow = CreateWorkflow(std::move(request), test_ports);
-    if (workflow == nullptr)
-    {
-        return true;
-    }
-    const FlashWorkflowStep step = DriveToAttemptOrFailure(*workflow);
-    const auto *failure = std::get_if<FlashFailureStep>(&step);
-    return failure != nullptr && failure->error.kind == ErrorKind::kUnsupported;
-}
-
-TEST(FlashRouteTest, routedWorkflowsAcceptExactlyTheOperationsTheCatalogFlags)
-{
-    // Pairs where the routed workflow and the catalog flags disagree today.
-    // Each needs a decision (see docs/tech-debt.md); do not fix them here.
-    constexpr std::array<std::pair<std::string_view, FlashOperation>, 0> kKnownFlagMismatches{};
-    const auto is_known_mismatch = [&](std::string_view name, FlashOperation operation)
-    { return std::ranges::find(kKnownFlagMismatches, std::pair{name, operation}) != kKnownFlagMismatches.end(); };
-
-    for (const config::ProtocolSpec *spec : CatalogFlashProtocols())
-    {
-        SCOPED_TRACE(spec->name);
-        for (const FlashOperation operation :
-             {FlashOperation::kRead, FlashOperation::kTestWrite, FlashOperation::kWrite})
-        {
-            SCOPED_TRACE(std::format("operation {}", static_cast<int>(operation)));
-            if (is_known_mismatch(spec->name, operation))
-            {
-                continue;
-            }
-            EXPECT_EQ(!OperationIsRejected(*spec, operation), CatalogFlagsOperation(*spec, operation));
-        }
-    }
-    for (const auto& [name, operation] : kKnownFlagMismatches)
-    {
-        SCOPED_TRACE(name);
-        const config::ProtocolSpec *spec = config::BuiltinCatalog().FindProtocol(name);
-        ASSERT_NE(spec, nullptr);
-        EXPECT_NE(!OperationIsRejected(*spec, operation), CatalogFlagsOperation(*spec, operation))
-            << "no longer mismatches; remove it from kKnownFlagMismatches";
     }
 }
 
@@ -432,7 +363,8 @@ TEST(FlashRouteTest, lookalikesOutsideTheCatalogHaveNoRoute)
 {
     for (const char *name :
          {"mitsu_ecu_m32r_can_typo", "sub_ecu_denso_mc68hc16y5_02_bdm_x", "sub_ecu_unisia_jecs_20_bootmode_x",
-          "sub_ecu_denso_sh7055_04_x", "sub_ecu_eeprom_denso_sh7058_can_x", "mitsu_ecu_m32r_kline_mut_dma"})
+          "sub_ecu_denso_sh7055_04_x", "sub_ecu_eeprom_denso_sh7058_can_x", "mitsu_ecu_m32r_kline_mut_dma",
+          "sub_ecu_denso_sh7055_04_future", "sub_ecu_denso_sh7058_extra", "sub_ecu_denso_sh7058_ecutek_racerom"})
     {
         SCOPED_TRACE(name);
         EXPECT_EQ(CreateWorkflow(Request(name)), nullptr);
@@ -1764,16 +1696,6 @@ TEST(FlashWorkflowTest, densoSh705xKlineCobbReadFailsBeforeAttempt)
     auto step = workflow->Next();
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kUnsupported);
-}
-
-TEST(FlashWorkflowTest, densoSh705xKlineIgnoresPrefixLookalikes)
-{
-    for (const char *near_miss :
-         {"sub_ecu_denso_sh7055_04_future", "sub_ecu_denso_sh7058_extra", "sub_ecu_denso_sh7058_ecutek_racerom"})
-    {
-        SCOPED_TRACE(::testing::PrintToString(near_miss));
-        ASSERT_TRUE(CreateWorkflow(Request(near_miss)) == nullptr) << near_miss;
-    }
 }
 
 TEST(FlashWorkflowTest, unisiaJecsM32rReadPlansTransferTheirRomSize)

@@ -164,6 +164,7 @@ Result<FlashPlan> BuildSubaruDensoSh705502Plan(FlashOperation operation, std::st
         .and_then([](FlashPlan plan)
                   { return ValidateSubaruDensoSh705502Plan(plan).transform([&] { return std::move(plan); }); });
 }
+
 std::span<const std::string_view> SubaruDensoSh705502Protocols()
 {
     return kProtocols;
