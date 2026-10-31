@@ -228,3 +228,21 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "guarded_mixed_can_flash_transport",
+    srcs = ["guarded_mixed_can_flash_transport.cpp"],
+    hdrs = ["guarded_mixed_can_flash_transport.h"],
+    deps = [":flash_executor"],
+)
+
+fastecu_portable_gtest(
+    name = "guarded_mixed_can_flash_transport_test",
+    srcs = ["guarded_mixed_can_flash_transport_test.cpp"],
+    deps = [
+        ":guarded_mixed_can_flash_transport",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)

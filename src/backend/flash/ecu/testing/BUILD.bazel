@@ -41,6 +41,7 @@ cc_library(
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:execute_with_cancellation_guard",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
@@ -59,5 +60,14 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/backend/config:builtin_catalog",
         "//src/backend/config:catalog",
+    ],
+)
+
+cc_library(
+    name = "cancellation_blind_can_transport",
+    hdrs = ["cancellation_blind_can_transport.h"],
+    deps = [
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
     ],
 )

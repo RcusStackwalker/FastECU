@@ -40,19 +40,30 @@ than copying its inventory.
 
 The [size-reduction strategy](superpowers/specs/2026-10-18-size-reduction-strategy.md)
 phases the reduction toward 100k NLOC: remote-mode deletion, tooling audit,
-transport-level cancellation, separately assessed test compression, and a later
-decision on per-family rollout.
+transport-level cancellation, separately assessed test compression, and
+per-family rollout. The cancellation scope below is implemented; the other
+strategy directions retain their own status.
 
-Colt cancellation ownership is implemented. The
-[pilot lessons](reference/guarded-transport-pilot-lessons.md) preserve evidence
-from the two unsuccessful size-reduction attempts.
-[pilot results](reference/colt-cancellation-centralization-results.md) own measured
-costs, preservation evidence and delivery CI; the
-[flash contract](reference/flash-contracts.md#colt-cancellation-ownership) owns
-the implemented boundaries and prerequisites for expansion. Separate compression
-assessment and a recorded Colt bench run remain outstanding.
+CAN cancellation ownership is implemented through explicit executor opt-in,
+including CAN EEPROM and mixed raw-CAN/ISO-15765. The
+[flash contract](reference/flash-contracts.md#can-cancellation-ownership) owns
+current boundaries; [CAN migration results](reference/can-cancellation-migration-results.md)
+own per-task audits, measured support growth and delivery validation status.
+The [pilot lessons](reference/guarded-transport-pilot-lessons.md) preserve the
+two unsuccessful size-reduction attempts, and the
+[Colt results](reference/colt-cancellation-centralization-results.md) retain the
+original pilot's costs, preservation evidence and delivery CI.
+[ADR 0025](adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements)
+sets migration requirements. Separate compression assessment and a recorded
+Colt bench run remain outstanding; hardware qualification is unchanged.
 
-Task-specific specs and plans exist only while their work is proposed or unfinished.
+The [CAN cancellation migration plan](superpowers/plans/2026-10-25-can-cancellation-ownership.md)
+has completed implementation. It is retained in this PR until its original
+contents have been delivered in retained Git history; deletion belongs to a
+later change. Final delivery gates are tracked in the migration results.
+
+Task-specific specs and plans normally exist only while work is proposed or
+unfinished; the history-preservation exception above applies before first delivery.
 The [Sonar aspect qualification record](reference/sonar-aspect-qualification.md)
 holds the evidence behind the Bazel-aspect scanner inputs;
 [ADR 0027](adr/0027-use-native-bazel-coverage-for-sonar.md) records the native

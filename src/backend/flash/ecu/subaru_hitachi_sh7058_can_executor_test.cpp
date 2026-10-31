@@ -1,5 +1,10 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_can_executor.h"
 
+#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
+#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
+
+#include "src/backend/flash/testing/guarded_attempt_expectations.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -94,7 +99,8 @@ TEST(SubaruHitachiSh7058CanExecutor, PrecancelledRunIsRefusedInAdmission)
     FakeClock clock;
     FakeCancellationToken cancel{true};
     RecordingEventSink events;
-    EXPECT_THAT(SubaruHitachiSh7058CanExecutor{}.Execute(*plan, transport, clock, cancel, events),
+    SubaruHitachiSh7058CanExecutor executor;
+    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancel, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_THAT(events.logs, IsEmpty());
@@ -109,7 +115,8 @@ TEST(SubaruHitachiSh7058CanExecutor, ReadOperationIsRefusedBeforeThePrecancelChe
     FakeClock clock;
     FakeCancellationToken cancel{true};
     RecordingEventSink events;
-    EXPECT_THAT(SubaruHitachiSh7058CanExecutor{}.Execute(*plan, transport, clock, cancel, events),
+    SubaruHitachiSh7058CanExecutor executor;
+    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancel, events),
                 fastecu::testing::IsErrWith(ErrorKind::kUnsupported, ::testing::Eq("SH7058 CAN supports write only")));
 }
 
@@ -125,7 +132,7 @@ TEST(SubaruHitachiSh7058CanExecutor, MissingProbeStopsBeforeErase)
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.Execute(*plan, transport, clock, cancel, events);
+    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancel, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(transport.WritesConsumed(), 1U);
 }
@@ -163,7 +170,7 @@ TEST(SubaruHitachiSh7058CanExecutor, ActiveKernelWritesAll4096Frames)
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.Execute(*plan, transport, clock, cancel, events);
+    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancel, events);
     EXPECT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -184,7 +191,7 @@ TEST(SubaruHitachiSh7058CanExecutor, BenchAndInCarConnectStopOnEraseTransportFai
         FakeClock clock;
         FakeCancellationToken cancel;
         RecordingEventSink events;
-        auto result = executor.Execute(*plan, transport, clock, cancel, events);
+        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancel, events);
         EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
@@ -208,7 +215,7 @@ TEST(SubaruHitachiSh7058CanExecutor, RejectsMalformedSeedBeforeKernelJumpOrErase
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.Execute(*plan, transport, clock, cancel, events);
+    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancel, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -231,7 +238,7 @@ TEST(SubaruHitachiSh7058CanExecutor, RetriesTransferSetupSixTimesThenStopsBefore
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.Execute(*plan, transport, clock, cancel, events);
+    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancel, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -251,7 +258,7 @@ TEST(SubaruHitachiSh7058CanExecutor, CancellationAfterFirstFramePreventsLaterPro
     SubaruHitachiSh7058CanExecutor executor;
     FakeClock clock;
     RecordingEventSink events;
-    auto result = executor.Execute(*plan, transport, clock, cancel, events);
+    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancel, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 3U);
 }
@@ -273,8 +280,56 @@ TEST(SubaruHitachiSh7058CanExecutor, EraseAcknowledgementCanArriveOnLaterRead)
     FakeClock clock;
     FakeCancellationToken cancel;
     RecordingEventSink events;
-    auto result = executor.Execute(*plan, transport, clock, cancel, events);
+    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancel, events);
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
+}
+TEST(SubaruHitachiSh7058CanExecutor, ReadFailureWinsOverConcurrentCancellation)
+{
+    const auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can",
+                                                   "SH7058_1block", bytes::Bytes(0x100000));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ManualCancellationToken cancel;
+    testing::CancellationBlindCanTransport transport;
+    transport.on_failed_read = [&] { cancel.Cancel(); };
+    transport.ExpectWrite(Request(bytes::Bytes{0xb7}));
+    transport.QueueError(ErrorKind::kDisconnected, "read failed");
+    SubaruHitachiSh7058CanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancel, events),
+                fastecu::testing::IsErrWith(ErrorKind::kDisconnected, "read failed"));
+    EXPECT_TRUE(cancel.Cancelled());
+    EXPECT_EQ(transport.read_attempts, 1);
+    EXPECT_EQ(transport.write_attempts, 1);
+    EXPECT_EQ(transport.WritesConsumed(), 1U);
+}
+
+TEST(SubaruHitachiSh7058CanExecutor, SuccessfulReadCancellationKeepsPostReadCheckpoint)
+{
+    const auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can",
+                                                   "SH7058_1block", bytes::Bytes(0x100000));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ManualCancellationToken cancel;
+    auto transport = std::make_unique<testing::CancellationBlindCanTransport>();
+    auto *inner = transport.get();
+    transport->Exchange(Request(bytes::Bytes{0xb7}), Response(bytes::Bytes{0x7f, 0xb7, 0x13}));
+    transport->on_read = [&](bytes::ByteView) { cancel.Cancel(); };
+    auto attempt = BindFlashAttempt(*plan, std::make_unique<SubaruHitachiSh7058CanExecutor>(), std::move(transport));
+    FakeClock clock;
+    RecordingEventSink events;
+    EXPECT_THAT(attempt->Run(clock, cancel, events),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, "SH7058 write cancelled"));
+    EXPECT_TRUE(cancel.Cancelled());
+    EXPECT_EQ(inner->write_attempts, 1);
+    EXPECT_EQ(inner->read_attempts, 1);
+    EXPECT_EQ(inner->close_call_count, 1);
+}
+TEST(SubaruHitachiSh7058CanExecutor, SelectedGuardIsUsedByBoundAttempt)
+{
+    const auto plan = BuildSubaruHitachiSh7058Plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can",
+                                                   "SH7058_1block", bytes::Bytes(0x100000, 0x5a));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruHitachiSh7058CanExecutor>(*plan);
 }
 } // namespace fastecu::flash

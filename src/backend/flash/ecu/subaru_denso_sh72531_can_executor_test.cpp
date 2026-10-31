@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -23,8 +24,12 @@
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
+#include "src/backend/flash/testing/guarded_attempt_expectations.h"
+#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
+#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/recording_clock.h"
+#include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 namespace
@@ -467,8 +472,9 @@ TEST(SubaruDensoSh72531CanExecutor, BenchJumpExhaustionPreservesReadCountAndTimi
     SubaruDensoSh72531CanExecutor executor;
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(
+        fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+        fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.logs,
                 testing::Contains(testing::Pair(fastecu::LogLevel::kError,
@@ -531,7 +537,8 @@ TEST(SubaruDensoSh72531CanExecutor, InCarJumpExhaustionAndCancellationPreserveTi
         SubaruDensoSh72531CanExecutor executor;
         const auto plan = ReadPlan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+        EXPECT_THAT(fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock,
+                                                                          cancellation, events),
                     fastecu::testing::IsErr(outcome != 2 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
         const auto& timeouts = transport.ReadTimeouts();
@@ -554,5 +561,72 @@ TEST(SubaruDensoSh72531CanExecutor, InCarJumpExhaustionAndCancellationPreserveTi
                                                     : "Kernel jump acknowledged")));
         EXPECT_EQ(clock.sleep_calls, sleeps);
     }
+}
+
+// The raw OBK receive has no executor or UDS checkpoint after the send.
+TEST(SubaruDensoSh72531CanExecutor, CancellationAfterObkWriteRefusesBlindReply)
+{
+    fastecu::ManualCancellationToken cancellation;
+    auto transport = std::make_unique<fastecu::flash::testing::CancellationBlindCanTransport>();
+    auto *inner = transport.get();
+    inner->Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
+    inner->on_write = [&](bytes::ByteView) { cancellation.Cancel(); };
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruDensoSh72531CanExecutor>(),
+                                                    std::move(transport));
+    RecordingClock clock;
+    RecordingEventSink events;
+    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(inner->write_attempts, 1);
+    EXPECT_EQ(inner->read_attempts, 0);
+    EXPECT_FALSE(inner->ScriptConsumed());
+}
+
+TEST(SubaruDensoSh72531CanExecutor, CancellationDuringFinalPagePacingRetainsClockFailure)
+{
+    fastecu::flash::testing::CancellationBlindCanTransport transport;
+    transport.Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
+    ScriptReadSetup(transport);
+    ScriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0xA5);
+    fastecu::ManualCancellationToken cancellation;
+    RecordingEventSink events;
+    fastecu::MockClock clock;
+    int pages = 0;
+    int stop_write_attempts = 0;
+    transport.on_write = [&](bytes::ByteView data)
+    {
+        if (data.size() > 4 && data[4] == 0x37)
+        {
+            ++stop_write_attempts;
+        }
+    };
+    EXPECT_CALL(clock, Sleep(1ms, ::testing::_))
+        .Times(kBlockLength / kPageSize)
+        .WillRepeatedly(
+            [&](std::chrono::milliseconds duration, const fastecu::ICancellationToken& token)
+            {
+                if (++pages == static_cast<int>(kBlockLength / kPageSize))
+                {
+                    cancellation.Cancel();
+                }
+                return clock.Fake().Sleep(duration, token);
+            });
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    SubaruDensoSh72531CanExecutor executor;
+    EXPECT_THAT(
+        fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+        fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(stop_write_attempts, 0);
+    EXPECT_EQ(transport.write_attempts, 3 + static_cast<int>(kBlockLength / kPageSize));
+    EXPECT_TRUE(transport.ScriptConsumed());
+}
+
+TEST(SubaruDensoSh72531CanExecutor, SelectedGuardIsUsedByBoundAttempt)
+{
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruDensoSh72531CanExecutor>(*plan);
 }
 } // namespace

@@ -259,9 +259,14 @@ delivery CI completed. Recover them through
 the [flash contract](flash-contracts.md#colt-cancellation-ownership) owns the
 implemented boundaries.
 
-The independent compression proposal and recorded applicable Colt bench run
-remain prerequisites for expansion. No additional family is enabled and no
-hardware qualification is claimed.
+At pilot delivery, the independent compression proposal and recorded applicable
+Colt bench run were prerequisites for expansion, and no additional family was
+enabled. The 2026-10-25 expansion of
+[ADR 0025](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#per-executor-migration-requirements)
+superseded that blanket prerequisite with per-executor migration requirements.
+Both Colt tasks remain outstanding; subsequent adoption is recorded in the
+[CAN migration results](can-cancellation-migration-results.md). No hardware
+qualification is claimed.
 
 Archive SHA-256: `9d17ae4e9cd517eeca3e7c005cddefd5049a4d7f3292f6a6d980430fb03b9fdb`.
 

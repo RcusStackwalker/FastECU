@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <memory>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -20,6 +21,9 @@
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
+#include "src/backend/flash/testing/guarded_attempt_expectations.h"
+#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
+#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_clock.h"
@@ -508,7 +512,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ObkProbeAndReadSetupReadWithTheShortTi
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
+    ASSERT_THAT(
+        fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+        fastecu::testing::IsOk());
     EXPECT_EQ(std::ranges::count(transport.ReadTimeouts(), 200ms), 3);
 }
 
@@ -591,8 +597,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchJumpExhaustionPreservesReadCountA
     SubaruDensoSh72543CanDieselExecutor executor;
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(
+        fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+        fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.logs,
                 testing::Contains(testing::Pair(fastecu::LogLevel::kError,
@@ -655,7 +662,8 @@ TEST(SubaruDensoSh72543CanDieselExecutor, InCarJumpExhaustionAndCancellationPres
         SubaruDensoSh72543CanDieselExecutor executor;
         const auto plan = ReadPlan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+        EXPECT_THAT(fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock,
+                                                                          cancellation, events),
                     fastecu::testing::IsErr(outcome == 1 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
         const auto& timeouts = transport.ReadTimeouts();
@@ -673,5 +681,45 @@ TEST(SubaruDensoSh72543CanDieselExecutor, InCarJumpExhaustionAndCancellationPres
         }
         EXPECT_EQ(clock.sleep_calls, sleeps);
     }
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, CancellationAfterPendingIdentityRefusesBlindContinuation)
+{
+    fastecu::ManualCancellationToken cancellation;
+    auto transport = std::make_unique<fastecu::flash::testing::CancellationBlindCanTransport>();
+    auto *inner = transport.get();
+    inner->Exchange(Request({0x10, 0x5F}), Response({0x50, 0x01}));
+    inner->Exchange(Request({0x22, 0xF1, 0x82}), Response({0x7F, 0x22, 0x78}));
+    inner->QueueRead(Response({0x62, 0xF1, 0x82, 1, 2, 3, 4, 5}));
+    int reads_at_pending = 0;
+    inner->on_read = [&](bytes::ByteView data)
+    {
+        if (data.size() > 6 && data[4] == 0x7F && data[6] == 0x78)
+        {
+            reads_at_pending = inner->read_attempts;
+            cancellation.Cancel();
+        }
+    };
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruDensoSh72543CanDieselExecutor>(),
+                                                    std::move(transport));
+    RecordingClock clock;
+    RecordingEventSink events;
+    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(inner->read_attempts - reads_at_pending, 0);
+    EXPECT_TRUE(cancellation.Cancelled());
+    EXPECT_FALSE(inner->ScriptConsumed());
+    EXPECT_THAT(events.logs, ::testing::Contains(::testing::Pair(fastecu::LogLevel::kInfo, "Requesting VIN")));
+    EXPECT_THAT(events.logs, ::testing::Contains(::testing::Pair(fastecu::LogLevel::kInfo, "Checking access method")));
+    EXPECT_THAT(events.logs, ::testing::Contains(::testing::Pair(fastecu::LogLevel::kError,
+                                                                 ::testing::StartsWith("Wrong response from ECU"))));
+}
+
+TEST(SubaruDensoSh72543CanDieselExecutor, SelectedGuardIsUsedByBoundAttempt)
+{
+    const auto plan = ReadPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruDensoSh72543CanDieselExecutor>(*plan);
 }
 } // namespace

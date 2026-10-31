@@ -16,6 +16,11 @@
 // Task 4's OPEN QUESTION, not an oversight.
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
 
+#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
+#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
+
+#include "src/backend/flash/testing/guarded_attempt_expectations.h"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -44,6 +49,7 @@
 using ::testing::_;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
+using ::testing::Not;
 using ::testing::Optional;
 
 namespace fastecu::flash
@@ -533,11 +539,12 @@ static_assert(kRequestId == 0x7e0, "kernel-id/handshake frame literals above ass
 // Runs the executor over `plan` against the scripted transport with fresh
 // collaborators; a test that needs to arm the token passes its own.
 Result<FlashExecutionResult> RunExecutor(const FlashPlan& plan, ScriptedCanFlashTransport& transport,
-                                         FakeCancellationToken&& cancellation = FakeCancellationToken{})
+                                         const ICancellationToken& cancellation = FakeCancellationToken{})
 {
     FakeClock clock;
     RecordingEventSink events;
-    return DensoSh705xEepromCanExecutor{}.Execute(plan, transport, clock, cancellation, events);
+    DensoSh705xEepromCanExecutor executor;
+    return testing::ExecuteWithCancellationGuard(executor, plan, transport, clock, cancellation, events);
 }
 
 // The builder refuses this plan, so it reaches ValidateAndBuild as raw fields.
@@ -585,6 +592,7 @@ TEST(DensoSh705xEepromCanExecutorTest, InvalidPlanIsRefusedBeforeAnyIo)
     const auto plan = HandBuiltInvalidPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    DensoSh705xEepromCanExecutor executor;
     FakeClock clock;
     RecordingEventSink events;
     FakeCancellationToken cancellation;
@@ -593,7 +601,7 @@ TEST(DensoSh705xEepromCanExecutorTest, InvalidPlanIsRefusedBeforeAnyIo)
         fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                     ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
     EXPECT_THAT(
-        DensoSh705xEepromCanExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+        testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
         fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                     ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
@@ -604,11 +612,12 @@ TEST(DensoSh705xEepromCanExecutorTest, InvalidPlanWinsOverPrecancel)
     const auto plan = HandBuiltInvalidPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    DensoSh705xEepromCanExecutor executor;
     FakeClock clock;
     RecordingEventSink events;
     FakeCancellationToken cancellation{true};
     EXPECT_THAT(
-        DensoSh705xEepromCanExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+        testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
         fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                     ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
 }
@@ -618,10 +627,11 @@ TEST(DensoSh705xEepromCanExecutorTest, PrecancelledRunIsRefusedInAdmission)
     const auto plan = ValidCanPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
+    DensoSh705xEepromCanExecutor executor;
     FakeClock clock;
     RecordingEventSink events;
     FakeCancellationToken cancellation{true};
-    EXPECT_THAT(DensoSh705xEepromCanExecutor{}.Execute(*plan, transport, clock, cancellation, events),
+    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_THAT(events.logs, IsEmpty());
@@ -766,25 +776,116 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
 {
     auto plan = ValidCanPlan(EepromReadMode::kMode2);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-
-    ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::kOpen};
-    const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
-    EnqueueConnectBootloaderFullInit(transport, seed);
+    testing::CancellationBlindCanTransport transport;
+    EnqueueConnectBootloaderFullInit(transport, bytes::Bytes{0x11, 0x22, 0x33, 0x44});
     EnqueueUploadKernel(transport, KernelFixtureBytes(), kKernelStartAddr);
     EnqueueReadMem(transport, 2);
 
-    // Trips partway through upload_kernel()'s chunk loop: connect_bootloader()
-    // completes fully (kernel not alive -> probe + full init/ecuid/vin/calid/
-    // cvn/session03/session43/seedreq/seedkeysend/sessionset = 10 writes),
-    // then upload_kernel() writes its SID34 download request (write #11)
-    // before the per-chunk cancellation guard trips -- the first 0xB6 chunk
-    // (what would be write #12) is never written. N tuned empirically against
-    // this exact trace's total cancellation.cancelled() call count.
-    FakeCancellationToken cancellation;
-    cancellation.CancelOnCheck(75);
-
-    ASSERT_THAT(RunExecutor(*plan, transport, std::move(cancellation)), fastecu::testing::IsErr(ErrorKind::kCancelled));
+    // Measured predecessor CancelOnCheck(75) stopped after session-set Write
+    // #11, before its Read or SID34, despite this test's historical name.
+    ManualCancellationToken cancellation;
+    bool triggered = false;
+    bytes::Bytes last_write;
+    bytes::Bytes last_reply;
+    int upload_writes = 0;
+    transport.on_write = [&](bytes::ByteView frame)
+    {
+        last_write.assign(frame.begin(), frame.end());
+        if (frame.size() > 4 && (frame[4] == 0x34 || frame[4] == 0xb6))
+        {
+            ++upload_writes;
+        }
+        if (std::ranges::equal(frame, SessionSetRequestBothConnected()))
+        {
+            triggered = true;
+            cancellation.Cancel();
+        }
+    };
+    transport.on_read = [&](bytes::ByteView reply) { last_reply.assign(reply.begin(), reply.end()); };
+    DensoSh705xEepromCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+    ASSERT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, "cancelled after write"));
+    EXPECT_TRUE(triggered);
+    EXPECT_TRUE(cancellation.Cancelled());
     EXPECT_EQ(transport.WritesConsumed(), 11U);
+    EXPECT_EQ(transport.write_attempts, 11);
+    EXPECT_EQ(transport.read_attempts, 10);
+    EXPECT_EQ(last_write, SessionSetRequestBothConnected());
+    EXPECT_EQ(last_reply, SeedKeyAckResponse());
+    EXPECT_EQ(upload_writes, 0);
+    ASSERT_THAT(events.logs, Not(IsEmpty()));
+    EXPECT_EQ(events.logs.back().second, "Set session mode");
+    EXPECT_THAT(events.progress_calls, IsEmpty());
+    EXPECT_THAT(events.phase_progress_calls, IsEmpty());
+    EXPECT_FALSE(transport.ScriptConsumed());
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, AcceptedDownloadReplyCancellationStopsBeforeFirstB6)
+{
+    const auto plan = ValidCanPlan(EepromReadMode::kMode2);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    testing::CancellationBlindCanTransport transport;
+    EnqueueConnectBootloaderFullInit(transport, bytes::Bytes{0x11, 0x22, 0x33, 0x44});
+    EnqueueUploadKernel(transport, KernelFixtureBytes(), kKernelStartAddr);
+    ManualCancellationToken cancellation;
+    bool triggered = false;
+    transport.on_read = [&](bytes::ByteView reply)
+    {
+        if (std::ranges::equal(reply, Sid34DownloadAckResponse()))
+        {
+            triggered = true;
+            cancellation.Cancel();
+        }
+    };
+    ASSERT_THAT(RunExecutor(*plan, transport, cancellation),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, "cancelled after read"));
+    EXPECT_TRUE(triggered);
+    EXPECT_TRUE(cancellation.Cancelled());
+    EXPECT_EQ(transport.WritesConsumed(), 12U);
+    EXPECT_EQ(transport.write_attempts, 12);
+    EXPECT_EQ(transport.read_attempts, 12);
+    EXPECT_FALSE(transport.ScriptConsumed());
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, AcceptedB6WriteCancellationKeepsAfterChunkCheckpoint)
+{
+    const auto plan = ValidCanPlan(EepromReadMode::kMode2);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    auto transport = std::make_unique<testing::CancellationBlindCanTransport>();
+    auto *inner = transport.get();
+    EnqueueConnectBootloaderFullInit(*transport, bytes::Bytes{0x11, 0x22, 0x33, 0x44});
+    EnqueueUploadKernel(*transport, KernelFixtureBytes(), kKernelStartAddr);
+    ManualCancellationToken cancellation;
+    bool triggered = false;
+    transport->on_write = [&](bytes::ByteView frame)
+    {
+        if (frame.size() > 4 && frame[4] == 0xb6)
+        {
+            triggered = true;
+            cancellation.Cancel();
+        }
+    };
+    auto attempt = BindFlashAttempt(*plan, std::make_unique<DensoSh705xEepromCanExecutor>(), std::move(transport));
+    FakeClock clock;
+    RecordingEventSink events;
+    ASSERT_THAT(attempt->Run(clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, "cancelled after kernel chunk write"));
+    EXPECT_TRUE(triggered);
+    EXPECT_TRUE(cancellation.Cancelled());
+    EXPECT_EQ(inner->WritesConsumed(), 13U);
+    EXPECT_EQ(inner->write_attempts, 13);
+    EXPECT_EQ(inner->read_attempts, 12); // No chunk-ack Read after the accepted B6.
+    EXPECT_FALSE(inner->ScriptConsumed());
+    EXPECT_EQ(inner->close_call_count, 1);
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, SelectedGuardIsUsedByBoundAttempt)
+{
+    const auto plan = ValidCanPlan(EepromReadMode::kMode2);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    fastecu::flash::testing::ExpectCanGuardedAttempt<DensoSh705xEepromCanExecutor>(*plan);
 }
 
 namespace
@@ -847,7 +948,8 @@ Result<FlashExecutionResult> RunWith(const FlashPlan& plan, ScriptedCanFlashTran
                                      FakeCancellationToken& cancellation)
 {
     RecordingEventSink events;
-    return DensoSh705xEepromCanExecutor{}.Execute(plan, transport, clock, cancellation, events);
+    DensoSh705xEepromCanExecutor executor;
+    return testing::ExecuteWithCancellationGuard(executor, plan, transport, clock, cancellation, events);
 }
 } // namespace
 
