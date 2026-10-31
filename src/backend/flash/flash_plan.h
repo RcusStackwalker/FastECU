@@ -38,7 +38,8 @@ struct FlashPlanFields
     // kernel file and uploads it; the Mitsu Colt CAN family drives the ECU's
     // own vendor bootloader and uploads only compile-time RAM helper routines
     // that are protocol constants, not a loaded image. See
-    // kFamilyRequiresKernel (flash_types.h) for which families require one.
+    // kFamilyRequiresKernel (opted into in each <f>_types.h) for which plan
+    // types require one.
     std::optional<KernelImage> kernel;
     FamilyPlan family_plan;
     std::vector<ConfirmationSpec> confirmations;
