@@ -1,4 +1,6 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_plan.h"
+#include "src/backend/flash/ecu/protocol_kernel.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_plan.h"
 
 #include <algorithm>
 #include <array>
@@ -212,6 +214,36 @@ Status PlanValidator<SubaruUnisiaJecsM32rBootModeProgramPlan>::Validate(const Fl
 Status PlanValidator<SubaruUnisiaJecsM32rBootModeKernelPlan>::Validate(const FlashPlan& plan)
 {
     return ValidateSubaruUnisiaJecsM32rBootmodePlan(plan);
+}
+
+Result<SubaruUnisiaJecsM32rBootModePlans> PrepareSubaruUnisiaJecsM32rBootModePlans(FlashOperation operation,
+                                                                                   const config::ProtocolSpec& protocol,
+                                                                                   const config::ConfigPaths& paths,
+                                                                                   std::optional<bytes::Bytes> rom_file,
+                                                                                   IFileRepository& files)
+{
+    if (operation == FlashOperation::kRead)
+    {
+        // adapter_supplies_programming_voltage is irrelevant to Read.
+        return BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, protocol.name, protocol.mcu, std::nullopt,
+                                                  true)
+            .transform([](FlashPlan read) { return SubaruUnisiaJecsM32rBootModePlans{std::move(read), std::nullopt}; });
+    }
+    auto program =
+        BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(operation, protocol.name, protocol.mcu, std::move(rom_file));
+    if (!program.has_value())
+    {
+        return std::unexpected(program.error());
+    }
+    return ReadProtocolKernelBytes(protocol, paths, files)
+        .and_then(
+            [&](bytes::Bytes kernel_bytes)
+            {
+                return BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(operation, protocol.name, protocol.mcu,
+                                                                   std::move(kernel_bytes));
+            })
+        .transform([&](FlashPlan kernel)
+                   { return SubaruUnisiaJecsM32rBootModePlans{std::move(kernel), std::move(*program)}; });
 }
 
 } // namespace fastecu::flash

@@ -9,7 +9,9 @@
 #include <string_view>
 #include <utility>
 
+#include "src/backend/config/builtin_catalog.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::flash
@@ -149,5 +151,54 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, ValidatorRejectsAPlanWithoutTheVoltageCon
     ASSERT_THAT(plan, IsOk());
     EXPECT_THAT(ValidateSubaruUnisiaJecsM32rBootmodePlan(*plan), IsErr(ErrorKind::kInvalidConfig));
 }
+
+const config::ProtocolSpec& BootModeProtocol()
+{
+    return *config::BuiltinCatalog().FindProtocol("sub_ecu_unisia_jecs_20_bootmode");
+}
+
+TEST(SubaruUnisiaJecsM32rBootModePrepare, AReadIsOneKlineReadPlanAndReadsNoFile)
+{
+    InMemoryFileRepository files;
+
+    const auto plans =
+        PrepareSubaruUnisiaJecsM32rBootModePlans(FlashOperation::kRead, BootModeProtocol(), {}, std::nullopt, files);
+
+    ASSERT_THAT(plans, IsOk());
+    ASSERT_THAT(plans->first, ::testing::Optional(::testing::_));
+    EXPECT_EQ(plans->first->Family(), FlashFamily::kSubaruUnisiaJecsM32rKline);
+    EXPECT_EQ(plans->program, std::nullopt);
+    EXPECT_THAT(files.read_handles, ::testing::IsEmpty());
+}
+
+// The program plan is built first, so a wrong-size image costs no file read.
+TEST(SubaruUnisiaJecsM32rBootModePrepare, AWrongSizeImageFailsBeforeTheKernelIsRead)
+{
+    InMemoryFileRepository files;
+
+    const auto plans = PrepareSubaruUnisiaJecsM32rBootModePlans(FlashOperation::kWrite, BootModeProtocol(), {},
+                                                                bytes::Bytes(0x100, 0x00), files);
+
+    EXPECT_THAT(plans, IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(files.read_handles, ::testing::IsEmpty());
+}
+
+TEST(SubaruUnisiaJecsM32rBootModePrepare, AWriteIsTheKernelUploadThenTheProgram)
+{
+    const config::ConfigPaths paths{.kernel_files_directory = "kernels/"};
+    InMemoryFileRepository files;
+    files.files[config::KernelFileHandle(paths, BootModeProtocol().kernel)] = {0x01, 0x02};
+
+    const auto plans = PrepareSubaruUnisiaJecsM32rBootModePlans(FlashOperation::kWrite, BootModeProtocol(), paths,
+                                                                bytes::Bytes(0x20000, 0x00), files);
+
+    ASSERT_THAT(plans, IsOk());
+    ASSERT_THAT(plans->first, ::testing::Optional(::testing::_));
+    ASSERT_THAT(plans->program, ::testing::Optional(::testing::_));
+    EXPECT_EQ(plans->first->Family(), FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel);
+    EXPECT_EQ(plans->program->Family(), FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram);
+    EXPECT_THAT(files.read_handles, ::testing::ElementsAre(config::KernelFileHandle(paths, BootModeProtocol().kernel)));
+}
+
 } // namespace
 } // namespace fastecu::flash

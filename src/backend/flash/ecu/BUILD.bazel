@@ -956,10 +956,15 @@ cc_library(
     hdrs = ["subaru_unisia_jecs_m32r_bootmode_plan.h"],
     implementation_deps = [
         ":plan_primitives",
+        ":protocol_kernel",
+        ":subaru_unisia_jecs_m32r_kline_plan",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
     ],
     deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/config:catalog",
+        "//src/backend/config:config_paths",
         "//src/backend/flash:flash_family",
         "//src/backend/flash:flash_plan",
         "//src/backend/ports",
@@ -971,7 +976,9 @@ fastecu_portable_gtest(
     srcs = ["subaru_unisia_jecs_m32r_bootmode_plan_test.cpp"],
     deps = [
         ":subaru_unisia_jecs_m32r_bootmode_plan",
+        "//src/backend/config:builtin_catalog",
         "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
