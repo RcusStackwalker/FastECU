@@ -12,6 +12,7 @@
 #include "src/algorithms/memory/memory_image.h"
 #include "src/backend/config/catalog.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/backend/flash/ecu/protocol_kernel.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.h"
@@ -156,38 +157,6 @@ class FlashAttemptOutcome
     std::optional<std::string> rom_id_;
     std::optional<Error> failure_;
 };
-
-Result<KernelImage> ResolveKernel(const FlashWorkflowRequest& request, IFileRepository& repository)
-{
-    if (!request.protocol.kernel_load_address.has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig,
-                    std::format("protocol '{}' declares no kernel load address", request.protocol.name));
-    }
-    Result<std::vector<std::uint8_t>> kernel_bytes =
-        repository.Read(config::KernelFileHandle(request.paths, request.protocol.kernel));
-    if (!kernel_bytes.has_value())
-    {
-        return std::unexpected(kernel_bytes.error());
-    }
-    return KernelImage{.id = std::format("{}-kernel", request.protocol.name),
-                       .load_address = *request.protocol.kernel_load_address,
-                       .bytes = std::move(*kernel_bytes)};
-}
-
-// The kernel file alone. The Unisia Jecs M32R _bootmode entries declare no
-// kernel load address: the M32R boot ROM places the kernel itself.
-Result<bytes::Bytes> ResolveKernelBytes(const FlashWorkflowRequest& request, IFileRepository& repository)
-{
-    Result<std::vector<std::uint8_t>> kernel_bytes =
-        repository.Read(config::KernelFileHandle(request.paths, request.protocol.kernel));
-    if (!kernel_bytes.has_value())
-    {
-        const Error& error = kernel_bytes.error();
-        return Fail(error.kind, std::format("kernel file '{}': {}", request.protocol.kernel, error.detail));
-    }
-    return bytes::Bytes(kernel_bytes->begin(), kernel_bytes->end());
-}
 
 // The workflow's only way to bind an attempt: an executor that does not run
 // plan admission through FamilyExecutor cannot reach the worker.
@@ -509,7 +478,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         {
             return std::unexpected(program.error());
         }
-        return ResolveKernelBytes(request_, *ports_.files)
+        return ReadProtocolKernelBytes(request_.protocol, request_.paths, *ports_.files)
             .and_then(
                 [&](bytes::Bytes kernel_bytes)
                 {
@@ -652,7 +621,7 @@ template <PlanPreparation Prepare> class LazyPlan
 template <KernelBackedPlanBuilder Build>
 Result<FlashPlan> PrepareKernelBacked(FlashWorkflowRequest& request, IFileRepository& files)
 {
-    return ResolveKernel(request, files)
+    return ReadProtocolKernel(request.protocol, request.paths, files)
         .and_then(
             [&](KernelImage kernel)
             {
@@ -661,34 +630,16 @@ Result<FlashPlan> PrepareKernelBacked(FlashWorkflowRequest& request, IFileReposi
             });
 }
 
-// MC68HC16Y5_02: prepareKernelBacked with two family steps before the kernel
-// is read: the ROM file is placed by its protocol's memory map for its size
-// (ADR 0020), and the family builder checks the protocol, MCU and placement.
-Result<FlashPlan> PrepareMc68(FlashWorkflowRequest& request, IFileRepository& files)
+// A family's own plan preparation (Decision 6 of the flash family locality
+// design), given the parts of the request it reads. It consumes the ROM file.
+using FamilyPlanPreparation = Result<FlashPlan> (*)(FlashOperation, const config::ProtocolSpec&,
+                                                    const config::ConfigPaths&, std::optional<bytes::Bytes>,
+                                                    IFileRepository&);
+
+template <FamilyPlanPreparation Prepare>
+Result<FlashPlan> PrepareInFamily(FlashWorkflowRequest& request, IFileRepository& files)
 {
-    std::optional<memory::MemoryImage> image;
-    if (request.image.has_value())
-    {
-        auto placed = config::PlaceRomFile(&request.protocol, std::move(*request.image));
-        if (!placed.has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig, std::format("ROM file size error: {}", placed.error().detail));
-        }
-        image = std::move(*placed);
-    }
-    // Run the family builder first so a protocol or MCU the family rejects
-    // fails before the kernel file is read.
-    return BuildSubaruDensoMc68hc16y502Plan(request.operation, request.protocol.name, request.protocol.mcu, image,
-                                            KernelImage{.id = std::format("{}-kernel", request.protocol.name),
-                                                        .load_address = 0x20000,
-                                                        .bytes = {0}})
-        .and_then([&](const FlashPlan&) { return ResolveKernel(request, files); })
-        .and_then(
-            [&](KernelImage kernel)
-            {
-                return BuildSubaruDensoMc68hc16y502Plan(request.operation, request.protocol.name, request.protocol.mcu,
-                                                        std::move(image), std::move(kernel));
-            });
+    return Prepare(request.operation, request.protocol, request.paths, std::move(request.image), files);
 }
 
 // MC68HC16Y5 BDM: only Write reads the kernel file -- its "write" uploads and
@@ -701,7 +652,7 @@ Result<FlashPlan> PrepareBdm(FlashWorkflowRequest& request, IFileRepository& fil
         return BuildSubaruDensoMc68hc16y502BdmPlan(request.operation, request.protocol.name, request.protocol.mcu,
                                                    std::nullopt, std::nullopt);
     }
-    return ResolveKernel(request, files)
+    return ReadProtocolKernel(request.protocol, request.paths, files)
         .and_then(
             [&](KernelImage kernel)
             {
@@ -711,7 +662,7 @@ Result<FlashPlan> PrepareBdm(FlashWorkflowRequest& request, IFileRepository& fil
 }
 
 template <KernelBackedPlanBuilder Build> using CachedKernelPlan = LazyPlan<&PrepareKernelBacked<Build>>;
-using Mc68KernelPlan = LazyPlan<&PrepareMc68>;
+using Mc68KernelPlan = LazyPlan<&PrepareInFamily<&PrepareSubaruDensoMc68hc16y502Plan>>;
 using BdmKernelPlan = LazyPlan<&PrepareBdm>;
 
 // The control flow shared by every family whose operation is one attempt:

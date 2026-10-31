@@ -7,8 +7,12 @@
 #include <string_view>
 
 #include "src/algorithms/memory/memory_image.h"
+#include "src/algorithms/protocol/bytes.h"
+#include "src/backend/config/catalog.h"
+#include "src/backend/config/config_paths.h"
 #include "src/backend/flash/flash_family.h"
 #include "src/backend/flash/flash_plan.h"
+#include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::flash
@@ -48,6 +52,16 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
                                                    std::string_view mcu_type, std::optional<memory::MemoryImage> image,
                                                    KernelImage kernel);
 Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan);
+
+// The flash workflow's plan preparation for this family. A Write/TestWrite
+// `rom_file` is placed by the protocol's memory map for its size (ADR 0020),
+// then the builder checks the protocol, MCU and placement against a
+// placeholder kernel, so a protocol or MCU the family rejects fails before
+// the kernel file is read. Only then is the protocol's kernel file read and
+// the plan built with it.
+Result<FlashPlan> PrepareSubaruDensoMc68hc16y502Plan(FlashOperation operation, const config::ProtocolSpec& protocol,
+                                                     const config::ConfigPaths& paths,
+                                                     std::optional<bytes::Bytes> rom_file, IFileRepository& files);
 
 // Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruDensoMc68hc16y502Protocols();

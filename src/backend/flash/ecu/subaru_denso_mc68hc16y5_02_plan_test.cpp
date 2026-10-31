@@ -6,6 +6,7 @@
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -281,6 +282,37 @@ TEST(SubaruDensoMc68hc16y5_02Plan, BuildPropagatesTheGenericPlanValidation)
                                                  std::nullopt,
                                                  KernelImage{.id = "", .load_address = 0x20000, .bytes = {0xaa}}),
                 fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("kernel id must not be empty")));
+}
+
+// The family checks the protocol and MCU before it reads the kernel file, so
+// a rejected entry costs no file read.
+TEST(SubaruDensoMc68hc16y502Prepare, AnMcuTheFamilyRejectsFailsBeforeTheKernelIsRead)
+{
+    config::ProtocolSpec protocol = *config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02");
+    protocol.mcu = "SH7058";
+    const config::ConfigPaths paths{.kernel_files_directory = "kernels/"};
+    InMemoryFileRepository files;
+    files.files[config::KernelFileHandle(paths, protocol.kernel)] = {0x01, 0x02};
+
+    const auto plan = PrepareSubaruDensoMc68hc16y502Plan(FlashOperation::kRead, protocol, paths, std::nullopt, files);
+
+    EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(files.read_handles, ::testing::IsEmpty());
+}
+
+TEST(SubaruDensoMc68hc16y502Prepare, AReadCarriesTheProtocolsKernelFile)
+{
+    const config::ProtocolSpec& protocol = *config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02");
+    const config::ConfigPaths paths{.kernel_files_directory = "kernels/"};
+    InMemoryFileRepository files;
+    files.files[config::KernelFileHandle(paths, protocol.kernel)] = {0x01, 0x02};
+
+    const auto plan = PrepareSubaruDensoMc68hc16y502Plan(FlashOperation::kRead, protocol, paths, std::nullopt, files);
+
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    EXPECT_EQ(plan->KernelOrEmpty().id, "sub_ecu_denso_mc68hc16y5_02-kernel");
+    EXPECT_EQ(plan->KernelOrEmpty().bytes, (bytes::Bytes{0x01, 0x02}));
+    EXPECT_THAT(files.read_handles, ::testing::ElementsAre(config::KernelFileHandle(paths, protocol.kernel)));
 }
 
 } // namespace
