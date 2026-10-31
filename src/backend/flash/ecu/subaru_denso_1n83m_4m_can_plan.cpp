@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_plan.h"
-#include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_types.h"
 
 #include <array>
 #include <span>

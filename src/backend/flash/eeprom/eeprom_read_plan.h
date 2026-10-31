@@ -5,7 +5,7 @@
 #include <string_view>
 
 #include "src/backend/config/catalog.h"
-#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/config/config_paths.h"
 #include "src/backend/flash/flash_plan.h"
 #include "src/backend/flash/flash_types.h"

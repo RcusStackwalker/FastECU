@@ -1,13 +1,46 @@
 #pragma once
+
+#include <array>
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <string_view>
 
 #include "src/algorithms/memory/memory_image.h"
+#include "src/backend/flash/flash_family.h"
 #include "src/backend/flash/flash_plan.h"
+#include "src/backend/ports/result.h"
 
 namespace fastecu::flash
 {
+// MC68HC16Y5_02. tester_id/target_id are NOT carried here: legacy
+// flash_ecu_subaru_denso_mc68hc16y5_02_operation.h declares them but the
+// .cpp never reads them after execute() assigns 0xf0/0x10 (verified by
+// grep across every method) -- dead members, not ported.
+struct SubaruDensoMc68hc16y5_02Plan
+{
+    int connect_baud;                          // 9600 (connect_bootloader)
+    int kernel_baud;                           // 11700 (_ecutek) or 9600 (stock/_cobb)
+    std::uint8_t encryption_xor;               // 0x51 (_ecutek) or 0x55 (stock/_cobb)
+    std::uint16_t kernel_magic;                // 0x3940 (_ecutek) or 0x3941 (stock/_cobb)
+    std::array<std::uint8_t, 3> bootloader_ok; // WRX02 init OK response: stock/_cobb
+                                               // {0x4D,0x00,0xB3}, _ecutek {0x4C,0x00,0xB4}
+
+    bool operator==(const SubaruDensoMc68hc16y5_02Plan&) const = default;
+};
+
+template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02Plan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoMc68hc16y502;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
+    static constexpr bool kRequiresKernel = true;
+};
+
+template <> struct PlanValidator<SubaruDensoMc68hc16y5_02Plan>
+{
+    static Status Validate(const FlashPlan& plan);
+};
+
 // A Write/TestWrite `image` is the ROM file placed by its memory map; every
 // flash block of the MCU must be writable ROM file bytes in it, whatever the
 // file's size (ADR 0020).

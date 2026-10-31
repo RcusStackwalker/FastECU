@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
-#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing

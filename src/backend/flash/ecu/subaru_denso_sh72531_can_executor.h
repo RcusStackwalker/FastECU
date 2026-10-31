@@ -1,7 +1,6 @@
 #pragma once
 #include "src/backend/flash/ecu/denso_iso15765_bootloader_executor.h"
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_plan.h"
-#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
 
 namespace fastecu::flash
 {

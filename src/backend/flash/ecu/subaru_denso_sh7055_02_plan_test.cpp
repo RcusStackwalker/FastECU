@@ -1,5 +1,4 @@
 #include "src/backend/ports/testing/result_matchers.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
 
 #include "src/backend/flash/kernel/kernelmemorymodels.h"

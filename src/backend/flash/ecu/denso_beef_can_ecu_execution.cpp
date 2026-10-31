@@ -1,6 +1,6 @@
 #include "src/backend/flash/ecu/denso_beef_can_ecu_execution.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
 
 #include <algorithm>
 #include <array>

@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
-#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
 
 #include "src/backend/flash/ecu/plan_primitives.h"
 

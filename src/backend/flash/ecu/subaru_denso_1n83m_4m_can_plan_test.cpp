@@ -1,6 +1,5 @@
 // subaru_denso_1n83m_4m_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_plan.h"
-#include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing

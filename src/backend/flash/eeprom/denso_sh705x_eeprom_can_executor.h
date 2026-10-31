@@ -1,6 +1,5 @@
 #pragma once
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
-#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 #include "src/backend/flash/flash_executor.h"
 
 namespace fastecu::flash

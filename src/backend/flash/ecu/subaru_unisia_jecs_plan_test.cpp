@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
-#include "src/backend/flash/ecu/subaru_unisia_jecs_types.h"
 #include "src/backend/flash/flash_validation.h"
 
 #include <gmock/gmock.h>

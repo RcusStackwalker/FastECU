@@ -1,6 +1,5 @@
 // subaru_denso_sh72543_can_diesel_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_plan.h"
-#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing

@@ -1,5 +1,4 @@
 #include "src/backend/ports/testing/result_matchers.h"
-#include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
 // Equivalence tests for MitsuColtM32rCanExecutor, the portable replacement for
 // FlashEcuMitsuM32rCanOperation's connect_bootloader(), readFlashRange(),
 // read_mem(), upload_and_commit(), ensureTopRegionWritten() and write_mem().

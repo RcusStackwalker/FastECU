@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_plan.h"
-#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_types.h"
 
 #include <array>
 #include <span>

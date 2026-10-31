@@ -1,5 +1,4 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
-#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
 // Equivalence tests for SubaruDensoSh72543CanDieselExecutor, the portable
 // replacement for flash_ecu_subaru_denso_sh72543_can_diesel_operation.cpp.
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_executor.h"

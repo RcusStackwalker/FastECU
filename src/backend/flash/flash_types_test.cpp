@@ -1,15 +1,15 @@
 // src/backend/flash/flash_types_test.cpp
 #include "src/backend/flash/flash_types.h"
-#include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
+#include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 
-#include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
-#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
+#include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_plan.h"
+#include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
 #include <gtest/gtest.h>
 

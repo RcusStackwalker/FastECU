@@ -1,6 +1,5 @@
 // subaru_tcu_hitachi_m32r_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
-#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 #include <string>
