@@ -11,7 +11,9 @@ opt-in at BoundAttempt, and four fewer explicit Colt polls. The
 [pilot results](../reference/colt-cancellation-centralization-results.md) record
 verification and delivery CI; the
 [flash contract](../reference/flash-contracts.md#colt-cancellation-ownership)
-owns its enduring boundaries. Expansion and hardware qualification remain gated.
+owns its implemented boundaries. The [durable completion contract](#durable-completion-contract)
+below defines the proposed CAN and mixed-CAN end state; that rollout and cleanup
+are not yet implemented. Hardware qualification remains unchanged.
 
 ## Context
 
@@ -48,6 +50,39 @@ change to cancellation refusal; protocol error handling remains separate.
 - The pilot adds no critical-section or expected-silence API. A decorator alone
   cannot guarantee deferral across clocks, drivers, clients, and unblock paths.
 
+### Durable completion contract
+
+The Colt pilot's per-executor opt-in is a migration mechanism. Per-family audits
+record the evidence needed to expand guard coverage; they do not establish
+permanent executor aliases or a second cancellation-policy selection framework.
+After all CAN implementations have been audited, `BoundAttempt`-owned execution
+selects the guard by the executor/transport interface: CAN and mixed-CAN use
+their matching guards, while K-Line retains its existing execution path.
+Preparation, configuration, Open, Close, unblock and caller-owned lifetimes
+remain outside the execution guard.
+
+Generic refusal of the next I/O belongs to the guarded transport and is tested
+there. Production binding tests prove that `BoundAttempt` selects each guarded
+interface, including both raw and ISO operations for mixed-CAN. Family suites
+retain error precedence, tolerated continuation, post-operation checkpoints,
+wire behavior and forbidden subsequent family work. Ordinary family-unit tests
+exercise undecorated execution; composition cases exercise `BoundAttempt`.
+
+Remove an executor poll only when its sole effect is equivalent to refusal of
+the immediately following guarded I/O. Preserve returned errors and details,
+logging, progress, events, ordering, timeouts, delays, retries, confirmations,
+post-operation checks and non-I/O boundaries. Runner setup, cancellable waits,
+platform checks and `UdsClient` checks for other callers keep their owners.
+
+The migration is complete only after redundant polls and generic family tests
+are removed and both production and test NLOC are below the recorded trunk
+baseline. Record and measure the selected trunk before implementation; a rebase
+onto newer trunk requires a new baseline. Audit rollout growth is a transitional
+cost, not savings or completed ownership transfer. If safe cleanup cannot meet
+both size gates, reconsider this decision rather than weaken behavior or the
+measurement. Hardware evidence remains a separate qualification requirement;
+this software migration makes no hardware-qualification claim.
+
 ## Alternatives
 
 - **Enforce it in `UdsClient` and the exchange helpers.** This is less new
@@ -64,18 +99,18 @@ change to cancellation refusal; protocol error handling remains separate.
 - "Next I/O" describes a cancellation observation before delegation, not an
   atomic guarantee against a concurrent cancellation signal. Existing bounded
   driver operations and cancellable waits retain their own semantics.
-- Removing Colt's four checks requires an explicit inventory of changed
-  cancellation boundaries and operator events. Family-specific early returns
-  and tests protecting forbidden subsequent work remain necessary.
-- Centralization and test compression are independently assessed changes.
-  Neither a transcript framework nor a generated-scenario framework is required
-  for the cancellation pilot, which retains existing Colt behavior tests.
-  Initial measured support growth is permitted and must not be called savings.
-- The flash contract owns runner opt-in; the pilot results retain preservation
-  evidence, measurements and delivery gates.
-  A separately assessed compression change and the applicable recorded Colt
-  bench checklist precede any expansion. K-Line, additional families, and
-  deferral need separate decisions after the pilot's evidence is reviewed.
+- Changed cancellation boundaries and operator events require explicit removal
+  evidence. Family-specific early returns and tests protecting forbidden
+  subsequent work remain necessary.
+- The decision, conservative audited rollout, binding cleanup, test compression
+  and poll deletion remain independently reviewable. Neither a transcript
+  framework nor a generated-scenario framework is required. Transitional
+  support growth is permitted only before the completion gates above are met.
+- This ADR owns the durable completion contract; the flash contract describes
+  implemented binding, and the pilot results retain preservation evidence,
+  measurements and delivery gates. Per-family audits gate software expansion;
+  applicable recorded bench evidence gates hardware qualification. K-Line and
+  deferral require separate decisions.
 
 ## Addendum (2026-10-25)
 

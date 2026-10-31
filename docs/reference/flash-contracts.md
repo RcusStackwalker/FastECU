@@ -36,8 +36,17 @@ cancellation. Family abort returns and confirmations remain separate owners.
 
 The [pilot results](colt-cancellation-centralization-results.md) own measurements,
 preserved cases and mutation evidence. This is a Colt-only ownership change;
-test compression needs separate assessment and expansion needs reviewed results
-and the recorded Colt bench checklist. Hardware status remains unchanged.
+test compression and expansion require separately reviewed preservation
+evidence. Hardware status remains unchanged; qualification requires the
+applicable recorded bench checklist.
+
+## Proposed durable CAN cancellation ownership
+
+[ADR 0025's durable completion contract](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
+owns the proposed interface-selected execution guard, test ownership and
+migration completion gates. The Colt binding above describes the implemented
+pilot; the proposed broader contract does not establish rollout completion or
+hardware qualification.
 
 ## Plan admission
 

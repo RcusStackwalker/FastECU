@@ -52,6 +52,11 @@ costs, preservation evidence and delivery CI; the
 the implemented boundaries and prerequisites for expansion. Separate compression
 assessment and a recorded Colt bench run remain outstanding.
 
+[ADR 0025's durable completion contract](adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
+owns the proposed CAN cancellation end state and completion gates; the
+[flash contract](reference/flash-contracts.md#proposed-durable-can-cancellation-ownership)
+distinguishes that proposal from the implemented pilot.
+
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 The [Sonar aspect qualification record](reference/sonar-aspect-qualification.md)
 holds the evidence behind the Bazel-aspect scanner inputs;
