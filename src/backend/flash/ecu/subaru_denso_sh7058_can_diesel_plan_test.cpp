@@ -140,7 +140,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, BuildsBothExactGenerationsForEveryOperation
             EXPECT_EQ(plan->Kernel()->load_address, diesel.kernel_address);
             EXPECT_EQ(plan->Kernel()->id, std::string(diesel.protocol) + "-kernel");
 
-            const auto& wire = std::get<SubaruDensoSh7058CanDieselPlan>(plan->FamilyPlan());
+            const auto& wire = plan->FamilyPlan().Get<SubaruDensoSh7058CanDieselPlan>();
             EXPECT_EQ(wire.request_id, 0x7E0U);
             EXPECT_EQ(wire.response_id, 0x7E8U);
             EXPECT_EQ(wire.bitrate, 500000);
@@ -246,7 +246,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, ValidatorRejectsWireGeometryTransportAndCon
         {
             SCOPED_TRACE(::testing::PrintToString(mutation));
             auto fields = ValidFields(diesel);
-            auto& wire = std::get<SubaruDensoSh7058CanDieselPlan>(fields.family_plan);
+            auto& wire = fields.family_plan.Get<SubaruDensoSh7058CanDieselPlan>();
             switch (mutation)
             {
             case 0:

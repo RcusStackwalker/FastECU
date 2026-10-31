@@ -1,5 +1,6 @@
 // subaru_tcu_hitachi_m32r_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 #include <string>
@@ -71,7 +72,7 @@ TEST(SubaruTcuHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
         BuildSubaruTcuHitachiM32rCanPlan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_can", "M32R_512KB", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruTcuHitachiM32rCanPlan>(plan->FamilyPlan());
+    const auto& family = plan->FamilyPlan().Get<SubaruTcuHitachiM32rCanPlan>();
     EXPECT_EQ(family.request_id, 0x7E1U);
     EXPECT_EQ(family.response_id, 0x7E9U);
     EXPECT_EQ(family.bitrate, 500000);
@@ -121,7 +122,7 @@ TEST(SubaruTcuHitachiM32rCanPlan, ValidatorRejectsWireRegionAndImageDrift)
     {
         SCOPED_TRACE(::testing::PrintToString(mutation));
         auto fields = ValidFields();
-        auto& wire = std::get<SubaruTcuHitachiM32rCanPlan>(fields.family_plan);
+        auto& wire = fields.family_plan.Get<SubaruTcuHitachiM32rCanPlan>();
         switch (mutation)
         {
         case 0:

@@ -1,4 +1,5 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
 #include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for SubaruDensoMc68hc16y5_02Executor, the portable
 // replacement for flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp.

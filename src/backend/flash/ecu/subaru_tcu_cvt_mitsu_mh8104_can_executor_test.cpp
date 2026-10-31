@@ -1,4 +1,5 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_types.h"
 // Equivalence tests for SubaruTcuCvtMitsuMh8104CanExecutor, the portable
 // replacement for flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.cpp.
 //

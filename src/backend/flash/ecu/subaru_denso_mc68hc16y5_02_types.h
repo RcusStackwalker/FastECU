@@ -28,8 +28,8 @@ template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02Plan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoMc68hc16y502;
     static constexpr TransportKind kTransport = TransportKind::kKline;
+    static constexpr bool kRequiresKernel = true;
 };
-template <> inline constexpr bool kFamilyRequiresKernel<SubaruDensoMc68hc16y5_02Plan> = true;
 
 template <> struct PlanValidator<SubaruDensoMc68hc16y5_02Plan>
 {

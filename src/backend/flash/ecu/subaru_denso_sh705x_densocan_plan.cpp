@@ -62,7 +62,7 @@ bool WireParametersMatch(const SubaruDensoSh705xDensoCanPlan& wire)
 
 Status ValidateSubaruDensoSh705xDensocanPlan(const FlashPlan& plan)
 {
-    const auto *wire = std::get_if<SubaruDensoSh705xDensoCanPlan>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<SubaruDensoSh705xDensoCanPlan>();
     if (wire == nullptr || !WireParametersMatch(*wire))
     {
         return Fail(ErrorKind::kInvalidConfig, "DensoCAN wire parameters are invalid");

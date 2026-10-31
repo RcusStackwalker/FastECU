@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_kernel_executor.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_types.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

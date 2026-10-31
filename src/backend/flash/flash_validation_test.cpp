@@ -1,4 +1,31 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_types.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_types.h"
+#include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
+#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_types.h"
+#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_types.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_types.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_types.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_types.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 // src/backend/flash/flash_validation_test.cpp
 #include "src/backend/flash/flash_validation.h"
 
@@ -11,7 +38,8 @@
 #include <optional>
 #include <tuple>
 #include <type_traits>
-#include <variant>
+#include <vector>
+#include <ranges>
 
 using fastecu::testing::IsOk;
 using ::testing::_;
@@ -243,7 +271,17 @@ const std::array<FamilyCase, 30>& FamilyCases()
     return kCases;
 }
 
-static_assert(std::variant_size_v<FamilyPlan> == std::tuple_size_v<std::remove_reference_t<decltype(FamilyCases())>>);
+// No list of plan types exists outside the families (ADR 0030); this keeps
+// FamilyCases reaching every flash family instead.
+TEST(FlashValidationTest, FamilyCasesCoverEveryFlashFamily)
+{
+    const auto covered = FamilyCases() |
+                         std::views::transform([](const auto& family_case) { return family_case.family; }) |
+                         std::ranges::to<std::vector>();
+    const auto families = kFlashFamilyNames | std::views::keys | std::ranges::to<std::vector>();
+
+    EXPECT_THAT(covered, ::testing::IsSupersetOf(families));
+}
 
 TEST(FlashValidationTest, ValidReadFieldsProduceAPlan)
 {
@@ -451,9 +489,9 @@ TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
     ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
-// Plan types require no kernel by default; the EEPROM fixtures used here opt
-// in (kFamilyRequiresKernel), so they must still carry a kernel -- the
-// relaxation is not blanket for every family.
+// Most plan types require no kernel; the EEPROM fixtures used here require
+// one (FamilyTraits::kRequiresKernel), so they must still carry a kernel --
+// the relaxation is not blanket for every family.
 TEST(FlashValidationTest, MissingKernelIsRejectedForKlineFamilyByDefault)
 {
     auto fields = ValidReadFields();
@@ -488,6 +526,14 @@ TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
         .bitrate = 500000,
         .extended_id = false,
     };
+
+    ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+}
+
+TEST(FlashValidationTest, EmptyFamilyPlanIsRejected)
+{
+    auto fields = ValidReadFields();
+    fields.family_plan = FamilyPlan{};
 
     ASSERT_THAT(ValidateAndBuild(std::move(fields)), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }

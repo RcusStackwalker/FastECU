@@ -1,4 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
 
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
@@ -58,7 +59,7 @@ TEST(SubaruDensoSh7055_02Plan, BuildsBareReadAndWritePlansWithOperationSpecificE
     ASSERT_THAT(read, fastecu::testing::IsOk());
     EXPECT_EQ(read->Family(), FlashFamily::kSubaruDensoSh705502);
     EXPECT_EQ(read->Transport(), TransportKind::kKline);
-    const auto& read_family = std::get<SubaruDensoSh7055_02Plan>(read->FamilyPlan());
+    const auto& read_family = read->FamilyPlan().Get<SubaruDensoSh7055_02Plan>();
     EXPECT_EQ(read_family.tester_id, 0xf0);
     EXPECT_EQ(read_family.target_id, 0x10);
     EXPECT_TRUE(read_family.read_ecu_id);
@@ -69,7 +70,7 @@ TEST(SubaruDensoSh7055_02Plan, BuildsBareReadAndWritePlansWithOperationSpecificE
         FlashOperation::kWrite, "sub_ecu_denso_sh7055_02", "SH7055",
         bytes::Bytes(kFlashDevices[static_cast<std::size_t>(index)].romsize, bytes::Byte{0}), TestKernel());
     ASSERT_THAT(write, fastecu::testing::IsOk());
-    EXPECT_FALSE(std::get<SubaruDensoSh7055_02Plan>(write->FamilyPlan()).read_ecu_id);
+    EXPECT_FALSE(write->FamilyPlan().Get<SubaruDensoSh7055_02Plan>().read_ecu_id);
 }
 
 TEST(SubaruDensoSh7055_02Plan, AcceptsEcutekWithByteIdenticalWireParameters)
@@ -80,12 +81,12 @@ TEST(SubaruDensoSh7055_02Plan, AcceptsEcutekWithByteIdenticalWireParameters)
                                                std::nullopt, TestKernel());
     ASSERT_THAT(bare, fastecu::testing::IsOk());
     ASSERT_THAT(ecutek, fastecu::testing::IsOk());
-    EXPECT_EQ(std::get<SubaruDensoSh7055_02Plan>(bare->FamilyPlan()).tester_id,
-              std::get<SubaruDensoSh7055_02Plan>(ecutek->FamilyPlan()).tester_id);
-    EXPECT_EQ(std::get<SubaruDensoSh7055_02Plan>(bare->FamilyPlan()).target_id,
-              std::get<SubaruDensoSh7055_02Plan>(ecutek->FamilyPlan()).target_id);
-    EXPECT_EQ(std::get<SubaruDensoSh7055_02Plan>(bare->FamilyPlan()).read_ecu_id,
-              std::get<SubaruDensoSh7055_02Plan>(ecutek->FamilyPlan()).read_ecu_id);
+    EXPECT_EQ(bare->FamilyPlan().Get<SubaruDensoSh7055_02Plan>().tester_id,
+              ecutek->FamilyPlan().Get<SubaruDensoSh7055_02Plan>().tester_id);
+    EXPECT_EQ(bare->FamilyPlan().Get<SubaruDensoSh7055_02Plan>().target_id,
+              ecutek->FamilyPlan().Get<SubaruDensoSh7055_02Plan>().target_id);
+    EXPECT_EQ(bare->FamilyPlan().Get<SubaruDensoSh7055_02Plan>().read_ecu_id,
+              ecutek->FamilyPlan().Get<SubaruDensoSh7055_02Plan>().read_ecu_id);
 }
 
 TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmation)
@@ -169,7 +170,7 @@ TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
 TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTesterId)
 {
     auto fields = ValidSh705502Fields();
-    std::get<SubaruDensoSh7055_02Plan>(fields.family_plan).tester_id = 0xf1;
+    fields.family_plan.Get<SubaruDensoSh7055_02Plan>().tester_id = 0xf1;
     auto plan = ValidateAndBuild(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
@@ -179,7 +180,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTesterId)
 TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTargetId)
 {
     auto fields = ValidSh705502Fields();
-    std::get<SubaruDensoSh7055_02Plan>(fields.family_plan).target_id = 0x11;
+    fields.family_plan.Get<SubaruDensoSh7055_02Plan>().target_id = 0x11;
     auto plan = ValidateAndBuild(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
@@ -192,7 +193,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOperationSpecificEcuIdRead)
     {
         SCOPED_TRACE(::testing::PrintToString(operation));
         auto fields = ValidSh705502Fields(operation);
-        auto& family = std::get<SubaruDensoSh7055_02Plan>(fields.family_plan);
+        auto& family = fields.family_plan.Get<SubaruDensoSh7055_02Plan>();
         family.read_ecu_id = !family.read_ecu_id;
         auto plan = ValidateAndBuild(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());

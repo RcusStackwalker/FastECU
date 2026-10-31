@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_types.h"
 
 #include <array>
 #include <cstddef>
@@ -81,7 +82,7 @@ Status ValidateSubaruDensoMc68hc16y502BdmPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kUnsupported, "MC68HC16Y5 BDM has no test write");
     }
-    const auto *wire = std::get_if<SubaruDensoMc68hc16y5_02BdmPlan>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<SubaruDensoMc68hc16y5_02BdmPlan>();
     if (wire == nullptr || wire->baud != kBaud)
     {
         return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5 BDM wire parameters are invalid");

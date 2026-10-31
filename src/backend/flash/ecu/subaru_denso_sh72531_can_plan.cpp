@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
 
 #include <array>
 #include <span>
@@ -32,7 +33,7 @@ bool GeometryOk(const FlashDevice& device)
 
 bool WireParamsOk(const FlashPlan& plan)
 {
-    const auto *p = std::get_if<SubaruDensoSh72531CanPlan>(&plan.FamilyPlan());
+    const auto *p = plan.FamilyPlan().As<SubaruDensoSh72531CanPlan>();
     return p != nullptr && p->request_id == 0x7e0 && p->response_id == 0x7e8 && p->bitrate == 500000 &&
            !p->extended_id && p->lead_pad_len == kLeadPad && p->tail_pad_len == kTailPad;
 }

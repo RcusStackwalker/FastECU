@@ -21,6 +21,7 @@ template <> struct FamilyTraits<SubaruHitachiSh7058KlinePlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiSh7058;
     static constexpr TransportKind kTransport = TransportKind::kKline;
+    static constexpr bool kRequiresKernel = false;
 };
 
 // The two transports share one plan validator and one builder. Each executor
@@ -46,6 +47,7 @@ template <> struct FamilyTraits<SubaruHitachiSh7058CanPlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiSh7058;
     static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
+    static constexpr bool kRequiresKernel = false;
 };
 
 template <> struct PlanValidator<SubaruHitachiSh7058CanPlan>

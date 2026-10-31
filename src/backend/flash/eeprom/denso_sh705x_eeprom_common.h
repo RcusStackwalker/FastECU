@@ -6,6 +6,7 @@
 #include <string>
 
 #include "src/backend/flash/flash_plan.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::flash

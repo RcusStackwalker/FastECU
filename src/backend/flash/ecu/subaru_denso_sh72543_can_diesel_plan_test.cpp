@@ -1,5 +1,6 @@
 // subaru_denso_sh72543_can_diesel_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing
@@ -29,7 +30,7 @@ TEST(SubaruDensoSh72543CanDieselPlan, ReadPlanCarriesThisFamilysWireParameters)
                                                            "SH72543d", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruDensoSh72543CanDieselPlan>(plan->FamilyPlan());
+    const auto& family = plan->FamilyPlan().Get<SubaruDensoSh72543CanDieselPlan>();
     EXPECT_EQ(family.request_id, 0x7e0U);
     EXPECT_EQ(family.response_id, 0x7e8U);
     EXPECT_EQ(family.bitrate, 500000);

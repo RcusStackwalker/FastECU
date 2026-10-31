@@ -1,6 +1,7 @@
 #pragma once
 
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_plan.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_types.h"
 #include "src/backend/flash/flash_executor.h"
 
 namespace fastecu::flash

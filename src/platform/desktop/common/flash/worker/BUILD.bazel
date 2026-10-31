@@ -33,6 +33,7 @@ fastecu_gtest(
         "//src/backend/flash:flash_executor",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_types",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",

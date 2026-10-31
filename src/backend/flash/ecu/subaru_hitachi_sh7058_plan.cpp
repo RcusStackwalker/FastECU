@@ -40,7 +40,7 @@ std::vector<ConfirmationSpec> ConfirmationsFor(bool read)
 
 template <typename Wire> bool HasDefaultWire(const FlashPlan& plan, TransportKind transport)
 {
-    const auto *wire = std::get_if<Wire>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<Wire>();
     return plan.Transport() == transport && wire != nullptr && *wire == Wire{};
 }
 
@@ -100,7 +100,7 @@ Result<FlashPlan> BuildSubaruHitachiSh7058Plan(FlashOperation operation, std::st
     {
         return Fail(ErrorKind::kInvalidConfig, "SH7058 ROM image must be exactly 1 MiB for write");
     }
-    auto plan = ValidateAndBuild({
+    FlashPlanFields fields{
         .operation = operation,
         .family = FlashFamily::kSubaruHitachiSh7058,
         .transport = read ? TransportKind::kKline : TransportKind::kCanIso15765,
@@ -110,9 +110,18 @@ Result<FlashPlan> BuildSubaruHitachiSh7058Plan(FlashOperation operation, std::st
         .erase_regions = EraseFor(read),
         .image = std::move(image),
         .kernel = std::nullopt,
-        .family_plan = read ? FamilyPlan{SubaruHitachiSh7058KlinePlan{}} : FamilyPlan{SubaruHitachiSh7058CanPlan{}},
         .confirmations = ConfirmationsFor(read),
-    });
+    };
+    // Reads run over K-Line and writes over CAN, each with its own plan type.
+    if (read)
+    {
+        fields.family_plan = SubaruHitachiSh7058KlinePlan{};
+    }
+    else
+    {
+        fields.family_plan = SubaruHitachiSh7058CanPlan{};
+    }
+    auto plan = ValidateAndBuild(std::move(fields));
     if (!plan.has_value())
     {
         return plan;

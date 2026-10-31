@@ -1,6 +1,7 @@
 #pragma once
 
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
 #include "src/algorithms/memory/memory_image.h"
 #include "src/backend/flash/flash_executor.h"
 

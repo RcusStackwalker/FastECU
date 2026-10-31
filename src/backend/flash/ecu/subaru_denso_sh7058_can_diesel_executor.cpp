@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
 
 #include <chrono>
 

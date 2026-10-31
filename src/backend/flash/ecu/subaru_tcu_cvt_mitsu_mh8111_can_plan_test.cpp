@@ -1,5 +1,6 @@
 // subaru_tcu_cvt_mitsu_mh8111_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_plan.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing
@@ -34,7 +35,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanPlan, ReadPlanCarriesThisFamilysWireParameters)
                                                           "MH8111", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruTcuCvtMitsuMh8111CanPlan>(plan->FamilyPlan());
+    const auto& family = plan->FamilyPlan().Get<SubaruTcuCvtMitsuMh8111CanPlan>();
     EXPECT_EQ(family.request_id, 0x7e1U);
     EXPECT_EQ(family.response_id, 0x7e9U);
     EXPECT_EQ(family.bitrate, 500000);

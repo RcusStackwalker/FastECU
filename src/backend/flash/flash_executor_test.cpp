@@ -1,4 +1,7 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
+#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_types.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 #include "src/backend/flash/flash_executor.h"
 
 #include <gmock/gmock.h>
@@ -249,7 +252,7 @@ TEST_F(FamilyExecutorTest, TransportSetupHandsFamilyPlanToSetup)
     const auto config = executor_.TransportSetup(*plan);
 
     ASSERT_THAT(config, fastecu::testing::IsOk());
-    EXPECT_EQ(executor_.setup_family, &std::get<DensoSh705xEepromKlinePlan>(plan->FamilyPlan()));
+    EXPECT_EQ(executor_.setup_family, &plan->FamilyPlan().Get<DensoSh705xEepromKlinePlan>());
     EXPECT_EQ(config->baud, 4800);
     EXPECT_EQ(config->target_id, 0x10);
 }
@@ -291,7 +294,7 @@ TEST_F(FamilyExecutorTest, ExecuteHandsFamilyAndFlashPlanToRun)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::kRead);
-    EXPECT_EQ(executor_.run_family, &std::get<DensoSh705xEepromKlinePlan>(plan->FamilyPlan()));
+    EXPECT_EQ(executor_.run_family, &plan->FamilyPlan().Get<DensoSh705xEepromKlinePlan>());
     EXPECT_EQ(executor_.run_plan, &*plan);
 }
 

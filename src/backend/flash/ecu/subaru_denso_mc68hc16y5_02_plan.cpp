@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
 
 #include "src/backend/flash/ecu/plan_primitives.h"
 
@@ -152,7 +153,7 @@ Status ValidateRomPlacement(const FlashPlan& plan)
 Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
 {
     using enum ErrorKind;
-    const auto *family = std::get_if<SubaruDensoMc68hc16y5_02Plan>(&plan.FamilyPlan());
+    const auto *family = plan.FamilyPlan().As<SubaruDensoMc68hc16y5_02Plan>();
     if (family == nullptr)
     {
         return Fail(kInvalidConfig, "MC68HC16Y5_02 wire parameters are missing");

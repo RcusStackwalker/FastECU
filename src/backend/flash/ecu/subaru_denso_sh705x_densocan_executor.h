@@ -1,6 +1,7 @@
 #pragma once
 
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_types.h"
 #include "src/backend/flash/flash_executor.h"
 
 namespace fastecu::flash

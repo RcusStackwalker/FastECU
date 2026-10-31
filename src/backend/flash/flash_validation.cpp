@@ -11,7 +11,6 @@
 #include <string>
 #include <unordered_set>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace fastecu::flash
@@ -36,15 +35,12 @@ bool RegionEndNotRepresentable(const MemoryRegion& region)
     return static_cast<std::uint64_t>(region.start) + region.length > static_cast<std::uint64_t>(0xffffffffU);
 }
 
-// Each alternative's declared family and transport come from FamilyTraits in
-// its <f>_types.h, next to the plan struct, so this stays a single visit
-// rather than a switch that has to be kept in step with the variant by hand.
+// The family plan recorded its plan type's family and transport from
+// FamilyTraits when it was wrapped (ADR 0030); an empty one matches nothing.
 bool FamilyMatchesTransportVariant(const FlashPlanFields& fields)
 {
-    return std::visit(
-        [&fields]<typename T>(const T&)
-        { return fields.family == FamilyTraits<T>::kFamily && fields.transport == FamilyTraits<T>::kTransport; },
-        fields.family_plan);
+    return fields.family_plan.HasValue() && fields.family == fields.family_plan.Family() &&
+           fields.transport == fields.family_plan.Transport();
 }
 
 Status ValidateTargetAndRegions(const FlashPlanFields& fields)
@@ -116,9 +112,8 @@ Status ValidateKernel(const FlashPlanFields& fields)
 {
     if (!fields.kernel.has_value())
     {
-        return std::visit([]<typename T>(const T&) { return kFamilyRequiresKernel<T>; }, fields.family_plan)
-                   ? Fail(ErrorKind::kInvalidConfig, "family requires a kernel image")
-                   : Status{};
+        return fields.family_plan.RequiresKernel() ? Fail(ErrorKind::kInvalidConfig, "family requires a kernel image")
+                                                   : Status{};
     }
     if (fields.kernel->id.empty())
     {

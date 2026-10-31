@@ -1,14 +1,19 @@
 // src/backend/flash/flash_types_test.cpp
 #include "src/backend/flash/flash_types.h"
+#include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
+
+#include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
+#include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 
 #include <gtest/gtest.h>
 
-#include <cstddef>
-#include <string>
-#include <string_view>
-#include <tuple>
-#include <type_traits>
-#include <variant>
+#include <any>
 
 namespace fastecu::flash
 {
@@ -26,8 +31,8 @@ TEST(FlashTypesTest, FamilyPlanHoldsKlineVariant)
         .kernel_baud = 15625,
     };
 
-    ASSERT_TRUE(std::holds_alternative<DensoSh705xEepromKlinePlan>(plan));
-    EXPECT_EQ(std::get<DensoSh705xEepromKlinePlan>(plan).tester_id, 0xf0);
+    ASSERT_TRUE(plan.As<DensoSh705xEepromKlinePlan>() != nullptr);
+    EXPECT_EQ(plan.Get<DensoSh705xEepromKlinePlan>().tester_id, 0xf0);
 }
 
 TEST(FlashTypesTest, FamilyPlanHoldsCanVariant)
@@ -41,8 +46,8 @@ TEST(FlashTypesTest, FamilyPlanHoldsCanVariant)
         .extended_id = false,
     };
 
-    ASSERT_TRUE(std::holds_alternative<DensoSh705xEepromCanPlan>(plan));
-    EXPECT_EQ(std::get<DensoSh705xEepromCanPlan>(plan).response_id, 0x7e8U);
+    ASSERT_TRUE(plan.As<DensoSh705xEepromCanPlan>() != nullptr);
+    EXPECT_EQ(plan.Get<DensoSh705xEepromCanPlan>().response_id, 0x7e8U);
 }
 
 TEST(FlashTypesTest, MixedCanTransportKindIsDistinctFromIso15765)
@@ -61,8 +66,8 @@ TEST(FlashTypesTest, FamilyPlanHoldsMitsuColtM32rCanVariant)
         .session_id = 0x85,
     };
 
-    ASSERT_TRUE(std::holds_alternative<MitsuColtM32rCanPlan>(plan));
-    const auto *colt_plan = std::get_if<MitsuColtM32rCanPlan>(&plan);
+    ASSERT_TRUE(plan.As<MitsuColtM32rCanPlan>() != nullptr);
+    const auto *colt_plan = plan.As<MitsuColtM32rCanPlan>();
     ASSERT_NE(colt_plan, nullptr);
     EXPECT_EQ(colt_plan->request_id, 0x7e0U);
     EXPECT_EQ(colt_plan->response_id, 0x7e8U);
@@ -89,45 +94,39 @@ TEST(FlashTypesTest, EepromReadModeValuesMatchProtocolBytes)
     EXPECT_EQ(static_cast<std::uint8_t>(EepromReadMode::kMode4), 0x04);
 }
 
-static_assert(std::variant_size_v<FamilyPlan> == 30,
-              "A new FamilyPlan alternative: decide whether it uploads a kernel (opt in with kFamilyRequiresKernel in "
-              "its <f>_types.h, and list it in KernelPlanTypes), then bump this count.");
-
-using KernelPlanTypes =
-    std::tuple<DensoSh705xEepromKlinePlan, DensoSh705xEepromCanPlan, SubaruDensoMc68hc16y5_02Plan,
-               SubaruDensoSh7055_02Plan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan,
-               SubaruDensoSh705xDensoCanPlan, SubaruDensoSh705xKlinePlan, SubaruTcuDensoSh705xCanPlan>;
-
-template <typename T, typename... Ts> constexpr bool kIsOneOf = (std::is_same_v<T, Ts> || ...);
-template <typename T, typename Tuple> struct InTuple;
-template <typename T, typename... Ts> struct InTuple<T, std::tuple<Ts...>> : std::bool_constant<kIsOneOf<T, Ts...>>
+TEST(FlashTypesTest, FamilyPlanRecordsTheTraitsOfThePlanTypeItWraps)
 {
-};
+    const FamilyPlan plan = DensoSh705xEepromCanPlan{
+        .mode = EepromReadMode::kMode2,
+        .security = DensoSecurityVariant::kStock,
+        .request_id = 0x7e0,
+        .response_id = 0x7e8,
+        .bitrate = 500000,
+        .extended_id = false,
+    };
 
-template <typename Tuple, typename Variant> struct AllInVariant;
-template <typename... Ts, typename... Vs>
-struct AllInVariant<std::tuple<Ts...>, std::variant<Vs...>> : std::bool_constant<(kIsOneOf<Ts, Vs...> && ...)>
-{
-};
-static_assert(AllInVariant<KernelPlanTypes, FamilyPlan>::value,
-              "KernelPlanTypes names a type that is not a FamilyPlan alternative");
-
-template <typename T> void ExpectKernelRequirementMatchesList(std::size_t index)
-{
-    SCOPED_TRACE("FamilyPlan alternative " + std::to_string(index) + " (" +
-                 std::string(FlashFamilyName(FamilyTraits<T>::kFamily)) + ")");
-    EXPECT_EQ(kFamilyRequiresKernel<T>, (InTuple<T, KernelPlanTypes>::value));
+    EXPECT_TRUE(plan.HasValue());
+    EXPECT_EQ(plan.Family(), FlashFamily::kDensoSh705xEepromCan);
+    EXPECT_EQ(plan.Transport(), TransportKind::kCanIso15765);
+    EXPECT_TRUE(plan.RequiresKernel());
 }
 
-template <typename... Ts> void ExpectKernelRequirements(std::variant<Ts...> *)
+TEST(FlashTypesTest, FamilyPlanReadsBackOnlyItsOwnPlanType)
 {
-    std::size_t index = 0;
-    (ExpectKernelRequirementMatchesList<Ts>(index++), ...);
+    // Hitachi SH7058 is one flash family with two plan types.
+    const FamilyPlan plan = SubaruHitachiSh7058KlinePlan{};
+
+    EXPECT_NE(plan.As<SubaruHitachiSh7058KlinePlan>(), nullptr);
+    EXPECT_EQ(plan.As<SubaruHitachiSh7058CanPlan>(), nullptr);
+    EXPECT_THROW((void)plan.Get<SubaruHitachiSh7058CanPlan>(), std::bad_any_cast);
 }
 
-TEST(FlashTypesTest, exactlyTheKernelUploadingPlanTypesRequireAKernel)
+TEST(FlashTypesTest, DefaultFamilyPlanIsEmpty)
 {
-    ExpectKernelRequirements(static_cast<FamilyPlan *>(nullptr));
+    const FamilyPlan plan;
+
+    EXPECT_FALSE(plan.HasValue());
+    EXPECT_EQ(plan.As<SubaruHitachiSh7058KlinePlan>(), nullptr);
 }
 
 TEST(FlashTypes, DensoMc68AndSh7055FamilyPlansConstructAndHoldValues)
@@ -140,14 +139,14 @@ TEST(FlashTypes, DensoMc68AndSh7055FamilyPlansConstructAndHoldValues)
         .bootloader_ok = {0x4C, 0x00, 0xB4},
     };
     FamilyPlan mc68_variant = mc68;
-    EXPECT_EQ(std::get<SubaruDensoMc68hc16y5_02Plan>(mc68_variant).kernel_baud, 11700);
+    EXPECT_EQ(mc68_variant.Get<SubaruDensoMc68hc16y5_02Plan>().kernel_baud, 11700);
 
     SubaruDensoSh7055_02Plan sh7055{.tester_id = 0xf0, .target_id = 0x10, .read_ecu_id = true};
     FamilyPlan sh7055_variant = sh7055;
-    EXPECT_TRUE(std::get<SubaruDensoSh7055_02Plan>(sh7055_variant).read_ecu_id);
+    EXPECT_TRUE(sh7055_variant.Get<SubaruDensoSh7055_02Plan>().read_ecu_id);
 
-    EXPECT_TRUE(kFamilyRequiresKernel<SubaruDensoMc68hc16y5_02Plan>);
-    EXPECT_TRUE(kFamilyRequiresKernel<SubaruDensoSh7055_02Plan>);
+    EXPECT_TRUE(FamilyTraits<SubaruDensoMc68hc16y5_02Plan>::kRequiresKernel);
+    EXPECT_TRUE(FamilyTraits<SubaruDensoSh7055_02Plan>::kRequiresKernel);
 }
 
 TEST(FlashTypes, BootloaderDialectFamilyPlansAreKernelFree)
@@ -161,9 +160,9 @@ TEST(FlashTypes, BootloaderDialectFamilyPlansAreKernelFree)
         .tail_pad_len = 0x100,
     };
     FamilyPlan denso_variant = denso;
-    EXPECT_EQ(std::get<SubaruDenso1n83m_1_5mCanPlan>(denso_variant).lead_pad_len, 0x10000U);
+    EXPECT_EQ(denso_variant.Get<SubaruDenso1n83m_1_5mCanPlan>().lead_pad_len, 0x10000U);
 
-    EXPECT_FALSE(kFamilyRequiresKernel<SubaruDenso1n83m_1_5mCanPlan>);
+    EXPECT_FALSE(FamilyTraits<SubaruDenso1n83m_1_5mCanPlan>::kRequiresKernel);
 
     SubaruDensoSh72531CanPlan sh72531{
         .request_id = 0x7e0,
@@ -174,9 +173,9 @@ TEST(FlashTypes, BootloaderDialectFamilyPlansAreKernelFree)
         .tail_pad_len = 0x100,
     };
     FamilyPlan sh72531_variant = sh72531;
-    EXPECT_EQ(std::get<SubaruDensoSh72531CanPlan>(sh72531_variant).lead_pad_len, 0x8000U);
+    EXPECT_EQ(sh72531_variant.Get<SubaruDensoSh72531CanPlan>().lead_pad_len, 0x8000U);
 
-    EXPECT_FALSE(kFamilyRequiresKernel<SubaruDensoSh72531CanPlan>);
+    EXPECT_FALSE(FamilyTraits<SubaruDensoSh72531CanPlan>::kRequiresKernel);
 
     SubaruDensoSh72543CanDieselPlan sh72543{
         .request_id = 0x7e0,
@@ -187,9 +186,9 @@ TEST(FlashTypes, BootloaderDialectFamilyPlansAreKernelFree)
         .tail_pad_len = 0x100,
     };
     FamilyPlan sh72543_variant = sh72543;
-    EXPECT_EQ(std::get<SubaruDensoSh72543CanDieselPlan>(sh72543_variant).lead_pad_len, 0x8000U);
+    EXPECT_EQ(sh72543_variant.Get<SubaruDensoSh72543CanDieselPlan>().lead_pad_len, 0x8000U);
 
-    EXPECT_FALSE(kFamilyRequiresKernel<SubaruDensoSh72543CanDieselPlan>);
+    EXPECT_FALSE(FamilyTraits<SubaruDensoSh72543CanDieselPlan>::kRequiresKernel);
 
     SubaruDenso1n83m_4mCanPlan denso4m{
         .request_id = 0x7e0,
@@ -200,9 +199,9 @@ TEST(FlashTypes, BootloaderDialectFamilyPlansAreKernelFree)
         .tail_pad_len = 0x100,
     };
     FamilyPlan denso4m_variant = denso4m;
-    EXPECT_EQ(std::get<SubaruDenso1n83m_4mCanPlan>(denso4m_variant).lead_pad_len, 0x10000U);
+    EXPECT_EQ(denso4m_variant.Get<SubaruDenso1n83m_4mCanPlan>().lead_pad_len, 0x10000U);
 
-    EXPECT_FALSE(kFamilyRequiresKernel<SubaruDenso1n83m_4mCanPlan>);
+    EXPECT_FALSE(FamilyTraits<SubaruDenso1n83m_4mCanPlan>::kRequiresKernel);
 }
 
 } // namespace

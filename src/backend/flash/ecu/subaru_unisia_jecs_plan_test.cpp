@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_types.h"
 #include "src/backend/flash/flash_validation.h"
 
 #include <gmock/gmock.h>
@@ -48,7 +49,7 @@ TEST(SubaruUnisiaJecsPlan, MapsBothConfiguredProtocolMcuPairs)
         EXPECT_EQ(plan->Transport(), TransportKind::kKline);
         EXPECT_EQ(plan->TransferRegion().start, 0U);
         EXPECT_EQ(plan->TransferRegion().length, 0x10000U);
-        const auto& family = std::get<SubaruUnisiaJecsPlan>(plan->FamilyPlan());
+        const auto& family = plan->FamilyPlan().Get<SubaruUnisiaJecsPlan>();
         EXPECT_EQ(family.initial_baud, 1953);
         EXPECT_TRUE(family.even_parity);
     }
@@ -79,7 +80,7 @@ TEST(SubaruUnisiaJecsPlan, StandaloneValidatorRejectsForgedFields)
     {
         SCOPED_TRACE(mutation);
         auto forged = Fields();
-        auto& wire = std::get<SubaruUnisiaJecsPlan>(forged.family_plan);
+        auto& wire = forged.family_plan.Get<SubaruUnisiaJecsPlan>();
         switch (mutation)
         {
         case 0:

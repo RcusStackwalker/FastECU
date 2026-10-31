@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_executor.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_types.h"
 
 #include <algorithm>
 #include <chrono>
@@ -455,7 +456,7 @@ Result<std::optional<std::string>> StartSession(IKlineFlashTransport& transport,
                                                 const ICancellationToken& cancellation, IEventSink& events,
                                                 const FlashPlan& plan)
 {
-    const auto& family = std::get<SubaruDensoSh705xKlinePlan>(plan.FamilyPlan());
+    const auto& family = plan.FamilyPlan().Get<SubaruDensoSh705xKlinePlan>();
     events.Log(LogLevel::kInfo, "Connecting to Subaru 04 32-bit K-Line bootloader, please wait...");
     Result<bool> alive = ProbeKernel(transport, clock, cancellation, events);
     if (!alive.has_value())

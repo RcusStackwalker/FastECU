@@ -1,4 +1,5 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.h"
 
 #include <algorithm>

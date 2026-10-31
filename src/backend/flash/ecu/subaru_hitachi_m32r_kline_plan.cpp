@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_types.h"
 
 #include <array>
 #include <span>
@@ -33,7 +34,7 @@ bool GeometryOk(const FlashDevice& device)
 
 bool WireParamsOk(const FlashPlan& plan)
 {
-    const auto *p = std::get_if<SubaruHitachiM32rKlinePlan>(&plan.FamilyPlan());
+    const auto *p = plan.FamilyPlan().As<SubaruHitachiM32rKlinePlan>();
     return p != nullptr && p->session_mode == ModeFor(plan.TargetId()) && p->tester_id == 0xf0 &&
            p->target_id == 0x10 && p->initial_baud == 4800 && p->write_baud == 15625 && p->read_baud == 38400 &&
            p->chunk_size == 128 && p->read_address_bias == 0x100000;

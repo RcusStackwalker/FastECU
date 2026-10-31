@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_types.h"
 #include "src/backend/flash/flash_validation.h"
 
 #include <gmock/gmock.h>
@@ -68,7 +69,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, ReadCoversTheAddressSpaceImage)
     EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0, 0x30000}));
     EXPECT_THAT(plan->Image(), Eq(std::nullopt));
     EXPECT_THAT(plan->Kernel(), Eq(std::nullopt));
-    EXPECT_EQ(std::get<SubaruDensoMc68hc16y5_02BdmPlan>(plan->FamilyPlan()).baud, 115200);
+    EXPECT_EQ(plan->FamilyPlan().Get<SubaruDensoMc68hc16y5_02BdmPlan>().baud, 115200);
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmPlan, WritePadsTheKernelAndCarriesItAsTheImage)

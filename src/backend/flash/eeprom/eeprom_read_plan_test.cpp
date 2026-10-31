@@ -1,4 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
 
 #include <gmock/gmock.h>
@@ -202,7 +203,7 @@ TEST(BuildEepromReadPlanTest, EcuTekSuffixProducesAnEcuTekPlan)
                                     EepromReadMode::kMode2, repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto *can_plan = std::get_if<DensoSh705xEepromCanPlan>(&plan->FamilyPlan());
+    const auto *can_plan = plan->FamilyPlan().As<DensoSh705xEepromCanPlan>();
     ASSERT_NE(can_plan, nullptr);
     EXPECT_EQ(can_plan->security, DensoSecurityVariant::kEcuTek);
 }
@@ -230,7 +231,7 @@ TEST(BuildEepromReadPlanTest, EcuTekRaceRomSuffixStillProducesAnEcuTekRaceRomPla
         EepromReadMode::kMode2, repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto *can_plan = std::get_if<DensoSh705xEepromCanPlan>(&plan->FamilyPlan());
+    const auto *can_plan = plan->FamilyPlan().As<DensoSh705xEepromCanPlan>();
     ASSERT_NE(can_plan, nullptr);
     EXPECT_EQ(can_plan->security, DensoSecurityVariant::kEcuTekRaceRom);
 }

@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/beef_can_kernel.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
 
 #include <algorithm>
 #include <array>

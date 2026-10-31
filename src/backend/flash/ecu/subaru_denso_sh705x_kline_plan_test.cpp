@@ -1,4 +1,6 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_types.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_types.h"
 
 #include <array>
 #include <cstdint>
@@ -73,7 +75,7 @@ TEST(SubaruDensoSh705xKlinePlan, MapsAllSixPairsWithLegacyWireParameters)
         EXPECT_EQ(plan->TransferRegion(), (MemoryRegion{0, Romsize(pair.mcu)}));
         EXPECT_THAT(plan->EraseRegions(), IsEmpty());
         EXPECT_THAT(plan->Confirmations(), IsEmpty());
-        const auto& family = std::get<SubaruDensoSh705xKlinePlan>(plan->FamilyPlan());
+        const auto& family = plan->FamilyPlan().Get<SubaruDensoSh705xKlinePlan>();
         // 4800 baud, tester 0xF0, target 0x10.
         EXPECT_EQ(family.initial_baud, 4800);
         EXPECT_EQ(family.tester_id, 0xF0);
@@ -213,7 +215,7 @@ FlashPlanFields ValidFields(FlashOperation operation = FlashOperation::kTestWrit
 
 SubaruDensoSh705xKlinePlan& FamilyOf(FlashPlanFields& fields)
 {
-    return std::get<SubaruDensoSh705xKlinePlan>(fields.family_plan);
+    return fields.family_plan.Get<SubaruDensoSh705xKlinePlan>();
 }
 
 TEST(SubaruDensoSh705xKlinePlan, ValidatorAcceptsTheUnmodifiedHandBuiltPlan)

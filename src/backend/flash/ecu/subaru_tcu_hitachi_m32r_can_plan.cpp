@@ -71,7 +71,7 @@ Status ValidateSubaruTcuHitachiM32rCanPlan(const FlashPlan& plan)
     {
         return identity;
     }
-    const auto *wire = std::get_if<SubaruTcuHitachiM32rCanPlan>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<SubaruTcuHitachiM32rCanPlan>();
     if (wire == nullptr || !WireParametersMatch(*wire))
     {
         return Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN wire parameters are invalid");

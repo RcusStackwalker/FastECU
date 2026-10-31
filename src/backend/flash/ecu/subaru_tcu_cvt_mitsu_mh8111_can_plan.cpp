@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_plan.h"
+#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_types.h"
 
 #include <array>
 #include <span>
@@ -47,7 +48,7 @@ bool GeometryOk(const FlashDevice& device)
 
 bool WireParamsOk(const FlashPlan& plan)
 {
-    const auto *p = std::get_if<SubaruTcuCvtMitsuMh8111CanPlan>(&plan.FamilyPlan());
+    const auto *p = plan.FamilyPlan().As<SubaruTcuCvtMitsuMh8111CanPlan>();
     return p != nullptr && p->request_id == 0x7e1 && p->response_id == 0x7e9 && p->bitrate == 500000 && !p->extended_id;
 }
 

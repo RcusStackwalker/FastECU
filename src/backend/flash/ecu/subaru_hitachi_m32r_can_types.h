@@ -25,6 +25,7 @@ template <> struct FamilyTraits<SubaruHitachiM32rCanPlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiM32rCan;
     static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
+    static constexpr bool kRequiresKernel = false;
 };
 
 template <> struct PlanValidator<SubaruHitachiM32rCanPlan>

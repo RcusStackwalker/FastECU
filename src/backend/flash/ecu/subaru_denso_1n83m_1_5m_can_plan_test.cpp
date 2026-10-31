@@ -1,5 +1,6 @@
 // subaru_denso_1n83m_1_5m_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing
@@ -27,7 +28,7 @@ TEST(SubaruDenso1n83m_1_5mCanPlan, ReadPlanCarriesThisFamilysWireParameters)
                                                       "N83M_1_5MB", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruDenso1n83m_1_5mCanPlan>(plan->FamilyPlan());
+    const auto& family = plan->FamilyPlan().Get<SubaruDenso1n83m_1_5mCanPlan>();
     EXPECT_EQ(family.request_id, 0x7e0U);
     EXPECT_EQ(family.response_id, 0x7e8U);
     EXPECT_EQ(family.bitrate, 500000);

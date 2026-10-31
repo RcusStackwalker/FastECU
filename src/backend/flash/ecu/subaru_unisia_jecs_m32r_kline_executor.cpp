@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_executor.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_types.h"
 
 #include <algorithm>
 #include <chrono>

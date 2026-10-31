@@ -1,4 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 
 #include <array>
@@ -68,7 +69,7 @@ TEST(MitsuColtM32rCanPlan, ReadPlansSnapshotProtocolCapacityAndVendorChallenge)
         ASSERT_THAT(plan, fastecu::testing::IsOk()) << test.id;
         EXPECT_EQ(plan->TransferRegion().start, 0U) << test.id;
         EXPECT_EQ(plan->TransferRegion().length, test.size) << test.id;
-        const auto& family = std::get<MitsuColtM32rCanPlan>(plan->FamilyPlan());
+        const auto& family = plan->FamilyPlan().Get<MitsuColtM32rCanPlan>();
         EXPECT_EQ(family.use_vendor_challenge, test.vendor) << test.id;
         EXPECT_EQ(family.session_id, mitsu_colt_can::kSessionBootload) << test.id;
         EXPECT_EQ(family.request_id, 0x7e0U) << test.id;

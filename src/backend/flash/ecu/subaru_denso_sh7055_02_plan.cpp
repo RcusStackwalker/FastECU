@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
 
 #include "src/backend/flash/ecu/plan_primitives.h"
 
@@ -89,7 +90,7 @@ Status ValidateSubaruDensoSh705502Plan(const FlashPlan& plan)
         return valid;
     }
     // The wire parameters include the ECU-ID read, which only a Read performs.
-    if (const auto *family = std::get_if<SubaruDensoSh7055_02Plan>(&plan.FamilyPlan());
+    if (const auto *family = plan.FamilyPlan().As<SubaruDensoSh7055_02Plan>();
         family == nullptr || *family != WireParams(plan.Operation()))
     {
         return Fail(kInvalidConfig, "SH7055_02 wire parameters are missing or do not match the operation");

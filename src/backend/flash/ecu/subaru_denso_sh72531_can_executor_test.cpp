@@ -1,4 +1,5 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
 #include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for SubaruDensoSh72531CanExecutor, the portable
 // replacement for FlashEcuSubaruDensoSH72531CanOperation's

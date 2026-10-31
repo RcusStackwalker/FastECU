@@ -1,4 +1,6 @@
 #include "src/backend/flash/ecu/plan_primitives.h"
+#include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/flash_validation.h"
 

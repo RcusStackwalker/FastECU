@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.h"
+#include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_types.h"
 
 #include <algorithm>
 #include <chrono>

@@ -21,8 +21,8 @@ template <> struct FamilyTraits<SubaruDensoSh7058CanDieselPlan>
 {
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh7058CanDiesel;
     static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
+    static constexpr bool kRequiresKernel = true;
 };
-template <> inline constexpr bool kFamilyRequiresKernel<SubaruDensoSh7058CanDieselPlan> = true;
 
 template <> struct PlanValidator<SubaruDensoSh7058CanDieselPlan>
 {

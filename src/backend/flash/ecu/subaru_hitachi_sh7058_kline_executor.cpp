@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_kline_executor.h"
+#include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
 
 #include <chrono>
 #include <string>

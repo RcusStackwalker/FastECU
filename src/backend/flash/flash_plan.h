@@ -38,7 +38,7 @@ struct FlashPlanFields
     // kernel file and uploads it; the Mitsu Colt CAN family drives the ECU's
     // own vendor bootloader and uploads only compile-time RAM helper routines
     // that are protocol constants, not a loaded image. See
-    // kFamilyRequiresKernel (opted into in each <f>_types.h) for which plan
+    // FamilyTraits::kRequiresKernel (in each <f>_types.h) for which plan
     // types require one.
     std::optional<KernelImage> kernel;
     FamilyPlan family_plan;
@@ -96,7 +96,7 @@ class FlashPlan
     // operation check reads zero bytes (which every writer rejects by length)
     // instead of dereferencing an empty optional.
     const bytes::Bytes& ImageOrEmpty() const;
-    // The kernel of a family that requires one (kFamilyRequiresKernel).
+    // The kernel of a family that requires one (FamilyTraits::kRequiresKernel).
     // Empty for a plan without one, for the same reason as image_or_empty().
     const KernelImage& KernelOrEmpty() const;
     const flash::FamilyPlan& FamilyPlan() const

@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_types.h"
 
 #include <algorithm>
 #include <array>
@@ -55,7 +56,7 @@ Status ValidateSubaruUnisiaJecsPlan(const FlashPlan& plan)
     {
         return Fail(ErrorKind::kUnsupported, "Unisia Jecs is read-only");
     }
-    const auto *wire = std::get_if<SubaruUnisiaJecsPlan>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<SubaruUnisiaJecsPlan>();
     if (wire == nullptr || wire->initial_baud != kInitialBaud || !wire->even_parity)
     {
         return Fail(ErrorKind::kInvalidConfig, "Unisia Jecs wire parameters are invalid");

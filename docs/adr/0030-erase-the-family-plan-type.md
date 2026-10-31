@@ -33,8 +33,8 @@ counted the alternatives to force a kernel decision on each new plan type.
 - The kernel requirement is a required `FamilyTraits` member with no default.
   A plan type without `FamilyTraits`, or without a kernel decision, fails to
   compile where it is wrapped.
-- Families read their plan through a typed accessor on `FlashPlan` that
-  returns a pointer, null on a type mismatch.
+- Families read their plan back through typed accessors on `FamilyPlan`:
+  `As<P>()` returns null on a different plan type, `Get<P>()` throws.
 - `flash_types.h` includes no family header.
 
 ## Alternatives
@@ -46,7 +46,7 @@ counted the alternatives to force a kernel decision on each new plan type.
   self-registration). It defeats include-driven dependency resolution, and
   self-registration brings static-initialisation order back.
 - **A hand-rolled erased holder with a per-type key.** It avoids RTTI, which
-  the build does not disable. The accessor is the one place to change if that
+  the build does not disable. The accessors are the one place to change if that
   ever matters.
 - **A virtual base class for plan types.** It puts a hierarchy on what are
   plain aggregates and adds `dynamic_cast` for no gain over `std::any`.

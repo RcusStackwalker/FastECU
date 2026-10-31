@@ -1,4 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
 #include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/config/catalog.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
@@ -53,7 +54,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, BuildsStockPlanForBareProtocol)
                                                  KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->Family(), FlashFamily::kSubaruDensoMc68hc16y502);
-    const auto& family = std::get<SubaruDensoMc68hc16y5_02Plan>(plan->FamilyPlan());
+    const auto& family = plan->FamilyPlan().Get<SubaruDensoMc68hc16y5_02Plan>();
     EXPECT_EQ(family.kernel_baud, 9600);
     EXPECT_EQ(family.encryption_xor, 0x55);
     EXPECT_EQ(family.kernel_magic, 0x3941);
@@ -66,7 +67,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, BuildsEcutekPlanForSuffixedProtocol)
                                                  "MC68HC16Y5", std::nullopt,
                                                  KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    const auto& family = std::get<SubaruDensoMc68hc16y5_02Plan>(plan->FamilyPlan());
+    const auto& family = plan->FamilyPlan().Get<SubaruDensoMc68hc16y5_02Plan>();
     EXPECT_EQ(family.kernel_baud, 11700);
     EXPECT_EQ(family.encryption_xor, 0x51);
     EXPECT_EQ(family.kernel_magic, 0x3940);
@@ -195,7 +196,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsEveryNonCanonicalWireField)
     {
         SCOPED_TRACE(::testing::PrintToString(field));
         auto fields = ValidMcFields();
-        auto& wire = std::get<SubaruDensoMc68hc16y5_02Plan>(fields.family_plan);
+        auto& wire = fields.family_plan.Get<SubaruDensoMc68hc16y5_02Plan>();
         switch (field)
         {
         case 0:

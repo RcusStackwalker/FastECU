@@ -69,7 +69,7 @@ Status ValidateCapability(const FlashPlan& plan, const CatalogEntry& entry)
 
 Status ValidateSubaruTcuDensoSh705xCanPlan(const FlashPlan& plan)
 {
-    const auto *wire = std::get_if<SubaruTcuDensoSh705xCanPlan>(&plan.FamilyPlan());
+    const auto *wire = plan.FamilyPlan().As<SubaruTcuDensoSh705xCanPlan>();
     if (wire == nullptr || !WireParametersMatch(*wire))
     {
         return Fail(ErrorKind::kInvalidConfig, "TCU CAN wire parameters are invalid");

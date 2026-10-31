@@ -1,4 +1,7 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_types.h"
 #include "src/backend/flash/workflow/flash_workflow.h"
 
 #include <gmock/gmock.h>
@@ -975,7 +978,7 @@ TEST(FlashWorkflowTest, petrolSupportedOperationsResolveSecurityAndCatalogKernel
         ASSERT_THAT(plan.Kernel(), Optional(_));
         ASSERT_EQ(plan.Kernel()->load_address, 0xFFFF3000U);
         ASSERT_EQ(plan.Kernel()->bytes, bytes::Bytes({0x90, 0xA0, 0xB0, 0xC0}));
-        const auto *family_plan = std::get_if<SubaruDensoSh7058CanPlan>(&plan.FamilyPlan());
+        const auto *family_plan = plan.FamilyPlan().As<SubaruDensoSh7058CanPlan>();
         ASSERT_TRUE(family_plan != nullptr);
         ASSERT_EQ(family_plan->request_id, 0x7E0U);
         ASSERT_EQ(family_plan->response_id, 0x7E8U);
@@ -1119,7 +1122,7 @@ TEST(FlashWorkflowTest, dieselSupportedOperationsResolveGenerationCatalogKernels
         ASSERT_THAT(plan.Kernel(), Optional(_));
         ASSERT_EQ(plan.Kernel()->load_address, test.kernel_address);
         ASSERT_EQ(plan.Kernel()->bytes, test.kernel_bytes);
-        const auto *family_plan = std::get_if<SubaruDensoSh7058CanDieselPlan>(&plan.FamilyPlan());
+        const auto *family_plan = plan.FamilyPlan().As<SubaruDensoSh7058CanDieselPlan>();
         ASSERT_TRUE(family_plan != nullptr);
         ASSERT_EQ(family_plan->request_id, 0x7E0U);
         ASSERT_EQ(family_plan->response_id, 0x7E8U);
@@ -1680,7 +1683,7 @@ TEST(FlashWorkflowTest, densoSh705xKlineRoutesExactProtocolsThroughBeginToAttemp
         ASSERT_EQ(plan.TargetId(), std::string(c.protocol));
         ASSERT_THAT(plan.Kernel(), Optional(_));
         ASSERT_EQ(plan.Kernel()->bytes, c.kernel);
-        ASSERT_EQ(std::get<SubaruDensoSh705xKlinePlan>(plan.FamilyPlan()).seed_key, c.seed_key);
+        ASSERT_EQ(plan.FamilyPlan().Get<SubaruDensoSh705xKlinePlan>().seed_key, c.seed_key);
     }
 }
 

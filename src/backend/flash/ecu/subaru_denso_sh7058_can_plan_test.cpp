@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
 
 #include <array>
 #include <optional>
@@ -118,7 +119,7 @@ TEST(SubaruDensoSh7058CanPlan, BuildsEveryExactSecurityVariantOperationAndGeomet
             EXPECT_EQ(plan->Kernel()->id, "petrol-sh7058-kernel");
             EXPECT_EQ(plan->Kernel()->load_address, kKernelAddress);
 
-            const auto& wire = std::get<SubaruDensoSh7058CanPlan>(plan->FamilyPlan());
+            const auto& wire = plan->FamilyPlan().Get<SubaruDensoSh7058CanPlan>();
             EXPECT_EQ(wire.request_id, 0x7E0U);
             EXPECT_EQ(wire.response_id, 0x7E8U);
             EXPECT_EQ(wire.bitrate, 500000);
@@ -226,7 +227,7 @@ TEST(SubaruDensoSh7058CanPlan, ValidatorRejectsWireSecurityRegionGeometryAndConf
     {
         SCOPED_TRACE(::testing::PrintToString(mutation));
         auto fields = ValidFields(kVariants.front());
-        auto& wire = std::get<SubaruDensoSh7058CanPlan>(fields.family_plan);
+        auto& wire = fields.family_plan.Get<SubaruDensoSh7058CanPlan>();
         switch (mutation)
         {
         case 0:

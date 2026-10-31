@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
+#include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_types.h"
 
 #include <array>
 #include <optional>
@@ -139,7 +140,7 @@ TEST(SubaruTcuDensoSh705xCanPlan, BuildsExactCapabilitiesWireAndGeometry)
             ASSERT_THAT(plan->Kernel(), Optional(_));
             EXPECT_EQ(plan->Kernel()->load_address, test_case.kernel_load_address);
 
-            const auto& wire = std::get<SubaruTcuDensoSh705xCanPlan>(plan->FamilyPlan());
+            const auto& wire = plan->FamilyPlan().Get<SubaruTcuDensoSh705xCanPlan>();
             EXPECT_EQ(wire.request_id, 0x7E1U);
             EXPECT_EQ(wire.response_id, 0x7E9U);
             EXPECT_EQ(wire.bitrate, 500000);
@@ -266,7 +267,7 @@ TEST(SubaruTcuDensoSh705xCanPlan, ValidatorRejectsWireRegionGeometryAndConfirmat
     {
         SCOPED_TRACE(::testing::PrintToString(mutation));
         auto fields = ValidFields(sh7058, FlashOperation::kWrite);
-        auto& wire = std::get<SubaruTcuDensoSh705xCanPlan>(fields.family_plan);
+        auto& wire = fields.family_plan.Get<SubaruTcuDensoSh705xCanPlan>();
         switch (mutation)
         {
         case 0:
