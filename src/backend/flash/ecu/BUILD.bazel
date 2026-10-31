@@ -271,6 +271,7 @@ cc_library(
     hdrs = ["subaru_denso_mc68hc16y5_02_plan.h"],
     implementation_deps = [
         ":plan_primitives",
+        ":protocol_kernel",
         "//src/algorithms/memory:address",
         "//src/algorithms/memory:memory_map",
         "//src/backend/flash:flash_device_lookup",
@@ -279,6 +280,9 @@ cc_library(
     ],
     deps = [
         "//src/algorithms/memory:memory_image",
+        "//src/algorithms/protocol",
+        "//src/backend/config:catalog",
+        "//src/backend/config:config_paths",
         "//src/backend/flash:flash_family",
         "//src/backend/flash:flash_plan",
         "//src/backend/ports",
@@ -675,6 +679,7 @@ fastecu_portable_gtest(
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:mc68_rom_images",
         "//src/backend/flash/kernel:memory_models",
+        "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -2115,5 +2120,18 @@ cc_library(
         ":subaru_denso_sh7058_can_diesel_plan",
         ":subaru_denso_sh7058_can_plan",
         "//src/backend/flash:flash_executor",
+    ],
+)
+
+cc_library(
+    name = "protocol_kernel",
+    srcs = ["protocol_kernel.cpp"],
+    hdrs = ["protocol_kernel.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/config:catalog",
+        "//src/backend/config:config_paths",
+        "//src/backend/flash:flash_types",
+        "//src/backend/ports",
     ],
 )

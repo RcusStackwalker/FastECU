@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 
 #include "src/backend/flash/ecu/plan_primitives.h"
+#include "src/backend/flash/ecu/protocol_kernel.h"
 
 #include <algorithm>
 #include <array>
@@ -248,6 +249,32 @@ std::span<const std::string_view> SubaruDensoMc68hc16y502Protocols()
 Status PlanValidator<SubaruDensoMc68hc16y5_02Plan>::Validate(const FlashPlan& plan)
 {
     return ValidateSubaruDensoMc68hc16y502Plan(plan);
+}
+
+Result<FlashPlan> PrepareSubaruDensoMc68hc16y502Plan(FlashOperation operation, const config::ProtocolSpec& protocol,
+                                                     const config::ConfigPaths& paths,
+                                                     std::optional<bytes::Bytes> rom_file, IFileRepository& files)
+{
+    std::optional<memory::MemoryImage> image;
+    if (rom_file.has_value())
+    {
+        auto placed = config::PlaceRomFile(&protocol, std::move(*rom_file));
+        if (!placed.has_value())
+        {
+            return Fail(ErrorKind::kInvalidConfig, std::format("ROM file size error: {}", placed.error().detail));
+        }
+        image = std::move(*placed);
+    }
+    return BuildSubaruDensoMc68hc16y502Plan(
+               operation, protocol.name, protocol.mcu, image,
+               KernelImage{.id = std::format("{}-kernel", protocol.name), .load_address = 0x20000, .bytes = {0}})
+        .and_then([&](const FlashPlan&) { return ReadProtocolKernel(protocol, paths, files); })
+        .and_then(
+            [&](KernelImage kernel)
+            {
+                return BuildSubaruDensoMc68hc16y502Plan(operation, protocol.name, protocol.mcu, std::move(image),
+                                                        std::move(kernel));
+            });
 }
 
 } // namespace fastecu::flash
