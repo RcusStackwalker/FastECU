@@ -2283,7 +2283,8 @@ class SubaruTcuDensoSh705xCanCold : public ::testing::Test
             ScriptReadPages(transport_, kCases.front().rom_size);
         }
         events_.logs.clear();
-        auto result = executor_.Execute(*plan, transport_, clock_, cancellation_, events_);
+        auto result =
+            testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock_, cancellation_, events_);
         EXPECT_TRUE(transport_.ScriptConsumed());
         return result;
     }
@@ -2354,7 +2355,8 @@ TEST_F(SubaruTcuDensoSh705xCanCold, OpcodeOnlyKernelIdContinuesToReadWithoutCold
     transport_.Exchange(KernelIdRequest(), bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x41});
     transport_.QueueNoFrame();
     ScriptReadPages(transport_, kCases.front().rom_size);
-    EXPECT_THAT(executor_.Execute(*plan, transport_, clock_, cancellation_, events_), IsOk());
+    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock_, cancellation_, events_),
+                IsOk());
     EXPECT_TRUE(transport_.ScriptConsumed());
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Kernel ID: ")));
 }
@@ -2386,7 +2388,7 @@ template <typename Script> Result<FlashExecutionResult> RunAfterIdentity(Script 
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
-    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
     EXPECT_TRUE(transport.ScriptConsumed());
     return result;
 }

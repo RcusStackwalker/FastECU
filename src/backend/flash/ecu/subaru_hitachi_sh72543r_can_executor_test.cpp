@@ -827,7 +827,8 @@ class Sh72543rCancelSweep : public Sh72543rWrite, public ::testing::WithParamInt
                 }
                 return seen >= static_cast<std::size_t>(GetParam());
             });
-        EXPECT_THAT(executor_.Execute(*plan, transport_, clock_, cancellation, events_),
+        EXPECT_THAT(fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock_,
+                                                                          cancellation, events_),
                     fastecu::testing::IsErr(ErrorKind::kCancelled));
         EXPECT_EQ(writes_at_cancel, std::optional<std::size_t>{transport_.writes});
     }
@@ -922,7 +923,8 @@ TEST_P(Sh72543rReadPrefixFault, PropagatesTheTransportError)
         (on_write ? transport.fail_write : transport.fail_read) = static_cast<std::size_t>(GetParam());
         auto plan = Plan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        const auto result = executor_.Execute(*plan, transport, clock_, cancel_, events_);
+        const auto result = fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, *plan, transport, clock_,
+                                                                                  cancel_, events_);
         EXPECT_THAT(result,
                     fastecu::testing::IsErrWith(ErrorKind::kDisconnected,
                                                 Eq(on_write ? "injected write failure" : "injected read failure")));

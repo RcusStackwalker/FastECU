@@ -820,6 +820,72 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
     EXPECT_FALSE(transport.ScriptConsumed());
 }
 
+TEST(DensoSh705xEepromCanExecutorTest, AcceptedDownloadReplyCancellationStopsBeforeFirstB6)
+{
+    const auto plan = ValidCanPlan(EepromReadMode::kMode2);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    testing::CancellationBlindCanTransport transport;
+    EnqueueConnectBootloaderFullInit(transport, bytes::Bytes{0x11, 0x22, 0x33, 0x44});
+    EnqueueUploadKernel(transport, KernelFixtureBytes(), kKernelStartAddr);
+    ManualCancellationToken cancellation;
+    bool triggered = false;
+    transport.on_read = [&](bytes::ByteView reply)
+    {
+        if (std::ranges::equal(reply, Sid34DownloadAckResponse()))
+        {
+            triggered = true;
+            cancellation.Cancel();
+        }
+    };
+    ASSERT_THAT(RunExecutor(*plan, transport, cancellation),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, "cancelled after read"));
+    EXPECT_TRUE(triggered);
+    EXPECT_TRUE(cancellation.Cancelled());
+    EXPECT_EQ(transport.WritesConsumed(), 12U);
+    EXPECT_EQ(transport.write_attempts, 12);
+    EXPECT_EQ(transport.read_attempts, 12);
+    EXPECT_FALSE(transport.ScriptConsumed());
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, AcceptedB6WriteCancellationKeepsAfterChunkCheckpoint)
+{
+    const auto plan = ValidCanPlan(EepromReadMode::kMode2);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    auto transport = std::make_unique<testing::CancellationBlindCanTransport>();
+    auto *inner = transport.get();
+    EnqueueConnectBootloaderFullInit(*transport, bytes::Bytes{0x11, 0x22, 0x33, 0x44});
+    EnqueueUploadKernel(*transport, KernelFixtureBytes(), kKernelStartAddr);
+    ManualCancellationToken cancellation;
+    bool triggered = false;
+    transport->on_write = [&](bytes::ByteView frame)
+    {
+        if (frame.size() > 4 && frame[4] == 0xb6)
+        {
+            triggered = true;
+            cancellation.Cancel();
+        }
+    };
+    auto attempt = BindFlashAttempt(*plan, std::make_unique<DensoSh705xEepromCanExecutor>(), std::move(transport));
+    FakeClock clock;
+    RecordingEventSink events;
+    ASSERT_THAT(attempt->Run(clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, "cancelled after kernel chunk write"));
+    EXPECT_TRUE(triggered);
+    EXPECT_TRUE(cancellation.Cancelled());
+    EXPECT_EQ(inner->WritesConsumed(), 13U);
+    EXPECT_EQ(inner->write_attempts, 13);
+    EXPECT_EQ(inner->read_attempts, 12); // No chunk-ack Read after the accepted B6.
+    EXPECT_FALSE(inner->ScriptConsumed());
+    EXPECT_EQ(inner->close_call_count, 1);
+}
+
+TEST(DensoSh705xEepromCanExecutorTest, SelectedGuardIsUsedByBoundAttempt)
+{
+    const auto plan = ValidCanPlan(EepromReadMode::kMode2);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    fastecu::flash::testing::ExpectCanGuardedAttempt<DensoSh705xEepromCanExecutor>(*plan);
+}
+
 namespace
 {
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
@@ -880,7 +946,8 @@ Result<FlashExecutionResult> RunWith(const FlashPlan& plan, ScriptedCanFlashTran
                                      FakeCancellationToken& cancellation)
 {
     RecordingEventSink events;
-    return DensoSh705xEepromCanExecutor{}.Execute(plan, transport, clock, cancellation, events);
+    DensoSh705xEepromCanExecutor executor;
+    return testing::ExecuteWithCancellationGuard(executor, plan, transport, clock, cancellation, events);
 }
 } // namespace
 
@@ -1124,69 +1191,4 @@ TEST(DensoSh705xEepromCanExecutorTest, AShortPageBodyKeepsOnlyWhatFollowsTheFram
     }
 }
 
-TEST(DensoSh705xEepromCanExecutorTest, AcceptedDownloadReplyCancellationStopsBeforeFirstB6)
-{
-    const auto plan = ValidCanPlan(EepromReadMode::kMode2);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    testing::CancellationBlindCanTransport transport;
-    EnqueueConnectBootloaderFullInit(transport, bytes::Bytes{0x11, 0x22, 0x33, 0x44});
-    EnqueueUploadKernel(transport, KernelFixtureBytes(), kKernelStartAddr);
-    ManualCancellationToken cancellation;
-    bool triggered = false;
-    transport.on_read = [&](bytes::ByteView reply)
-    {
-        if (std::ranges::equal(reply, Sid34DownloadAckResponse()))
-        {
-            triggered = true;
-            cancellation.Cancel();
-        }
-    };
-    ASSERT_THAT(RunExecutor(*plan, transport, cancellation),
-                fastecu::testing::IsErrWith(ErrorKind::kCancelled, "cancelled after read"));
-    EXPECT_TRUE(triggered);
-    EXPECT_TRUE(cancellation.Cancelled());
-    EXPECT_EQ(transport.WritesConsumed(), 12U);
-    EXPECT_EQ(transport.write_attempts, 12);
-    EXPECT_EQ(transport.read_attempts, 12);
-    EXPECT_FALSE(transport.ScriptConsumed());
-}
-
-TEST(DensoSh705xEepromCanExecutorTest, AcceptedB6WriteCancellationKeepsAfterChunkCheckpoint)
-{
-    const auto plan = ValidCanPlan(EepromReadMode::kMode2);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto transport = std::make_unique<testing::CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    EnqueueConnectBootloaderFullInit(*transport, bytes::Bytes{0x11, 0x22, 0x33, 0x44});
-    EnqueueUploadKernel(*transport, KernelFixtureBytes(), kKernelStartAddr);
-    ManualCancellationToken cancellation;
-    bool triggered = false;
-    transport->on_write = [&](bytes::ByteView frame)
-    {
-        if (frame.size() > 4 && frame[4] == 0xb6)
-        {
-            triggered = true;
-            cancellation.Cancel();
-        }
-    };
-    auto attempt = BindFlashAttempt(*plan, std::make_unique<DensoSh705xEepromCanExecutor>(), std::move(transport));
-    FakeClock clock;
-    RecordingEventSink events;
-    ASSERT_THAT(attempt->Run(clock, cancellation, events),
-                fastecu::testing::IsErrWith(ErrorKind::kCancelled, "cancelled after kernel chunk write"));
-    EXPECT_TRUE(triggered);
-    EXPECT_TRUE(cancellation.Cancelled());
-    EXPECT_EQ(inner->WritesConsumed(), 13U);
-    EXPECT_EQ(inner->write_attempts, 13);
-    EXPECT_EQ(inner->read_attempts, 12); // No chunk-ack Read after the accepted B6.
-    EXPECT_FALSE(inner->ScriptConsumed());
-    EXPECT_EQ(inner->close_call_count, 1);
-}
-
-TEST(DensoSh705xEepromCanExecutorTest, SelectedGuardIsUsedByBoundAttempt)
-{
-    const auto plan = ValidCanPlan(EepromReadMode::kMode2);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::flash::testing::ExpectCanGuardedAttempt<DensoSh705xEepromCanExecutor>(*plan);
-}
 } // namespace fastecu::flash

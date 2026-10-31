@@ -641,7 +641,8 @@ fastecu::Result<fastecu::flash::FlashExecutionResult> RunRead(Transport& transpo
     }
     FakeClock clock;
     fastecu::ManualCancellationToken cancellation;
-    return SubaruTcuCvtMitsuMh8111CanExecutor{}.Execute(*plan, transport, clock, cancellation, events);
+    SubaruTcuCvtMitsuMh8111CanExecutor executor;
+    return ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
 }
 
 bool ContainsLog(const RecordingEventSink& events, std::string_view substring)

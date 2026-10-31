@@ -2542,7 +2542,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellingAtEveryConnectAndEraseCheckWrite
             SubaruTcuHitachiM32rCanExecutor executor;
             FakeClock clock;
             RecordingEventSink events;
-            const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+            const auto result = fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock,
+                                                                                      cancellation, events);
             if (!writes_at_cancel.has_value())
             {
                 break;

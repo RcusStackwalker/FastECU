@@ -536,7 +536,8 @@ fastecu::Result<fastecu::flash::FlashExecutionResult> RunRead(Transport& transpo
     }
     FakeClock clock;
     fastecu::ManualCancellationToken cancellation;
-    return SubaruHitachiM32rCanExecutor{}.Execute(*plan, transport, clock, cancellation, events);
+    SubaruHitachiM32rCanExecutor executor;
+    return ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
 }
 
 // The fatal connect exchanges: the OBK probe (1), the session-scope probe (6)

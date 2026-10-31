@@ -1677,7 +1677,8 @@ class SubaruDensoSh7058CanCold : public ::testing::Test
         {
             ScriptCompare(transport_, std::nullopt);
         }
-        auto result = executor_.Execute(*plan, transport_, clock_, cancellation_, events_);
+        auto result =
+            testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock_, cancellation_, events_);
         EXPECT_TRUE(transport_.ScriptConsumed());
         return result;
     }
@@ -1742,7 +1743,8 @@ TEST_F(SubaruDensoSh7058CanCold, NonfatalQueryPassesCancelAndDisconnectThrough)
         Query(bytes::Bytes{0xAA}, Fail(kind, ""));
         events_.logs.clear();
 
-        EXPECT_THAT(executor_.Execute(*plan, transport_, clock_, cancellation_, events_), IsErrWith(kind, _));
+        EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock_, cancellation_, events_),
+                    IsErrWith(kind, _));
         EXPECT_THAT(EcuLogs(), IsEmpty());
         EXPECT_TRUE(transport_.ScriptConsumed());
     }
@@ -1770,7 +1772,8 @@ TEST_F(SubaruDensoSh7058CanCold, NonfatalQueryUsesTheReadTimeoutAndPostSendDelay
     EXPECT_CALL(clock, Sleep(50ms, _));
     EXPECT_CALL(clock, Sleep(50ms, _));
 
-    EXPECT_THAT(executor_.Execute(*plan, transport_, clock, cancellation_, events_), IsErr(ErrorKind::kCancelled));
+    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock, cancellation_, events_),
+                IsErr(ErrorKind::kCancelled));
     EXPECT_THAT(transport_.ReadTimeouts(), ElementsAre(800ms, 2000ms, 2000ms));
     EXPECT_EQ(clock.Elapsed(), 300ms); // 200 ms probe + two exact 50 ms query delays.
     EXPECT_TRUE(transport_.ScriptConsumed());
@@ -1877,7 +1880,7 @@ TEST(SubaruDensoSh7058CanExecutor, AFailedKernelProbeSendStopsBeforeAnyRead)
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
-    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
                 IsErrWith(ErrorKind::kDisconnected, Eq("injected")));
     EXPECT_EQ(transport.Reads(), 0U);
 }

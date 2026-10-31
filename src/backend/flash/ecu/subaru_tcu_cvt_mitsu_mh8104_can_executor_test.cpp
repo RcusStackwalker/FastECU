@@ -611,7 +611,8 @@ fastecu::Result<fastecu::flash::FlashExecutionResult> RunWrite(Transport& transp
     }
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
-    return SubaruTcuCvtMitsuMh8104CanExecutor{}.Execute(*plan, transport, clock, cancellation, events);
+    SubaruTcuCvtMitsuMh8104CanExecutor executor;
+    return ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
 }
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, AFailedAliveProbeSendStopsBeforeAnyRead)
