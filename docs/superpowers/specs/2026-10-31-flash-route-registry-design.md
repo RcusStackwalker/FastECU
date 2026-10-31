@@ -8,6 +8,11 @@ Governing decisions: [ADR 0019](../../adr/0019-compile-the-protocol-catalog-into
 BUILD targets) and [ADR 0024](../../adr/0024-wire-transcripts-and-goldens-are-the-test-contract.md)
 (transcripts and goldens are the wire contract).
 
+> **Superseded in part.** Decisions 6–7 and the non-goals on per-family
+> preparation and the `flash_types.h` include fan-out are superseded by the
+> [flash family locality design](2026-10-31-flash-family-locality-design.md)
+> and [ADR 0030](../../adr/0030-erase-the-family-plan-type.md).
+
 ## Intent
 
 Registering a flash family has no locality. A new or ported family today
