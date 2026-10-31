@@ -605,11 +605,11 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::Run(const DensoSh705x
                     return {};
                 }
                 // Safe to dereference: this executor only ever runs against
-                // DensoSh705xEepromCan plans, and validate_and_build rejects any plan
+                // DensoSh705xEepromCan plans, and ValidateAndBuild rejects any plan
                 // for that family whose kernel is absent (flash_validation.cpp:
                 // "family requires a kernel image"). check_family above confirms
                 // the family; it does not itself
-                // guarantee a kernel -- validate_and_build is what does.
+                // guarantee a kernel -- ValidateAndBuild is what does.
                 return UploadKernel(can_transport, clock, cancellation, events, can_plan, plan.KernelOrEmpty());
             })
         .and_then(

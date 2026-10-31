@@ -458,11 +458,11 @@ Result<FlashExecutionResult> DensoSh705xEepromKlineExecutor::Run(const DensoSh70
     if (!kernel_alive)
     {
         // Safe to dereference: this executor only ever runs against
-        // DensoSh705xEepromKline plans, and validate_and_build rejects any
+        // DensoSh705xEepromKline plans, and ValidateAndBuild rejects any
         // plan for that family whose kernel is absent (flash_validation.cpp:
         // "family requires a kernel image"). check_family above confirms the
         // family tag; it does not itself guarantee a kernel --
-        // validate_and_build is what does.
+        // ValidateAndBuild is what does.
         if (Status uploaded =
                 UploadKernel(kline_transport, clock, cancellation, events, kline_plan, plan.KernelOrEmpty());
             !uploaded.has_value())

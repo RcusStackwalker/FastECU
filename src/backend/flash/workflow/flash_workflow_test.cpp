@@ -512,7 +512,7 @@ TEST(FlashWorkflowTest, routesTcuHitachiM32rKlineReadOnly)
 TEST(FlashWorkflowTest, routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite)
 {
     // The default request() helper's MCU ("M32R_384KB_1block") is not this
-    // family's kMcu ("M32R_512KB"); build_subaru_tcu_hitachi_m32r_can_plan's
+    // family's kMcu ("M32R_512KB"); BuildSubaruTcuHitachiM32rCanPlan's
     // identity check would reject every operation on it with InvalidConfig,
     // which would make the Read and Write assertions below fail for an
     // unrelated reason and would mask the TestWrite assertion behind the

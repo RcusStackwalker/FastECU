@@ -75,7 +75,7 @@ template <> struct PlanValidator<DensoSh705xEepromCanPlan>
 };
 
 // Portable builder inputs. No FileActions, no paths, no platform handles --
-// build_eeprom_read_plan assembles this from the parsed protocol catalog.
+// BuildEepromReadPlan assembles this from the parsed protocol catalog.
 struct DensoSh705xEepromInput
 {
     FlashOperation operation;
@@ -90,9 +90,9 @@ struct DensoSh705xEepromInput
 };
 
 // Resolves the fixed SH705x EEPROM address range for mcu_name ("SH7055" or
-// "SH7058") from the same MCU table build_denso_sh705x_eeprom_plan validates
+// "SH7058") from the same MCU table BuildDensoSh705xEepromPlan validates
 // DensoSh705xEepromInput::eeprom_region against. Exposed so
-// build_eeprom_read_plan can supply a matching region without independently
+// BuildEepromReadPlan can supply a matching region without independently
 // re-transcribing the kernelmemorymodels.h literals.
 Result<MemoryRegion> ResolveSh705xEepromRegion(const std::string& mcu_name);
 
@@ -121,7 +121,7 @@ Result<DensoSh705xEepromUploadSizes> ComputeDensoSh705xEepromUploadSizes(FlashFa
 // count when it is available to validate the complete family-specific upload
 // footprint in kernel RAM.
 //
-// build_denso_sh705x_eeprom_plan calls this same function with kernel_size,
+// BuildDensoSh705xEepromPlan calls this same function with kernel_size,
 // making it the single source of truth for both preflight and final plan
 // validation.
 Result<void> ValidateDensoSh705xEepromPreflight(const DensoSh705xEepromInput& input,

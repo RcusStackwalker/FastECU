@@ -181,7 +181,7 @@ TEST(DensoSh705xEepromCommonTest, PreflightRejectsKernelSizeWhoseWireFootprintOv
 
 TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionReturnsKnownMcuBounds)
 {
-    // Exercised directly because build_eeprom_read_plan calls this exported
+    // Exercised directly because BuildEepromReadPlan calls this exported
     // function to avoid keeping its own copy of these literals; a regression
     // here would silently break that caller too.
     auto sh7055 = ResolveSh705xEepromRegion("SH7055");
@@ -281,7 +281,7 @@ TEST(DensoSh705xEepromCommonTest, PlanValidatorRejectsHandBuiltPlans)
 
 TEST(DensoSh705xEepromCommonTest, NoTransportOrConfigurationCallOccursOnRejection)
 {
-    // Structural guarantee, not a mock assertion: build_denso_sh705x_eeprom_plan
+    // Structural guarantee, not a mock assertion: BuildDensoSh705xEepromPlan
     // takes no transport/executor argument at all, so a rejected input cannot
     // have performed any I/O by construction. This test exists to document
     // that guarantee at the call site future maintainers read first.

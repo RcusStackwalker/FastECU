@@ -23,7 +23,7 @@ constexpr std::uint32_t kRomSize = 0x80000;
 // of M32R_512KB's 11); read_mem additionally zero-pads the first 0x8000
 // bytes back in before handing the image to the caller, so the transfer
 // region and the image size agree at 0x80000 while the wire window itself
-// covers only the trailing 0x78000 bytes -- see subaru_tcu_hitachi_m32r_can_types.h's
+// covers only the trailing 0x78000 bytes -- see subaru_tcu_hitachi_m32r_can_plan.h's
 // divergence 2 and the CVT sibling, whose builder proves the core permits an
 // image_size larger than the transfer region.
 constexpr MemoryRegion kWindow{0x8000, 0x78000};
@@ -82,7 +82,7 @@ Status ValidateSubaruTcuHitachiM32rCanPlan(const FlashPlan& plan)
     // Safety-critical: the legacy reflash_block ignores its test_write_arg
     // parameter entirely, so "test write" performs the same live erase and
     // flash write as "write" -- see the divergence-1 comment in
-    // subaru_tcu_hitachi_m32r_can_types.h. There is no dry-run to port.
+    // subaru_tcu_hitachi_m32r_can_plan.h. There is no dry-run to port.
     if (plan.Operation() == FlashOperation::kTestWrite)
     {
         return Fail(ErrorKind::kUnsupported, "test_write is not supported by Subaru TCU Hitachi M32R CAN");
@@ -104,7 +104,7 @@ Result<FlashPlan> BuildSubaruTcuHitachiM32rCanPlan(FlashOperation operation, std
         return std::unexpected(identity.error());
     }
     // Safety-critical: see the divergence-1 comment above and in
-    // subaru_tcu_hitachi_m32r_can_types.h. Checked before the image checks
+    // subaru_tcu_hitachi_m32r_can_plan.h. Checked before the image checks
     // below so a TestWrite is rejected even without a ROM image supplied.
     if (operation == FlashOperation::kTestWrite)
     {

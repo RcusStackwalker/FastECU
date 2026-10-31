@@ -123,9 +123,10 @@ Status ValidateWholeRomKernelPlan(const FlashPlan& plan, std::uint32_t kernel_lo
 }
 
 // Builds a kernel-loaded whole-ROM family's plan on a device the caller has
-// already validated. The caller's `fields` carry the family's identity:
-// operation, family, transport, target, MCU, wire parameters and
-// confirmations. This adds the rest: the kernel must fit the device's kernel
+// already validated. The caller's `fields` carry the plan identity
+// (operation, target, MCU), the family plan with its wire parameters, and
+// the confirmations; the family plan supplies family and transport
+// (ADR 0030). This adds the rest: the kernel must fit the device's kernel
 // region from `kernel_load_address`, a read carries no image, any other
 // operation carries exactly one whole-ROM image and erases every flash block,
 // and the transfer covers the whole ROM. The built plan must then pass the

@@ -1,6 +1,6 @@
 #include "src/platform/desktop/common/testing/core_application_environment.h"
 // Deterministic cancel/unblock/join teardown coverage for FlashWorker (step
-// 5c, Task 11). Every plan built below uses build_denso_sh705x_eeprom_plan
+// 5c, Task 11). Every plan built below uses BuildDensoSh705xEepromPlan
 // with a FakeClock injected into the worker -- both are real, already-tested
 // portable components (Tasks 2/6), not stand-ins invented for this suite.
 // The FakeClock is what makes the "blocked read" scenario deterministic: a
@@ -81,7 +81,7 @@ class FakeBoundAttempt final : public fastecu::flash::BoundFlashAttempt
 };
 
 // Every field here matches an SH7055 K-Line (or CAN, for the mismatch test)
-// EEPROM read plan that build_denso_sh705x_eeprom_plan/validate_and_build
+// EEPROM read plan that BuildDensoSh705xEepromPlan/ValidateAndBuild
 // accept outright -- see src/backend/flash/eeprom/denso_sh705x_eeprom_
 // common.cpp's resolve_mcu_bounds("SH7055") for the eeprom/kernel-RAM bounds
 // this must satisfy (eeprom = {0, 0x100}, kernel RAM = {0xFFFF6004, 0x6000}).
