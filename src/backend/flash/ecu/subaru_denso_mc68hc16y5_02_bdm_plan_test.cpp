@@ -9,6 +9,8 @@
 #include <string_view>
 #include <utility>
 
+#include "src/backend/config/builtin_catalog.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::flash
@@ -249,5 +251,40 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, ValidatorAcceptsTheBuilderShapes)
         EXPECT_THAT(ValidateSubaruDensoMc68hc16y502BdmPlan(*plan), IsOk());
     }
 }
+// Only Write reads the kernel file, and the operator's ROM file never reaches
+// the plan: BDM never writes the ROM.
+TEST(SubaruDensoMc68hc16y502BdmPrepare, AReadReadsNoFileAndDropsTheRomFile)
+{
+    const config::ProtocolSpec& protocol = *config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02_bdm");
+    InMemoryFileRepository files;
+
+    const auto plan =
+        PrepareSubaruDensoMc68hc16y502BdmPlan(FlashOperation::kRead, protocol, {}, bytes::Bytes(0x30000, 0x00), files);
+
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_EQ(plan->Image(), std::nullopt);
+    EXPECT_EQ(plan->Kernel(), std::nullopt);
+    EXPECT_THAT(files.read_handles, IsEmpty());
+}
+
+TEST(SubaruDensoMc68hc16y502BdmPrepare, AWriteUploadsTheProtocolsKernelFileNotTheRomFile)
+{
+    const config::ProtocolSpec& protocol = *config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02_bdm");
+    const config::ConfigPaths paths{.kernel_files_directory = "kernels/"};
+    InMemoryFileRepository files;
+    files.files[config::KernelFileHandle(paths, protocol.kernel)] = {0x01, 0x02};
+
+    const auto plan = PrepareSubaruDensoMc68hc16y502BdmPlan(FlashOperation::kWrite, protocol, paths,
+                                                            bytes::Bytes(0x30000, 0x00), files);
+
+    // The write image is the chunk-padded kernel file, not the ROM file.
+    bytes::Bytes padded_kernel(kSubaruDensoMc68hc16y5_02BdmUploadChunk, 0x00);
+    padded_kernel[0] = 0x01;
+    padded_kernel[1] = 0x02;
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_EQ(plan->Image(), padded_kernel);
+    EXPECT_THAT(files.read_handles, ::testing::ElementsAre(config::KernelFileHandle(paths, protocol.kernel)));
+}
+
 } // namespace
 } // namespace fastecu::flash
