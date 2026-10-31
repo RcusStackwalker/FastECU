@@ -923,6 +923,23 @@
       "outcome": "merged",
       "pr": 969,
       "reason": ""
+    },
+    {
+      "date": "2026-10-31",
+      "group": "5e3797c8ed69",
+      "members": [
+        [
+          "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.cpp",
+          "fastecu::flash::BuildSubaruHitachiSh72543rCanPlan"
+        ],
+        [
+          "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.cpp",
+          "fastecu::flash::BuildSubaruTcuHitachiM32rCanPlan"
+        ]
+      ],
+      "outcome": "open",
+      "pr": 972,
+      "reason": ""
     }
   ]
 }
