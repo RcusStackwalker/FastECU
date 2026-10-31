@@ -72,7 +72,7 @@ struct HeaderDialogResult
 // `dialog` is supplied by the caller rather than constructed here: the
 // editors in the returned result are its children, so they die with it and
 // the caller reads them after this returns.
-HeaderDialogResult runHeaderDialog(QDialog& dialog, const definition::DefinitionHeaderDraft& draft = {})
+HeaderDialogResult runHeaderDialog(QDialog& dialog, const definition::DefinitionHeaderDraft& draft)
 {
     HeaderDialogResult result;
     result.editors = populateHeaderDialog(dialog, draft);
@@ -122,39 +122,37 @@ void DefinitionAuthoringDialog::logHeader(const HeaderFormEditors& editors)
     }
 }
 
-bool DefinitionAuthoringDialog::createNewDefinition()
+bool DefinitionAuthoringDialog::submitDefinitionHeader(const definition::DefinitionHeaderDraft& draft,
+                                                       const HeaderSubmission& submit)
 {
     emit logD("Create header", true, true);
-    // `dialog` owns the form's editors, and form.editors is read as far down
-    // as the submission, so it stays alive for the whole
-    // function rather than living inside run_header_dialog.
+    // `dialog` owns the form's editors, so it outlives every read of them.
     QDialog dialog(parent_);
-    const HeaderDialogResult form = runHeaderDialog(dialog);
+    const HeaderDialogResult form = runHeaderDialog(dialog, draft);
     if (!form.accepted)
     {
         return true;
     }
 
-    QString filename =
+    const QString filename =
         selectDefinitionPath(parent_, qs(config_.Settings().ecuflash_definition_files_directory), PathMode::kSave);
     if (filename.isEmpty())
     {
         return true;
     }
-    filename = normalizeXmlSuffix(filename);
 
     const auto input = definitionHeaderInput(form.editors);
     if (!input.has_value())
     {
-        emit logE("Unable to create definition: " + QString::fromStdString(input.error().detail), true, true);
-        QMessageBox::warning(parent_, tr("Definition file"),
-                             "Unable to create definition: " + QString::fromStdString(input.error().detail));
+        const auto detail = "Invalid definition header: " + QString::fromStdString(input.error().detail);
+        emit logE(detail, true, true);
+        QMessageBox::warning(parent_, tr("Definition file"), detail);
         return false;
     }
+    emit logD("Write to file", true, true);
     logHeader(form.editors);
 
-    const fastecu::Status status =
-        catalogs_.SubmitNewDefinition(filename.toStdString(), *input, /*allow_overwrite=*/true);
+    const fastecu::Status status = submit(normalizeXmlSuffix(filename).toStdString(), *input);
     if (!status.has_value())
     {
         QMessageBox::warning(parent_, tr("Definition file"),
@@ -162,8 +160,14 @@ bool DefinitionAuthoringDialog::createNewDefinition()
                                  QString::fromStdString(status.error().detail));
         return false;
     }
-
     return true;
+}
+
+bool DefinitionAuthoringDialog::createNewDefinition()
+{
+    return submitDefinitionHeader(
+        {}, [this](const std::string& destination, const auto& input)
+        { return catalogs_.SubmitNewDefinition(destination, input, /*allow_overwrite=*/true); });
 }
 
 bool DefinitionAuthoringDialog::useExistingDefinition()
@@ -191,46 +195,9 @@ bool DefinitionAuthoringDialog::useExistingDefinition()
         return false;
     }
 
-    emit logD("Create header", true, true);
-    // As in create_new_definition: `dialog` outlives every read of
-    // form.editors below, down to the submission.
-    QDialog dialog(parent_);
-    const HeaderDialogResult form = runHeaderDialog(dialog, *draft);
-    if (!form.accepted)
-    {
-        return true;
-    }
-
-    QString filename =
-        selectDefinitionPath(parent_, qs(config_.Settings().ecuflash_definition_files_directory), PathMode::kSave);
-    if (filename.isEmpty())
-    {
-        return true;
-    }
-    filename = normalizeXmlSuffix(filename);
-
-    const auto input = definitionHeaderInput(form.editors);
-    if (!input.has_value())
-    {
-        emit logE("Unable to import definition: " + QString::fromStdString(input.error().detail), true, true);
-        QMessageBox::warning(parent_, tr("Definition file"),
-                             "Unable to import definition: " + QString::fromStdString(input.error().detail));
-        return false;
-    }
-    emit logD("Write to file", true, true);
-    logHeader(form.editors);
-
-    const fastecu::Status status =
-        catalogs_.SubmitImportedDefinition(source.toStdString(), filename.toStdString(), *input);
-    if (!status.has_value())
-    {
-        QMessageBox::warning(parent_, tr("Definition file"),
-                             "Unable to open definition file for writing: " +
-                                 QString::fromStdString(status.error().detail));
-        return false;
-    }
-
-    return true;
+    return submitDefinitionHeader(
+        *draft, [this, &source](const std::string& destination, const auto& input)
+        { return catalogs_.SubmitImportedDefinition(source.toStdString(), destination, input); });
 }
 
 } // namespace fastecu::ui

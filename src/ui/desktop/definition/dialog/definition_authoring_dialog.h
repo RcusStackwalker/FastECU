@@ -1,4 +1,7 @@
 #pragma once
+#include <functional>
+#include <string>
+
 #include <QDialog>
 #include <QObject>
 #include <QString>
@@ -49,6 +52,15 @@ class DefinitionAuthoringDialog : public QObject
     void logD(QString message, bool timestamp, bool linefeed);
 
   private:
+    // Hands the validated header and the chosen destination path to the
+    // catalog session.
+    using HeaderSubmission =
+        std::function<fastecu::Status(const std::string& destination, const definition::DefinitionHeaderInput&)>;
+
+    // The tail both wizards share: the header form seeded from `draft`, the
+    // destination chooser, header validation, and `submit`. Returns as the
+    // wizards do.
+    bool submitDefinitionHeader(const definition::DefinitionHeaderDraft& draft, const HeaderSubmission& submit);
     void logHeader(const HeaderFormEditors& editors);
 
     fastecu::definition::DefinitionCatalogSession& catalogs_;
