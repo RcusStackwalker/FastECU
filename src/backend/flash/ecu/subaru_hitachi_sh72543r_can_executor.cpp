@@ -46,10 +46,6 @@ class Session
     }
     Result<std::optional<Bytes>> Receive(std::chrono::milliseconds timeout)
     {
-        if (auto s = Checkpoint(); !s.has_value())
-        {
-            return std::unexpected(s.error());
-        }
         auto r = transport_.Read(timeout, cancel_);
         if (auto s = Checkpoint(); !s.has_value())
         {
