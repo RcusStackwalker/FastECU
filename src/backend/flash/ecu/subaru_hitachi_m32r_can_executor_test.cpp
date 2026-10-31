@@ -24,8 +24,6 @@
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
-#include "src/backend/flash/testing/guarded_attempt_expectations.h"
 #include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -297,13 +295,6 @@ bytes::Bytes WriteRom()
     return rom;
 }
 
-TEST(SubaruHitachiM32rCanExecutor, SelectedGuardIsUsedByBoundAttempt)
-{
-    auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ExpectCanGuardedAttempt<SubaruHitachiM32rCanExecutor>(*plan);
-}
-
 TEST(SubaruHitachiM32rCanExecutor, PendingReadCancellationDoesNotDelegateAnotherRead)
 {
     auto plan = ReadPlan();
@@ -358,7 +349,7 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectAndReadReturnsTheFullRomFromAddressZer
     ScriptFlashDump(transport, 0, 0x80000, 0x100, 0x5A);
     ScriptStopCommand(transport);
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_THAT(result->read_bytes, Optional(_));
@@ -384,7 +375,7 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectRejectsOnCarProgrammingAsUnsupported)
     ScriptPreliminaryProbes(transport);
     transport.Exchange(Request({0xA8, 0x00, 0x00, 0x00, 0xD7}), Response({0x00, 0x00, 0x00}));
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kUnsupported));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -401,7 +392,7 @@ TEST(SubaruHitachiM32rCanExecutor, ReadStopsWhenCancelledBeforeAnyExchange)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     cancellation.Cancel();
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
@@ -430,7 +421,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteErasesAndWritesTheFullRomInOneReflashBlo
     ScriptCloseAttempt(transport, {0x77});
     ScriptChecksumVerify(transport);
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -454,7 +445,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBef
     auto plan = HandBuiltPlan(FlashOperation::kWrite, 0x7ffff);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x80000")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
@@ -490,7 +481,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteToleratesUpToFiveFailedCloseAttemptsBefo
     ScriptCloseAttempt(transport, {0x77});
     ScriptChecksumVerify(transport);
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -520,7 +511,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteStopsWhenTheEraseIsRejected)
         bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24{0}, bytes::ByteView(encrypted).subspan(0, 256));
     transport.Exchange(Request(first_chunk_request), Response({0x7F, 0xB6, 0x22}));
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -537,7 +528,7 @@ fastecu::Result<fastecu::flash::FlashExecutionResult> RunRead(Transport& transpo
     FakeClock clock;
     fastecu::ManualCancellationToken cancellation;
     SubaruHitachiM32rCanExecutor executor;
-    return ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    return executor.Execute(*plan, transport, clock, cancellation, events);
 }
 
 // The fatal connect exchanges: the OBK probe (1), the session-scope probe (6)

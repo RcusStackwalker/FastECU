@@ -2,7 +2,6 @@
 
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
 #include "src/backend/flash/flash_executor.h"
-#include "src/backend/flash/guarded_can_flash_transport.h"
 
 namespace fastecu::flash
 {
@@ -11,8 +10,6 @@ class SubaruDensoSh7058CanDieselExecutor final
     : public FamilyExecutor<SubaruDensoSh7058CanDieselPlan, ICanFlashExecutor>
 {
   public:
-    using CancellationGuard = GuardedCanFlashTransport;
-
     Status BeforeTransportConfigure(ICanFlashTransport& transport, IClock& clock,
                                     const ICancellationToken& cancellation) const override;
 

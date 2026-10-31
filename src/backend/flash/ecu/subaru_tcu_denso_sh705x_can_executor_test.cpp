@@ -22,8 +22,6 @@
 #include "src/backend/flash/ecu/testing/recording_can_flash_transport.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
-#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
-#include "src/backend/flash/testing/guarded_attempt_expectations.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
@@ -853,13 +851,6 @@ std::vector<LogRecord> ExpectedReadLogs(const Case& test_case)
     return logs;
 }
 
-TEST(SubaruTcuDensoSh705xCanExecutor, SelectedGuardIsUsedByBoundAttempt)
-{
-    auto plan = ReadPlan(kCases.front());
-    ASSERT_THAT(plan, IsOk());
-    testing::ExpectCanGuardedAttempt<SubaruTcuDensoSh705xCanExecutor>(*plan);
-}
-
 TEST(SubaruTcuDensoSh705xCanExecutor, AcceptedUploadWriteRefusesRawDiscardRead)
 {
     auto plan = ReadPlan(kCases.front());
@@ -928,7 +919,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, AlreadyRunningKernelReadsBothMcuGeometries
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsOk()) << test_case.protocol;
         ASSERT_THAT(result->read_bytes, Optional(_));
@@ -968,7 +959,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ReadKeepsRawBeefBoundaryPayloadsForBothTcu
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsOk());
         ASSERT_THAT(result->read_bytes, Optional(_));
@@ -993,7 +984,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdCoalescesMultiplePortableCanPayloa
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -1018,7 +1009,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdContinuationAppendsTheEntireAccept
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
@@ -1046,7 +1037,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdTrailingDrainPropagatesCancellatio
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(error_kind));
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -1080,7 +1071,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelIdTrailingDrainBoundFallsBack
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "Requesting ECU ID"));
@@ -1167,7 +1158,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeTreatsLegacyNonterminalR
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(HasLog(events, LogLevel::kInfo, "Requesting ECU ID"));
@@ -1191,7 +1182,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeKeepsCancellationAndDisc
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(terminal));
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -1219,7 +1210,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, SessionSafetyCorrectionRejectsBothLegacyPa
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -1240,7 +1231,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, SessionSafetyCorrectionRejectsBothLegacyPa
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_FALSE(HasLog(events, LogLevel::kInfo, "Seed request ok"));
@@ -1269,7 +1260,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, UploadB6ReadsDiscardAllLegacyContentAndAda
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -1296,7 +1287,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, UploadB6KeepsCancellationAndDisconnectTerm
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(terminal));
     }
@@ -1323,7 +1314,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartAcceptsServiceOnlyAndFullEchoBe
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -1371,7 +1362,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartRejectsWrongSidShortTimeoutCanc
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(start.expected));
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -1396,7 +1387,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ToleratedIdentityFailuresAreLoggedInTcuWor
     FakeClock clock;
     RecordingEventSink events;
 
-    const auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -1428,7 +1419,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAnd
     EXPECT_CALL(clock, Sleep(500ms, _)).Times(AtLeast(1));
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -1465,7 +1456,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
                              { timeline.push_back(std::format("sleep:{}", duration.count())); }, clock.SleepOnFake()));
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsOk());
     ASSERT_THAT(result->read_bytes, Optional(_));
@@ -1714,7 +1705,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelPhaseDoesNotCompleteWhenPostUploadId
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -1739,7 +1730,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ZeroElapsedClockUsesOneMillisecondClampFor
         FakeClock clock;
         PhaseCancellingEventSink events(cancellation, "Read", kReadPageSize);
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_THAT(LogMessagesStartingWith(events, "Kernel read addr:"),
@@ -1767,7 +1758,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ZeroElapsedClockUsesOneMillisecondClampFor
         FakeClock clock;
         PhaseCancellingEventSink events(cancellation, "Write", kWriteChunkSize);
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_THAT(LogMessagesStartingWith(events, "Write flash buffer:"),
@@ -1792,7 +1783,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, WriteComparesErasesProgramsAndVerifiesFirs
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -1830,7 +1821,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NonzeroLargeBlockUsesEveryWriteWindowAndEx
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.scripted.ScriptConsumed());
@@ -1896,7 +1887,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, UnchangedWriteEmitsExactFourPhaseProgressS
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -1936,8 +1927,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainIgnoresMalformedAndWrongIdFramesFo
             FakeClock clock;
             PhaseCancellingEventSink events(cancellation, mismatch ? "Compare" : "never", 16);
 
-            auto result =
-                testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+            auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
             if (mismatch)
             {
@@ -1978,8 +1968,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, DisconnectAtAnyReadOfAColdWriteIsReportedA
         FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
-        const auto result =
-            testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
         outcome = {result.has_value() ? std::optional<ErrorKind>{} : std::optional{result.error().kind},
                    transport.read_count};
     };
@@ -2015,7 +2004,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CrcDrainPropagatesCancellationAndDisconnec
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(error_kind));
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -2044,7 +2033,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait..."));
@@ -2065,7 +2054,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
         FakeClock clock;
         PhaseCancellingEventSink events(cancellation, "Read", kReadPageSize);
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -2087,7 +2076,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
         FakeClock clock;
         PhaseCancellingEventSink events(cancellation, "Compare", 1);
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -2116,7 +2105,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
         FakeClock clock;
         PhaseCancellingEventSink events(cancellation, "Write", kWriteChunkSize);
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
@@ -2147,7 +2136,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RejectsInvalidPlanBeforeTransportInteracti
     FakeClock clock;
     RecordingEventSink events;
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
@@ -2170,7 +2159,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NegativeAndDisconnectRepliesAreTyped)
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
     }
@@ -2183,7 +2172,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NegativeAndDisconnectRepliesAreTyped)
         FakeClock clock;
         RecordingEventSink events;
 
-        auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+        auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
     }
@@ -2205,7 +2194,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterEraseReturnsRecoveryWarni
     FakeClock clock;
     CancellingEventSink events(cancellation);
 
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(HasLog(events, LogLevel::kError, kReflashRecoveryWarning));
@@ -2283,8 +2272,7 @@ class SubaruTcuDensoSh705xCanCold : public ::testing::Test
             ScriptReadPages(transport_, kCases.front().rom_size);
         }
         events_.logs.clear();
-        auto result =
-            testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock_, cancellation_, events_);
+        auto result = executor_.Execute(*plan, transport_, clock_, cancellation_, events_);
         EXPECT_TRUE(transport_.ScriptConsumed());
         return result;
     }
@@ -2355,8 +2343,7 @@ TEST_F(SubaruTcuDensoSh705xCanCold, OpcodeOnlyKernelIdContinuesToReadWithoutCold
     transport_.Exchange(KernelIdRequest(), bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x41});
     transport_.QueueNoFrame();
     ScriptReadPages(transport_, kCases.front().rom_size);
-    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock_, cancellation_, events_),
-                IsOk());
+    EXPECT_THAT(executor_.Execute(*plan, transport_, clock_, cancellation_, events_), IsOk());
     EXPECT_TRUE(transport_.ScriptConsumed());
     EXPECT_THAT(events_.logs, Contains(Pair(LogLevel::kInfo, "Kernel ID: ")));
 }
@@ -2388,7 +2375,7 @@ template <typename Script> Result<FlashExecutionResult> RunAfterIdentity(Script 
     FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
-    auto result = testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    auto result = executor.Execute(*plan, transport, clock, cancellation, events);
     EXPECT_TRUE(transport.ScriptConsumed());
     return result;
 }

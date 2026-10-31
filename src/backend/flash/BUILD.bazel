@@ -115,9 +115,16 @@ fastecu_portable_gtest(
 
 cc_library(
     name = "flash_executor",
-    srcs = ["flash_executor.cpp"],
+    srcs = [
+        "flash_executor.cpp",
+        "guarded_can_flash_transport.cpp",
+        "guarded_flash_execution.cpp",
+        "guarded_mixed_can_flash_transport.cpp",
+    ],
     hdrs = [
         "flash_executor.h",
+        "guarded_can_flash_transport.h",
+        "guarded_mixed_can_flash_transport.h",
     ],
     deps = [
         ":flash_plan",
@@ -167,7 +174,6 @@ fastecu_portable_gtest(
     deps = [
         ":flash_executor",
         ":flash_validation",
-        ":guarded_can_flash_transport",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
@@ -225,18 +231,11 @@ cc_library(
     deps = [":flash_executor"],
 )
 
-cc_library(
-    name = "guarded_can_flash_transport",
-    srcs = ["guarded_can_flash_transport.cpp"],
-    hdrs = ["guarded_can_flash_transport.h"],
-    deps = [":flash_executor"],
-)
-
 fastecu_portable_gtest(
     name = "guarded_can_flash_transport_test",
     srcs = ["guarded_can_flash_transport_test.cpp"],
     deps = [
-        ":guarded_can_flash_transport",
+        ":flash_executor",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:result_matchers",
@@ -249,18 +248,11 @@ cc_library(
     hdrs = ["flash_family.h"],
 )
 
-cc_library(
-    name = "guarded_mixed_can_flash_transport",
-    srcs = ["guarded_mixed_can_flash_transport.cpp"],
-    hdrs = ["guarded_mixed_can_flash_transport.h"],
-    deps = [":flash_executor"],
-)
-
 fastecu_portable_gtest(
     name = "guarded_mixed_can_flash_transport_test",
     srcs = ["guarded_mixed_can_flash_transport_test.cpp"],
     deps = [
-        ":guarded_mixed_can_flash_transport",
+        ":flash_executor",
         "//src/backend/ports",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",

@@ -74,7 +74,6 @@ cc_library(
     deps = [
         ":subaru_hitachi_sh7058_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -87,8 +86,6 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -146,8 +143,6 @@ fastecu_portable_gtest(
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
         "//src/backend/flash/ecu/testing:recording_can_flash_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -198,7 +193,6 @@ cc_library(
     deps = [
         ":subaru_denso_sh7058_can_diesel_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -212,8 +206,6 @@ fastecu_portable_gtest(
         "//src/backend/flash:flash_executor",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
         "//src/backend/flash/ecu/testing:recording_can_flash_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -389,7 +381,6 @@ cc_library(
     deps = [
         ":subaru_tcu_denso_sh705x_can_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -401,7 +392,6 @@ cc_library(
     deps = [
         ":subaru_denso_sh7058_can_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -421,7 +411,6 @@ cc_library(
     deps = [
         ":subaru_denso_sh705x_densocan_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_mixed_can_flash_transport",
     ],
 )
 
@@ -648,7 +637,6 @@ cc_library(
     deps = [
         ":mitsu_colt_m32r_can_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -662,8 +650,8 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
         "//src/algorithms/protocol/testing:byte_matchers",
+        "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_validation",
-        "//src/backend/flash:guarded_can_flash_transport",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
@@ -732,8 +720,6 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash/kernel:memory_models",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -755,8 +741,6 @@ fastecu_portable_gtest(
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
         "//src/backend/flash/ecu/testing:recording_can_flash_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -1182,7 +1166,6 @@ cc_library(
     deps = [
         ":subaru_tcu_hitachi_m32r_can_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -1197,8 +1180,6 @@ fastecu_portable_gtest(
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
@@ -1423,8 +1404,6 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
@@ -1454,8 +1433,6 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:recording_clock",
@@ -1475,8 +1452,6 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:mock_clock",
@@ -1525,7 +1500,6 @@ cc_library(
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -1541,8 +1515,6 @@ fastecu_portable_gtest(
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
@@ -1590,7 +1562,6 @@ cc_library(
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8104_can_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -1606,8 +1577,6 @@ fastecu_portable_gtest(
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
@@ -1638,7 +1607,6 @@ cc_library(
     deps = [
         ":subaru_tcu_cvt_hitachi_m32r_can_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -1654,8 +1622,6 @@ fastecu_portable_gtest(
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
@@ -1683,7 +1649,6 @@ cc_library(
     deps = [
         ":subaru_hitachi_m32r_can_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -1699,8 +1664,6 @@ fastecu_portable_gtest(
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
@@ -1794,8 +1757,6 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/ecu/testing:can_executor_conformance",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:recording_clock",
@@ -1877,8 +1838,6 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/ecu/testing:cancellation_blind_can_transport",
-        "//src/backend/flash/testing:execute_with_cancellation_guard",
-        "//src/backend/flash/testing:guarded_attempt_expectations",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
@@ -1903,7 +1862,6 @@ cc_library(
     deps = [
         ":subaru_hitachi_sh72543r_can_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 
@@ -2087,7 +2045,6 @@ cc_library(
         ":subaru_denso_sh72531_can_plan",
         ":subaru_denso_sh72543_can_diesel_plan",
         "//src/backend/flash:flash_executor",
-        "//src/backend/flash:guarded_can_flash_transport",
     ],
 )
 

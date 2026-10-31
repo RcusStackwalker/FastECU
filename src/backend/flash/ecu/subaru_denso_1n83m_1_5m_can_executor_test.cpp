@@ -21,9 +21,7 @@
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/testing/guarded_attempt_expectations.h"
 #include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
-#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -592,8 +590,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationAtTheReadStopIsSwallowed)
             ++stop_write_attempts;
         }
     };
-    const auto result =
-        fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_THAT(result->read_bytes, Optional(_));
@@ -633,9 +630,8 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, BenchJumpExhaustionPreservesReadCountAndT
     SubaruDenso1n83m_1_5mCanExecutor executor;
     const auto plan = ReadPlan();
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_THAT(
-        fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
-        fastecu::testing::IsErr(ErrorKind::kDisconnected));
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_THAT(events.logs,
                 testing::Contains(testing::Pair(fastecu::LogLevel::kError,
@@ -698,8 +694,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, InCarJumpExhaustionAndCancellationPreserv
         SubaruDenso1n83m_1_5mCanExecutor executor;
         const auto plan = ReadPlan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_THAT(fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock,
-                                                                          cancellation, events),
+        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                     fastecu::testing::IsErr(outcome == 1 ? ErrorKind::kDisconnected : ErrorKind::kCancelled));
         EXPECT_TRUE(transport.ScriptConsumed());
         const auto& timeouts = transport.ReadTimeouts();
@@ -738,12 +733,5 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationAfterObkWriteRefusesBlindRepl
     EXPECT_EQ(inner->write_attempts, 1);
     EXPECT_EQ(inner->read_attempts, 0);
     EXPECT_FALSE(inner->ScriptConsumed());
-}
-
-TEST(SubaruDenso1n83m_1_5mCanExecutor, SelectedGuardIsUsedByBoundAttempt)
-{
-    const auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruDenso1n83m_1_5mCanExecutor>(*plan);
 }
 } // namespace

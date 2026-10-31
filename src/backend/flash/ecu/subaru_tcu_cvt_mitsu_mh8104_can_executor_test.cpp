@@ -31,9 +31,7 @@
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/testing/guarded_attempt_expectations.h"
 #include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
-#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/faulting_clock.h"
 #include "src/backend/ports/testing/mock_clock.h"
@@ -314,7 +312,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRun
     ScriptFlashDump(transport, kWindowStart, kWindowLength, 0x100, 0x5A);
     ScriptStopCommand(transport);
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -366,7 +364,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSucceedsEvenWhenEveryDiagnosticR
     ScriptFlashDump(transport, kWindowStart, kWindowLength, 0x100, 0x5A);
     ScriptStopCommand(transport);
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -401,7 +399,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectPropagatesATimeoutBetweenExchang
     transport.Exchange(Request(key_request));
     transport.QueueNoFrame();
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -422,7 +420,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadReturnsTheWindowPaddedWithFF)
     ScriptFlashDump(transport, kWindowStart, kWindowLength, 0x100, 0x5A);
     ScriptStopCommand(transport);
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_THAT(result->read_bytes, Optional(_));
@@ -443,7 +441,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadStopsWhenCancelled)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     cancellation.Cancel();
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
@@ -472,7 +470,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadDisconnectMidDumpLoopPropagates)
     transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24{kWindowStart})));
     transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -532,7 +530,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryCont
     // Checksum: wrong content, still non-fatal.
     transport.Exchange(Request({0x31, 0x01, 0x02, 0x02, 0x01}), Response({0x7F, 0x31, 0x22}));
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -574,7 +572,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteStopsOnATimeoutBetweenChunks)
     transport.Exchange(Request(first_chunk_req));
     transport.QueueError(ErrorKind::kDisconnected, "adapter gone mid-write");
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -592,7 +590,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x80000")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
@@ -612,7 +610,7 @@ fastecu::Result<fastecu::flash::FlashExecutionResult> RunWrite(Transport& transp
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruTcuCvtMitsuMh8104CanExecutor executor;
-    return ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    return executor.Execute(*plan, transport, clock, cancellation, events);
 }
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, AFailedAliveProbeSendStopsBeforeAnyRead)
@@ -742,13 +740,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, AcceptedB6WriteCancellationDoesNotDeleg
     const int chunk_reply_read_attempts = inner->read_attempts;
     EXPECT_EQ(chunk_reply_read_attempts, 0);
     EXPECT_FALSE(inner->ScriptConsumed());
-}
-
-TEST(SubaruTcuCvtMitsuMh8104CanExecutor, SelectedGuardIsUsedByBoundAttempt)
-{
-    auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruTcuCvtMitsuMh8104CanExecutor>(*plan);
 }
 
 } // namespace
