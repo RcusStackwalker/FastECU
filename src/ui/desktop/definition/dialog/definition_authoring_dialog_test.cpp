@@ -290,10 +290,18 @@ TEST_F(DefinitionAuthoringFlow, CancelledImportAndRetryDoesNotWriteOrRegister)
 
 TEST_F(DefinitionAuthoringFlow, InvalidHeaderDoesNotWriteOrRegister)
 {
-    drive({}, root_.filePath("invalid.xml"), [](QDialog& header) { header.accept(); });
+    drive({}, root_.filePath("invalid.xml"),
+          [](QDialog& header)
+          {
+              header.findChild<QLineEdit *>("internalidaddress")->setText("not-an-address");
+              header.accept();
+          });
+    const fastecu::testing::SignalRecorder errors(&dialog_, &DefinitionAuthoringDialog::logE);
     EXPECT_FALSE(dialog_.createNewDefinition());
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
     EXPECT_EQ(messages_, 1);
+    ASSERT_EQ(errors.Count(), 1U);
+    EXPECT_TRUE(std::get<0>(errors.Snapshot()[0]).startsWith("Invalid definition header: "));
 }
 
 TEST_F(DefinitionAuthoringFlow, MalformedImportReportsErrorWithoutOpeningAnEditableHeader)
