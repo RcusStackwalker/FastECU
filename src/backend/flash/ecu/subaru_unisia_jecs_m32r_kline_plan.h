@@ -18,13 +18,6 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation operation, s
                                                      bool adapter_supplies_programming_voltage);
 Status ValidateSubaruUnisiaJecsM32rKlinePlan(const FlashPlan& plan);
 
-template <> struct PlanValidator<SubaruUnisiaJecsM32rKlinePlan>
-{
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruUnisiaJecsM32rKlinePlan(plan);
-    }
-};
 // Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruUnisiaJecsM32rKlineProtocols();
 } // namespace fastecu::flash

@@ -114,4 +114,9 @@ std::span<const std::string_view> SubaruUnisiaJecsProtocols()
     return kExportedProtocols;
 }
 
+Status PlanValidator<SubaruUnisiaJecsPlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruUnisiaJecsPlan(plan);
+}
+
 } // namespace fastecu::flash

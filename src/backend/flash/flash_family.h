@@ -119,7 +119,8 @@ template <typename PlanT> struct FamilyTraits;
 
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
-// the kernel must opt out explicitly, in the plan type's <f>_types.h -- never by editing flash_validation.cpp.
+// the kernel must opt out explicitly, in the plan type's <f>_types.h -- never
+// by editing flash_validation.cpp.
 template <typename PlanT> inline constexpr bool kFamilyRequiresKernel = true;
 
 // A family's plan validator, reached by plan admission (FamilyExecutor in

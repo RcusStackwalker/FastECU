@@ -2,6 +2,8 @@
 #include <cstdint>
 
 #include "src/algorithms/protocol/bytes.h"
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
 
 namespace fastecu::flash
 {
@@ -15,6 +17,17 @@ struct MitsuColtM32rCanPlan
                                // 11-bit physical request id
     bool use_vendor_challenge; // selected by the protocol identifier
     bytes::Byte session_id;    // kSessionBootload (0x85) for Read and Write
+};
+
+template <> struct FamilyTraits<MitsuColtM32rCanPlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kMitsuColtM32rCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
+};
+
+template <> struct PlanValidator<MitsuColtM32rCanPlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 
 } // namespace fastecu::flash

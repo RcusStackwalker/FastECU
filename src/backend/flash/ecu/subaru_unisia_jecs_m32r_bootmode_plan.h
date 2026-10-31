@@ -21,21 +21,6 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation op
 // Validates a plan of either bootmode family.
 Status ValidateSubaruUnisiaJecsM32rBootmodePlan(const FlashPlan& plan);
 
-template <> struct PlanValidator<SubaruUnisiaJecsM32rBootModeProgramPlan>
-{
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruUnisiaJecsM32rBootmodePlan(plan);
-    }
-};
-
-template <> struct PlanValidator<SubaruUnisiaJecsM32rBootModeKernelPlan>
-{
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruUnisiaJecsM32rBootmodePlan(plan);
-    }
-};
 // Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruUnisiaJecsM32rBootModeProtocols();
 } // namespace fastecu::flash

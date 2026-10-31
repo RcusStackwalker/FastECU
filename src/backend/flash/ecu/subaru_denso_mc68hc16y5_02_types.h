@@ -2,6 +2,9 @@
 #include <array>
 #include <cstdint>
 
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
+
 namespace fastecu::flash
 {
 
@@ -19,6 +22,17 @@ struct SubaruDensoMc68hc16y5_02Plan
                                                // {0x4D,0x00,0xB3}, _ecutek {0x4C,0x00,0xB4}
 
     bool operator==(const SubaruDensoMc68hc16y5_02Plan&) const = default;
+};
+
+template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02Plan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoMc68hc16y502;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
+};
+
+template <> struct PlanValidator<SubaruDensoMc68hc16y5_02Plan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 
 } // namespace fastecu::flash

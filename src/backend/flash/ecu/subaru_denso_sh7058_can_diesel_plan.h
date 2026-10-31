@@ -14,14 +14,6 @@ Result<FlashPlan> BuildSubaruDensoSh7058CanDieselPlan(FlashOperation operation, 
                                                       KernelImage kernel);
 Status ValidateSubaruDensoSh7058CanDieselPlan(const FlashPlan& plan);
 
-template <> struct PlanValidator<SubaruDensoSh7058CanDieselPlan>
-{
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruDensoSh7058CanDieselPlan(plan);
-    }
-};
-
 // Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruDensoSh7058CanDieselProtocols();
 } // namespace fastecu::flash

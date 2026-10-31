@@ -3,6 +3,8 @@
 #include <cstdint>
 
 #include "src/backend/flash/ecu/denso_iso15765_bootloader_profile.h"
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
 
 namespace fastecu::flash
 {
@@ -18,6 +20,17 @@ struct SubaruDensoSh72531CanPlan
     bool extended_id;           // false
     std::uint32_t lead_pad_len; // 0x8000, prepended to a read image as 0xFF
     std::uint32_t tail_pad_len; // 0x100, appended to a read image as 0xFF
+};
+
+template <> struct FamilyTraits<SubaruDensoSh72531CanPlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh72531Can;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
+};
+
+template <> struct PlanValidator<SubaruDensoSh72531CanPlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 
 // The family's dialect profile. Legacy reaches most of its timeouts through

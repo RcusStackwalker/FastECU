@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
 
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
+
 namespace fastecu::flash
 {
 
@@ -20,6 +23,17 @@ struct SubaruDensoSh705xKlinePlan
     SubaruDensoSh705xKlineSeedKey seed_key;
 
     bool operator==(const SubaruDensoSh705xKlinePlan&) const = default;
+};
+
+template <> struct FamilyTraits<SubaruDensoSh705xKlinePlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh705xKline;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
+};
+
+template <> struct PlanValidator<SubaruDensoSh705xKlinePlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 
 } // namespace fastecu::flash

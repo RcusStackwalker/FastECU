@@ -2,6 +2,9 @@
 
 #include <cstdint>
 
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
+
 namespace fastecu::flash
 {
 
@@ -17,6 +20,17 @@ struct SubaruDensoSh705xDensoCanPlan
     int bitrate{500000};
     bool iso_extended_id{false};
     bool raw_extended_id{true};
+};
+
+template <> struct FamilyTraits<SubaruDensoSh705xDensoCanPlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh705xDensoCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanRawIso15765;
+};
+
+template <> struct PlanValidator<SubaruDensoSh705xDensoCanPlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 
 } // namespace fastecu::flash

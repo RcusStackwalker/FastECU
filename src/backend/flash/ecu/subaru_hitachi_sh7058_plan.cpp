@@ -130,4 +130,25 @@ std::span<const std::string_view> SubaruHitachiSh7058Protocols()
     return kExportedProtocols;
 }
 
+Status PlanValidator<SubaruHitachiSh7058CanPlan>::Validate(const FlashPlan& plan)
+{
+    if (auto valid = ValidateSubaruHitachiSh7058Plan(plan); !valid.has_value())
+    {
+        return valid;
+    }
+    return plan.Operation() == FlashOperation::kWrite ? Status{}
+                                                      : Fail(ErrorKind::kUnsupported, "SH7058 CAN supports write only");
+}
+
+Status PlanValidator<SubaruHitachiSh7058KlinePlan>::Validate(const FlashPlan& plan)
+{
+    if (auto valid = ValidateSubaruHitachiSh7058Plan(plan); !valid.has_value())
+    {
+        return valid;
+    }
+    return plan.Operation() == FlashOperation::kRead
+               ? Status{}
+               : Fail(ErrorKind::kUnsupported, "SH7058 K-Line supports read only");
+}
+
 } // namespace fastecu::flash

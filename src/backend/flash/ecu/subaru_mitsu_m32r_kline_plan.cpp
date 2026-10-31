@@ -69,4 +69,9 @@ std::span<const std::string_view> SubaruMitsuM32rKlineProtocols()
     return kProtocols;
 }
 
+Status PlanValidator<SubaruMitsuM32rKlinePlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruMitsuM32rKlinePlan(plan);
+}
+
 } // namespace fastecu::flash

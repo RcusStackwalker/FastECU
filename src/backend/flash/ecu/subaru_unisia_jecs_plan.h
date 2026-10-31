@@ -11,13 +11,6 @@ Result<FlashPlan> BuildSubaruUnisiaJecsPlan(FlashOperation operation, std::strin
                                             std::string_view mcu_type, std::optional<bytes::Bytes> image);
 Status ValidateSubaruUnisiaJecsPlan(const FlashPlan& plan);
 
-template <> struct PlanValidator<SubaruUnisiaJecsPlan>
-{
-    static Status Validate(const FlashPlan& plan)
-    {
-        return ValidateSubaruUnisiaJecsPlan(plan);
-    }
-};
 // Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruUnisiaJecsProtocols();
 } // namespace fastecu::flash

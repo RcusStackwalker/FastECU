@@ -233,4 +233,9 @@ std::span<const std::string_view> SubaruDensoSh705xKlineProtocols()
     return kExportedProtocols;
 }
 
+Status PlanValidator<SubaruDensoSh705xKlinePlan>::Validate(const FlashPlan& plan)
+{
+    return ValidateSubaruDensoSh705xKlinePlan(plan);
+}
+
 } // namespace fastecu::flash

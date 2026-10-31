@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
 
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
+
 namespace fastecu::flash
 {
 // Legacy: flash_tcu_cvt_subaru_mitsu_mh8104_can_operation.{h,cpp}. Jumps to
@@ -22,5 +25,16 @@ struct SubaruTcuCvtMitsuMh8104CanPlan
     std::uint32_t response_id; // 0x7e9
     int bitrate;               // 500000
     bool extended_id;          // false
+};
+
+template <> struct FamilyTraits<SubaruTcuCvtMitsuMh8104CanPlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruTcuCvtMitsuMh8104Can;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
+};
+
+template <> struct PlanValidator<SubaruTcuCvtMitsuMh8104CanPlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 } // namespace fastecu::flash

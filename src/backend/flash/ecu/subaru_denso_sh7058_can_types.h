@@ -3,6 +3,8 @@
 #include <cstdint>
 
 #include "src/backend/flash/ecu/denso_beef_can_profile.h"
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
 
 namespace fastecu::flash
 {
@@ -23,6 +25,17 @@ struct SubaruDensoSh7058CanPlan
     int bitrate{500000};
     bool extended_id{false};
     SubaruDensoSh7058CanSecurity security{SubaruDensoSh7058CanSecurity::kStock};
+};
+
+template <> struct FamilyTraits<SubaruDensoSh7058CanPlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh7058Can;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
+};
+
+template <> struct PlanValidator<SubaruDensoSh7058CanPlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 
 inline constexpr DensoBeefCanProfile kSubaruDensoSh7058CanBeefProfile{

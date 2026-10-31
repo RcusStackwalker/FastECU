@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
 
+#include "src/backend/flash/flash_family.h"
+#include "src/backend/ports/result.h"
+
 namespace fastecu::flash
 {
 
@@ -32,6 +35,17 @@ struct DensoSh705xEepromKlinePlan
     int kernel_baud;        // snapshotted resolved family value
 };
 
+template <> struct FamilyTraits<DensoSh705xEepromKlinePlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kDensoSh705xEepromKline;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
+};
+
+template <> struct PlanValidator<DensoSh705xEepromKlinePlan>
+{
+    static Status Validate(const FlashPlan& plan);
+};
+
 struct DensoSh705xEepromCanPlan
 {
     EepromReadMode mode;
@@ -40,6 +54,17 @@ struct DensoSh705xEepromCanPlan
     std::uint32_t response_id; // 0x7e8
     int bitrate;               // 500000
     bool extended_id;          // false
+};
+
+template <> struct FamilyTraits<DensoSh705xEepromCanPlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kDensoSh705xEepromCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
+};
+
+template <> struct PlanValidator<DensoSh705xEepromCanPlan>
+{
+    static Status Validate(const FlashPlan& plan);
 };
 
 } // namespace fastecu::flash
