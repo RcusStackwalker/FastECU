@@ -102,7 +102,7 @@ fastecu::Result<fastecu::flash::FlashPlan> WritePlan(bytes::Bytes rom)
     return BuildSubaruTcuCvtMitsuMh8104CanPlan(FlashOperation::kWrite, kProtocol, kMcu, std::move(rom));
 }
 
-// Hand-built rather than produced by build_subaru_tcu_cvt_mitsu_mh8104_can_plan,
+// Hand-built rather than produced by BuildSubaruTcuCvtMitsuMh8104CanPlan,
 // so a plan whose image size or operation the builder itself would refuse
 // can still reach the executor -- proving the executor's own
 // validate_subaru_tcu_cvt_mitsu_mh8104_can_plan call rejects it before any

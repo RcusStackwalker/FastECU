@@ -2278,7 +2278,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheWriteLoopStopsAtTheNe
 // the executor's own execute() consumes on every plan. Bypasses the plan
 // BUILDER's own TestWrite check (which would otherwise refuse to construct
 // this plan at all -- see SubaruTcuHitachiM32rCanPlan.RejectsTestWriteAsUnsupported)
-// by constructing FlashPlanFields directly through validate_and_build,
+// by constructing FlashPlanFields directly through ValidateAndBuild,
 // mirroring SubaruTcuHitachiM32rCanPlan.ValidatorRejectsTestWriteDirectlyConstructed
 // but through the executor rather than the standalone validator, so the
 // "executor boundary" consumer this family's rejection count depends on is

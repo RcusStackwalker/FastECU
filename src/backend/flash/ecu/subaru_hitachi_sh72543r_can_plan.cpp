@@ -79,7 +79,7 @@ Status ValidateSubaruHitachiSh72543rCanPlan(const FlashPlan& plan)
     }
     // reflash_block ignores its test_write_arg parameter entirely, so "test
     // write" performs the same live erase and flash write as "write" -- see the
-    // TestWrite comment in subaru_hitachi_sh72543r_can_types.h. There is no
+    // TestWrite comment in subaru_hitachi_sh72543r_can_plan.h. There is no
     // dry-run to port.
     if (plan.Operation() != FlashOperation::kRead && plan.Operation() != FlashOperation::kWrite)
     {
@@ -102,7 +102,7 @@ Result<FlashPlan> BuildSubaruHitachiSh72543rCanPlan(FlashOperation operation, st
         return std::unexpected(identity.error());
     }
     // Safety-critical: see the TestWrite policy above and in
-    // subaru_hitachi_sh72543r_can_types.h. Checked before the image checks
+    // subaru_hitachi_sh72543r_can_plan.h. Checked before the image checks
     // below so a TestWrite is rejected even without a ROM image supplied.
     if (operation != FlashOperation::kRead && operation != FlashOperation::kWrite)
     {

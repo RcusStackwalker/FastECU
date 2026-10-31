@@ -24,7 +24,7 @@
 // hack_words() instead of connect_bootloader()/read_mem()/ write_mem() -- those three (plus their
 // private helpers) are the real, previously-unreachable logic this file ports; hack_words() itself
 // is not ported. See the original port design's "Deliberate divergence" section and
-// subaru_tcu_cvt_hitachi_m32r_can_types.h.
+// subaru_tcu_cvt_hitachi_m32r_can_plan.h.
 namespace fastecu::flash
 {
 namespace

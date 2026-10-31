@@ -398,7 +398,7 @@ Status UnlockAndErase(Ctx& ctx, std::string_view stage)
 // dialog-free executor cannot block for a human answer, so each gate became a
 // ConfirmationSpec the desktop dialog answers BEFORE execute() runs: presence
 // in plan.confirmations() means granted, absence means the operator declined or
-// was never asked. Checked rather than assumed -- validate_and_build does not
+// was never asked. Checked rather than assumed -- ValidateAndBuild does not
 // require these specs, so a hand-built plan could otherwise reach the erase
 // trigger ungated.
 bool ConfirmationGranted(const FlashPlan& plan, ConfirmationSpec::Id id)
@@ -662,7 +662,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::Run(const MitsuColtM32rCa
 
     // Legacy execute() dispatched on cmd_type "read"/"write" and silently
     // reported success for anything else. TestWrite is refused by
-    // build_mitsu_colt_m32r_can_plan; the guard is repeated here so a plan
+    // BuildMitsuColtM32rCanPlan; the guard is repeated here so a plan
     // built another way cannot turn a dry run into a real erase and write.
     if (plan.Operation() != FlashOperation::kWrite)
     {
@@ -671,7 +671,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::Run(const MitsuColtM32rCa
 
     events.Notice("Writing ROM, please wait...");
     LogInfo(ctx, "Writing ROM to ECU using CAN");
-    // validate_and_build guarantees a Write plan carries an image; write_mem
+    // ValidateAndBuild guarantees a Write plan carries an image; write_mem
     // re-checks its length, as the legacy write_mem did.
     if (const Status written = WriteMem(ctx, plan, plan.ImageOrEmpty(), phases); !written.has_value())
     {

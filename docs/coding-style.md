@@ -228,7 +228,7 @@ for (int attempt = 0; attempt < 20 && !connected; ++attempt) { ... }
 ## Templates
 
 **Write `&` on a function used as a non-type template argument**
-(`KernelFreeCanWorkflow<FooExecutor, &build_foo_plan>`), so the address is
+(`KernelFreeCanWorkflow<FooExecutor, &BuildFooPlan>`), so the address is
 explicit. (Sonar cpp:S936)
 
 **Declare template type parameters with `typename`, not `class`**

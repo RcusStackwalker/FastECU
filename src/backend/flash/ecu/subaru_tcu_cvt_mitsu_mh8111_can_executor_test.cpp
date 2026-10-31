@@ -104,7 +104,7 @@ fastecu::Result<fastecu::flash::FlashPlan> WritePlan(bytes::Bytes rom)
     return BuildSubaruTcuCvtMitsuMh8111CanPlan(FlashOperation::kWrite, kProtocol, kMcu, std::move(rom));
 }
 
-// Hand-built rather than produced by build_subaru_tcu_cvt_mitsu_mh8111_can_plan,
+// Hand-built rather than produced by BuildSubaruTcuCvtMitsuMh8111CanPlan,
 // so a plan whose image size or operation the builder itself would refuse
 // can still reach the executor -- proving the executor's own
 // validate_subaru_tcu_cvt_mitsu_mh8111_can_plan call rejects it before any
@@ -612,8 +612,8 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
     fastecu::ManualCancellationToken cancellation;
     SubaruTcuCvtMitsuMh8111CanExecutor executor;
 
-    // build_subaru_tcu_cvt_mitsu_mh8111_can_plan rejects this image, but
-    // validate_and_build does not. The executor must still reject it before
+    // BuildSubaruTcuCvtMitsuMh8111CanPlan rejects this image, but
+    // ValidateAndBuild does not. The executor must still reject it before
     // it reaches the TCU handshake.
     auto plan = HandBuiltPlan(FlashOperation::kWrite, kImageSize - 1);
     ASSERT_THAT(plan, fastecu::testing::IsOk());

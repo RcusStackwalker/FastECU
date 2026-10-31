@@ -217,8 +217,8 @@ fastecu::Result<fastecu::flash::FlashPlan> WritePlan(bytes::Bytes rom, std::stri
     return BuildMitsuColtM32rCanPlan(FlashOperation::kWrite, protocol, McuFor(protocol), std::move(rom));
 }
 
-// Hand-built rather than produced by build_mitsu_colt_m32r_can_plan: the
-// default 512 KiB plan declares both confirmations, and validate_and_build
+// Hand-built rather than produced by BuildMitsuColtM32rCanPlan: the
+// default 512 KiB plan declares both confirmations, and ValidateAndBuild
 // does not require them, so this is the only way to reach the executor with a
 // Write plan whose high-risk step was never granted.
 fastecu::Result<fastecu::flash::FlashPlan>
@@ -1242,7 +1242,7 @@ TEST(MitsuColtM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal)
     fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
-    // build_mitsu_colt_m32r_can_plan refuses TestWrite, but validate_and_build
+    // BuildMitsuColtM32rCanPlan refuses TestWrite, but ValidateAndBuild
     // accepts it -- and a dry run must never reach the erase trigger.
     auto plan = WritePlanGranting({fastecu::flash::ConfirmationSpec::Id::kEraseTrigger,
                                    fastecu::flash::ConfirmationSpec::Id::kTopRegionBootstrap},
@@ -1265,7 +1265,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBeforeA
     fastecu::ManualCancellationToken cancellation;
     MitsuColtM32rCanExecutor executor;
 
-    // build_mitsu_colt_m32r_can_plan rejects this image, but validate_and_build
+    // BuildMitsuColtM32rCanPlan rejects this image, but ValidateAndBuild
     // does not. The executor must still reject it before it configures or
     // opens the transport, let alone reaches the ECU handshake.
     auto plan = WritePlanGranting({fastecu::flash::ConfirmationSpec::Id::kEraseTrigger,

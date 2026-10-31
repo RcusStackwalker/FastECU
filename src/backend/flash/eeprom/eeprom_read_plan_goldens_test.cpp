@@ -4,7 +4,7 @@
 //
 // Characterization goldens for the EEPROM read plan (step 5d-6). Written
 // against the former desktop implementation before the portable use case
-// existed, so that re-pointing them at build_eeprom_read_plan proves the
+// existed, so that re-pointing them at BuildEepromReadPlan proves the
 // conversion preserved behavior. Expected values are hand-derived from the
 // protocols' built-in catalog entries (formerly protocols.cfg), which kCan and
 // kKline copy, not captured from either implementation's output.
@@ -63,7 +63,7 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     // The kernel is the only file read.
     EXPECT_EQ(repository.read_handles, (std::vector<std::string>{"kernels/ssmk_can_tp_sh7058.bin"}));
 
-    // denso_sh705x_eeprom_common.cpp build_denso_sh705x_eeprom_plan: CAN
+    // denso_sh705x_eeprom_common.cpp BuildDensoSh705xEepromPlan: CAN
     // family_plan is DensoSh705xEepromCanPlan with request_id=0x7e0,
     // response_id=0x7e8, bitrate=500000, extended_id=false. FlashMethod
     // carries no security suffix here, so security_for_protocol falls
@@ -101,7 +101,7 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     EXPECT_THAT(plan->Kernel()->bytes, ElementsAre(0xaa, 0xbb));
     EXPECT_EQ(repository.read_handles, (std::vector<std::string>{"kernels/ssmk_kline_sh7055.bin"}));
 
-    // denso_sh705x_eeprom_common.cpp build_denso_sh705x_eeprom_plan: K-Line
+    // denso_sh705x_eeprom_common.cpp BuildDensoSh705xEepromPlan: K-Line
     // family_plan is DensoSh705xEepromKlinePlan with tester_id=0xf0,
     // target_id=0x10, initial_baud=4800, kernel_baud=15625 (the resolved
     // family value). FlashMethod carries no security suffix here, so

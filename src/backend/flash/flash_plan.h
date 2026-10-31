@@ -18,7 +18,7 @@ namespace fastecu::flash
 {
 
 // Unvalidated inputs a builder assembles before handing them to
-// validate_and_build (Task 3). Every field here is copied by value; nothing
+// ValidateAndBuild. Every field here is copied by value; nothing
 // in FlashPlan borrows from its caller after construction.
 struct FlashPlanFields
 {
@@ -91,13 +91,13 @@ class FlashPlan
     {
         return fields_.kernel;
     }
-    // The image of a Write/TestWrite plan, which validate_and_build requires
+    // The image of a Write/TestWrite plan, which ValidateAndBuild requires
     // to carry one. Empty for a Read plan, so a caller that skips the
     // operation check reads zero bytes (which every writer rejects by length)
     // instead of dereferencing an empty optional.
     const bytes::Bytes& ImageOrEmpty() const;
     // The kernel of a family that requires one (FamilyTraits::kRequiresKernel).
-    // Empty for a plan without one, for the same reason as image_or_empty().
+    // Empty for a plan without one, for the same reason as ImageOrEmpty().
     const KernelImage& KernelOrEmpty() const;
     const flash::FamilyPlan& FamilyPlan() const
     {

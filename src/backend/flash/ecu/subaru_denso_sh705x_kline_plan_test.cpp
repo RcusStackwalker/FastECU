@@ -189,7 +189,7 @@ TEST(SubaruDensoSh705xKlinePlan, DeviceGeometrySatisfiesTheExecutorsChunking)
 
 // ---- validate_subaru_denso_sh705x_kline_plan() on hand-built plans --------
 
-// The fields build_subaru_denso_sh705x_kline_plan() produces for a
+// The fields BuildSubaruDensoSh705xKlinePlan() produces for a
 // sub_ecu_denso_sh7055_04 TestWrite; each case below breaks exactly one.
 FlashPlanFields ValidFields(FlashOperation operation = FlashOperation::kTestWrite,
                             std::string target_id = "sub_ecu_denso_sh7055_04")

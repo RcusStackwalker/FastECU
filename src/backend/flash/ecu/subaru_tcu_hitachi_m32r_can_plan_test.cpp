@@ -52,7 +52,7 @@ constexpr SingleWindowPlanCase kCase{
     .foreign_mcu = "M32R_512KB_1block",
     // Legacy read_mem computes start_addr - 0x00100000 with start_addr == 0,
     // which underflows uint32_t to 0xFFF00000 and bypasses the "< 0x8000"
-    // floor clamp entirely -- see subaru_tcu_hitachi_m32r_can_types.h's
+    // floor clamp entirely -- see subaru_tcu_hitachi_m32r_can_plan.h's
     // divergence 2. This plan targets the clamp's evident intent (0x8000)
     // instead of the never-observed underflowed address.
     .read_region = MemoryRegion{.start = 0x8000, .length = 0x78000},
@@ -80,7 +80,7 @@ TEST(SubaruTcuHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
 
 // Deliberate divergence 1, and the safety-critical assertion of this whole
 // task: the legacy reflash_block ignores its test_write_arg parameter
-// entirely (see subaru_tcu_hitachi_m32r_can_types.h), so "test write" would
+// entirely (see subaru_tcu_hitachi_m32r_can_plan.h), so "test write" would
 // perform the same live erase and flash write as "write" if ported as-is.
 // This plan has no dry-run to port and rejects TestWrite outright.
 // SingleWindowPlanContract.TestWriteIsRejectedBeforeAnyIo already covers
@@ -99,7 +99,7 @@ TEST(SubaruTcuHitachiM32rCanPlan, RejectsTestWriteAsUnsupported)
 // without coming through the builder -- which is exactly what Task 2's
 // executor does on every transport_setup()/execute() call -- must be
 // rejected by the validator itself, independent of the builder. Constructs
-// FlashPlanFields directly and goes through validate_and_build (which has no
+// FlashPlanFields directly and goes through ValidateAndBuild (which has no
 // TestWrite policy of its own and is expected to succeed) to prove that.
 TEST(SubaruTcuHitachiM32rCanPlan, ValidatorRejectsTestWriteDirectlyConstructed)
 {
