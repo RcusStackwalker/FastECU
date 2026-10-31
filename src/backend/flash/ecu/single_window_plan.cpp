@@ -53,6 +53,32 @@ Status ValidateOperation(const SingleWindowPlanSpec& spec, FlashOperation operat
     }
     return {};
 }
+
+// A plan's window geometry: the transfer covers the read region for a read
+// and the write region otherwise, and a write erases exactly the write region
+// with an image of `image_size` bytes. ValidateAndBuild already keeps erase
+// regions and images off reads.
+Status ValidatePlanWindows(const SingleWindowPlanSpec& spec, const FlashPlan& plan)
+{
+    if (const MemoryRegion& expected = plan.Operation() == FlashOperation::kRead ? spec.read_region : spec.write_region;
+        plan.TransferRegion().start != expected.start || plan.TransferRegion().length != expected.length)
+    {
+        return Fail(kInvalidConfig, std::format("{} transfer region is invalid", spec.display_name));
+    }
+    if (plan.Operation() == FlashOperation::kRead)
+    {
+        return {};
+    }
+    if (!std::ranges::equal(plan.EraseRegions(), std::array{spec.write_region}))
+    {
+        return Fail(kInvalidConfig, std::format("{} erase region is invalid", spec.display_name));
+    }
+    if (plan.Image()->size() != spec.image_size)
+    {
+        return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", spec.image_size));
+    }
+    return {};
+}
 } // namespace
 
 Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPlan& plan)
@@ -69,37 +95,14 @@ Status ValidateSingleWindowPlan(const SingleWindowPlanSpec& spec, const FlashPla
                 {
                     return Fail(kInvalidConfig, std::format("{} plans are kernel-free", spec.display_name));
                 }
+                if (!plan.Confirmations().empty())
+                {
+                    return Fail(kInvalidConfig,
+                                std::format("{} plans must not declare extra confirmations", spec.display_name));
+                }
                 return ValidateOperation(spec, plan.Operation());
             })
-        .and_then(
-            [&]
-            {
-                return ValidatePlanWindows(plan, spec.display_name, spec.read_region, spec.write_region,
-                                           spec.image_size);
-            });
-}
-
-Status ValidatePlanWindows(const FlashPlan& plan, std::string_view name, const MemoryRegion& read_region,
-                           const MemoryRegion& write_region, std::uint32_t image_size)
-{
-    if (const MemoryRegion& expected = plan.Operation() == FlashOperation::kRead ? read_region : write_region;
-        plan.TransferRegion().start != expected.start || plan.TransferRegion().length != expected.length)
-    {
-        return Fail(kInvalidConfig, std::format("{} transfer region is invalid", name));
-    }
-    if (plan.Operation() == FlashOperation::kRead)
-    {
-        return {};
-    }
-    if (!std::ranges::equal(plan.EraseRegions(), std::array{write_region}))
-    {
-        return Fail(kInvalidConfig, std::format("{} erase region is invalid", name));
-    }
-    if (plan.Image()->size() != image_size)
-    {
-        return Fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", image_size));
-    }
-    return {};
+        .and_then([&] { return ValidatePlanWindows(spec, plan); });
 }
 
 Result<FlashPlan> BuildSingleWindowPlan(const SingleWindowPlanSpec& spec, FlashOperation operation,

@@ -1,13 +1,10 @@
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
 
 #include <array>
-#include <format>
 #include <span>
 #include <string_view>
 #include <utility>
 
-#include "src/backend/flash/flash_device_lookup.h"
-#include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/single_window_plan.h"
 
 namespace fastecu::flash
@@ -28,129 +25,61 @@ constexpr std::uint32_t kRomSize = 0x80000;
 // image_size larger than the transfer region.
 constexpr MemoryRegion kWindow{0x8000, 0x78000};
 
-constexpr std::uint32_t kRequestId = 0x7E1;
-constexpr std::uint32_t kResponseId = 0x7E9;
-constexpr int kBitrate = 500000;
-constexpr std::uint32_t kPageSize = 0x100;
-constexpr std::uint32_t kWriteFrameSize = 128U;
-
-Status ValidateIdentity(std::string_view protocol, std::string_view mcu, const FlashDevice *& device)
+bool GeometryOk(const FlashDevice& device)
 {
-    if (protocol != kProtocol)
-    {
-        return Fail(ErrorKind::kInvalidConfig,
-                    std::format("Unsupported Subaru TCU Hitachi M32R CAN protocol: {}", protocol));
-    }
-    if (mcu != kMcu)
-    {
-        return Fail(
-            ErrorKind::kInvalidConfig,
-            std::format("Subaru TCU Hitachi M32R CAN protocol {} requires MCU {}, not {}", protocol, kMcu, mcu));
-    }
-    device = FindFlashDevice(kMcu);
-    if (device == nullptr || device->romsize != kRomSize || device->fblocks == nullptr)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN flash geometry is invalid");
-    }
-    return {};
+    return device.romsize == kRomSize && device.fblocks != nullptr;
 }
 
-bool WireParametersMatch(const SubaruTcuHitachiM32rCanPlan& wire)
+bool WireParamsOk(const FlashPlan& plan)
 {
-    return wire.request_id == kRequestId && wire.response_id == kResponseId && wire.bitrate == kBitrate &&
-           !wire.extended_id && wire.page_size == kPageSize && wire.write_frame_size == kWriteFrameSize;
+    const auto *p = plan.FamilyPlan().As<SubaruTcuHitachiM32rCanPlan>();
+    return p != nullptr && p->request_id == 0x7E1 && p->response_id == 0x7E9 && p->bitrate == 500000 &&
+           !p->extended_id && p->page_size == 0x100 && p->write_frame_size == 128U;
 }
 
+constexpr std::array kExportedProtocols{kProtocol};
+
+// TestWrite is rejected (safety-critical): the legacy reflash_block ignores
+// its test_write_arg parameter entirely, so "test write" would perform the
+// same live erase and flash write as "write" -- see the divergence-1 comment
+// in subaru_tcu_hitachi_m32r_can_plan.h. There is no dry-run to port.
+//
+// The write erase region is decorative on the write path (T4b): write_rom()
+// never reads erase_regions() -- the wire erase is the chip-level
+// `31 02 01 FF FF FF FF` in executor.cpp's erase_flash(), which takes no
+// region argument at all. A future UI confirmation built on this field would
+// display 0x8000-0x80000, but the wire command's actual erase scope is
+// precisely the open question recorded in the bench checklist's item 0
+// (blocks 3-10 only, or chip-wide).
+constexpr SingleWindowPlanSpec kSpec{
+    .display_name = "Subaru TCU Hitachi M32R CAN",
+    .protocols = kExportedProtocols,
+    .mcu = kMcu,
+    .read_region = kWindow,
+    .write_region = kWindow,
+    .image_size = kRomSize,
+    .geometry_ok = GeometryOk,
+    .wire_params_ok = WireParamsOk,
+};
 } // namespace
 
 Status ValidateSubaruTcuHitachiM32rCanPlan(const FlashPlan& plan)
 {
-    const FlashDevice *device = nullptr;
-    if (Status identity = ValidateIdentity(plan.TargetId(), plan.McuName(), device); !identity.has_value())
-    {
-        return identity;
-    }
-    const auto *wire = plan.FamilyPlan().As<SubaruTcuHitachiM32rCanPlan>();
-    if (wire == nullptr || !WireParametersMatch(*wire))
-    {
-        return Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN wire parameters are invalid");
-    }
-    if (plan.Kernel().has_value())
-    {
-        return Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN plans are kernel-free");
-    }
-    // Safety-critical: the legacy reflash_block ignores its test_write_arg
-    // parameter entirely, so "test write" performs the same live erase and
-    // flash write as "write" -- see the divergence-1 comment in
-    // subaru_tcu_hitachi_m32r_can_plan.h. There is no dry-run to port.
-    if (plan.Operation() == FlashOperation::kTestWrite)
-    {
-        return Fail(ErrorKind::kUnsupported, "test_write is not supported by Subaru TCU Hitachi M32R CAN");
-    }
-    if (!plan.Confirmations().empty())
-    {
-        return Fail(ErrorKind::kInvalidConfig,
-                    "Subaru TCU Hitachi M32R CAN plans must not declare extra confirmations");
-    }
-    return ValidatePlanWindows(plan, "Subaru TCU Hitachi M32R CAN", kWindow, kWindow, kRomSize);
+    return ValidateSingleWindowPlan(kSpec, plan);
 }
 
 Result<FlashPlan> BuildSubaruTcuHitachiM32rCanPlan(FlashOperation operation, std::string_view protocol_name,
                                                    std::string_view mcu_type, std::optional<bytes::Bytes> image)
 {
-    const FlashDevice *device = nullptr;
-    if (Status identity = ValidateIdentity(protocol_name, mcu_type, device); !identity.has_value())
+    // Unlike the other single-window families, which drop a read's image,
+    // this family rejects one.
+    if (operation == FlashOperation::kRead && image.has_value())
     {
-        return std::unexpected(identity.error());
+        return Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN read plans must not carry an image");
     }
-    // Safety-critical: see the divergence-1 comment above and in
-    // subaru_tcu_hitachi_m32r_can_plan.h. Checked before the image checks
-    // below so a TestWrite is rejected even without a ROM image supplied.
-    if (operation == FlashOperation::kTestWrite)
-    {
-        return Fail(ErrorKind::kUnsupported, "test_write is not supported by Subaru TCU Hitachi M32R CAN");
-    }
-    if (operation == FlashOperation::kRead)
-    {
-        if (image.has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "Subaru TCU Hitachi M32R CAN read plans must not carry an image");
-        }
-    }
-    else if (!image.has_value() || image->size() != kRomSize)
-    {
-        return Fail(ErrorKind::kInvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", kRomSize));
-    }
-
-    FlashPlanFields fields{
-        .operation = operation,
-        .target_id = std::string(protocol_name),
-        .mcu_name = std::string(mcu_type),
-        .transfer_region = kWindow,
-        // T4b: decorative on the write path. write_rom() never reads
-        // erase_regions() -- the wire erase is the chip-level
-        // `31 02 01 FF FF FF FF` in executor.cpp's erase_flash(), which
-        // takes no region argument at all. A future UI confirmation built on
-        // this field would display 0x8000-0x80000, but the wire command's
-        // actual erase scope is precisely the open question recorded in the
-        // bench checklist's item 0 (blocks 3-10 only, or chip-wide).
-        .erase_regions = operation == FlashOperation::kWrite ? std::vector{kWindow} : std::vector<MemoryRegion>{},
-        .image = operation == FlashOperation::kWrite ? std::move(image) : std::nullopt,
-        .kernel = std::nullopt,
-        .family_plan = SubaruTcuHitachiM32rCanPlan{.request_id = kRequestId,
-                                                   .response_id = kResponseId,
-                                                   .bitrate = kBitrate,
-                                                   .extended_id = false,
-                                                   .page_size = kPageSize,
-                                                   .write_frame_size = kWriteFrameSize},
-        .confirmations = {},
-    };
-    return ValidateAndBuild(std::move(fields))
-        .and_then([](FlashPlan plan)
-                  { return ValidateSubaruTcuHitachiM32rCanPlan(plan).transform([&] { return std::move(plan); }); });
+    return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
+                                 SubaruTcuHitachiM32rCanPlan{0x7E1, 0x7E9, 500000, false, 0x100, 128U});
 }
-
-constexpr std::array kExportedProtocols{kProtocol};
 
 std::span<const std::string_view> SubaruTcuHitachiM32rCanProtocols()
 {
