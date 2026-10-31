@@ -710,7 +710,10 @@ using SubaruDensoMc68hc16y5_02BdmWorkflow =
     SingleAttemptFlashWorkflow<SubaruDensoMc68hc16y5_02BdmExecutor, IKlineFlashTransport,
                                &PrepareSubaruDensoMc68hc16y502BdmPlan>;
 
-class EepromWorkflow final : public FlashWorkflow
+// A Denso SH705x EEPROM read: Begin, then one attempt per mode (2, 3, 4)
+// until the operator saves one. The route picks the executor, and with it the
+// family the plan is built for and the transport it is bound to.
+template <typename Executor, typename Transport> class EepromWorkflow final : public FlashWorkflow
 {
   public:
     EepromWorkflow(FlashWorkflowRequest request, FlashWorkflowPorts ports)
@@ -741,21 +744,15 @@ class EepromWorkflow final : public FlashWorkflow
             return FlashPromptStep{FlashPromptKind::kInspectRead, {}};
         }
 
-        auto plan = BuildEepromReadPlan(request_.paths, request_.protocol, mode_, *ports_.files);
+        auto plan = BuildEepromReadPlan(FamilyTraits<typename Executor::PlanType>::kFamily, request_.paths,
+                                        request_.protocol, mode_, *ports_.files);
         if (!plan)
         {
             return FlashFailureStep{plan.error()};
         }
-        if (plan->Transport() == TransportKind::kKline)
-        {
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     BindAdmittedAttempt(std::move(*plan),
-                                                         std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                                                         ports_.transports->MakeKline())};
-        }
         return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                 BindAdmittedAttempt(std::move(*plan), std::make_unique<DensoSh705xEepromCanExecutor>(),
-                                                     ports_.transports->MakeCan())};
+                                 BindAdmittedAttempt(std::move(*plan), std::make_unique<Executor>(),
+                                                     MakeTransport<Transport>(*ports_.transports))};
     }
 
     void Submit(FlashPromptResponse response) override
@@ -839,6 +836,9 @@ class EepromWorkflow final : public FlashWorkflow
     FlashAttemptOutcome outcome_;
 };
 
+using EepromKlineWorkflow = EepromWorkflow<DensoSh705xEepromKlineExecutor, IKlineFlashTransport>;
+using EepromCanWorkflow = EepromWorkflow<DensoSh705xEepromCanExecutor, ICanFlashTransport>;
+
 using CreateWorkflow = std::unique_ptr<FlashWorkflow> (*)(FlashWorkflowRequest, FlashWorkflowPorts);
 
 template <typename Workflow> std::unique_ptr<FlashWorkflow> Make(FlashWorkflowRequest request, FlashWorkflowPorts ports)
@@ -866,7 +866,8 @@ std::span<const FlashRoute> FlashRoutes()
 {
     static const auto kFlashRoutes = std::to_array<FlashRoute>({
         {MitsuColtM32rCanProtocols(), &Make<ColtWorkflow>},
-        {DensoSh705xEepromProtocols(), &Make<EepromWorkflow>},
+        {DensoSh705xEepromKlineProtocols(), &Make<EepromKlineWorkflow>},
+        {DensoSh705xEepromCanProtocols(), &Make<EepromCanWorkflow>},
         {SubaruMitsuM32rKlineProtocols(), &Make<SubaruMitsuM32rKlineWorkflow>},
         {SubaruHitachiM32rKlineProtocols(), &Make<SubaruHitachiM32rKlineWorkflow>},
         {SubaruDensoMc68hc16y502Protocols(), &Make<SubaruDensoMc68hc16y5_02Workflow>},

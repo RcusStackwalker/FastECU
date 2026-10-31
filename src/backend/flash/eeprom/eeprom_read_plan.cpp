@@ -14,30 +14,20 @@ namespace fastecu::flash
 {
 namespace
 {
-constexpr std::array kEepromProtocols{
+// The exact protocol ids routed to each EEPROM family. Legacy mainwindow.cpp
+// sent the "_kline" names to EepromEcuSubaruDensoSH705xKline and every other
+// Denso SH705x EEPROM name ("_densocan", "_can", "_can_diesel") to
+// EepromEcuSubaruDensoSH705xCan.
+constexpr std::array kKlineProtocols{
     std::string_view{"sub_ecu_eeprom_denso_sh7055_kline"},
     std::string_view{"sub_ecu_eeprom_denso_sh7058_kline"},
+};
+constexpr std::array kCanProtocols{
     std::string_view{"sub_ecu_eeprom_denso_sh7055_densocan"},
     std::string_view{"sub_ecu_eeprom_denso_sh7058_densocan"},
     std::string_view{"sub_ecu_eeprom_denso_sh7058_can"},
     std::string_view{"sub_ecu_eeprom_denso_sh7058_can_diesel"},
 };
-
-// Mirrors mainwindow.cpp's EEPROM dispatch: protocol names ending "_kline"
-// route to EepromEcuSubaruDensoSH705xKline; every other Denso SH705x EEPROM
-// protocol name in that block ("_densocan", "_can", "_can_diesel") routes to
-// EepromEcuSubaruDensoSH705xCan. This use case only ever builds a plan for one
-// of those two families, so a substring check on "kline" (rather than
-// reproducing every full protocol-name literal) is sufficient and matches the
-// legacy branch structure.
-FlashFamily FamilyForProtocol(std::string_view protocol_name)
-{
-    if (protocol_name.contains("kline"))
-    {
-        return FlashFamily::kDensoSh705xEepromKline;
-    }
-    return FlashFamily::kDensoSh705xEepromCan;
-}
 
 // CONFIRMED: the Denso security-variant suffix lives directly on the
 // protocol name. mainwindow.cpp copies
@@ -77,8 +67,9 @@ Result<DensoSecurityVariant> SecurityForProtocol(std::string_view protocol_name)
 
 } // namespace
 
-Result<FlashPlan> BuildEepromReadPlan(const config::ConfigPaths& paths, const config::ProtocolSpec& protocol,
-                                      EepromReadMode mode, IFileRepository& file_repository)
+Result<FlashPlan> BuildEepromReadPlan(FlashFamily family, const config::ConfigPaths& paths,
+                                      const config::ProtocolSpec& protocol, EepromReadMode mode,
+                                      IFileRepository& file_repository)
 {
     const std::string target_id(protocol.name);
 
@@ -101,7 +92,7 @@ Result<FlashPlan> BuildEepromReadPlan(const config::ConfigPaths& paths, const co
 
     DensoSh705xEepromInput input{
         .operation = FlashOperation::kRead,
-        .family = FamilyForProtocol(protocol.name),
+        .family = family,
         .target_id = target_id,
         .mcu_name = std::string(protocol.mcu),
         .flash_method = target_id,
@@ -130,9 +121,14 @@ Result<FlashPlan> BuildEepromReadPlan(const config::ConfigPaths& paths, const co
             });
 }
 
-std::span<const std::string_view> DensoSh705xEepromProtocols()
+std::span<const std::string_view> DensoSh705xEepromKlineProtocols()
 {
-    return kEepromProtocols;
+    return kKlineProtocols;
+}
+
+std::span<const std::string_view> DensoSh705xEepromCanProtocols()
+{
+    return kCanProtocols;
 }
 
 } // namespace fastecu::flash

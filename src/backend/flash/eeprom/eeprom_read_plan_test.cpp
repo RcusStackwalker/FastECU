@@ -5,6 +5,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
@@ -74,7 +75,8 @@ TEST(BuildEepromReadPlanTest, KlineProtocolProducesAKlinePlan)
 {
     InMemoryFileRepository repository = MakeRepository();
 
-    auto plan = BuildEepromReadPlan(TestPaths(), kKline, EepromReadMode::kMode2, repository);
+    auto plan = BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromKline, TestPaths(), kKline, EepromReadMode::kMode2,
+                                    repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->Family(), FlashFamily::kDensoSh705xEepromKline);
@@ -90,7 +92,8 @@ TEST(BuildEepromReadPlanTest, CanProtocolProducesACanPlan)
 {
     InMemoryFileRepository repository = MakeRepository();
 
-    auto plan = BuildEepromReadPlan(TestPaths(), kCan, EepromReadMode::kMode3, repository);
+    auto plan =
+        BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(), kCan, EepromReadMode::kMode3, repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->Family(), FlashFamily::kDensoSh705xEepromCan);
@@ -107,7 +110,9 @@ TEST(BuildEepromReadPlanTest, KernelHandleIsDirectoryPlusFilenameWithNoAddedSepa
 {
     InMemoryFileRepository repository = MakeRepository();
 
-    ASSERT_THAT(BuildEepromReadPlan(TestPaths(), kCan, EepromReadMode::kMode2, repository), fastecu::testing::IsOk());
+    ASSERT_THAT(
+        BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(), kCan, EepromReadMode::kMode2, repository),
+        fastecu::testing::IsOk());
     // The kernel is the only file read.
     EXPECT_EQ(repository.read_handles, (std::vector<std::string>{"kernels/ssmk_can_tp_sh7058.bin"}));
 }
@@ -117,7 +122,7 @@ TEST(BuildEepromReadPlanTest, InvalidModeIsRejectedBeforeReadingTheKernel)
     InMemoryFileRepository repository = MakeRepository();
 
     // Exercise the invalid-value rejection path.
-    ASSERT_THAT(BuildEepromReadPlan(TestPaths(), kCan,
+    ASSERT_THAT(BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(), kCan,
                                     // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
                                     static_cast<EepromReadMode>(0), repository),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -128,7 +133,8 @@ TEST(BuildEepromReadPlanTest, UnsupportedKlineSecurityIsRejectedBeforeReadingThe
 {
     InMemoryFileRepository repository = MakeRepository();
 
-    ASSERT_THAT(BuildEepromReadPlan(TestPaths(), kKlineCobb, EepromReadMode::kMode2, repository),
+    ASSERT_THAT(BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromKline, TestPaths(), kKlineCobb,
+                                    EepromReadMode::kMode2, repository),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(repository.ReadCount("kernels/ssmk_kline_sh7055.bin"), 0);
 }
@@ -137,7 +143,8 @@ TEST(BuildEepromReadPlanTest, KernelAddressOutsideRamIsRejectedBeforeReadingTheK
 {
     InMemoryFileRepository repository = MakeRepository();
 
-    ASSERT_THAT(BuildEepromReadPlan(TestPaths(), kBadKernelAddress, EepromReadMode::kMode2, repository),
+    ASSERT_THAT(BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(), kBadKernelAddress,
+                                    EepromReadMode::kMode2, repository),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(repository.ReadCount("kernels/out_of_range.bin"), 0);
 }
@@ -147,7 +154,7 @@ TEST(BuildEepromReadPlanTest, KernelAddressAtExclusiveRamEndIsRejectedBeforeRead
     InMemoryFileRepository repository = MakeRepository();
     repository.files["kernels/synthetic.bin"] = {0x01, 0x02, 0x03};
 
-    ASSERT_THAT(BuildEepromReadPlan(TestPaths(),
+    ASSERT_THAT(BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(),
                                     SyntheticProtocol("sub_ecu_eeprom_denso_sh7058_can", "SH7058", 0xFFFFC000U),
                                     EepromReadMode::kMode2, repository),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -159,8 +166,9 @@ TEST(BuildEepromReadPlanTest, KernelReadFailureIsPropagated)
     InMemoryFileRepository repository = MakeRepository();
     repository.read_errors["kernels/ssmk_can_tp_sh7058.bin"] = Error{ErrorKind::kInternal, "disk error"};
 
-    ASSERT_THAT(BuildEepromReadPlan(TestPaths(), kCan, EepromReadMode::kMode2, repository),
-                fastecu::testing::IsErr(ErrorKind::kInternal));
+    ASSERT_THAT(
+        BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(), kCan, EepromReadMode::kMode2, repository),
+        fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 
 // Successor to the deleted adapter's unknown-MCU rejection test. Removing
@@ -170,7 +178,7 @@ TEST(BuildEepromReadPlanTest, UnknownMcuIsRejectedBeforeReadingTheKernel)
     InMemoryFileRepository repository = MakeRepository();
     repository.files["kernels/synthetic.bin"] = {0x01, 0x02, 0x03};
 
-    ASSERT_THAT(BuildEepromReadPlan(TestPaths(),
+    ASSERT_THAT(BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(),
                                     SyntheticProtocol("sub_ecu_eeprom_denso_sh7058_can", "NOT_A_REAL_MCU", 0xFFFF3000U),
                                     EepromReadMode::kMode2, repository),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -183,7 +191,7 @@ TEST(BuildEepromReadPlanTest, MissingKernelLoadAddressIsRejectedBeforeReadingThe
 {
     InMemoryFileRepository repository = MakeRepository();
     repository.files["kernels/synthetic.bin"] = {0x01, 0x02, 0x03};
-    ASSERT_THAT(BuildEepromReadPlan(TestPaths(),
+    ASSERT_THAT(BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(),
                                     SyntheticProtocol("sub_ecu_eeprom_denso_sh7058_can", "SH7058", std::nullopt),
                                     EepromReadMode::kMode2, repository),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -198,7 +206,7 @@ TEST(BuildEepromReadPlanTest, EcuTekSuffixProducesAnEcuTekPlan)
     InMemoryFileRepository repository = MakeRepository();
     repository.files["kernels/synthetic.bin"] = {0x01, 0x02, 0x03};
 
-    auto plan = BuildEepromReadPlan(TestPaths(),
+    auto plan = BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(),
                                     SyntheticProtocol("sub_ecu_eeprom_denso_sh7058_can_ecutek", "SH7058", 0xFFFF3000U),
                                     EepromReadMode::kMode2, repository);
 
@@ -214,7 +222,7 @@ TEST(BuildEepromReadPlanTest, EcuTekRaceRomAltSuffixIsRejectedBeforeReadingTheKe
     repository.files["kernels/synthetic.bin"] = {0x01, 0x02, 0x03};
 
     ASSERT_THAT(BuildEepromReadPlan(
-                    TestPaths(),
+                    FlashFamily::kDensoSh705xEepromCan, TestPaths(),
                     SyntheticProtocol("sub_ecu_eeprom_denso_sh7058_can_ecutek_racerom_alt", "SH7058", 0xFFFF3000U),
                     EepromReadMode::kMode2, repository),
                 fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
@@ -226,9 +234,10 @@ TEST(BuildEepromReadPlanTest, EcuTekRaceRomSuffixStillProducesAnEcuTekRaceRomPla
     InMemoryFileRepository repository = MakeRepository();
     repository.files["kernels/synthetic.bin"] = {0x01, 0x02, 0x03};
 
-    auto plan = BuildEepromReadPlan(
-        TestPaths(), SyntheticProtocol("sub_ecu_eeprom_denso_sh7058_can_ecutek_racerom", "SH7058", 0xFFFF3000U),
-        EepromReadMode::kMode2, repository);
+    auto plan =
+        BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(),
+                            SyntheticProtocol("sub_ecu_eeprom_denso_sh7058_can_ecutek_racerom", "SH7058", 0xFFFF3000U),
+                            EepromReadMode::kMode2, repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     const auto *can_plan = plan->FamilyPlan().As<DensoSh705xEepromCanPlan>();
@@ -252,6 +261,16 @@ std::vector<std::uint8_t> BundledKernel(std::string_view name)
     return {};
 }
 
+TEST(BuildEepromReadPlanTest, AFamilyOtherThanTheEepromPairIsRejectedBeforeReadingTheKernel)
+{
+    InMemoryFileRepository repository = MakeRepository();
+
+    ASSERT_THAT(
+        BuildEepromReadPlan(FlashFamily::kSubaruDensoSh7058Can, TestPaths(), kCan, EepromReadMode::kMode2, repository),
+        fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(repository.read_handles, IsEmpty());
+}
+
 TEST(BuildEepromReadPlanTest, EveryBuiltinEepromProtocolBuildsWithItsBundledKernel)
 {
     int checked = 0;
@@ -265,11 +284,16 @@ TEST(BuildEepromReadPlanTest, EveryBuiltinEepromProtocolBuildsWithItsBundledKern
         InMemoryFileRepository repository;
         repository.files["kernels/" + std::string(protocol.kernel)] = BundledKernel(protocol.kernel);
         ASSERT_THAT(repository.files.begin()->second, Not(IsEmpty())) << protocol.kernel;
+        const bool kline = std::ranges::contains(DensoSh705xEepromKlineProtocols(), protocol.name);
+        const bool can = std::ranges::contains(DensoSh705xEepromCanProtocols(), protocol.name);
+        ASSERT_NE(kline, can) << protocol.name << " must be routed to exactly one EEPROM family";
+        const FlashFamily family = kline ? FlashFamily::kDensoSh705xEepromKline : FlashFamily::kDensoSh705xEepromCan;
         for (EepromReadMode mode : {EepromReadMode::kMode2, EepromReadMode::kMode3, EepromReadMode::kMode4})
         {
             SCOPED_TRACE(::testing::PrintToString(mode));
-            EXPECT_THAT(BuildEepromReadPlan(TestPaths(), protocol, mode, repository), fastecu::testing::IsOk())
-                << protocol.name << " mode " << static_cast<int>(mode);
+            auto plan = BuildEepromReadPlan(family, TestPaths(), protocol, mode, repository);
+            ASSERT_THAT(plan, fastecu::testing::IsOk()) << protocol.name << " mode " << static_cast<int>(mode);
+            EXPECT_EQ(plan->Family(), family);
         }
         ++checked;
     }

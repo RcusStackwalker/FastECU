@@ -49,7 +49,8 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     InMemoryFileRepository repository;
     repository.files["kernels/ssmk_can_tp_sh7058.bin"] = {0x01, 0x02, 0x03};
 
-    auto plan = BuildEepromReadPlan(TestPaths(), kCan, EepromReadMode::kMode2, repository);
+    auto plan =
+        BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromCan, TestPaths(), kCan, EepromReadMode::kMode2, repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->Operation(), FlashOperation::kRead);
@@ -88,7 +89,8 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     InMemoryFileRepository repository;
     repository.files["kernels/ssmk_kline_sh7055.bin"] = {0xaa, 0xbb};
 
-    auto plan = BuildEepromReadPlan(TestPaths(), kKline, EepromReadMode::kMode4, repository);
+    auto plan = BuildEepromReadPlan(FlashFamily::kDensoSh705xEepromKline, TestPaths(), kKline, EepromReadMode::kMode4,
+                                    repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->Operation(), FlashOperation::kRead);

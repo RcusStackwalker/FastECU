@@ -224,11 +224,10 @@ Result<FlashPlan> BuildDensoSh705xEepromPlan(DensoSh705xEepromInput input)
         return std::unexpected(preflight.error());
     }
 
-    TransportKind transport =
-        input.family == FlashFamily::kDensoSh705xEepromKline ? TransportKind::kKline : TransportKind::kCanIso15765;
-
+    // The preflight admitted only the two EEPROM families; the plan type
+    // supplies the transport (ADR 0030).
     FamilyPlan family_plan;
-    if (transport == TransportKind::kKline)
+    if (input.family == FlashFamily::kDensoSh705xEepromKline)
     {
         family_plan = DensoSh705xEepromKlinePlan{
             .mode = input.mode,
