@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <ranges>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -62,4 +63,10 @@ Result<FlashPlan> BuildSubaruMitsuM32rKlinePlan(FlashOperation operation, std::s
     return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
                                  SubaruMitsuM32rKlinePlan{0xf0, 0x10, 4800, 15625, 128, 0xff});
 }
+
+std::span<const std::string_view> SubaruMitsuM32rKlineProtocols()
+{
+    return kProtocols;
+}
+
 } // namespace fastecu::flash

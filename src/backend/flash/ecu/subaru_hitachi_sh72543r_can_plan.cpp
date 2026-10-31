@@ -1,6 +1,10 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 
+#include <algorithm>
+#include <array>
 #include <format>
+#include <span>
+#include <string_view>
 #include <utility>
 
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_types.h"
@@ -14,6 +18,7 @@ namespace
 {
 
 constexpr std::string_view kProtocol = "sub_ecu_hitachi_sh72543r_can";
+constexpr std::array kProtocols{kProtocol, std::string_view{"sub_ecu_hitachi_sh72543r_can_recovery"}};
 constexpr std::string_view kMcu = "SH72543R";
 constexpr std::uint32_t kRomSize = 0x200000;
 
@@ -28,7 +33,7 @@ constexpr std::uint32_t kWriteFrameSize = 0x100U;
 
 Status ValidateIdentity(std::string_view protocol, std::string_view mcu, const FlashDevice *& device)
 {
-    if (protocol != kProtocol && protocol != "sub_ecu_hitachi_sh72543r_can_recovery")
+    if (!std::ranges::contains(kProtocols, protocol))
     {
         return Fail(ErrorKind::kInvalidConfig,
                     std::format("Unsupported Subaru Hitachi SH72543R CAN protocol: {}", protocol));
@@ -138,6 +143,11 @@ Result<FlashPlan> BuildSubaruHitachiSh72543rCanPlan(FlashOperation operation, st
     return ValidateAndBuild(std::move(fields))
         .and_then([](FlashPlan plan)
                   { return ValidateSubaruHitachiSh72543rCanPlan(plan).transform([&] { return std::move(plan); }); });
+}
+
+std::span<const std::string_view> SubaruHitachiSh72543rCanProtocols()
+{
+    return kProtocols;
 }
 
 } // namespace fastecu::flash

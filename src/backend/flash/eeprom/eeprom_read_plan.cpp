@@ -1,7 +1,9 @@
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
 
+#include <array>
 #include <format>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -12,6 +14,14 @@ namespace fastecu::flash
 {
 namespace
 {
+constexpr std::array kEepromProtocols{
+    std::string_view{"sub_ecu_eeprom_denso_sh7055_kline"},
+    std::string_view{"sub_ecu_eeprom_denso_sh7058_kline"},
+    std::string_view{"sub_ecu_eeprom_denso_sh7055_densocan"},
+    std::string_view{"sub_ecu_eeprom_denso_sh7058_densocan"},
+    std::string_view{"sub_ecu_eeprom_denso_sh7058_can"},
+    std::string_view{"sub_ecu_eeprom_denso_sh7058_can_diesel"},
+};
 
 // Mirrors mainwindow.cpp's EEPROM dispatch: protocol names ending "_kline"
 // route to EepromEcuSubaruDensoSH705xKline; every other Denso SH705x EEPROM
@@ -118,6 +128,11 @@ Result<FlashPlan> BuildEepromReadPlan(const config::ConfigPaths& paths, const co
                 input.kernel.bytes = std::move(kernel_bytes);
                 return BuildDensoSh705xEepromPlan(std::move(input));
             });
+}
+
+std::span<const std::string_view> DensoSh705xEepromProtocols()
+{
+    return kEepromProtocols;
 }
 
 } // namespace fastecu::flash

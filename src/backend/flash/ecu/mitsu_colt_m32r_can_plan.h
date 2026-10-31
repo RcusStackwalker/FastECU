@@ -1,5 +1,6 @@
 #pragma once
 #include <optional>
+#include <span>
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
@@ -25,4 +26,6 @@ template <> struct PlanValidator<MitsuColtM32rCanPlan>
     }
 };
 
+// Exact protocol ids routed to this family, in table order.
+std::span<const std::string_view> MitsuColtM32rCanProtocols();
 } // namespace fastecu::flash

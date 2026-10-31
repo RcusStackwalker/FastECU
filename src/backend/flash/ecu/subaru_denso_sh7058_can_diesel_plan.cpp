@@ -3,6 +3,8 @@
 #include <array>
 #include <cstddef>
 #include <format>
+#include <span>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -100,6 +102,13 @@ Result<FlashPlan> BuildSubaruDensoSh7058CanDieselPlan(FlashOperation operation, 
         },
         std::move(image), std::move(kernel), entry->kernel_load_address, *device,
         ValidateSubaruDensoSh7058CanDieselPlan);
+}
+
+constexpr auto kExportedProtocols = detail::ProtocolIdsOf<&CatalogEntry::protocol>(kCatalog);
+
+std::span<const std::string_view> SubaruDensoSh7058CanDieselProtocols()
+{
+    return kExportedProtocols;
 }
 
 } // namespace fastecu::flash

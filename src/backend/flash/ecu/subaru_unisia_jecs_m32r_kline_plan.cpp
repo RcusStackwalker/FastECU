@@ -4,10 +4,12 @@
 #include <array>
 #include <cstdint>
 #include <format>
+#include <span>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "src/backend/flash/ecu/plan_primitives.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 
@@ -24,14 +26,17 @@ struct Variant
 };
 
 // Built-in catalog: _20 and _30 are read/write; _40 and _70 are read-only.
-// test_write is "no" for all four. The two _bootmode names are Read-only
-// here: their Read is this family's wire sequence, and their Write
-// is the bootmode family's two-attempt kernel upload and program.
+// test_write is "no" for all four. The two _bootmode names are not here; they
+// are in kBootModeReadVariants below.
 constexpr auto kVariants = std::to_array<Variant>({
     {"sub_ecu_unisia_jecs_20", "M32R_128KB", 0x20000, true},
     {"sub_ecu_unisia_jecs_30", "M32R_256KB", 0x40000, true},
     {"sub_ecu_unisia_jecs_40", "M32R_384KB", 0x60000, false},
     {"sub_ecu_unisia_jecs_70", "M32R_512KB", 0x80000, false},
+});
+// Read-only here; looked up after kVariants and not exported as this
+// family's protocols (the bootmode family owns them for routing).
+constexpr auto kBootModeReadVariants = std::to_array<Variant>({
     {"sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", 0x20000, false},
     {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000, false},
 });
@@ -42,8 +47,17 @@ constexpr SubaruUnisiaJecsM32rKlinePlan kWire{.initial_baud = 4800, .tester_id =
 
 Result<Variant> FindVariant(std::string_view protocol, std::string_view mcu)
 {
-    const auto variant = std::ranges::find(kVariants, protocol, &Variant::protocol);
-    if (variant == kVariants.end() || variant->mcu != mcu)
+    const Variant *variant = nullptr;
+    if (const auto it = std::ranges::find(kVariants, protocol, &Variant::protocol); it != kVariants.end())
+    {
+        variant = std::to_address(it);
+    }
+    else if (const auto boot = std::ranges::find(kBootModeReadVariants, protocol, &Variant::protocol);
+             boot != kBootModeReadVariants.end())
+    {
+        variant = std::to_address(boot);
+    }
+    if (variant == nullptr || variant->mcu != mcu)
     {
         return Fail(ErrorKind::kInvalidConfig,
                     std::format("Unisia Jecs M32R protocol '{}' does not match MCU '{}'", protocol, mcu));
@@ -180,4 +194,11 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation operation, s
     }
     return plan;
 }
+constexpr auto kExportedProtocols = detail::ProtocolIdsOf<&Variant::protocol>(kVariants);
+
+std::span<const std::string_view> SubaruUnisiaJecsM32rKlineProtocols()
+{
+    return kExportedProtocols;
+}
+
 } // namespace fastecu::flash

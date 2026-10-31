@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <string_view>
 #include <vector>
 
 namespace fastecu::flash::detail
@@ -15,6 +16,18 @@ namespace fastecu::flash::detail
 namespace
 {
 constexpr KernelBlock kRegion{0xFFFF3000, 0x9000};
+
+TEST(PlanPrimitivesTest, protocolIdsOfProjectsTheProtocolColumnInOrder)
+{
+    struct Row
+    {
+        std::string_view id;
+        int x;
+    };
+    constexpr std::array<Row, 2> kRows{{{"a", 1}, {"b", 2}}};
+    static_assert(detail::ProtocolIdsOf<&Row::id>(kRows) == std::array<std::string_view, 2>{"a", "b"});
+    EXPECT_THAT(detail::ProtocolIdsOf<&Row::id>(kRows), ::testing::ElementsAre("a", "b"));
+}
 
 TEST(PlanPrimitives, FixedShapeRequiresDeviceTablesAndExactSizeAndBlockCount)
 {

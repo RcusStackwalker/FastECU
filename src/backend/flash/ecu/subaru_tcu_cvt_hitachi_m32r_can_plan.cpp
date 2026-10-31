@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_plan.h"
 
 #include <array>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -68,4 +69,10 @@ Result<FlashPlan> BuildSubaruTcuCvtHitachiM32rCanPlan(FlashOperation operation, 
     return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
                                  SubaruTcuCvtHitachiM32rCanPlan{0x7e1, 0x7e9, 500000, false});
 }
+
+std::span<const std::string_view> SubaruTcuCvtHitachiM32rCanProtocols()
+{
+    return kProtocols;
+}
+
 } // namespace fastecu::flash

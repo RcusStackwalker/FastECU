@@ -2,7 +2,11 @@
 
 #include "src/backend/flash/ecu/plan_primitives.h"
 
+#include <algorithm>
+#include <array>
 #include <format>
+#include <span>
+#include <string_view>
 #include <utility>
 
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
@@ -14,10 +18,13 @@ namespace fastecu::flash
 namespace
 {
 
+constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_sh7055_02"},
+                                std::string_view{"sub_ecu_denso_sh7055_02_ecutek"}};
+
 Status ValidateIdentity(std::string_view protocol, std::string_view mcu)
 {
     using enum ErrorKind;
-    if (protocol != "sub_ecu_denso_sh7055_02" && protocol != "sub_ecu_denso_sh7055_02_ecutek")
+    if (!std::ranges::contains(kProtocols, protocol))
     {
         return Fail(kInvalidConfig, std::format("Unsupported SH7055_02 protocol: {}", protocol));
     }
@@ -157,4 +164,10 @@ Result<FlashPlan> BuildSubaruDensoSh705502Plan(FlashOperation operation, std::st
         .and_then([](FlashPlan plan)
                   { return ValidateSubaruDensoSh705502Plan(plan).transform([&] { return std::move(plan); }); });
 }
+
+std::span<const std::string_view> SubaruDensoSh705502Protocols()
+{
+    return kProtocols;
+}
+
 } // namespace fastecu::flash

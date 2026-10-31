@@ -1,5 +1,6 @@
 #pragma once
 #include <optional>
+#include <span>
 #include <string_view>
 
 #include "src/algorithms/memory/memory_image.h"
@@ -22,4 +23,6 @@ template <> struct PlanValidator<SubaruDensoMc68hc16y5_02Plan>
         return ValidateSubaruDensoMc68hc16y502Plan(plan);
     }
 };
+// Exact protocol ids routed to this family, in table order.
+std::span<const std::string_view> SubaruDensoMc68hc16y502Protocols();
 } // namespace fastecu::flash

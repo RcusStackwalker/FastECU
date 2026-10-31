@@ -4,12 +4,15 @@
 #include <format>
 #include <memory>
 #include <ranges>
+#include <span>
+#include <string_view>
 #include <utility>
 
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
-#include "src/backend/flash/kernel/kernelmemorymodels.h"
+#include "src/backend/flash/ecu/plan_primitives.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
 
 namespace fastecu::flash
 {
@@ -171,6 +174,13 @@ Result<FlashPlan> BuildMitsuColtM32rCanPlan(FlashOperation operation, std::strin
         return std::unexpected(valid.error());
     }
     return plan;
+}
+
+constexpr auto kExportedProtocols = detail::ProtocolIdsOf<&ColtVariant::protocol_id>(kColtVariants);
+
+std::span<const std::string_view> MitsuColtM32rCanProtocols()
+{
+    return kExportedProtocols;
 }
 
 } // namespace fastecu::flash

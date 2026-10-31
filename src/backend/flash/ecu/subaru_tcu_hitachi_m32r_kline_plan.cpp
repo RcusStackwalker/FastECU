@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 
 #include <array>
+#include <span>
 #include <string_view>
 #include <utility>
 
@@ -55,4 +56,10 @@ Result<FlashPlan> BuildSubaruTcuHitachiM32rKlinePlan(FlashOperation operation, s
     return BuildSingleWindowPlan(kSpec, operation, protocol_name, mcu_type, std::move(image),
                                  SubaruTcuHitachiM32rKlinePlan{0xf0, 0x18, 4800, 96});
 }
+
+std::span<const std::string_view> SubaruTcuHitachiM32rKlineProtocols()
+{
+    return kProtocols;
+}
+
 } // namespace fastecu::flash

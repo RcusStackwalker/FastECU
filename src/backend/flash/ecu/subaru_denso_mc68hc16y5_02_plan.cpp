@@ -2,8 +2,12 @@
 
 #include "src/backend/flash/ecu/plan_primitives.h"
 
+#include <algorithm>
+#include <array>
 #include <format>
 #include <optional>
+#include <span>
+#include <string_view>
 #include <utility>
 
 #include "src/algorithms/memory/address.h"
@@ -35,6 +39,10 @@ Status CheckFlashBlocksPlaced(const memory::MemoryImage& image, const FlashDevic
     return {};
 }
 
+constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_mc68hc16y5_02"},
+                                std::string_view{"sub_ecu_denso_mc68hc16y5_02_ecutek"},
+                                std::string_view{"sub_ecu_denso_mc68hc16y5_02_tpu"}};
+
 // mainwindow.cpp:1250-1258: sub_ecu_denso_mc68hc16y5_02(_ecutek)? and the
 // reachable-but-quirky _02_tpu (see spec) all construct this class.
 // Revision 04, which declared no supported operation, was deleted with the
@@ -42,8 +50,7 @@ Status CheckFlashBlocksPlaced(const memory::MemoryImage& image, const FlashDevic
 Status ValidateIdentity(std::string_view protocol, std::string_view mcu)
 {
     using enum ErrorKind;
-    if (protocol != "sub_ecu_denso_mc68hc16y5_02" && protocol != "sub_ecu_denso_mc68hc16y5_02_ecutek" &&
-        protocol != "sub_ecu_denso_mc68hc16y5_02_tpu")
+    if (!std::ranges::contains(kProtocols, protocol))
     {
         return Fail(kInvalidConfig, std::format("Unsupported MC68HC16Y5_02 protocol: {}", protocol));
     }
@@ -234,4 +241,10 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
         .and_then([](FlashPlan plan)
                   { return ValidateSubaruDensoMc68hc16y502Plan(plan).transform([&] { return std::move(plan); }); });
 }
+
+std::span<const std::string_view> SubaruDensoMc68hc16y502Protocols()
+{
+    return kProtocols;
+}
+
 } // namespace fastecu::flash

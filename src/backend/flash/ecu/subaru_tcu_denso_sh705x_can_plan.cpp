@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <span>
+#include <string_view>
 #include <utility>
 
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
@@ -123,6 +125,13 @@ Result<FlashPlan> BuildSubaruTcuDensoSh705xCanPlan(FlashOperation operation, std
             .family_plan = WireParameters(),
         },
         std::move(image), std::move(kernel), entry->kernel_load_address, *device, ValidateSubaruTcuDensoSh705xCanPlan);
+}
+
+constexpr auto kExportedProtocols = detail::ProtocolIdsOf<&CatalogEntry::protocol>(kCatalog);
+
+std::span<const std::string_view> SubaruTcuDensoSh705xCanProtocols()
+{
+    return kExportedProtocols;
 }
 
 } // namespace fastecu::flash

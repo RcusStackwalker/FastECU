@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <array>
 #include <format>
+#include <span>
 #include <string_view>
 #include <utility>
 
+#include "src/backend/flash/ecu/plan_primitives.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 
@@ -105,4 +107,11 @@ Result<FlashPlan> BuildSubaruUnisiaJecsPlan(FlashOperation operation, std::strin
     }
     return plan;
 }
+constexpr auto kExportedProtocols = detail::ProtocolIdsOf<&Identity::protocol>(kIdentities);
+
+std::span<const std::string_view> SubaruUnisiaJecsProtocols()
+{
+    return kExportedProtocols;
+}
+
 } // namespace fastecu::flash
