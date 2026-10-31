@@ -3,7 +3,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
+#include <vector>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/config/catalog.h"
@@ -127,9 +129,11 @@ class FlashWorkflow
 class FlashWorkflowFactory
 {
   public:
-    // A null result means only that no portable family owns this protocol.
-    // Recognized families return a workflow even when preflight will fail.
+    // A null result means no flash route names this protocol id. A routed
+    // protocol returns a workflow even when preflight will fail.
     static std::unique_ptr<FlashWorkflow> TryCreate(FlashWorkflowRequest request, FlashWorkflowPorts ports);
+    // Every id of every flash route, duplicates kept, in registry order.
+    static std::vector<std::string_view> RoutedProtocolIds();
 };
 
 } // namespace fastecu::flash

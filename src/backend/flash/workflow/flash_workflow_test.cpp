@@ -270,54 +270,101 @@ PromptArguments BootmodeNotice(std::string outcome)
     return {{"outcome", std::move(outcome)}, {"external_vpp", "yes"}, {"power_off_advice", "no"}};
 }
 
-TEST(FlashWorkflowTest, recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone)
+// The built-in catalog's protocols that flag at least one flash operation.
+std::vector<const config::ProtocolSpec *> CatalogFlashProtocols()
 {
-    static constexpr auto kPortable = std::to_array<const char *>({"mitsu_ecu_m32r_can",
-                                                                   "mitsu_ecu_m32r_can_vendor_ext",
-                                                                   "mitsu_ecu_m32r_can_512kb",
-                                                                   "mitsu_ecu_m32r_can_vendor_ext_512kb",
-                                                                   "sub_ecu_mitsu_m32r_kline",
-                                                                   "sub_ecu_hitachi_m32r_kline",
-                                                                   "sub_ecu_hitachi_m32r_kline_recovery",
-                                                                   "sub_ecu_eeprom_denso_sh7055_kline",
-                                                                   "sub_ecu_eeprom_denso_sh7058_kline",
-                                                                   "sub_ecu_eeprom_denso_sh7055_densocan",
-                                                                   "sub_ecu_eeprom_denso_sh7058_densocan",
-                                                                   "sub_ecu_eeprom_denso_sh7058_can",
-                                                                   "sub_ecu_eeprom_denso_sh7058_can_diesel",
-                                                                   "sub_ecu_hitachi_m32r_can",
-                                                                   "sub_tcu_hitachi_m32r_kline",
-                                                                   "sub_ecu_unisia_jecs_m3779x",
-                                                                   "sub_ecu_unisia_jecs_m3775x",
-                                                                   "sub_tcu_hitachi_m32r_can",
-                                                                   "sub_tcu_cvt_hitachi_m32r_can",
-                                                                   "sub_tcu_cvt_mitsu_mh8111_can",
-                                                                   "sub_tcu_cvt_mitsu_mh8104_can",
-                                                                   "sub_ecu_denso_1n83m_1_5m_can",
-                                                                   "sub_ecu_denso_sh72531_can",
-                                                                   "sub_ecu_denso_sh72543_can_diesel",
-                                                                   "sub_ecu_denso_sh7058_can_diesel",
-                                                                   "sub_ecu_denso_sh7059_can_diesel",
-                                                                   "sub_ecu_denso_1n83m_4m_can",
-                                                                   "sub_ecu_denso_mc68hc16y5_02_bdm",
-                                                                   "sub_ecu_unisia_jecs_20",
-                                                                   "sub_ecu_unisia_jecs_30",
-                                                                   "sub_ecu_unisia_jecs_40",
-                                                                   "sub_ecu_unisia_jecs_70"});
-    for (const char *protocol : kPortable)
+    std::vector<const config::ProtocolSpec *> specs;
+    for (const config::ProtocolSpec& spec : config::BuiltinCatalog().Protocols())
     {
-        SCOPED_TRACE(::testing::PrintToString(protocol));
-        ASSERT_TRUE(CreateWorkflow(Request(protocol)) != nullptr) << protocol;
+        if (spec.read || spec.test_write || spec.write)
+        {
+            specs.push_back(&spec);
+        }
+    }
+    return specs;
+}
+
+// Accepts every prompt and stops at the first attempt, failure or completion.
+FlashWorkflowStep DriveToAttemptOrFailure(FlashWorkflow& workflow)
+{
+    constexpr int kMaxSteps = 16;
+    FlashWorkflowStep step = workflow.Next();
+    for (int taken = 1; taken < kMaxSteps && std::holds_alternative<FlashPromptStep>(step); ++taken)
+    {
+        workflow.Submit(FlashPromptResponse::kAccept);
+        step = workflow.Next();
+    }
+    return step;
+}
+
+TEST(FlashRouteTest, everyCatalogFlashProtocolHasExactlyOneRoute)
+{
+    const std::vector<std::string_view> routed = FlashWorkflowFactory::RoutedProtocolIds();
+    for (const config::ProtocolSpec *spec : CatalogFlashProtocols())
+    {
+        SCOPED_TRACE(spec->name);
+        EXPECT_EQ(std::ranges::count(routed, spec->name), 1);
     }
 }
 
-TEST(FlashWorkflowTest, invalidColtSuffixIsRecognizedButFailsPreflight)
+TEST(FlashRouteTest, everyRoutedIdIsACatalogFlashProtocol)
 {
-    auto workflow = CreateWorkflow(Request("mitsu_ecu_m32r_can_typo"));
-    ASSERT_TRUE(workflow != nullptr);
-    auto step = workflow->Next();
-    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
-    ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
+    for (const std::string_view id : FlashWorkflowFactory::RoutedProtocolIds())
+    {
+        SCOPED_TRACE(id);
+        const config::ProtocolSpec *spec = config::BuiltinCatalog().FindProtocol(id);
+        ASSERT_NE(spec, nullptr);
+        EXPECT_TRUE(spec->read || spec->test_write || spec->write);
+    }
+}
+
+TEST(FlashRouteTest, everyFlashProtocolRoutesToAWorkflowThatAcceptsIt)
+{
+    for (const config::ProtocolSpec *spec : CatalogFlashProtocols())
+    {
+        SCOPED_TRACE(spec->name);
+        FlashOperation operation = FlashOperation::kRead;
+        if (!spec->read)
+        {
+            operation = spec->test_write ? FlashOperation::kTestWrite : FlashOperation::kWrite;
+        }
+        FlashWorkflowRequest request{.operation = operation,
+                                     .protocol = *spec,
+                                     .image = std::nullopt,
+                                     .paths = CatalogPaths(),
+                                     .display_filename = "test.bin"};
+        if (operation != FlashOperation::kRead)
+        {
+            request.image = bytes::Bytes(1, 0xff);
+        }
+        WorkflowTestPorts test_ports(false);
+        if (!spec->kernel.empty())
+        {
+            test_ports.files->files[config::KernelFileHandle(CatalogPaths(), spec->kernel)] = {0x01, 0x02, 0x03, 0x04};
+        }
+        auto workflow = CreateWorkflow(std::move(request), test_ports);
+        ASSERT_NE(workflow, nullptr);
+        const FlashWorkflowStep step = DriveToAttemptOrFailure(*workflow);
+        if (const auto *failure = std::get_if<FlashFailureStep>(&step); failure != nullptr)
+        {
+            EXPECT_NE(failure->error.kind, ErrorKind::kUnsupported) << failure->error.detail;
+            if (operation == FlashOperation::kRead)
+            {
+                EXPECT_NE(failure->error.kind, ErrorKind::kInvalidConfig) << failure->error.detail;
+            }
+        }
+    }
+}
+
+TEST(FlashRouteTest, lookalikesOutsideTheCatalogHaveNoRoute)
+{
+    for (const char *name :
+         {"mitsu_ecu_m32r_can_typo", "sub_ecu_denso_mc68hc16y5_02_bdm_x", "sub_ecu_unisia_jecs_20_bootmode_x",
+          "sub_ecu_denso_sh7055_04_x", "sub_ecu_eeprom_denso_sh7058_can_x", "mitsu_ecu_m32r_kline_mut_dma"})
+    {
+        SCOPED_TRACE(name);
+        EXPECT_EQ(CreateWorkflow(Request(name)), nullptr);
+    }
 }
 
 TEST(FlashWorkflowTest, preflightPrecedesPromptsAndDeclineCancels)
@@ -346,7 +393,7 @@ TEST(FlashWorkflowTest, successfulReadBytesAreAcceptedAutomatically)
     ASSERT_EQ(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({1, 2, 3}));
 }
 
-TEST(FlashWorkflowTest, unisiaJecsRoutesOnlyExactProtocolMcuPairs)
+TEST(FlashWorkflowTest, unisiaJecsReadPlansCarryTheirProtocolAndMcu)
 {
     static constexpr auto kPairs = std::to_array<std::pair<const char *, const char *>>({
         {"sub_ecu_unisia_jecs_m3779x", "M3779x"},
@@ -370,9 +417,6 @@ TEST(FlashWorkflowTest, unisiaJecsRoutesOnlyExactProtocolMcuPairs)
         ASSERT_EQ(plan.TargetId(), protocol);
         ASSERT_EQ(plan.McuName(), mcu);
     }
-
-    ASSERT_TRUE(CreateWorkflow(Request("sub_ecu_unisia_jecs_m3779x_suffix")) == nullptr);
-    ASSERT_TRUE(CreateWorkflow(Request("sub_ecu_unisia_jecs_m3775x_suffix")) == nullptr);
 }
 
 TEST(FlashWorkflowTest, unisiaJecsCrossPairsFailBeforeAttempt)
@@ -786,63 +830,6 @@ TEST(FlashWorkflowTest, mc68BdmTestWriteFailsBeforeAnyPrompt)
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kUnsupported);
 }
 
-TEST(FlashWorkflowTest, mc68BdmPrefixLookalikeStaysOffTheKlineFamily)
-{
-    auto input = Request("sub_ecu_denso_mc68hc16y5_02_bdm_x");
-    input.protocol.mcu = "MC68HC16Y5";
-    auto workflow = CreateWorkflow(std::move(input));
-    ASSERT_TRUE(workflow != nullptr);
-    const auto step = workflow->Next();
-    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
-    ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::kInvalidConfig);
-}
-
-TEST(FlashWorkflowTest, mc68TpuProtocolIsClaimedByPortableRoute)
-{
-    auto input = Request("sub_ecu_denso_mc68hc16y5_02_tpu");
-    input.protocol.mcu = "MC68HC16Y5_TPU";
-    ASSERT_TRUE(CreateWorkflow(std::move(input)) != nullptr);
-}
-
-TEST(FlashWorkflowTest, mc68Revision04HasNoRoute)
-{
-    for (const char *protocol : {"sub_ecu_denso_mc68hc16y5_04", "sub_ecu_denso_mc68hc16y5_04_ecutek"})
-    {
-        SCOPED_TRACE(::testing::PrintToString(protocol));
-        auto input = Request(protocol);
-        input.protocol.mcu = "MC68HC16Y5";
-        ASSERT_TRUE(CreateWorkflow(std::move(input)) == nullptr) << protocol;
-    }
-}
-
-TEST(FlashWorkflowTest, sh7055ProtocolIsClaimedByPortableRoute)
-{
-    auto input = Request("sub_ecu_denso_sh7055_02");
-    input.protocol.mcu = "SH7055";
-    ASSERT_TRUE(CreateWorkflow(std::move(input)) != nullptr);
-}
-
-TEST(FlashWorkflowTest, densoCanRoutesOnlyTheFiveExactProtocols)
-{
-    constexpr auto kProtocols = std::to_array<const char *>({
-        "sub_ecu_denso_sh7055_densocan",
-        "sub_ecu_denso_sh7058_densocan",
-        "sub_ecu_denso_sh7058s_densocan",
-        "sub_ecu_denso_sh7058s_diesel_densocan",
-        "sub_ecu_denso_sh7059_diesel_densocan",
-    });
-    for (const char *protocol : kProtocols)
-    {
-        SCOPED_TRACE(::testing::PrintToString(protocol));
-        ASSERT_TRUE(CreateWorkflow(Request(protocol)) != nullptr) << protocol;
-    }
-    for (const char *near_miss : {"sub_ecu_denso_sh7058_densocan_extra", "future_densocan"})
-    {
-        SCOPED_TRACE(::testing::PrintToString(near_miss));
-        ASSERT_TRUE(CreateWorkflow(Request(near_miss)) == nullptr) << near_miss;
-    }
-}
-
 TEST(FlashWorkflowTest, densoCanResolvesKernelPromptsAndPropagatesAttemptResult)
 {
     auto input = Request("sub_ecu_denso_sh7055_densocan");
@@ -929,31 +916,6 @@ TEST(FlashWorkflowTest, densoCanPreflightAndDeclinedPromptsStopBeforeAttempt)
         const auto done = workflow->Next();
         ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(done));
         ASSERT_EQ(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::kCancelled);
-    }
-}
-
-TEST(FlashWorkflowTest, petrolRoutesOnlyTheFiveExactProtocols)
-{
-    constexpr auto kProtocols = std::to_array<const char *>({
-        "sub_ecu_denso_sh7058_can",
-        "sub_ecu_denso_sh7058_can_ecutek",
-        "sub_ecu_denso_sh7058_can_ecutek_racerom",
-        "sub_ecu_denso_sh7058_can_ecutek_racerom_alt",
-        "sub_ecu_denso_sh7058_can_cobb",
-    });
-    for (const char *protocol : kProtocols)
-    {
-        SCOPED_TRACE(::testing::PrintToString(protocol));
-        ASSERT_TRUE(CreateWorkflow(Request(protocol)) != nullptr) << protocol;
-    }
-    for (const char *near_miss : {
-             "sub_ecu_denso_sh7058_can_future",
-             "sub_ecu_denso_sh7058_can_ecutek_extra",
-             "sub_ecu_denso_sh7058_can_cobb_typo",
-         })
-    {
-        SCOPED_TRACE(::testing::PrintToString(near_miss));
-        ASSERT_TRUE(CreateWorkflow(Request(near_miss)) == nullptr) << near_miss;
     }
 }
 
@@ -1090,21 +1052,6 @@ TEST(FlashWorkflowTest, petrolReadResolvesKernelBeforeBeginAndBindsCanTransport)
                 ::testing::ElementsAre("reset_connection", "configure", "open", "close"));
     EXPECT_THAT(can_observer->ReadTimeouts(), ::testing::SizeIs(0));
     EXPECT_TRUE(can_observer->ScriptConsumed());
-}
-
-TEST(FlashWorkflowTest, dieselRoutesOnlyTheTwoExactProtocols)
-{
-    for (const char *protocol : {"sub_ecu_denso_sh7058_can_diesel", "sub_ecu_denso_sh7059_can_diesel"})
-    {
-        SCOPED_TRACE(::testing::PrintToString(protocol));
-        ASSERT_TRUE(CreateWorkflow(Request(protocol)) != nullptr) << protocol;
-    }
-    for (const char *near_miss : {"sub_ecu_denso_sh7058_can_diesel_future", "sub_ecu_denso_sh7059_can_diesel_extra",
-                                  "sub_ecu_denso_sh7058_can_diesel_typo", "sub_ecu_denso_sh7058_can_diesel_ecutek"})
-    {
-        SCOPED_TRACE(::testing::PrintToString(near_miss));
-        ASSERT_TRUE(CreateWorkflow(Request(near_miss)) == nullptr) << near_miss;
-    }
 }
 
 TEST(FlashWorkflowTest, dieselSupportedOperationsResolveGenerationCatalogKernels)
@@ -1257,21 +1204,6 @@ TEST(FlashWorkflowTest, dieselReadResolvesKernelBeforeBeginAndBindsCanTransport)
                 ::testing::ElementsAre("reset_connection", "configure", "open", "close"));
     EXPECT_THAT(can_observer->ReadTimeouts(), ::testing::SizeIs(0));
     EXPECT_TRUE(can_observer->ScriptConsumed());
-}
-
-TEST(FlashWorkflowTest, tcuRoutesOnlyTheTwoExactProtocols)
-{
-    for (const char *protocol : {"sub_tcu_denso_sh7055_can", "sub_tcu_denso_sh7058_can"})
-    {
-        SCOPED_TRACE(::testing::PrintToString(protocol));
-        ASSERT_TRUE(CreateWorkflow(Request(protocol)) != nullptr) << protocol;
-    }
-    for (const char *near_miss :
-         {"sub_tcu_denso_sh7055_can_future", "sub_tcu_denso_sh7058_can_typo", "sub_tcu_denso_sh7058_can_extra"})
-    {
-        SCOPED_TRACE(::testing::PrintToString(near_miss));
-        ASSERT_TRUE(CreateWorkflow(Request(near_miss)) == nullptr) << near_miss;
-    }
 }
 
 TEST(FlashWorkflowTest, tcuSupportedOperationsResolveTheirCatalogKernelAndReachAttempt)
@@ -1772,7 +1704,7 @@ TEST(FlashWorkflowTest, densoSh705xKlineIgnoresPrefixLookalikes)
     }
 }
 
-TEST(FlashWorkflowTest, unisiaJecsM32rRoutesTheFourExactProtocols)
+TEST(FlashWorkflowTest, unisiaJecsM32rReadPlansTransferTheirRomSize)
 {
     struct Variant
     {
@@ -1799,16 +1731,6 @@ TEST(FlashWorkflowTest, unisiaJecsM32rRoutesTheFourExactProtocols)
         const auto& plan = std::get<FlashAttempt>(step).attempt->Plan();
         ASSERT_EQ(plan.Family(), FlashFamily::kSubaruUnisiaJecsM32rKline);
         ASSERT_EQ(plan.TransferRegion(), (MemoryRegion{0x100000, variant.rom_size}));
-    }
-}
-
-TEST(FlashWorkflowTest, unisiaJecsM32rLookalikesStayUnrouted)
-{
-    for (const char *protocol : {"sub_ecu_unisia_jecs_20x", "sub_ecu_unisia_jecs_7", "sub_ecu_unisia_jecs_20_bootmodex",
-                                 "sub_ecu_unisia_jecs_40_bootmode"})
-    {
-        SCOPED_TRACE(::testing::PrintToString(protocol));
-        ASSERT_TRUE(CreateWorkflow(Request(protocol)) == nullptr) << protocol;
     }
 }
 

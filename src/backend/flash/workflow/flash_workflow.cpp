@@ -4,6 +4,7 @@
 #include <array>
 #include <concepts>
 #include <format>
+#include <span>
 #include <string_view>
 
 #include "src/algorithms/memory/address.h"
@@ -1001,12 +1002,6 @@ class EepromWorkflow final : public FlashWorkflow
     FlashAttemptOutcome outcome_;
 };
 
-enum class RouteMatch
-{
-    kPrefix,
-    kExact,
-};
-
 using CreateWorkflow = std::unique_ptr<FlashWorkflow> (*)(FlashWorkflowRequest, FlashWorkflowPorts);
 
 template <typename Workflow> std::unique_ptr<FlashWorkflow> Make(FlashWorkflowRequest request, FlashWorkflowPorts ports)
@@ -1050,75 +1045,47 @@ constexpr CreateWorkflow kSubaruDensoMc68hc16y502Bdm = &Make<SubaruDensoMc68hc16
 constexpr CreateWorkflow kSubaruUnisiaJecsM32rKline = &Make<SubaruUnisiaJecsM32rKlineWorkflow>;
 constexpr CreateWorkflow kSubaruUnisiaJecsM32rBootMode = &Make<SubaruUnisiaJecsM32rBootModeWorkflow>;
 
-struct Route
+struct FlashRoute
 {
-    std::string_view pattern;
+    std::span<const std::string_view> protocols;
     CreateWorkflow create;
-    RouteMatch match = RouteMatch::kPrefix;
 };
 
-constexpr auto kRoutes = std::to_array<Route>({
-    {"sub_ecu_hitachi_m32r_kline", kSubaruHitachiM32rKline},
-    {"sub_ecu_mitsu_m32r_kline", kSubaruMitsuM32rKline},
-    {"mitsu_ecu_m32r_can", kColt},
-    {"sub_ecu_eeprom_denso_sh7055_kline", kEeprom},
-    {"sub_ecu_eeprom_denso_sh7058_kline", kEeprom},
-    {"sub_ecu_eeprom_denso_sh7055_densocan", kEeprom},
-    {"sub_ecu_eeprom_denso_sh7058_densocan", kEeprom},
-    {"sub_ecu_eeprom_denso_sh7058_can_diesel", kEeprom},
-    {"sub_ecu_eeprom_denso_sh7058_can", kEeprom},
-    {"sub_ecu_denso_sh7055_densocan", kSubaruDensoSh705xDensoCan, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058_densocan", kSubaruDensoSh705xDensoCan, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058s_densocan", kSubaruDensoSh705xDensoCan, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058s_diesel_densocan", kSubaruDensoSh705xDensoCan, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7059_diesel_densocan", kSubaruDensoSh705xDensoCan, RouteMatch::kExact},
-    {"sub_tcu_denso_sh7055_can", kSubaruTcuDensoSh705xCan, RouteMatch::kExact},
-    {"sub_tcu_denso_sh7058_can", kSubaruTcuDensoSh705xCan, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058_can", kSubaruDensoSh7058Can, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058_can_ecutek", kSubaruDensoSh7058Can, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058_can_ecutek_racerom", kSubaruDensoSh7058Can, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058_can_ecutek_racerom_alt", kSubaruDensoSh7058Can, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058_can_cobb", kSubaruDensoSh7058Can, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058_can_diesel", kSubaruDensoSh7058CanDiesel, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7059_can_diesel", kSubaruDensoSh7058CanDiesel, RouteMatch::kExact},
-    // Keep this longer prefix before the bare MC68 _02 row so no _02_bdm*
-    // name reaches the K-Line family; the BDM plan rejects all but the exact
-    // protocol.
-    {"sub_ecu_denso_mc68hc16y5_02_bdm", kSubaruDensoMc68hc16y502Bdm},
-    {"sub_ecu_denso_mc68hc16y5_02", kSubaruDensoMc68hc16y502},
-    {"sub_ecu_denso_sh7055_02", kSubaruDensoSh705502},
-    {"sub_ecu_denso_sh7055_04", kSubaruDensoSh705xKline, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7055_04_ecutek", kSubaruDensoSh705xKline, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7055_04_cobb", kSubaruDensoSh705xKline, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058", kSubaruDensoSh705xKline, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058_ecutek", kSubaruDensoSh705xKline, RouteMatch::kExact},
-    {"sub_ecu_denso_sh7058_cobb", kSubaruDensoSh705xKline, RouteMatch::kExact},
-    {"sub_ecu_hitachi_m32r_can", kSubaruHitachiM32rCan},
-    {"sub_tcu_hitachi_m32r_kline", kSubaruTcuHitachiM32rKline, RouteMatch::kExact},
-    {"sub_ecu_unisia_jecs_m3779x", kSubaruUnisiaJecs, RouteMatch::kExact},
-    {"sub_ecu_unisia_jecs_m3775x", kSubaruUnisiaJecs, RouteMatch::kExact},
-    // Exact only: the _bootmode names share these prefixes.
-    {"sub_ecu_unisia_jecs_20", kSubaruUnisiaJecsM32rKline, RouteMatch::kExact},
-    {"sub_ecu_unisia_jecs_30", kSubaruUnisiaJecsM32rKline, RouteMatch::kExact},
-    {"sub_ecu_unisia_jecs_40", kSubaruUnisiaJecsM32rKline, RouteMatch::kExact},
-    {"sub_ecu_unisia_jecs_70", kSubaruUnisiaJecsM32rKline, RouteMatch::kExact},
-    {"sub_ecu_unisia_jecs_20_bootmode", kSubaruUnisiaJecsM32rBootMode, RouteMatch::kExact},
-    {"sub_ecu_unisia_jecs_30_bootmode", kSubaruUnisiaJecsM32rBootMode, RouteMatch::kExact},
-    {"sub_tcu_hitachi_m32r_can", kSubaruTcuHitachiM32rCan, RouteMatch::kExact},
-    {"sub_ecu_hitachi_sh72543r_can", kSubaruHitachiSh72543rCan, RouteMatch::kExact},
-    {"sub_ecu_hitachi_sh72543r_can_recovery", kSubaruHitachiSh72543rCan, RouteMatch::kExact},
-    {"sub_ecu_hitachi_sh7058_can", kSubaruHitachiSh7058, RouteMatch::kExact},
-    {"sub_tcu_cvt_hitachi_m32r_can", kSubaruTcuCvtHitachiM32rCan},
-    {"sub_tcu_cvt_mitsu_mh8111_can", kSubaruTcuCvtMitsuMh8111Can},
-    {"sub_tcu_cvt_mitsu_mh8104_can", kSubaruTcuCvtMitsuMh8104Can},
-    {"sub_ecu_denso_1n83m_1_5m_can", kSubaruDenso1n83m15mCan},
-    {"sub_ecu_denso_sh72531_can", kSubaruDensoSh72531Can},
-    {"sub_ecu_denso_sh72543_can_diesel", kSubaruDensoSh72543CanDiesel},
-    // kRoutes is matched by starts_with; "sub_ecu_denso_1n83m_1_5m_can" and
-    // "sub_ecu_denso_1n83m_4m_can" are not prefixes of one another, so the
-    // order of these two entries relative to each other does not matter.
-    {"sub_ecu_denso_1n83m_4m_can", kSubaruDenso1n83m4mCan},
-});
+// Each family owns the exact protocol ids it accepts; an id is never matched
+// by prefix, so the order of these rows does not matter.
+std::span<const FlashRoute> FlashRoutes()
+{
+    static const auto kFlashRoutes = std::to_array<FlashRoute>({
+        {MitsuColtM32rCanProtocols(), kColt},
+        {DensoSh705xEepromProtocols(), kEeprom},
+        {SubaruMitsuM32rKlineProtocols(), kSubaruMitsuM32rKline},
+        {SubaruHitachiM32rKlineProtocols(), kSubaruHitachiM32rKline},
+        {SubaruDensoMc68hc16y502Protocols(), kSubaruDensoMc68hc16y502},
+        {SubaruDensoSh705502Protocols(), kSubaruDensoSh705502},
+        {SubaruDensoSh705xDensoCanProtocols(), kSubaruDensoSh705xDensoCan},
+        {SubaruTcuDensoSh705xCanProtocols(), kSubaruTcuDensoSh705xCan},
+        {SubaruDensoSh7058CanProtocols(), kSubaruDensoSh7058Can},
+        {SubaruDensoSh7058CanDieselProtocols(), kSubaruDensoSh7058CanDiesel},
+        {SubaruHitachiM32rCanProtocols(), kSubaruHitachiM32rCan},
+        {SubaruTcuHitachiM32rKlineProtocols(), kSubaruTcuHitachiM32rKline},
+        {SubaruUnisiaJecsProtocols(), kSubaruUnisiaJecs},
+        {SubaruTcuHitachiM32rCanProtocols(), kSubaruTcuHitachiM32rCan},
+        {SubaruHitachiSh72543rCanProtocols(), kSubaruHitachiSh72543rCan},
+        {SubaruHitachiSh7058Protocols(), kSubaruHitachiSh7058},
+        {SubaruTcuCvtHitachiM32rCanProtocols(), kSubaruTcuCvtHitachiM32rCan},
+        {SubaruTcuCvtMitsuMh8111CanProtocols(), kSubaruTcuCvtMitsuMh8111Can},
+        {SubaruTcuCvtMitsuMh8104CanProtocols(), kSubaruTcuCvtMitsuMh8104Can},
+        {SubaruDenso1n83m15mCanProtocols(), kSubaruDenso1n83m15mCan},
+        {SubaruDensoSh72531CanProtocols(), kSubaruDensoSh72531Can},
+        {SubaruDensoSh72543CanDieselProtocols(), kSubaruDensoSh72543CanDiesel},
+        {SubaruDenso1n83m4mCanProtocols(), kSubaruDenso1n83m4mCan},
+        {SubaruDensoSh705xKlineProtocols(), kSubaruDensoSh705xKline},
+        {SubaruDensoMc68hc16y502BdmProtocols(), kSubaruDensoMc68hc16y502Bdm},
+        {SubaruUnisiaJecsM32rKlineProtocols(), kSubaruUnisiaJecsM32rKline},
+        {SubaruUnisiaJecsM32rBootModeProtocols(), kSubaruUnisiaJecsM32rBootMode},
+    });
+    return kFlashRoutes;
+}
 
 } // namespace
 
@@ -1133,14 +1100,21 @@ std::optional<bytes::Bytes> PortableImageForOperation(FlashOperation operation, 
 
 std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::TryCreate(FlashWorkflowRequest request, FlashWorkflowPorts ports)
 {
-    const auto route = std::ranges::find_if(kRoutes,
-                                            [&request](const Route& candidate)
-                                            {
-                                                return candidate.match == RouteMatch::kExact
-                                                           ? request.protocol.name == candidate.pattern
-                                                           : request.protocol.name.starts_with(candidate.pattern);
-                                            });
-    return route == kRoutes.end() ? nullptr : route->create(std::move(request), std::move(ports));
+    const auto routes = FlashRoutes();
+    const auto route =
+        std::ranges::find_if(routes, [&request](const FlashRoute& candidate)
+                             { return std::ranges::contains(candidate.protocols, request.protocol.name); });
+    return route == routes.end() ? nullptr : route->create(std::move(request), std::move(ports));
+}
+
+std::vector<std::string_view> FlashWorkflowFactory::RoutedProtocolIds()
+{
+    std::vector<std::string_view> ids;
+    for (const FlashRoute& route : FlashRoutes())
+    {
+        ids.insert(ids.end(), route.protocols.begin(), route.protocols.end());
+    }
+    return ids;
 }
 
 } // namespace fastecu::flash
