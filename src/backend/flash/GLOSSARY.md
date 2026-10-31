@@ -16,6 +16,13 @@ model line over one transport.
 _Avoid_: Wave, step, protocol (a protocol id such as `sub_ecu_denso_1n83m_1_5m_can`
 names one flash family's catalog entry)
 
+**Plan type**:
+The family-specific part of a flash plan: the wire facts one flash family's
+executor needs for one kind of operation. A flash family has one or more plan
+types (Hitachi SH7058 reads over K-Line and writes over CAN, so it has two),
+and each plan type belongs to exactly one flash family and one transport.
+_Avoid_: Plan variant, family plan alternative
+
 **Flash route**:
 The exact protocol ids that select one flash workflow, and how that workflow is
 created. Every protocol the catalog can flash (one that reads, test-writes or
