@@ -2144,6 +2144,7 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/backend/config:catalog",
         "//src/backend/config:config_paths",
+        "//src/backend/flash:flash_plan",
         "//src/backend/flash:flash_types",
         "//src/backend/ports",
     ],
