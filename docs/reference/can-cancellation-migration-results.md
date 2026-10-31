@@ -1102,19 +1102,63 @@ Lizard 1.24.1 and unchanged exclusions:
 | Incoming master `c078e458` | 155002 | 66151 | 88851 |
 | Pre-Task-17 merged baseline `0f44b89f` | 156334 | 66208 | 90126 |
 | Task 17 `8aab26ab` | 156784 | 66308 | 90476 |
-| Final code candidate `631cb067` | 156785 | 66308 | 90477 |
-| Final candidate minus incoming master | **+1783** | **+157** | **+1626** |
+| First CI convention cleanup `631cb067` | 156785 | 66308 | 90477 |
+| Final code candidate `f2aa35b9` | 156799 | 66308 | 90491 |
+| Final candidate minus incoming master | **+1797** | **+157** | **+1640** |
 
 The production delta comprises Tasks 2–6 **+15**, 7–10 **+26**, 11–13 **+7**,
 14–16 **+9** and mixed-CAN **+100**. Test growth comprises shared support
 **+369**, Tasks 2–6 **+279**, 7–10 **+205**, 11–13 **+176**, 14–16 **+208**,
-the preserved merge case **+38**, mixed-CAN **+350**, and CI cleanup **+1**.
+the preserved merge case **+38**, mixed-CAN **+350**, first CI cleanup **+1**,
+and final test conventions **+14**.
 This is measured ownership/coverage growth; no savings or test compression is
 claimed. Historical task totals remain pinned to their own upstream source.
 
-Final whole-branch review and full release build/tests, static analysis,
-coverage, repository hooks and platform CI/packaging results are pending
-controller reconciliation. Earlier draft platform or focused gates establish
-only their recorded revisions and scope. No final delivery or hardware
-qualification is claimed. All family bench gaps above, separate compression
-assessment and the recorded Colt bench run remain outstanding.
+### Final review and test conventions
+
+Whole-branch review of `c078e458..3bce81a9` approved the implementation without
+code findings. Independent source comparison retained all 394 predecessor named
+cases across the 16 changed family suites, with 434 now present. These are source
+identifiers rather than expanded parameterized XML counts. Existing production
+executor/helper bodies and the runner match incoming master; the new mixed guard
+is the only additional production `.cpp`.
+
+The first full clang-tidy pass found seven new mixed-CAN test-convention issues.
+Commit `f2aa35b9` changes only two tests: equivalent container assertions,
+terminating Result checks visible to the analyzer, iteration-local traces and
+semantic raw/ISO parameter names. Owner 13 and family 40 expanded cases remain;
+only the owner's numeric parameter suffixes become semantic names. Scoped
+re-review confirmed all seven findings addressed with no new issues.
+
+An intermediate local Result-reference alias exposed a latent
+`SingleUseResultCheck::check` crash: the checker recognizes a Result reference
+but obtains its record specialization without stripping the reference. The
+final test asserts directly on the container element, preserving its predicates.
+No analyzer, configuration or suppression changed; checker reference handling
+remains a separate tooling follow-up. Final full analysis passed all 552 files
+with zero findings.
+
+### Delivery verification
+
+- Release application: `bazel build --config=release //:fastecu` passed. The later
+  convention fix changes only tests; production inputs remain unchanged.
+- Final release suite at `f2aa35b9`: `bazel test --config=release //...` passed
+  307 targets with 20 skipped, 327 total. Valid same-source cached results were
+  reused; the two amended suites also passed their focused run.
+- Full static analysis at `f2aa35b9`: `bazel run //:clang_tidy` passed,
+  552 files and zero findings, using LLVM 23.1.4 matching CI.
+- Coverage at `f2aa35b9`: `bazel coverage --config=coverage //...` passed with
+  the macOS `GCOV`/`BAZEL_LLVM_COV` repository environment paths documented in
+  [tooling](../tooling.md#sonarcloud). All 307 runnable targets passed, 20 were
+  skipped, and Bazel emitted the combined LCOV `_coverage_report.dat`.
+- All 17 repository hooks passed again on the final code and evidence update.
+  The requested force-with-lease push passed Gazelle, buildifier, hygiene and
+  clang-tidy configuration-chain checks.
+- The [refreshed platform CI run](https://github.com/RcusStackwalker/FastECU/actions/runs/41147657865)
+  targets code revision `f2aa35b9`. Pre-commit and Gazelle passed; platform
+  builds/packaging, Android, sanitizers, SonarCloud and platform static analysis
+  were still running at this delivery checkpoint. The PR remains a draft;
+  local or earlier draft gates do not establish those pending results.
+
+All family bench gaps above, separate compression assessment and the recorded
+Colt bench run remain outstanding. No hardware qualification is claimed.
