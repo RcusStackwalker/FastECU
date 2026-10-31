@@ -315,5 +315,64 @@ TEST(SubaruDensoMc68hc16y502Prepare, AReadCarriesTheProtocolsKernelFile)
     EXPECT_THAT(files.read_handles, ::testing::ElementsAre(config::KernelFileHandle(paths, protocol.kernel)));
 }
 
+// The operation the TPU variant does not support is rejected before the
+// kernel file is read.
+TEST(SubaruDensoMc68hc16y502Prepare, ATpuWriteFailsBeforeTheKernelIsRead)
+{
+    const config::ProtocolSpec& protocol = *config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02_tpu");
+    const config::ConfigPaths paths{.kernel_files_directory = "kernels/"};
+    InMemoryFileRepository files;
+    files.files[config::KernelFileHandle(paths, protocol.kernel)] = {0x01, 0x02};
+
+    const auto plan = PrepareSubaruDensoMc68hc16y502Plan(FlashOperation::kWrite, protocol, paths, std::nullopt, files);
+
+    EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kUnsupported));
+    EXPECT_THAT(files.read_handles, ::testing::IsEmpty());
+}
+
+TEST(SubaruDensoMc68hc16y502Prepare, AWriteWithoutARomFileFailsBeforeTheKernelIsRead)
+{
+    const config::ProtocolSpec& protocol = *config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02");
+    const config::ConfigPaths paths{.kernel_files_directory = "kernels/"};
+    InMemoryFileRepository files;
+    files.files[config::KernelFileHandle(paths, protocol.kernel)] = {0x01, 0x02};
+
+    const auto plan = PrepareSubaruDensoMc68hc16y502Plan(FlashOperation::kWrite, protocol, paths, std::nullopt, files);
+
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
+                                                  ::testing::Eq("MC68HC16Y5_02 write requires a ROM image")));
+    EXPECT_THAT(files.read_handles, ::testing::IsEmpty());
+}
+
+TEST(SubaruDensoMc68hc16y502Prepare, AWriteCarriesTheRomFileAndTheProtocolsKernelFile)
+{
+    const config::ProtocolSpec& protocol = *config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02");
+    const config::ConfigPaths paths{.kernel_files_directory = "kernels/"};
+    InMemoryFileRepository files;
+    files.files[config::KernelFileHandle(paths, protocol.kernel)] = {0x01, 0x02};
+    const bytes::Bytes rom(0x28000, bytes::Byte{0x5a});
+
+    const auto plan = PrepareSubaruDensoMc68hc16y502Plan(FlashOperation::kWrite, protocol, paths, rom, files);
+
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    EXPECT_EQ(plan->ImageOrEmpty(), rom);
+    EXPECT_EQ(plan->KernelOrEmpty().bytes, (bytes::Bytes{0x01, 0x02}));
+    EXPECT_THAT(files.read_handles, ::testing::ElementsAre(config::KernelFileHandle(paths, protocol.kernel)));
+}
+
+// A missing kernel file is the only failure left once the request passes the
+// family's checks; the repository's error passes through.
+TEST(SubaruDensoMc68hc16y502Prepare, AMissingKernelFileFailsAfterTheFamilyChecks)
+{
+    const config::ProtocolSpec& protocol = *config::BuiltinCatalog().FindProtocol("sub_ecu_denso_mc68hc16y5_02");
+    const config::ConfigPaths paths{.kernel_files_directory = "kernels/"};
+    InMemoryFileRepository files;
+
+    const auto plan = PrepareSubaruDensoMc68hc16y502Plan(FlashOperation::kRead, protocol, paths, std::nullopt, files);
+
+    EXPECT_THAT(plan, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, ::testing::Eq("no such handle")));
+    EXPECT_THAT(files.read_handles, ::testing::ElementsAre(config::KernelFileHandle(paths, protocol.kernel)));
+}
+
 } // namespace
 } // namespace fastecu::flash

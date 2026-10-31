@@ -148,6 +148,39 @@ Status ValidateRomPlacement(const FlashPlan& plan)
     return CheckFlashBlocksPlaced(*image, kFlashDevices[static_cast<std::size_t>(index)]);
 }
 
+// Write and TestWrite both carry a ROM image.
+bool IsWrite(FlashOperation operation)
+{
+    return operation == FlashOperation::kWrite || operation == FlashOperation::kTestWrite;
+}
+
+// The checks on a request that need no kernel, in order: the protocol and
+// MCU, the operation the protocol supports, the MCU's device, and for a
+// write a ROM image that holds every flash block. Returns that device.
+Result<const FlashDevice *> ValidateRequest(FlashOperation operation, std::string_view protocol, std::string_view mcu,
+                                            const std::optional<memory::MemoryImage>& image)
+{
+    if (Status valid = ValidateIdentity(protocol, mcu).and_then([&] { return ValidateOperation(protocol, operation); });
+        !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    const FlashDevice *device = FindFlashDevice(mcu);
+    if (device == nullptr)
+    {
+        return Fail(ErrorKind::kInvalidConfig, "Unknown MCU type");
+    }
+    if (!IsWrite(operation))
+    {
+        return device;
+    }
+    if (!image.has_value())
+    {
+        return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
+    }
+    return CheckFlashBlocksPlaced(*image, *device).transform([device] { return device; });
+}
+
 } // namespace
 
 Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan)
@@ -189,32 +222,20 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
                                                    std::string_view mcu_type, std::optional<memory::MemoryImage> image,
                                                    KernelImage kernel)
 {
-    if (const Status valid = ValidateIdentity(protocol_name, mcu_type)
-                                 .and_then([&] { return ValidateOperation(protocol_name, operation); })
-                                 .and_then([&] { return ValidateKernelUpload(kernel); });
-        !valid.has_value())
+    Result<const FlashDevice *> device = ValidateRequest(operation, protocol_name, mcu_type, image);
+    if (!device.has_value())
+    {
+        return std::unexpected(device.error());
+    }
+    if (Status valid = ValidateKernelUpload(kernel); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
-    const int index = FindFlashDeviceIndex(mcu_type);
-    if (index < 0)
-    {
-        return Fail(ErrorKind::kInvalidConfig, "Unknown MCU type");
-    }
-    const std::uint32_t romsize = kFlashDevices[static_cast<std::size_t>(index)].romsize;
+    const std::uint32_t romsize = (*device)->romsize;
     std::optional<bytes::Bytes> file;
     std::optional<memory::MemoryMap> file_map;
-    if (operation == FlashOperation::kWrite || operation == FlashOperation::kTestWrite)
+    if (image.has_value() && IsWrite(operation))
     {
-        if (!image.has_value())
-        {
-            return Fail(ErrorKind::kInvalidConfig, "MC68HC16Y5_02 write requires a ROM image");
-        }
-        if (auto placed = CheckFlashBlocksPlaced(*image, kFlashDevices[static_cast<std::size_t>(index)]);
-            !placed.has_value())
-        {
-            return std::unexpected(placed.error());
-        }
         file = bytes::Bytes(image->File().begin(), image->File().end());
         file_map = image->Map();
     }
@@ -227,7 +248,7 @@ Result<FlashPlan> BuildSubaruDensoMc68hc16y502Plan(FlashOperation operation, std
         // size, not the ECU range the write spans (0x0-0x2FFFF with RAM at
         // 0x20000-0x27FFF). The executor writes the flash blocks through the
         // plan's RomImage(), which ValidateAndBuild places by image_map.
-        .transfer_region = MemoryRegion{kFlashDevices[static_cast<std::size_t>(index)].fblocks[0].start, romsize},
+        .transfer_region = MemoryRegion{(*device)->fblocks[0].start, romsize},
         .erase_regions = {}, // per-block erase happens inside the write executor
                              // (blank-page-per-modified-block, legacy
                              // flash_block()), not a fixed up-front set
@@ -265,10 +286,8 @@ Result<FlashPlan> PrepareSubaruDensoMc68hc16y502Plan(FlashOperation operation, c
         }
         image = std::move(*placed);
     }
-    return BuildSubaruDensoMc68hc16y502Plan(
-               operation, protocol.name, protocol.mcu, image,
-               KernelImage{.id = std::format("{}-kernel", protocol.name), .load_address = 0x20000, .bytes = {0}})
-        .and_then([&](const FlashPlan&) { return ReadProtocolKernel(protocol, paths, files); })
+    return ValidateRequest(operation, protocol.name, protocol.mcu, image)
+        .and_then([&](const FlashDevice *) { return ReadProtocolKernel(protocol, paths, files); })
         .and_then(
             [&](KernelImage kernel)
             {
