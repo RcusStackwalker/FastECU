@@ -10,6 +10,7 @@ cc_library(
     name = "flash_types",
     hdrs = ["flash_types.h"],
     deps = [
+        ":flash_family",
         "//src/algorithms/protocol",
         "//src/backend/flash/ecu:mitsu_colt_m32r_can_types",
         "//src/backend/flash/ecu:subaru_denso_1n83m_1_5m_can_types",
@@ -55,6 +56,7 @@ cc_library(
     srcs = ["flash_plan.cpp"],
     hdrs = ["flash_plan.h"],
     deps = [
+        ":flash_family",
         ":flash_types",
         "//src/algorithms/memory:memory_image",
         "//src/algorithms/memory:memory_map",
@@ -227,4 +229,9 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
+)
+
+cc_library(
+    name = "flash_family",
+    hdrs = ["flash_family.h"],
 )

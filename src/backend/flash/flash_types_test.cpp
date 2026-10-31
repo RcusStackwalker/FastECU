@@ -1,7 +1,12 @@
 // src/backend/flash/flash_types_test.cpp
 #include "src/backend/flash/flash_types.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <string_view>
+#include <variant>
+#include <vector>
 
 namespace fastecu::flash
 {
@@ -82,10 +87,20 @@ TEST(FlashTypesTest, EepromReadModeValuesMatchProtocolBytes)
     EXPECT_EQ(static_cast<std::uint8_t>(EepromReadMode::kMode4), 0x04);
 }
 
-TEST(FlashTypesTest, FamilyRequiresKernelDefaultsTrueForExistingFamilies)
+template <typename... Ts> std::vector<std::string_view> KernelRequiringFamilyNames(std::variant<Ts...> *)
 {
-    EXPECT_TRUE(kFamilyRequiresKernel<DensoSh705xEepromKlinePlan>);
-    EXPECT_TRUE(kFamilyRequiresKernel<DensoSh705xEepromCanPlan>);
+    std::vector<std::string_view> names;
+    ((kFamilyRequiresKernel<Ts> ? names.push_back(FlashFamilyName(FamilyTraits<Ts>::kFamily)) : void()), ...);
+    return names;
+}
+
+TEST(FlashTypesTest, exactlyTheKernelUploadingPlanTypesRequireAKernel)
+{
+    EXPECT_THAT(KernelRequiringFamilyNames(static_cast<FamilyPlan *>(nullptr)),
+                ::testing::UnorderedElementsAre(
+                    "DensoSh705xEepromKline", "DensoSh705xEepromCan", "SubaruDensoMc68hc16y5_02",
+                    "SubaruDensoSh7055_02", "SubaruDensoSh7058Can", "SubaruDensoSh7058CanDiesel",
+                    "SubaruDensoSh705xDensoCan", "SubaruDensoSh705xKline", "SubaruTcuDensoSh705xCan"));
 }
 
 TEST(FlashTypes, DensoMc68AndSh7055FamilyPlansConstructAndHoldValues)

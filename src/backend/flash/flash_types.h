@@ -38,6 +38,7 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_types.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_types.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
+#include "src/backend/flash/flash_family.h"
 
 namespace fastecu::flash
 {
@@ -47,100 +48,6 @@ enum class FlashOperation
     kRead,
     kTestWrite,
     kWrite,
-};
-
-enum class FlashFamily
-{
-    kDensoSh705xEepromKline,
-    kDensoSh705xEepromCan,
-    // Serves all four mitsu_ecu_m32r_can capacity and
-    // vendor-authorization variants; both properties are plan fields, not
-    // separate families, matching the legacy class this replaces.
-    kMitsuColtM32rCan,
-    kSubaruMitsuM32rKline,
-    kSubaruHitachiM32rKline,
-    kSubaruDensoMc68hc16y502,
-    kSubaruDensoSh705502,
-    kSubaruHitachiM32rCan,
-    kSubaruTcuCvtHitachiM32rCan,
-    kSubaruTcuCvtMitsuMh8111Can,
-    kSubaruTcuCvtMitsuMh8104Can,
-    // Denso ISO-15765 bootloader dialect.
-    kSubaruDenso1n83m15mCan,
-    kSubaruDensoSh72531Can,
-    kSubaruDensoSh72543CanDiesel,
-    kSubaruDenso1n83m4mCan,
-    kSubaruDensoSh705xDensoCan,
-    kSubaruTcuDensoSh705xCan,
-    kSubaruDensoSh7058Can,
-    kSubaruDensoSh7058CanDiesel,
-    kSubaruTcuHitachiM32rKline,
-    kSubaruTcuHitachiM32rCan,
-    kSubaruHitachiSh72543rCan,
-    kSubaruHitachiSh7058,
-    kSubaruUnisiaJecs,
-    kSubaruDensoSh705xKline,
-    kSubaruDensoMc68hc16y502Bdm,
-    kSubaruUnisiaJecsM32rKline,
-    kSubaruUnisiaJecsM32rBootModeKernel,
-    kSubaruUnisiaJecsM32rBootModeProgram,
-};
-
-// Stable family identifiers, in FlashFamily order.
-inline constexpr auto kFlashFamilyNames = std::to_array({
-    std::pair{FlashFamily::kDensoSh705xEepromKline, std::string_view{"DensoSh705xEepromKline"}},
-    std::pair{FlashFamily::kDensoSh705xEepromCan, std::string_view{"DensoSh705xEepromCan"}},
-    std::pair{FlashFamily::kMitsuColtM32rCan, std::string_view{"MitsuColtM32rCan"}},
-    std::pair{FlashFamily::kSubaruMitsuM32rKline, std::string_view{"SubaruMitsuM32rKline"}},
-    std::pair{FlashFamily::kSubaruHitachiM32rKline, std::string_view{"SubaruHitachiM32rKline"}},
-    std::pair{FlashFamily::kSubaruDensoMc68hc16y502, std::string_view{"SubaruDensoMc68hc16y5_02"}},
-    std::pair{FlashFamily::kSubaruDensoSh705502, std::string_view{"SubaruDensoSh7055_02"}},
-    std::pair{FlashFamily::kSubaruHitachiM32rCan, std::string_view{"SubaruHitachiM32rCan"}},
-    std::pair{FlashFamily::kSubaruTcuCvtHitachiM32rCan, std::string_view{"SubaruTcuCvtHitachiM32rCan"}},
-    std::pair{FlashFamily::kSubaruTcuCvtMitsuMh8111Can, std::string_view{"SubaruTcuCvtMitsuMh8111Can"}},
-    std::pair{FlashFamily::kSubaruTcuCvtMitsuMh8104Can, std::string_view{"SubaruTcuCvtMitsuMh8104Can"}},
-    std::pair{FlashFamily::kSubaruDenso1n83m15mCan, std::string_view{"SubaruDenso1n83m_1_5mCan"}},
-    std::pair{FlashFamily::kSubaruDensoSh72531Can, std::string_view{"SubaruDensoSh72531Can"}},
-    std::pair{FlashFamily::kSubaruDensoSh72543CanDiesel, std::string_view{"SubaruDensoSh72543CanDiesel"}},
-    std::pair{FlashFamily::kSubaruDenso1n83m4mCan, std::string_view{"SubaruDenso1n83m_4mCan"}},
-    std::pair{FlashFamily::kSubaruDensoSh705xDensoCan, std::string_view{"SubaruDensoSh705xDensoCan"}},
-    std::pair{FlashFamily::kSubaruTcuDensoSh705xCan, std::string_view{"SubaruTcuDensoSh705xCan"}},
-    std::pair{FlashFamily::kSubaruDensoSh7058Can, std::string_view{"SubaruDensoSh7058Can"}},
-    std::pair{FlashFamily::kSubaruDensoSh7058CanDiesel, std::string_view{"SubaruDensoSh7058CanDiesel"}},
-    std::pair{FlashFamily::kSubaruTcuHitachiM32rKline, std::string_view{"SubaruTcuHitachiM32rKline"}},
-    std::pair{FlashFamily::kSubaruTcuHitachiM32rCan, std::string_view{"SubaruTcuHitachiM32rCan"}},
-    std::pair{FlashFamily::kSubaruHitachiSh72543rCan, std::string_view{"SubaruHitachiSh72543rCan"}},
-    std::pair{FlashFamily::kSubaruHitachiSh7058, std::string_view{"SubaruHitachiSh7058"}},
-    std::pair{FlashFamily::kSubaruUnisiaJecs, std::string_view{"SubaruUnisiaJecs"}},
-    std::pair{FlashFamily::kSubaruDensoSh705xKline, std::string_view{"SubaruDensoSh705xKline"}},
-    std::pair{FlashFamily::kSubaruDensoMc68hc16y502Bdm, std::string_view{"SubaruDensoMc68hc16y5_02Bdm"}},
-    std::pair{FlashFamily::kSubaruUnisiaJecsM32rKline, std::string_view{"SubaruUnisiaJecsM32rKline"}},
-    std::pair{FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel, std::string_view{"SubaruUnisiaJecsM32rBootModeKernel"}},
-    std::pair{FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram,
-              std::string_view{"SubaruUnisiaJecsM32rBootModeProgram"}},
-});
-
-consteval bool FlashFamilyNamesFollowEnumOrder()
-{
-    const bool in_order =
-        std::ranges::all_of(std::views::iota(std::size_t{0}, kFlashFamilyNames.size()), [](std::size_t index)
-                            { return static_cast<std::size_t>(kFlashFamilyNames[index].first) == index; });
-    return in_order &&
-           static_cast<std::size_t>(FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram) + 1 == kFlashFamilyNames.size();
-}
-static_assert(FlashFamilyNamesFollowEnumOrder(), "name every FlashFamily, in declaration order");
-
-constexpr std::string_view FlashFamilyName(FlashFamily family)
-{
-    const auto index = static_cast<std::size_t>(family);
-    return index < kFlashFamilyNames.size() ? kFlashFamilyNames[index].second : "Unknown";
-}
-
-enum class TransportKind
-{
-    kKline,
-    kCanIso15765,
-    kCanRawIso15765,
 };
 
 struct MemoryRegion
@@ -222,19 +129,8 @@ using FamilyPlan =
                  SubaruDensoSh705xKlinePlan, SubaruDensoMc68hc16y5_02BdmPlan, SubaruUnisiaJecsM32rKlinePlan,
                  SubaruUnisiaJecsM32rBootModeKernelPlan, SubaruUnisiaJecsM32rBootModeProgramPlan>;
 
-// The FlashFamily tag and TransportKind each plan alternative belongs to.
-//
-// Deliberately has no primary definition: a new alternative added to
-// FamilyPlan above must specialize this, right here, next to the variant it
-// classifies, or every use fails to compile. That is stricter than
-// kFamilyRequiresKernel below, which has a safe default (true) to fall
-// back on -- there is no safe default family or transport to guess, and a
-// wrong guess would let a plan reach the executor of a different family.
-//
-// validate_and_build consumes this instead of a hand-written switch over
-// FlashFamily, so adding a family is a single-file edit here and cannot
-// silently bind the wrong variant to a family.
-template <typename PlanT> struct FamilyTraits;
+// FamilyTraits and kFamilyRequiresKernel are declared in flash_family.h; each
+// plan type specializes them below.
 
 template <> struct FamilyTraits<DensoSh705xEepromKlinePlan>
 {
@@ -415,12 +311,6 @@ template <> struct FamilyTraits<SubaruHitachiSh7058CanPlan>
     static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiSh7058;
     static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
-
-// Whether validate_and_build requires FlashPlanFields::kernel to be set for
-// this family's plan type. Defaults true (fail-closed): a family that skips
-// the kernel must opt out explicitly, right here, next to the variant it
-// classifies -- never by editing flash_validation.cpp.
-template <typename PlanT> inline constexpr bool kFamilyRequiresKernel = true;
 
 // Mitsu Colt CAN drives the ECU's own vendor bootloader and uploads only
 // compile-time RAM helper routines, not a loaded kernel image.

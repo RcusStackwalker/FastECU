@@ -10,6 +10,7 @@
 #include "src/algorithms/memory/memory_image.h"
 #include "src/algorithms/memory/memory_map.h"
 #include "src/algorithms/protocol/bytes.h"
+#include "src/backend/flash/flash_family.h"
 #include "src/backend/flash/flash_types.h"
 #include "src/backend/ports/result.h"
 
@@ -125,14 +126,6 @@ class FlashPlan
     std::optional<memory::MemoryImage> rom_image_;
 };
 
-// A family's plan validator, reached by plan admission (FamilyExecutor in
-// flash_executor.h). A specialization provides
-// `static Status Validate(const FlashPlan&)`, forwarding to the family's
-// Validate...Plan function.
-//
-// Like FamilyTraits, it deliberately has no primary definition: a family
-// whose executor derives from FamilyExecutor must specialize it in its
-// *_plan.h, next to the validator, or the executor fails to compile.
-template <typename PlanT> struct PlanValidator;
+// PlanValidator is declared in flash_family.h; each plan type specializes it.
 
 } // namespace fastecu::flash
