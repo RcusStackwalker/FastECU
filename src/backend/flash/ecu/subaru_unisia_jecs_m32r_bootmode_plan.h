@@ -5,8 +5,12 @@
 #include <span>
 #include <string_view>
 
+#include "src/algorithms/protocol/bytes.h"
+#include "src/backend/config/catalog.h"
+#include "src/backend/config/config_paths.h"
 #include "src/backend/flash/flash_family.h"
 #include "src/backend/flash/flash_plan.h"
+#include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::flash
@@ -69,6 +73,24 @@ Result<FlashPlan> BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(FlashOperation op
                                                                std::optional<bytes::Bytes> image);
 // Validates a plan of either bootmode family.
 Status ValidateSubaruUnisiaJecsM32rBootmodePlan(const FlashPlan& plan);
+
+// The plans one boot-mode workflow runs: Read is the 6c-3 K-Line read plan;
+// Write is the kernel upload followed by erase and program.
+struct SubaruUnisiaJecsM32rBootModePlans
+{
+    std::optional<FlashPlan> first;   // the Read plan, or the kernel upload
+    std::optional<FlashPlan> program; // Write only
+};
+
+// The flash workflow's plan preparation for this family, run before Begin so a
+// missing kernel or a wrong-size image fails before any prompt. A Write builds
+// the program plan first: it needs no I/O and rejects TestWrite and a wrong
+// `rom_file` before the protocol's kernel file is read.
+Result<SubaruUnisiaJecsM32rBootModePlans> PrepareSubaruUnisiaJecsM32rBootModePlans(FlashOperation operation,
+                                                                                   const config::ProtocolSpec& protocol,
+                                                                                   const config::ConfigPaths& paths,
+                                                                                   std::optional<bytes::Bytes> rom_file,
+                                                                                   IFileRepository& files);
 
 // Exact protocol ids routed to this family, in table order.
 std::span<const std::string_view> SubaruUnisiaJecsM32rBootModeProtocols();

@@ -410,7 +410,8 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
     {
         if (!built_.has_value())
         {
-            built_ = BuildPlans();
+            built_ = PrepareSubaruUnisiaJecsM32rBootModePlans(request_.operation, request_.protocol, request_.paths,
+                                                              std::move(request_.image), *ports_.files);
         }
         if (!built_->has_value())
         {
@@ -446,46 +447,9 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         kDone,
     };
 
-    struct Plans
-    {
-        std::optional<FlashPlan> first;   // Read plan, or the kernel upload
-        std::optional<FlashPlan> program; // Write only
-    };
-
     bool IsWrite() const
     {
         return request_.operation != FlashOperation::kRead;
-    }
-
-    Result<Plans> BuildPlans()
-    {
-        if (!IsWrite())
-        {
-            // adapter_supplies_programming_voltage is irrelevant to Read.
-            auto read = BuildSubaruUnisiaJecsM32rKlinePlan(FlashOperation::kRead, request_.protocol.name,
-                                                           request_.protocol.mcu, std::nullopt, true);
-            if (!read.has_value())
-            {
-                return std::unexpected(read.error());
-            }
-            return Plans{std::move(*read), std::nullopt};
-        }
-        // Program first: it needs no I/O and rejects TestWrite and a wrong
-        // image before the kernel file is read.
-        auto program = BuildSubaruUnisiaJecsM32rBootmodeProgramPlan(request_.operation, request_.protocol.name,
-                                                                    request_.protocol.mcu, std::move(request_.image));
-        if (!program.has_value())
-        {
-            return std::unexpected(program.error());
-        }
-        return ReadProtocolKernelBytes(request_.protocol, request_.paths, *ports_.files)
-            .and_then(
-                [&](bytes::Bytes kernel_bytes)
-                {
-                    return BuildSubaruUnisiaJecsM32rBootmodeKernelPlan(request_.operation, request_.protocol.name,
-                                                                       request_.protocol.mcu, std::move(kernel_bytes));
-                })
-            .transform([&](FlashPlan kernel) { return Plans{std::move(kernel), std::move(*program)}; });
     }
 
     FlashWorkflowStep FirstAttempt()
@@ -516,7 +480,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
 
     FlashWorkflowRequest request_;
     FlashWorkflowPorts ports_;
-    std::optional<Result<Plans>> built_;
+    std::optional<Result<SubaruUnisiaJecsM32rBootModePlans>> built_;
     Stage stage_ = Stage::kBegin;
     std::string notice_outcome_;
     FlashAttemptOutcome outcome_;
