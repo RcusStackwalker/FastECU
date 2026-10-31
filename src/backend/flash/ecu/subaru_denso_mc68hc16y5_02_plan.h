@@ -55,10 +55,9 @@ Status ValidateSubaruDensoMc68hc16y502Plan(const FlashPlan& plan);
 
 // The flash workflow's plan preparation for this family. A Write/TestWrite
 // `rom_file` is placed by the protocol's memory map for its size (ADR 0020),
-// then the builder checks the protocol, MCU and placement against a
-// placeholder kernel, so a protocol or MCU the family rejects fails before
-// the kernel file is read. Only then is the protocol's kernel file read and
-// the plan built with it.
+// then the protocol, MCU, operation and placement are checked, so a request
+// the family rejects fails before the kernel file is read. Only then is the
+// protocol's kernel file read and the plan built with it.
 Result<FlashPlan> PrepareSubaruDensoMc68hc16y502Plan(FlashOperation operation, const config::ProtocolSpec& protocol,
                                                      const config::ConfigPaths& paths,
                                                      std::optional<bytes::Bytes> rom_file, IFileRepository& files);
