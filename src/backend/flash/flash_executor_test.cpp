@@ -1,7 +1,7 @@
 #include "src/backend/ports/testing/result_matchers.h"
-#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
-#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_types.h"
-#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/flash/flash_executor.h"
 
 #include <gmock/gmock.h>

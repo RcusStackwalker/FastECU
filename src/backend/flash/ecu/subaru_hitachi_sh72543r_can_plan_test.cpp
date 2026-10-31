@@ -1,6 +1,5 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_types.h"
-#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include <gmock/gmock.h>

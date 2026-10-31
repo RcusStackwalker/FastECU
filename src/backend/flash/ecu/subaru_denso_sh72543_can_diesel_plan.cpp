@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_plan.h"
-#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
 
 #include <array>
 #include <span>

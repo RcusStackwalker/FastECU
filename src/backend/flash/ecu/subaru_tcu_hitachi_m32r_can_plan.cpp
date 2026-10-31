@@ -6,7 +6,6 @@
 #include <string_view>
 #include <utility>
 
-#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_types.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/single_window_plan.h"

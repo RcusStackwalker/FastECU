@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
-#include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_types.h"
 
 #include <algorithm>
 #include <array>

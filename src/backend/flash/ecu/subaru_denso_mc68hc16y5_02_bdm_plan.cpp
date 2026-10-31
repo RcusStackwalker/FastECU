@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_plan.h"
-#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_types.h"
 
 #include <array>
 #include <cstddef>

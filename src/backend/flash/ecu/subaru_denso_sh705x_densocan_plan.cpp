@@ -9,7 +9,6 @@
 #include <utility>
 
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
-#include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_types.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/ecu/plan_primitives.h"

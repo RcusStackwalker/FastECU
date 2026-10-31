@@ -1,5 +1,4 @@
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
-#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 
 #include <array>
 #include <format>

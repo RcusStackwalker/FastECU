@@ -1,5 +1,4 @@
 #include "src/platform/desktop/common/testing/core_application_environment.h"
-#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 // Deterministic cancel/unblock/join teardown coverage for FlashWorker (step
 // 5c, Task 11). Every plan built below uses build_denso_sh705x_eeprom_plan
 // with a FakeClock injected into the worker -- both are real, already-tested

@@ -1,5 +1,4 @@
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_types.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_executor.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"

@@ -1,5 +1,4 @@
 #include "src/backend/ports/testing/result_matchers.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
 // Equivalence tests for SubaruDensoSh7055_02Executor, the portable
 // replacement for flash_ecu_subaru_denso_sh7055_02_operation.cpp.
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.h"

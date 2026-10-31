@@ -1,6 +1,5 @@
 #pragma once
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
-#include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/guarded_can_flash_transport.h"
 

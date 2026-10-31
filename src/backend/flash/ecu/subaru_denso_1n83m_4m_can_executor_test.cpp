@@ -1,5 +1,4 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
-#include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_types.h"
 #include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for SubaruDenso1n83m_4mCanExecutor, the portable
 // replacement for flash_ecu_subaru_denso_1n83m_4m_can_operation.cpp.

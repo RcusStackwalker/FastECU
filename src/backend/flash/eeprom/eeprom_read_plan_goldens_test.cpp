@@ -1,5 +1,5 @@
 #include "src/backend/ports/testing/result_matchers.h"
-#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 // tests/test_eeprom_read_plan_goldens.cpp
 //
 // Characterization goldens for the EEPROM read plan (step 5d-6). Written

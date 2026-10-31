@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/result_matchers.h"
 

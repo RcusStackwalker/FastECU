@@ -1,5 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_executor.h"
-#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan.h"
 
 #include <algorithm>
 #include <chrono>

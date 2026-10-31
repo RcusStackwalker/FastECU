@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_executor.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_types.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"

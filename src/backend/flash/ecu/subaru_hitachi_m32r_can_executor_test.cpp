@@ -1,5 +1,4 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
-#include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
 // Equivalence tests for SubaruHitachiM32rCanExecutor, the portable replacement
 // for flash_ecu_subaru_hitachi_m32r_can_operation.cpp.
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.h"

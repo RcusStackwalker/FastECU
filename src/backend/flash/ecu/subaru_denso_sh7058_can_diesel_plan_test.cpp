@@ -10,7 +10,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/result_matchers.h"
 

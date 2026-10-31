@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/beef_can_kernel.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
 
 #include <algorithm>
 #include <array>
@@ -18,8 +17,8 @@
 
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
-#include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
+#include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"

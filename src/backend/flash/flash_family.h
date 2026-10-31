@@ -111,7 +111,7 @@ enum class TransportKind
 //   static constexpr bool kRequiresKernel;
 //
 // Deliberately has no primary definition, and kRequiresKernel no default: a
-// plan type must specialize this in its <f>_types.h and decide whether it
+// plan type must specialize this in its <f>_plan.h and decide whether it
 // uploads a kernel, or wrapping it in a FamilyPlan fails to compile. There is
 // no safe default family or transport to guess, and a wrong guess would let a
 // plan reach the executor of a different family.
@@ -127,7 +127,7 @@ template <typename PlanT> struct FamilyTraits;
 //
 // Like FamilyTraits, it deliberately has no primary definition: a family
 // whose executor derives from FamilyExecutor must specialize it, declared in
-// the plan type's `<f>_types.h` and defined in the family's plan `.cpp`, or
+// the family's `<f>_plan.h` and defined in the family's plan `.cpp`, or
 // the executor fails to compile.
 template <typename PlanT> struct PlanValidator;
 

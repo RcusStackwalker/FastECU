@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
-#include "src/backend/flash/ecu/mitsu_colt_m32r_can_types.h"
 
 #include <algorithm>
 #include <cstdint>

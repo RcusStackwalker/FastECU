@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_can_executor.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
 
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
 

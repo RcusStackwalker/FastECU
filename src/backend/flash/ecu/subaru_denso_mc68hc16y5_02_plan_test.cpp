@@ -1,5 +1,4 @@
 #include "src/backend/ports/testing/result_matchers.h"
-#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
 #include "src/algorithms/memory/testing/memory_views.h"
 #include "src/backend/config/catalog.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"

@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
-#include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_types.h"
 
 #include <array>
 #include <optional>

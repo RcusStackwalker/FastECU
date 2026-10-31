@@ -1,6 +1,5 @@
 // subaru_tcu_cvt_mitsu_mh8111_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_plan.h"
-#include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_types.h"
 #include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
 namespace fastecu::flash::testing

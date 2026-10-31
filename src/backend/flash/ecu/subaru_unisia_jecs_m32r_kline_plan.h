@@ -1,13 +1,41 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <string_view>
 
+#include "src/backend/flash/flash_family.h"
 #include "src/backend/flash/flash_plan.h"
+#include "src/backend/ports/result.h"
 
 namespace fastecu::flash
 {
+// Framed SSM over plain K-Line; the ROM size comes
+// from the plan's transfer region, so only the session parameters live here.
+struct SubaruUnisiaJecsM32rKlinePlan
+{
+    int initial_baud;
+    std::uint8_t tester_id;
+    std::uint8_t target_id;
+
+    bool operator==(const SubaruUnisiaJecsM32rKlinePlan&) const = default;
+};
+
+// Requires no kernel: The ECU's own boot ROM handles flash mode; no
+// kernel is uploaded.
+template <> struct FamilyTraits<SubaruUnisiaJecsM32rKlinePlan>
+{
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruUnisiaJecsM32rKline;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
+    static constexpr bool kRequiresKernel = false;
+};
+
+template <> struct PlanValidator<SubaruUnisiaJecsM32rKlinePlan>
+{
+    static Status Validate(const FlashPlan& plan);
+};
+
 // Exact protocol/MCU pairs sub_ecu_unisia_jecs_{20,30,40,70}, plus Read on
 // sub_ecu_unisia_jecs_{20,30}_bootmode; _40, _70 and both _bootmode names are
 // read-only here. A Write plan carries ApplyProgrammingVoltage unless

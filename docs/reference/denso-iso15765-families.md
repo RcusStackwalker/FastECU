@@ -7,7 +7,7 @@ says what the dialect shares. This page lists what each family keeps for itself,
 so the four can be compared side by side. Each deviation is a field of the
 family's [dialect profile](../../src/backend/flash/GLOSSARY.md), the
 `DensoIso15765BootloaderProfileOf<Plan>` specialisation in
-`src/backend/flash/ecu/subaru_denso_<family>_types.h`; the order of operations
+`src/backend/flash/ecu/subaru_denso_<family>_plan.h`; the order of operations
 belongs to `DensoIso15765BootloaderExecutor`.
 
 Every deviation was transcribed from the family's legacy operation source,

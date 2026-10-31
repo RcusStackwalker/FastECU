@@ -5,7 +5,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh72531_can_plan.h"
 #include "src/backend/flash/flash_validation.h"
 
 namespace

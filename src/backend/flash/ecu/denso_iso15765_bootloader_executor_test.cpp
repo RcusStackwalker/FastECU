@@ -4,10 +4,6 @@
 #include <optional>
 
 #include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.h"
-#include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
-#include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_plan.h"

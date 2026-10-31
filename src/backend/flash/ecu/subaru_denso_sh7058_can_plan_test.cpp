@@ -1,5 +1,4 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
-#include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
 
 #include <array>
 #include <optional>

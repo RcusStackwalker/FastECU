@@ -1,5 +1,4 @@
 #include "src/backend/ports/testing/result_matchers.h"
-#include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 // src/backend/flash/eeprom/denso_sh705x_eeprom_common_test.cpp
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 

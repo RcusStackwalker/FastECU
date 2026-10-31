@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "src/backend/flash/ecu/plan_primitives.h"
-#include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 
