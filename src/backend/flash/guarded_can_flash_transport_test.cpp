@@ -84,8 +84,9 @@ TEST(GuardedCanFlashTransport, PrecancelledWriteDoesNotDelegate)
     GuardedCanFlashTransport guard(inner);
     ManualCancellationToken token;
     token.Cancel();
-    ASSERT_THAT(guard.Write(bytes::Bytes{0x12}, token),
-                IsErrWith(ErrorKind::kCancelled, "CAN write cancelled before delegation"));
+    const auto result = guard.Write(bytes::Bytes{0x12}, token);
+    ASSERT_THAT(result, IsErrWith(ErrorKind::kCancelled, "CAN write cancelled before delegation"));
+    EXPECT_EQ(result.error().cancellation_io_exposure, CancellationIoExposure::kRefusedBeforeDelegation);
     EXPECT_EQ(inner.write_calls, 0);
 }
 
@@ -95,7 +96,9 @@ TEST(GuardedCanFlashTransport, PrecancelledReadDoesNotDelegate)
     GuardedCanFlashTransport guard(inner);
     ManualCancellationToken token;
     token.Cancel();
-    ASSERT_THAT(guard.Read(37ms, token), IsErrWith(ErrorKind::kCancelled, "CAN read cancelled before delegation"));
+    const auto result = guard.Read(37ms, token);
+    ASSERT_THAT(result, IsErrWith(ErrorKind::kCancelled, "CAN read cancelled before delegation"));
+    EXPECT_EQ(result.error().cancellation_io_exposure, CancellationIoExposure::kRefusedBeforeDelegation);
     EXPECT_EQ(inner.read_calls, 0);
 }
 

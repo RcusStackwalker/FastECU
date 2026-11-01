@@ -26,7 +26,7 @@
 namespace fastecu::flash
 {
 
-// Logs and returns `failure` unchanged.
+// Returns `failure` unchanged; known pre-delegation cancellation is silent.
 //
 // A rejection is the ECU/TCU's own answer: the request went out and came
 // back refused (or the bus failed under it), and `failure.detail` says why --
@@ -36,7 +36,8 @@ namespace fastecu::flash
 // reply, so a cancelled exchange may or may not have reached the ECU --
 // calling that "rejected" would misinform an operator deciding whether to
 // power-cycle the unit. Cancellation therefore gets its own operator-facing
-// line instead. `operation` names what was being asked, phrased to read
+// warning unless typed provenance proves refusal before delegation.
+// `operation` names what was being asked, phrased to read
 // after "during": "the erase trigger", "TransferData to 0x8000".
 Error ReportExchangeFailure(IEventSink& events, const Error& failure, std::string_view rejection_prefix,
                             std::string_view operation);

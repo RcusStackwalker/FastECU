@@ -31,7 +31,8 @@ fastecu::Result<bytes::Bytes> UdsClient::Request(bytes::ByteView pdu, const Exch
     }
     if (cancellation.Cancelled())
     {
-        return Fail(ErrorKind::kCancelled, "cancelled before request");
+        return std::unexpected(fastecu::Error{ErrorKind::kCancelled, "cancelled before request",
+                                              fastecu::CancellationIoExposure::kRefusedBeforeDelegation});
     }
 
     const bytes::Byte expected_service = pdu[0];
@@ -53,14 +54,14 @@ fastecu::Result<bytes::Bytes> UdsClient::Request(bytes::ByteView pdu, const Exch
             const fastecu::Status slept = clock_.Sleep(delay, cancellation);
             if (!slept.has_value())
             {
-                return std::unexpected(slept.error());
+                return std::unexpected(fastecu::AfterIoMayHaveStarted(slept.error()));
             }
         }
 
         fastecu::Result<std::optional<bytes::Bytes>> received = channel_.Receive(timeout, cancellation);
         if (!received.has_value())
         {
-            return std::unexpected(received.error());
+            return std::unexpected(fastecu::AfterIoMayHaveStarted(received.error()));
         }
         if (!received->has_value())
         {

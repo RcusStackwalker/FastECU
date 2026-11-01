@@ -653,6 +653,68 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
     EXPECT_THAT(events.logs, IsEmpty());
 }
 
+TEST(SubaruTcuCvtHitachiM32rCanExecutor, RawExchangeCancellationWarningDependsOnRequestExposure)
+{
+    class RefusingTransport final : public ScriptedCanFlashTransport
+    {
+      public:
+        bool refuse_send = false;
+        bool target_sent = false;
+        const fastecu::Error refusal{ErrorKind::kCancelled, "opaque",
+                                     fastecu::CancellationIoExposure::kRefusedBeforeDelegation};
+        fastecu::Status Write(bytes::ByteView data, const fastecu::ICancellationToken& cancellation) override
+        {
+            if (bytes::Bytes(data.begin(), data.end()) == Request({0x31, 0x02, 0x01, 0xff, 0xff, 0xff, 0xff}))
+            {
+                if (refuse_send)
+                {
+                    return std::unexpected(refusal);
+                }
+                target_sent = true;
+            }
+            return ScriptedCanFlashTransport::Write(data, cancellation);
+        }
+        fastecu::Result<std::optional<bytes::Bytes>> Read(std::chrono::milliseconds timeout,
+                                                          const fastecu::ICancellationToken& cancellation) override
+        {
+            if (target_sent)
+            {
+                return std::unexpected(refusal);
+            }
+            return ScriptedCanFlashTransport::Read(timeout, cancellation);
+        }
+    };
+    for (const bool refuse_send : {true, false})
+    {
+        SCOPED_TRACE(refuse_send);
+        RefusingTransport transport;
+        ASSERT_THAT(transport.Open(), fastecu::testing::IsOk());
+        transport.refuse_send = refuse_send;
+        transport.Exchange(Request({0x31, 0x02, 0x02, 0x01}), Response({0x71, 0x02, 0x02, 0x03}));
+        if (!refuse_send)
+        {
+            transport.ExpectWrite(Request({0x31, 0x02, 0x01, 0xff, 0xff, 0xff, 0xff}));
+        }
+        const auto plan = WritePlan(WriteRom());
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        auto run = ExecutorRun<SubaruTcuCvtHitachiM32rCanExecutor>(*plan, transport);
+        ASSERT_THAT(run.result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, "opaque"));
+        EXPECT_EQ(run.result.error().cancellation_io_exposure,
+                  refuse_send ? fastecu::CancellationIoExposure::kRefusedBeforeDelegation
+                              : fastecu::CancellationIoExposure::kMayHaveStarted);
+        const auto warning = ::testing::Pair(fastecu::LogLevel::kWarning, HasSubstr("may already have reached"));
+        if (refuse_send)
+        {
+            EXPECT_THAT(run.events.logs, ::testing::Not(::testing::Contains(warning)));
+        }
+        else
+        {
+            EXPECT_THAT(run.events.logs, ::testing::Contains(warning));
+        }
+        EXPECT_TRUE(transport.ScriptConsumed());
+    }
+}
+
 // The IFlashExecutor contract this family satisfies -- see
 // can_executor_conformance.h. Every member forwards to a helper already
 // defined above rather than reimplementing it, so the conformance suite

@@ -89,17 +89,7 @@ struct Ctx
 Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
                             std::string_view operation)
 {
-    if (failure.kind == ErrorKind::kCancelled)
-    {
-        ctx.events.Log(LogLevel::kWarning, std::format("Cancelled by operator during {} -- this is not an ECU "
-                                                       "rejection. The request may already have reached the ECU "
-                                                       "and still be running there; check the unit before "
-                                                       "power-cycling it.",
-                                                       operation));
-        return failure;
-    }
-    LogError(ctx, std::format("{}{}", rejection_prefix, failure.detail));
-    return failure;
+    return ::fastecu::flash::ReportExchangeFailure(ctx.events, failure, rejection_prefix, operation);
 }
 
 // Sends `pdu` and waits up to `timeout` for a reply. A hard
@@ -111,7 +101,8 @@ Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rej
 Result<std::optional<bytes::Bytes>> Exchange(Ctx& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout)
 {
     return ctx.channel.Send(pdu, ctx.cancellation)
-        .and_then([&] { return ctx.channel.Receive(timeout, ctx.cancellation); });
+        .and_then([&]
+                  { return ctx.channel.Receive(timeout, ctx.cancellation).transform_error(AfterIoMayHaveStarted); });
 }
 
 // A single send + read whose reply CONTENT is never checked for fatality --

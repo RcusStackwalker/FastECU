@@ -15,13 +15,32 @@ enum class ErrorKind
     kInternal,      // invariant violation / unexpected state
 };
 
+// Exposure of the operation represented by a cancellation, not just the
+// particular read or delay that observed it. Unknown exposure is conservative.
+enum class CancellationIoExposure
+{
+    kMayHaveStarted,
+    kRefusedBeforeDelegation,
+};
+
 struct Error
 {
     ErrorKind kind{ErrorKind::kInternal};
     std::string detail; // human-readable context; never the sole control signal
+    CancellationIoExposure cancellation_io_exposure{CancellationIoExposure::kMayHaveStarted};
 
     bool operator==(const Error&) const = default;
 };
+
+// A later refusal cannot establish that an earlier accepted request never ran.
+inline Error AfterIoMayHaveStarted(Error error)
+{
+    if (error.kind == ErrorKind::kCancelled)
+    {
+        error.cancellation_io_exposure = CancellationIoExposure::kMayHaveStarted;
+    }
+    return error;
+}
 
 inline const char *ToString(ErrorKind k)
 {

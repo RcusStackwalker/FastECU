@@ -16,6 +16,10 @@ Error ReportExchangeFailure(IEventSink& events, const Error& failure, std::strin
 {
     if (failure.kind == ErrorKind::kCancelled)
     {
+        if (failure.cancellation_io_exposure == CancellationIoExposure::kRefusedBeforeDelegation)
+        {
+            return failure;
+        }
         events.Log(LogLevel::kWarning, std::format("Cancelled by operator during {} -- this is not an ECU "
                                                    "rejection. The request may already have reached the ECU "
                                                    "and still be running there; check the unit before "
