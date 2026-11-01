@@ -179,10 +179,6 @@ Status DensoIso15765WriteImage(const CanExecutorContext& ctx, bytes::ByteView im
     const bytes::Bytes encrypted = DensoEncryptRom(image);
     for (std::uint32_t chunk_index = 0; chunk_index < max_chunks; ++chunk_index)
     {
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "write cancelled");
-        }
         const std::uint32_t block_addr = block.start + chunk_index * kChunkSize;
         const std::size_t image_offset = block_addr - image_base;
         if (const Status written =
@@ -215,10 +211,6 @@ Result<bytes::Bytes> DensoIso15765ReadDump(const CanExecutorContext& ctx, const 
     image.reserve(lead_pad_len + region.length + tail_pad_len);
     for (std::uint32_t offset = 0; offset < region.length; offset += kPageSize)
     {
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "read cancelled");
-        }
         Result<bytes::Bytes> page = ReadDensoEncryptedPage(ctx, region.start + offset);
         if (!page.has_value())
         {

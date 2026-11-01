@@ -64,15 +64,6 @@ struct Context
     BeefCanKernel kernel;
 };
 
-Status CancelledIfRequested(const Context& context, std::string_view detail)
-{
-    if (context.cancellation.Cancelled())
-    {
-        return Fail(ErrorKind::kCancelled, std::string(detail));
-    }
-    return {};
-}
-
 void LogWrongPdu(const Context& context, bytes::ByteView pdu)
 {
     LogError(context, std::format("Wrong response from TCU: {}", bytes::ToHex(pdu)));
@@ -80,8 +71,7 @@ void LogWrongPdu(const Context& context, bytes::ByteView pdu)
 
 Result<std::optional<bytes::Bytes>> NonfatalQuery(Context& context, bytes::ByteView pdu)
 {
-    auto received = CancelledIfRequested(context, "cancelled before CAN request")
-                        .and_then([&] { return context.channel.Send(pdu, context.cancellation); })
+    auto received = context.channel.Send(pdu, context.cancellation)
                         .and_then([&] { return context.clock.Sleep(kExtraShortTimeout, context.cancellation); })
                         .and_then([&] { return context.channel.Receive(kReadTimeout, context.cancellation); });
     if (!received.has_value())
@@ -130,11 +120,6 @@ Result<bool> DrainKernelIdFragments(Context& context, bytes::Bytes& coalesced)
     constexpr int kMaxKernelIdTrailingFrames = 32;
     for (int trailing = 0; trailing < kMaxKernelIdTrailingFrames; ++trailing)
     {
-        if (const Status checkpoint = CancelledIfRequested(context, "kernel ID trailing drain cancelled");
-            !checkpoint.has_value())
-        {
-            return std::unexpected(checkpoint.error());
-        }
         Result<std::optional<bytes::Bytes>> fragment = context.transport.Read(kShortTimeout, context.cancellation);
         if (!fragment.has_value())
         {
@@ -215,11 +200,6 @@ Result<std::optional<std::string>> RequestKernelId(Context& context, bool tolera
     const bytes::Bytes request{0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     for (int attempt = 0; attempt < 5; ++attempt)
     {
-        if (const Status checkpoint = CancelledIfRequested(context, "kernel ID probe cancelled");
-            !checkpoint.has_value())
-        {
-            return std::unexpected(checkpoint.error());
-        }
         if (const Status sent = context.channel.Send(request, context.cancellation); !sent.has_value())
         {
             return std::unexpected(sent.error());

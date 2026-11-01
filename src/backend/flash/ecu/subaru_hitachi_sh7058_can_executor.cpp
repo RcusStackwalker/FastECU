@@ -34,10 +34,6 @@ class Session
     Result<std::optional<Bytes>> Exchange(bytes::ByteView payload, std::chrono::milliseconds delay = 0ms,
                                           std::chrono::milliseconds timeout = 200ms, std::uint32_t id = 0x7e0)
     {
-        if (auto status = Checkpoint(); !status.has_value())
-        {
-            return std::unexpected(status.error());
-        }
         Bytes frame = bytes::ComposeBe(id, payload);
         if (auto sent = transport_.Write(frame, cancel_); !sent.has_value())
         {
@@ -239,10 +235,6 @@ class Session
         }
         for (int count = 0; count < 20; ++count)
         {
-            if (auto status = Checkpoint(); !status.has_value())
-            {
-                return status;
-            }
             reply = transport_.Read(800ms, cancel_);
             if (!reply.has_value())
             {

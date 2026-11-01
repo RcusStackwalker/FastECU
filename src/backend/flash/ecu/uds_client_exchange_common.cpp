@@ -115,10 +115,6 @@ Result<bytes::Bytes> ReadEncryptedB7Pages(const UdsExchangeContext& ctx, std::st
     rom.reserve(region.length);
     for (std::uint32_t addr = region.start; addr < region.start + region.length; addr += kPageSize)
     {
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "read cancelled");
-        }
         Result<bytes::Bytes> chunk = FatalRequest(ctx, bytes::ComposeBe(uds::kSidReadMemoryChunk, bytes::U24{addr}),
                                                   rejection_prefix, std::format("the flash read at 0x{:x}", addr));
         if (!chunk.has_value())

@@ -349,11 +349,6 @@ Result<bytes::Bytes> ReadRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& 
     dumped.reserve(region.length);
     for (std::uint32_t offset = 0; offset < region.length; offset += plan.page_size)
     {
-        // Legacy's stopRequested() check at the top of the dump loop.
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled during ROM read");
-        }
         const std::uint32_t address = region.start + offset;
         bytes::Bytes page_request{uds::kSidReadMemoryChunk};
         bytes::AppendU24Be(page_request, address);
@@ -409,8 +404,7 @@ Result<bytes::Bytes> ReadRom(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& 
 Status Erase(const Ctx& ctx)
 {
     const bytes::Bytes request{uds::kSidRoutineControl, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF};
-    return CheckCancelled(ctx.cancellation, "cancelled before request")
-        .and_then([&] { return ctx.kernel_channel.Send(request, ctx.cancellation); })
+    return ctx.kernel_channel.Send(request, ctx.cancellation)
         .and_then([&] { return ctx.clock.Sleep(kEraseDelay, ctx.cancellation); })
         .and_then([&] { return ctx.kernel_channel.Receive(kEraseTimeout, ctx.cancellation); })
         .and_then(
@@ -502,13 +496,6 @@ Status ReflashBlock(const Ctx& ctx, const SubaruTcuHitachiM32rCanPlan& plan, con
 
     for (std::uint32_t frame = 0; frame < frames; ++frame)
     {
-        // Legacy's stopRequested() check at the top of the frame loop, which
-        // returned STATUS_SUCCESS and so reported a cancelled block as
-        // reflashed.
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled during block write");
-        }
         const std::uint32_t address = block.start + (frame * frame_size);
         bytes::Bytes data_request{uds::kSidWriteMemoryChunk};
         bytes::AppendU24Be(data_request, address);

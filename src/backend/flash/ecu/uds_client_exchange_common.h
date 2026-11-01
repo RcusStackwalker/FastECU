@@ -19,10 +19,10 @@
 // subaru_tcu_cvt_mitsu_mh8111, the Denso ISO-15765 bootloader dialect
 // (denso_iso15765_*) and the three Denso BEEF CAN executors
 // (the shared petrol/diesel execution owner, kernel and separate TCU executor).
-// subaru_tcu_cvt_mitsu_mh8104 talks to
-// uds::IUdsChannel directly and uses none of it, see that executor's own file
-// header. Extracted because the first four families independently carried a
-// byte-for-byte identical copy of this logging/wrapping logic.
+// subaru_tcu_cvt_mitsu_mh8104 uses the shared reporter while its exchanges
+// remain direct-channel; see that executor's own file header. Extracted because
+// the first four families independently carried a byte-for-byte identical copy
+// of this logging/wrapping logic.
 namespace fastecu::flash
 {
 
@@ -153,7 +153,7 @@ Status UnlockAndKernelJump(const UdsExchangeContext& ctx, std::string_view rejec
                            bytes::Bytes (*seed_key)(bytes::ByteView seed));
 
 // Reads `region` as 0x100-byte encrypted B7 pages (B7 plus a 24-bit address,
-// each a FatalRequest), checking cancellation before every page, and returns
+// each a FatalRequest with UdsClient-owned entry cancellation), and returns
 // the pages decrypted with the family's `decrypt_page`.
 Result<bytes::Bytes> ReadEncryptedB7Pages(const UdsExchangeContext& ctx, std::string_view rejection_prefix,
                                           const MemoryRegion& region, bytes::Bytes (*decrypt_page)(bytes::ByteView),

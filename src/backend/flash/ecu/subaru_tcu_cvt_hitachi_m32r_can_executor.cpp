@@ -426,16 +426,6 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView block_plain, std::uint32_
 
     for (std::uint32_t offset = 0; offset < length; offset += kChunkSize)
     {
-        // Legacy's stopRequested() check returns 0 -- success -- to the caller
-        // on cancellation, which write_mem then reports as a completed block;
-        // the same bug subaru_hitachi_m32r_can_executor.cpp already disclosed
-        // and diverged from for its own family. Not reproduced here either: a
-        // cancellation mid-write is reported as Cancelled, never success.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "write cancelled");
-        }
-
         const std::uint32_t addr = start + offset;
         const bytes::ByteView chunk_data = bytes::ByteView(encrypted).subspan(offset, kChunkSize);
         // Legacy reads but never inspects the per-chunk reply at all -- only a

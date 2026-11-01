@@ -119,8 +119,7 @@ Status CancelledIfRequested(const KernelContext& ctx, std::string_view detail)
 // Warm exchanges have no post-send delay.
 Result<bytes::Bytes> ChannelRequest(KernelContext& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout)
 {
-    return CancelledIfRequested(ctx, "cancelled before CAN request")
-        .and_then([&] { return ctx.channel.Send(pdu, ctx.cancellation); })
+    return ctx.channel.Send(pdu, ctx.cancellation)
         .and_then([&] { return ctx.channel.Receive(timeout, ctx.cancellation); })
         .and_then(
             [](std::optional<bytes::Bytes> received) -> Result<bytes::Bytes>
@@ -358,10 +357,6 @@ Status FlashBlock(KernelContext& ctx, bytes::ByteView image, std::uint32_t image
     LogFlashRegion(ctx, "Start flash write addr", block);
     for (std::uint32_t offset = 0; offset < block.length; offset += kBeefFlashBufferSize)
     {
-        if (const Status checkpoint = CancelledIfRequested(ctx, "flash write cancelled"); !checkpoint.has_value())
-        {
-            return checkpoint;
-        }
         const std::uint32_t address = block.start + offset;
         const bytes::ByteView chunk = image.subspan(image_offset + offset, kBeefFlashBufferSize);
         Result<bytes::Bytes> written =
@@ -448,10 +443,6 @@ Status BeefCanKernel::TransferPayload(const KernelImage& kernel, const BeefKerne
     // The <= boundary deliberately sends a final address-only B6 request.
     for (std::size_t offset = 0; offset <= encrypted->size(); offset += kUploadBlockSize)
     {
-        if (cancellation_.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "kernel upload cancelled");
-        }
         const bytes::ByteView chunk =
             bytes::ByteView{*encrypted}.subspan(offset, std::min(kUploadBlockSize, encrypted->size() - offset));
         if (const Status sent = channel_.Send(
@@ -489,10 +480,6 @@ Result<bytes::Bytes> BeefCanKernel::Read(const MemoryRegion& region, PhaseReport
     for (std::uint32_t offset = 0; offset < region.length; offset += kReadPageSize)
     {
         const auto started = clock_.Now();
-        if (const Status checkpoint = CancelledIfRequested(view, "read cancelled"); !checkpoint.has_value())
-        {
-            return std::unexpected(checkpoint.error());
-        }
         const std::uint32_t address = region.start + offset;
         const auto request = bytes::ComposeBe(bytes::Byte{0x00}, bytes::U24{address}, std::uint16_t{kReadPageSize});
         Result<bytes::Bytes> reply = Exchange(view, bytes::Byte{0x03}, request, kReadPageSize, kReadTimeout);

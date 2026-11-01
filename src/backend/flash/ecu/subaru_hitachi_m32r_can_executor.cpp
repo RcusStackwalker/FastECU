@@ -326,17 +326,6 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
 
     for (std::uint32_t addr = 0; addr < kLength; addr += kChunkSize)
     {
-        // Legacy's stopRequested() check returns 0 -- success -- to the caller
-        // on cancellation, which write_mem then reports as a completed block.
-        // That is not reproduced here: a cancellation mid-write must never be
-        // reported as a successful ROM write, so this deliberately diverges
-        // from the literal legacy return value and reports Cancelled like every
-        // other family's write loop.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "write cancelled");
-        }
-
         const bytes::ByteView chunk_data = bytes::ByteView(encrypted).subspan(addr, kChunkSize);
         if (Result<bytes::Bytes> chunk = FatalRequest(ctx, ComposeBe(uds::kSidWriteMemoryChunk, U24{addr}, chunk_data),
                                                       std::format("the flash write at 0x{:x}", addr));
