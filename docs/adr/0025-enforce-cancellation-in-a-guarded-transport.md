@@ -102,9 +102,9 @@ mode changes, buffer control, `RequestUnblock`, platform checks and K-Line keep
 their owners.
 
 Net-negative NLOC is no longer a completion condition. The pinned trunk
-`e62684af59f1bd3c98b20596ee0503327eea8a94` measures 66,405 production and
-88,783 test NLOC. The complete stack must not exceed 66,409 production NLOC
-(`+4`) or 89,884 test NLOC (`+1,101`). These are hard maximums, not targets or
+`44c33ab52b0efc1827f01c333c998e1bae58c67d` measures 66,211 production and
+88,889 test NLOC. The complete stack must not exceed 66,215 production NLOC
+(`+4`) or 89,990 test NLOC (`+1,101`). These are hard maximums, not targets or
 permission for unrelated growth. A rebase onto newer trunk requires a new
 baseline while preserving those maximum deltas unless a separately approved
 ADR amendment changes them. Cleanup still prefers deletion and shared ownership.
