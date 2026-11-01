@@ -698,10 +698,8 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, RawExchangeCancellationWarningDependsOn
         const auto plan = WritePlan(WriteRom());
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         auto run = ExecutorRun<SubaruTcuCvtHitachiM32rCanExecutor>(*plan, transport);
-        ASSERT_THAT(run.result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, "opaque"));
-        EXPECT_EQ(run.result.error().cancellation_io_exposure,
-                  refuse_send ? fastecu::CancellationIoExposure::kRefusedBeforeDelegation
-                              : fastecu::CancellationIoExposure::kMayHaveStarted);
+        ASSERT_THAT(run.result, fastecu::testing::IsErrThat(
+                                    refuse_send ? transport.refusal : fastecu::Error{ErrorKind::kCancelled, "opaque"}));
         const auto warning = ::testing::Pair(fastecu::LogLevel::kWarning, HasSubstr("may already have reached"));
         if (refuse_send)
         {

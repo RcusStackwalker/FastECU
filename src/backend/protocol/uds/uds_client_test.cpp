@@ -214,8 +214,9 @@ TEST(UdsClientTest, RefusesToSendWhenAlreadyCancelled)
 
     uds::UdsClient client = f.Client();
     const auto result = client.Request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation);
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(result.error().cancellation_io_exposure, fastecu::CancellationIoExposure::kRefusedBeforeDelegation);
+    ASSERT_THAT(result,
+                fastecu::testing::IsErrThat(fastecu::Error{ErrorKind::kCancelled, "cancelled before request",
+                                                           fastecu::CancellationIoExposure::kRefusedBeforeDelegation}));
     EXPECT_EQ(f.channel.SendsConsumed(), 0U);
 }
 
@@ -264,10 +265,8 @@ TEST(UdsClientTest, PreservesSendRefusalButPromotesCancellationAfterSuccessfulSe
         }
         auto client = f.Client();
         const auto result = client.Request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation);
-        ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, "refused"));
-        EXPECT_EQ(result.error().cancellation_io_exposure,
-                  stage == 0 ? fastecu::CancellationIoExposure::kRefusedBeforeDelegation
-                             : fastecu::CancellationIoExposure::kMayHaveStarted);
+        ASSERT_THAT(result, fastecu::testing::IsErrThat(stage == 0 ? refused
+                                                                   : fastecu::Error{ErrorKind::kCancelled, "refused"}));
         EXPECT_TRUE(f.channel.ScriptConsumed());
     }
 }
@@ -287,8 +286,7 @@ TEST(UdsClientTest, PromotesPreReadDelayCancellationAfterSuccessfulSend)
     f.channel.ExpectSend(bytes::Bytes{0x10, 0x03});
     uds::UdsClient client(f.channel, clock, f.events);
     const auto result = client.Request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation);
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, "delay refused"));
-    EXPECT_EQ(result.error().cancellation_io_exposure, fastecu::CancellationIoExposure::kMayHaveStarted);
+    ASSERT_THAT(result, fastecu::testing::IsErrThat(fastecu::Error{ErrorKind::kCancelled, "delay refused"}));
     EXPECT_TRUE(f.channel.ScriptConsumed());
     EXPECT_THAT(f.channel.timeouts, ::testing::IsEmpty());
 }

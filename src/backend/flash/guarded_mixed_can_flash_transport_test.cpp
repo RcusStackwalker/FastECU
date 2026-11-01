@@ -156,9 +156,10 @@ TEST_P(GuardedMixedCanIo, PrecancelledIoDoesNotDelegate)
     const std::array<std::string, 4> details{
         "mixed CAN ISO-15765 write cancelled before delegation", "mixed CAN ISO-15765 read cancelled before delegation",
         "mixed CAN raw write cancelled before delegation", "mixed CAN raw read cancelled before delegation"};
-    const auto result = Invoke(guard, GetParam(), token);
-    ASSERT_THAT(result, IsErrWith(ErrorKind::kCancelled, details.at(static_cast<std::size_t>(GetParam()))));
-    EXPECT_EQ(result.error().cancellation_io_exposure, CancellationIoExposure::kRefusedBeforeDelegation);
+    ASSERT_THAT(
+        Invoke(guard, GetParam(), token),
+        fastecu::testing::IsErrThat(Error{ErrorKind::kCancelled, details.at(static_cast<std::size_t>(GetParam())),
+                                          CancellationIoExposure::kRefusedBeforeDelegation}));
     EXPECT_EQ(inner.attempts, 0);
 }
 TEST_P(GuardedMixedCanIo, DelegatedOutcomeAndArgumentsAreUnchanged)
