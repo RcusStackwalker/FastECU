@@ -1,5 +1,15 @@
 # CAN Cancellation Stack Cleanup Design
 
+## Status
+
+Superseded by the approved
+[normalized-logging design](2026-11-01-can-cancellation-normalized-logging-design.md)
+and [implementation plan](../plans/2026-11-01-can-cancellation-normalized-logging.md).
+The older cleanup plan stopped at its size gate. The original findings and
+requirements below are preserved as historical evidence; the revised design and
+[ADR 0025](../../adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
+own the current bounded-growth and cancellation-reporting contract.
+
 ## Intent
 
 Turn PR #908 from a self-authorizing, net-positive cancellation rollout into

@@ -61,27 +61,70 @@ their matching guards, while K-Line retains its existing execution path.
 Preparation, configuration, Open, Close, unblock and caller-owned lifetimes
 remain outside the execution guard.
 
-Generic refusal of the next I/O belongs to the guarded transport and is tested
-there. Production binding tests prove that `BoundAttempt` selects each guarded
-interface, including both raw and ISO operations for mixed-CAN. Family suites
-retain error precedence, tolerated continuation, post-operation checkpoints,
-wire behavior and forbidden subsequent family work. Ordinary family-unit tests
-exercise undecorated execution; composition cases exercise `BoundAttempt`.
+Cancellation reporting uses typed evidence about the represented operation.
+`Error` gains a defaulted `CancellationIoExposure` field named
+`cancellation_io_exposure`, with `kMayHaveStarted` as the conservative default
+and `kRefusedBeforeDelegation` for positive evidence of refusal. Existing
+two-field aggregate construction remains valid; `kCancelled` remains the
+workflow outcome, with no new `ErrorKind` and no inference from detail strings.
 
-Remove an executor poll only when its sole effect is equivalent to refusal of
-the immediately following guarded I/O. Preserve returned errors and details,
-logging, progress, events, ordering, timeouts, delays, retries, confirmations,
-post-operation checks and non-I/O boundaries. Runner setup, cancellable waits,
-platform checks and `UdsClient` checks for other callers keep their owners.
+**Pre-delegation refusal** is a `kCancelled` result with typed evidence that the
+represented I/O was not delegated. Guards mark their entry refusals and
+`UdsClient` marks pre-request refusal this way. The shared CAN reporter emits
+no event for this refusal. Delegated guard results pass through unchanged, and
+`UdsClient` preserves failed-Send provenance.
 
-The migration is complete only after redundant polls and generic family tests
-are removed and both production and test NLOC are below the recorded trunk
-baseline. Record and measure the selected trunk before implementation; a rebase
-onto newer trunk requires a new baseline. Audit rollout growth is a transitional
-cost, not savings or completed ownership transfer. If safe cleanup cannot meet
-both size gates, reconsider this decision rather than weaken behavior or the
-measurement. Hardware evidence remains a separate qualification requirement;
-this software migration makes no hardware-qualification claim.
+**May-have-started cancellation** follows possible acceptance or unknown
+exposure and retains the existing ECU safety warning. After successful Send,
+`AfterIoMayHaveStarted(Error)` promotes cancellation from the pre-read delay,
+Receive and pending rereads, even if that later call was itself refused. CVT
+Hitachi raw erase and MH8104 raw exchange apply the same promotion. The helper
+promotes only `kCancelled`; non-cancellation rejection logging stays unchanged.
+
+Generic refusal, exposure and reporting tests belong to the guard,
+`UdsClient` and shared reporter. Production binding tests prove CAN, mixed-CAN
+(raw and ISO) and unchanged K-Line selection. Family suites retain unique
+continuation, error precedence, post-operation checkpoints, transcripts and
+lifecycle behavior. Test simplicity means clear ownership, not deleting unique
+evidence to meet a line metric. Direct executor tests use cancellation-aware
+transports or `BoundAttempt` when entry refusal is part of the case; family-only
+logic may still use undecorated execution.
+
+Remove all 33 spike-proven redundant CAN and mixed-CAN pre-I/O poll sites. Each
+removed check must lead directly to guarded or `UdsClient`-owned I/O without an
+intervening wait, log, event, confirmation, validation or computation whose
+ordering it owns. Preserve wire bytes, accepted-operation ordering, timeouts,
+delays, retries, confirmations, progress, address-window guards, family
+continuation, post-operation checks and non-I/O boundaries. Pre-delegation
+detail text is no longer a stable family contract; kind, typed exposure and
+operator-event policy are. Runner setup, cancellable waits, lifecycle, restart,
+mode changes, buffer control, `RequestUnblock`, platform checks and K-Line keep
+their owners.
+
+Net-negative NLOC is no longer a completion condition. The pinned trunk
+`e62684af59f1bd3c98b20596ee0503327eea8a94` measures 66,405 production and
+88,783 test NLOC. The complete stack must not exceed 66,409 production NLOC
+(`+4`) or 89,884 test NLOC (`+1,101`). These are hard maximums, not targets or
+permission for unrelated growth. A rebase onto newer trunk requires a new
+baseline while preserving those maximum deltas unless a separately approved
+ADR amendment changes them. Cleanup still prefers deletion and shared ownership.
+
+Deliver seven independently reviewable layers as one linear, atomically merged
+stack: this ADR amendment and revised design; conservative reconstructed #908;
+interface-owned guard binding; generic test-ownership compression; typed
+exposure and normalized logging; all 33 poll removals and test alignment; then
+durable evidence and temporary-plan closure. Preserve designs/plans in lower
+delivered history before their later deletion. Every layer must be green and
+reviewed before atomic squash merge. Remote submission, readiness and merge
+each require explicit authorization at that execution stage.
+
+Top-of-stack gates include the release application build, full release tests,
+all Prek hooks, clang-tidy, convergent Gazelle generation, coverage, changed-line
+cancellation mutation checks, exact NLOC measurement and scoped review.
+Hardware evidence remains a separate recorded qualification requirement; this
+software migration makes no hardware-qualification claim. The
+[revised design](../superpowers/specs/2026-11-01-can-cancellation-normalized-logging-design.md)
+records the measured rationale for replacing the former size gate.
 
 ## Alternatives
 
@@ -102,10 +145,9 @@ this software migration makes no hardware-qualification claim.
 - Changed cancellation boundaries and operator events require explicit removal
   evidence. Family-specific early returns and tests protecting forbidden
   subsequent work remain necessary.
-- The decision, conservative audited rollout, binding cleanup, test compression
-  and poll deletion remain independently reviewable. Neither a transcript
-  framework nor a generated-scenario framework is required. Transitional
-  support growth is permitted only before the completion gates above are met.
+- The seven stack layers remain independently reviewable. Neither a transcript
+  framework nor a generated-scenario framework is required. Measured support
+  growth is accepted only within the hard completion budget above.
 - This ADR owns the durable completion contract; the flash contract describes
   implemented binding, and the pilot results retain preservation evidence,
   measurements and delivery gates. Per-family audits gate software expansion;

@@ -48,6 +48,31 @@ migration completion gates. The Colt binding above describes the implemented
 pilot; the proposed broader contract does not establish rollout completion or
 hardware qualification.
 
+The proposed `Error::cancellation_io_exposure` field uses
+`CancellationIoExposure::kMayHaveStarted` by default, preserving conservative
+reporting and existing two-field aggregate construction.
+`kRefusedBeforeDelegation` is positive typed evidence that the represented
+operation was not delegated. `kCancelled` remains the outcome kind; exposure is
+never inferred from error-detail strings.
+
+In the proposal, CAN and mixed-CAN guards mark entry refusals, and `UdsClient`
+marks pre-request refusal while preserving failed-Send provenance. The shared
+CAN reporter returns typed pre-delegation refusal quietly, without an event;
+may-have-started cancellation, including unknown exposure, retains the existing
+ECU safety warning. Non-cancellation rejection logging stays unchanged.
+After a successful Send, `AfterIoMayHaveStarted(Error)` promotes cancellation
+from delays, Receive and pending rereads to may-have-started, even when a later
+call is refused. CVT Hitachi raw erase and MH8104 raw exchange apply the same
+promotion so earlier request exposure is retained.
+
+This proposed contract enables removal of all 33 spike-proven redundant
+pre-I/O polls while preserving family-owned post-operation and non-I/O
+checkpoints. Generic refusal, exposure and binding tests stay with shared
+owners; direct executor tests require a cancellation-aware transport when entry
+refusal is under test. The ADR owns the exact pinned baseline, hard `+4`
+production/`+1,101` test NLOC budget and seven-layer atomic delivery gates.
+These exposure and reporting changes are not implemented in this layer.
+
 ## Plan admission
 
 Every flash executor derives from
