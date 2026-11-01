@@ -59,7 +59,7 @@ and normalized reporting. The
 [completed migration results](reference/can-cancellation-migration-results.md)
 own the compact executor/shared-dialect matrix, all 33 poll removals and
 retained checkpoints, test ownership, and accepted NLOC budget. Final totals
-are 66,409 production / 89,884 test (`+4` / `+1,101` against pinned trunk).
+are 66,409 production / 89,879 test (`+4` / `+1,096` against pinned trunk).
 This is completed software ownership transfer with bounded growth; hardware
 qualification and top-of-stack delivery gates remain separate. Completed
 migration designs and plans are preserved in lower stack history.

@@ -182,9 +182,9 @@ records retained family checkpoints, surviving tests and qualification gaps.
 
 Pinned trunk `e62684af59f1bd3c98b20596ee0503327eea8a94` measured
 66,405 production / 88,783 test NLOC. The final software stack measures
-66,409 / 89,884: `+4` production / `+1,101` test, exactly the approved hard
-maximums. This work did not achieve net-negative test NLOC. The bounded-growth
-budget replaced that goal; neither production nor test growth is savings.
+66,409 / 89,879: `+4` production / `+1,096` test, within the approved hard
+maximums (five test NLOC below the cap). This work did not achieve net-negative
+test NLOC. The bounded-growth budget replaced that goal; neither production nor test growth is savings.
 A newer-trunk rebase requires a new baseline while preserving the maximum
 deltas unless a separately approved ADR amendment changes them.
 

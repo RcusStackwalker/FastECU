@@ -1,7 +1,7 @@
 # CAN cancellation migration results
 
 Status (2026-11-01): CAN and mixed-CAN software ownership is implemented at
-`69d48de156b410427829460edbe3ae91576d1b3f`. Interface-selected guarding replaces
+`05d51398f6187cc8a122d99f3074c06017736c49`. Interface-selected guarding replaces
 executor opt-ins; generic test ownership, typed exposure/reporting and all 33
 audited redundant pre-I/O poll removals are complete. The
 [flash contract](flash-contracts.md#can-cancellation-ownership) owns runtime
@@ -78,8 +78,8 @@ or a claim that all other bench work is complete.
 | Colt M32R | CAN | Earlier four read/compare polls; next exchange owns refusal | Admission, abort/confirmations, accepted erase, late complete read/verify meaning | [Colt executor](../../src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp) and binding | 471 / 1,634 | Recorded [Colt bench run](../checklists/colt_czt_47110032_can_bench_checklist.md), both capacities and pending behavior |
 | Subaru Hitachi M32R ECU | CAN | Write-loop entry **(1)**; B7 through shared owner | Pending continuation, identity tolerance, erase waits, close/checksum policy | [ECU suite](../../src/backend/flash/ecu/subaru_hitachi_m32r_can_executor_test.cpp) | 288 / 409 | Pending/erase cancellation on named ECU |
 | Subaru Hitachi M32R TCU | CAN | ROM-read, raw-erase and block-write entries **(3)** | Accepted erase before next unsent window, reply validation, retry/close/checksum and no-data-after-cancel traces | [TCU suite](../../src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_executor_test.cpp) | 540 / 2,051 | [Blocking erase-scope bench gate](../checklists/subaru-tcu-hitachi-m32r-can-bench-checklist.md), corrected read window |
-| CVT Hitachi M32R | CAN | Write-loop entry **(1)**; B7 through shared owner | Raw erase exposure promotion, security channel, one fatal block close and checksum | [CVT Hitachi suite](../../src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor_test.cpp) | 331 / 557 | Raw erase cancellation and close on named TCU |
-| CVT Mitsubishi MH8104 | CAN | Read/write loop entries **(2)** | Successful-Send raw exposure promotion, failed-Send provenance, tolerant checksum | [MH8104 suite](../../src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) | 402 / 563 | Raw exchange cancellation/checksum on named TCU |
+| CVT Hitachi M32R | CAN | Write-loop entry **(1)**; B7 through shared owner | Raw erase exposure promotion, security channel, one fatal block close and checksum | [CVT Hitachi suite](../../src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor_test.cpp) | 331 / 555 | Raw erase cancellation and close on named TCU |
+| CVT Mitsubishi MH8104 | CAN | Read/write loop entries **(2)** | Successful-Send raw exposure promotion, failed-Send provenance, tolerant checksum | [MH8104 suite](../../src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) | 402 / 561 | Raw exchange cancellation/checksum on named TCU |
 | CVT Mitsubishi MH8111 | CAN | Write-loop entry **(1)**; B7 through shared owner | UDS continuation, twenty-attempt close and fatal checksum | [MH8111 suite](../../src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor_test.cpp) | 275 / 546 | Pending/close/checksum on named TCU |
 | Denso ISO N83M 1.5M | CAN | Shared ISO loop entries below | Nonzero-base indexing, in-car/bench policy, best-effort stop may finish successfully after cancellation | [N83M 1.5M suite](../../src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp) | 8 / 560 | Exact dump length, branch timing and stop on ECU |
 | Denso ISO N83M 4M | CAN | Shared ISO loop entries below | Tolerant read setup, first-jump discard, best-effort stop/close | [N83M 4M suite](../../src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp) | 8 / 521 | Jump discard and tolerant setup/close on ECU |
@@ -115,18 +115,21 @@ from other trunk revisions are not subtracted from this baseline.
 | Pinned trunk `e62684af59f1bd3c98b20596ee0503327eea8a94` | 66,405 | 88,783 | 155,188 |
 | Conservative reconstructed rollout `1ba17a1c` | 66,562 | 90,423 | 156,985 |
 | Interface binding + shared-test compression `e72f49e2` | 66,526 | 89,699 | 156,225 |
-| Typed exposure/reporting `e90c442e` | 66,542 | 89,890 | 156,432 |
-| Final poll ownership `69d48de1` | **66,409** | **89,884** | **156,293** |
-| Final minus pinned trunk | **+4** | **+1,101** | **+1,105** |
+| Typed exposure/reporting `0f9466ef` | 66,542 | 89,885 | 156,427 |
+| Final poll ownership `05d51398` | **66,409** | **89,879** | **156,288** |
+| Final minus pinned trunk | **+4** | **+1,096** | **+1,100** |
 
-Both final values equal the approved hard maximums. This work did not achieve
-net-negative test NLOC; the approved bounded-growth budget replaced that goal.
+Production equals its approved hard maximum; tests remain five NLOC below
+their 89,884 maximum (`+1,101`). This work did not achieve net-negative test
+NLOC; the approved bounded-growth budget replaced that goal.
 Compression and poll deletion reduce the transitional rollout, while the final
 stack still grows against trunk. The independently green exposure layer also
 corrected the Hitachi TCU's stale next-unsent-window warning expectation, making
-its test total one below the original forecast. From that actual base the poll
-layer removes 133 production and six test NLOC, including the separately reviewed
-SH72543R Receive removal; the disposable spike's different deltas are not claimed.
+its test total one below the original forecast. Its later whole-error matcher
+repair removes five more test NLOC without changing the asserted kind, detail or
+exposure, leaving the repaired layer six below that forecast. From that actual
+base the poll layer removes 133 production and six test NLOC, including the
+separately reviewed SH72543R Receive removal; the disposable spike's different deltas are not claimed.
 A newer-trunk rebase requires a new baseline with maximum deltas `+4` / `+1,101`
 unless a separately approved ADR amendment changes them.
 
@@ -142,19 +145,26 @@ BEEF entry-detail test is removed at the poll layer; no fixture or suite is
 removed there. Hitachi TCU loop detail assertions become kind-based while full
 traces and accepted I/O counts remain.
 
-At `e90c442e`, the eight focused exposure targets and the additionally aligned
-Hitachi TCU target passed; the full release suite passed 306 targets with 20
-configured fuzz/platform skips. At `69d48de1`, all 88 flash targets and the full
-release suite passed (306 pass / 20 skip); Gazelle converged without BUILD
-changes and all applicable Prek hooks passed. The final mutation run selected
-all 22 dependent targets from `e90c442e...69d48de1`: all completed, with no mutants
+At the original exposure head `e90c442e`, the eight focused exposure targets and
+the additionally aligned Hitachi TCU target passed; the full release suite passed 306 targets with 20
+configured fuzz/platform skips. At the original poll head `69d48de1`, all 88
+flash targets and the full release suite passed (306 pass / 20 skip); Gazelle converged without BUILD
+changes and all applicable Prek hooks passed. The original final mutation run
+selected all 22 dependent targets from `e90c442e...69d48de1`: all completed, with no mutants
 in changed-line scope and zero survivors. Pure deletions supply few mutable
 changed lines; this is not mutation coverage of removed instructions. The
 characterizations, retained-boundary audit and exact accepted-I/O traces provide
 the deletion evidence.
 
+The repaired exposure head `0f9466ef` passes all five affected owner targets and
+focused clang-tidy (36 files, zero findings). The restacked poll head `05d51398`
+retains the original poll layer byte-for-byte above that test-only repair.
+Whole-error matchers replace direct error-field assertions and preserve refusal,
+promotion and warning evidence; no production or analysis policy changed. Full
+clang-tidy on the restacked source reports 552 files and zero findings.
+
 These observations do not claim the remaining top-of-stack application build,
-clang-tidy, coverage, platform CI or packaging gates. Those remain required by
+coverage, platform CI or packaging gates. Those remain required by
 ADR 0025 before delivery. Local skips do not establish Windows qualification.
 The [qualification matrix](../flash-qualification-matrix.md) and applicable
 bench checklists remain unchanged, including Colt's recorded bench gate and
@@ -163,7 +173,7 @@ the blocking Hitachi TCU erase-scope question.
 ## Historical evidence
 
 The former migration diary is recoverable at
-`69d48de1:docs/reference/can-cancellation-migration-results.md`; it records the
+`05d51398:docs/reference/can-cancellation-migration-results.md`; it records the
 conservative opt-in rollout rather than the completed ownership model. The
 [Colt results](colt-cancellation-centralization-results.md) and
 [pilot lessons](guarded-transport-pilot-lessons.md) remain durable evidence.
