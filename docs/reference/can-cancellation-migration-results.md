@@ -156,12 +156,16 @@ changed lines; this is not mutation coverage of removed instructions. The
 characterizations, retained-boundary audit and exact accepted-I/O traces provide
 the deletion evidence.
 
-The repaired exposure head `0f9466ef` passes all five affected owner targets and
-focused clang-tidy (36 files, zero findings). The restacked poll head `05d51398`
-retains the original poll layer byte-for-byte above that test-only repair.
+The repaired exposure head `0f9466ef` passes all five affected owner targets. The
+repair run reported focused clang-tidy (36 files, zero findings). The restacked
+poll head `05d51398` retains the original poll layer byte-for-byte above that
+test-only repair.
 Whole-error matchers replace direct error-field assertions and preserve refusal,
 promotion and warning evidence; no production or analysis policy changed. Full
-clang-tidy on the restacked source reports 552 files and zero findings.
+clang-tidy on the restacked source was reported by the repair run as 552 files
+and zero findings. These clang-tidy results are prior reported evidence: raw
+logs and exact timings did not survive into recovery, which did not rerun
+clang-tidy.
 
 These observations do not claim the remaining top-of-stack application build,
 coverage, platform CI or packaging gates. Those remain required by
