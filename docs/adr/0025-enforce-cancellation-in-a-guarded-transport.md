@@ -6,7 +6,7 @@ Accepted direction, narrowed after the
 [size-reduction pilots](../reference/guarded-transport-pilot-lessons.md).
 The original Colt pilot in [PR #756](https://github.com/RcusStackwalker/FastECU/pull/756)
 had not merged or completed its bench exit gate at the 2026-10-19 design review.
-The replacement Colt-only implementation now has a guarded CAN port, executor
+The replacement Colt-only implementation had a guarded CAN port, executor
 opt-in at BoundAttempt, and four fewer explicit Colt polls. The
 [pilot results](../reference/colt-cancellation-centralization-results.md) record
 verification and delivery CI; the
