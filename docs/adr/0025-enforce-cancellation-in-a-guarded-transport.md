@@ -11,9 +11,12 @@ opt-in at BoundAttempt, and four fewer explicit Colt polls. The
 [pilot results](../reference/colt-cancellation-centralization-results.md) record
 verification and delivery CI; the
 [flash contract](../reference/flash-contracts.md#colt-cancellation-ownership)
-owns its implemented boundaries. The [durable completion contract](#durable-completion-contract)
-below defines the proposed CAN and mixed-CAN end state; that rollout and cleanup
-are not yet implemented. Hardware qualification remains unchanged.
+owns its implemented boundaries. Interface-selected CAN and mixed-CAN guarding,
+shared test ownership, typed exposure/reporting and removal of all 33 audited
+redundant pre-I/O polls are implemented as of 2026-11-01. The
+[migration results](../reference/can-cancellation-migration-results.md) record
+the final ownership matrix and accepted cost. Top-of-stack delivery gates remain
+separate; hardware qualification remains unchanged.
 
 ## Context
 
@@ -29,18 +32,18 @@ change to cancellation refusal; protocol error handling remains separate.
 ## Decision
 
 - A **guarded transport** centralizes refusal of new I/O when cancellation is
-  observed before delegation. The first pilot implements only the existing
-  `ICanFlashTransport` port for Colt; executor signatures and caller-owned
-  transport lifetime remain unchanged
+  observed before delegation. CAN and mixed-CAN execution now select their
+  matching guards by interface at `BoundAttempt`; executor signatures and
+  caller-owned transport lifetime remain unchanged
   ([ADR 0015](0015-caller-owns-flash-transport-lifetime.md)).
 - The guard returns delegated results unchanged. It does not normalize error
   kinds, interpret absent replies, impose a stop-after-error policy, or check
   cancellation again after a delegated call. Existing transport and clock
   handling of cancellation during operations remains in force.
-- Only the migrated executor's explicit token polls are removed. Runner setup
-  checks, cancellable waits, platform checks, and `UdsClient` checks for its
-  other callers remain. Removing further checks requires a separate caller
-  and boundary audit.
+- All 33 audited redundant pre-I/O polls are removed. Runner setup checks,
+  family post-operation and non-I/O checkpoints, cancellable waits, platform
+  checks, and `UdsClient` checks remain. Further removal requires a separate
+  caller and boundary audit.
 - A cancellation signal after the final successful operation does not
   retrospectively cancel completion when no later cancellable work observes it.
   This does not override lower-layer cancellation results or family validation.
@@ -52,17 +55,16 @@ change to cancellation refusal; protocol error handling remains separate.
 
 ### Durable completion contract
 
-The Colt pilot's per-executor opt-in is a migration mechanism. Per-family audits
-record the evidence needed to expand guard coverage; they do not establish
-permanent executor aliases or a second cancellation-policy selection framework.
-After all CAN implementations have been audited, `BoundAttempt`-owned execution
+The Colt pilot's per-executor opt-in was a migration mechanism, replaced after
+the CAN audits by interface ownership. There are no per-executor guard aliases
+or second cancellation-policy selection framework. `BoundAttempt`-owned execution
 selects the guard by the executor/transport interface: CAN and mixed-CAN use
 their matching guards, while K-Line retains its existing execution path.
 Preparation, configuration, Open, Close, unblock and caller-owned lifetimes
 remain outside the execution guard.
 
 Cancellation reporting uses typed evidence about the represented operation.
-`Error` gains a defaulted `CancellationIoExposure` field named
+`Error` has a defaulted `CancellationIoExposure` field named
 `cancellation_io_exposure`, with `kMayHaveStarted` as the conservative default
 and `kRefusedBeforeDelegation` for positive evidence of refusal. Existing
 two-field aggregate construction remains valid; `kCancelled` remains the
@@ -90,8 +92,8 @@ evidence to meet a line metric. Direct executor tests use cancellation-aware
 transports or `BoundAttempt` when entry refusal is part of the case; family-only
 logic may still use undecorated execution.
 
-Remove all 33 spike-proven redundant CAN and mixed-CAN pre-I/O poll sites. Each
-removed check must lead directly to guarded or `UdsClient`-owned I/O without an
+All 33 audited redundant CAN and mixed-CAN pre-I/O poll sites have been removed.
+Each removal leads directly to guarded or `UdsClient`-owned I/O without an
 intervening wait, log, event, confirmation, validation or computation whose
 ordering it owns. Preserve wire bytes, accepted-operation ordering, timeouts,
 delays, retries, confirmations, progress, address-window guards, family
@@ -123,8 +125,11 @@ all Prek hooks, clang-tidy, convergent Gazelle generation, coverage, changed-lin
 cancellation mutation checks, exact NLOC measurement and scoped review.
 Hardware evidence remains a separate recorded qualification requirement; this
 software migration makes no hardware-qualification claim. The
-[revised design](../superpowers/specs/2026-11-01-can-cancellation-normalized-logging-design.md)
-records the measured rationale for replacing the former size gate.
+[migration measurements](../reference/can-cancellation-migration-results.md#measurements-and-accepted-budget)
+record the final 66,409 production / 89,884 test NLOC: exactly `+4` / `+1,101`
+against the pinned trunk. This work did not achieve net-negative test NLOC;
+the approved bounded-growth budget replaced that goal. Completed designs and
+plans are preserved in lower stack history before their later closeout deletion.
 
 ## Alternatives
 
