@@ -1,7 +1,7 @@
 # CAN cancellation migration results
 
 Status (2026-11-01): CAN and mixed-CAN software ownership is implemented at
-`05d51398f6187cc8a122d99f3074c06017736c49`. Interface-selected guarding replaces
+`bcb7cd519ea2fe8a776300357471a8e5cbb71cfa`. Interface-selected guarding replaces
 executor opt-ins; generic test ownership, typed exposure/reporting and all 33
 audited redundant pre-I/O poll removals are complete. The
 [flash contract](flash-contracts.md#can-cancellation-ownership) owns runtime
@@ -75,27 +75,27 @@ or a claim that all other bench work is complete.
 
 | Executor / shared dialect | Guard | Removed refusal boundary | Retained family checkpoints | Surviving test owner | Final NLOC P / T | Qualification gap |
 | --- | --- | --- | --- | --- | ---: | --- |
-| Colt M32R | CAN | Earlier four read/compare polls; next exchange owns refusal | Admission, abort/confirmations, accepted erase, late complete read/verify meaning | [Colt executor](../../src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp) and binding | 471 / 1,634 | Recorded [Colt bench run](../checklists/colt_czt_47110032_can_bench_checklist.md), both capacities and pending behavior |
-| Subaru Hitachi M32R ECU | CAN | Write-loop entry **(1)**; B7 through shared owner | Pending continuation, identity tolerance, erase waits, close/checksum policy | [ECU suite](../../src/backend/flash/ecu/subaru_hitachi_m32r_can_executor_test.cpp) | 288 / 409 | Pending/erase cancellation on named ECU |
-| Subaru Hitachi M32R TCU | CAN | ROM-read, raw-erase and block-write entries **(3)** | Accepted erase before next unsent window, reply validation, retry/close/checksum and no-data-after-cancel traces | [TCU suite](../../src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_executor_test.cpp) | 540 / 2,051 | [Blocking erase-scope bench gate](../checklists/subaru-tcu-hitachi-m32r-can-bench-checklist.md), corrected read window |
-| CVT Hitachi M32R | CAN | Write-loop entry **(1)**; B7 through shared owner | Raw erase exposure promotion, security channel, one fatal block close and checksum | [CVT Hitachi suite](../../src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor_test.cpp) | 331 / 555 | Raw erase cancellation and close on named TCU |
-| CVT Mitsubishi MH8104 | CAN | Read/write loop entries **(2)** | Successful-Send raw exposure promotion, failed-Send provenance, tolerant checksum | [MH8104 suite](../../src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) | 402 / 561 | Raw exchange cancellation/checksum on named TCU |
-| CVT Mitsubishi MH8111 | CAN | Write-loop entry **(1)**; B7 through shared owner | UDS continuation, twenty-attempt close and fatal checksum | [MH8111 suite](../../src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor_test.cpp) | 275 / 546 | Pending/close/checksum on named TCU |
-| Denso ISO N83M 1.5M | CAN | Shared ISO loop entries below | Nonzero-base indexing, in-car/bench policy, best-effort stop may finish successfully after cancellation | [N83M 1.5M suite](../../src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp) | 8 / 560 | Exact dump length, branch timing and stop on ECU |
-| Denso ISO N83M 4M | CAN | Shared ISO loop entries below | Tolerant read setup, first-jump discard, best-effort stop/close | [N83M 4M suite](../../src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp) | 8 / 521 | Jump discard and tolerant setup/close on ECU |
-| Denso ISO SH72531 | CAN | Shared ISO loop entries below | SH pacing including final-page cancellation, jump discard, best-effort close | [SH72531 suite](../../src/backend/flash/ecu/subaru_denso_sh72531_can_executor_test.cpp) | 8 / 477 | Final pacing, jump and checksum on ECU |
-| Denso ISO SH72543 diesel | CAN | Shared ISO loop entries below | SH pacing, family probe/identity and checksum timeout policy | [SH72543 diesel suite](../../src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_executor_test.cpp) | 8 / 536 | Pending timeout/identity and pacing on ECU |
+| Colt M32R | CAN | Earlier four read/compare polls; next exchange owns refusal | Admission, abort/confirmations, accepted erase, late complete read/verify meaning | [Colt executor](../../src/backend/flash/ecu/mitsu_colt_m32r_can_executor_test.cpp) and binding | 471 / 1,630 | Recorded [Colt bench run](../checklists/colt_czt_47110032_can_bench_checklist.md), both capacities and pending behavior |
+| Subaru Hitachi M32R ECU | CAN | Write-loop entry **(1)**; B7 through shared owner | Pending continuation, identity tolerance, erase waits, close/checksum policy | [ECU suite](../../src/backend/flash/ecu/subaru_hitachi_m32r_can_executor_test.cpp) | 288 / 407 | Pending/erase cancellation on named ECU |
+| Subaru Hitachi M32R TCU | CAN | ROM-read, raw-erase and block-write entries **(3)** | Accepted erase before next unsent window, reply validation, retry/close/checksum and no-data-after-cancel traces | [TCU suite](../../src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_executor_test.cpp) | 540 / 2,049 | [Blocking erase-scope bench gate](../checklists/subaru-tcu-hitachi-m32r-can-bench-checklist.md), corrected read window |
+| CVT Hitachi M32R | CAN | Write-loop entry **(1)**; B7 through shared owner | Raw erase exposure promotion, security channel, one fatal block close and checksum | [CVT Hitachi suite](../../src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_executor_test.cpp) | 331 / 553 | Raw erase cancellation and close on named TCU |
+| CVT Mitsubishi MH8104 | CAN | Read/write loop entries **(2)** | Successful-Send raw exposure promotion, failed-Send provenance, tolerant checksum | [MH8104 suite](../../src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) | 402 / 559 | Raw exchange cancellation/checksum on named TCU |
+| CVT Mitsubishi MH8111 | CAN | Write-loop entry **(1)**; B7 through shared owner | UDS continuation, twenty-attempt close and fatal checksum | [MH8111 suite](../../src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor_test.cpp) | 275 / 544 | Pending/close/checksum on named TCU |
+| Denso ISO N83M 1.5M | CAN | Shared ISO loop entries below | Nonzero-base indexing, in-car/bench policy, best-effort stop may finish successfully after cancellation | [N83M 1.5M suite](../../src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor_test.cpp) | 7 / 559 | Exact dump length, branch timing and stop on ECU |
+| Denso ISO N83M 4M | CAN | Shared ISO loop entries below | Tolerant read setup, first-jump discard, best-effort stop/close | [N83M 4M suite](../../src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor_test.cpp) | 7 / 520 | Jump discard and tolerant setup/close on ECU |
+| Denso ISO SH72531 | CAN | Shared ISO loop entries below | SH pacing including final-page cancellation, jump discard, best-effort close | [SH72531 suite](../../src/backend/flash/ecu/subaru_denso_sh72531_can_executor_test.cpp) | 7 / 476 | Final pacing, jump and checksum on ECU |
+| Denso ISO SH72543 diesel | CAN | Shared ISO loop entries below | SH pacing, family probe/identity and checksum timeout policy | [SH72543 diesel suite](../../src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_executor_test.cpp) | 7 / 535 | Pending timeout/identity and pacing on ECU |
 | Denso ISO common + bootloader executor | CAN, inherited | Image-write and dump-read loop entries **(2)** | Every wait, SH pacing, best-effort stop/transfer exit, identity tolerance, progress/log order | [Common](../../src/backend/flash/ecu/denso_iso15765_can_common_test.cpp) and [template](../../src/backend/flash/ecu/denso_iso15765_bootloader_executor_test.cpp) suites | 749 / 1,137 | Consumer-family bench evidence |
 | UDS exchange / encrypted B7 dialect | CAN, inherited | Encrypted B7 page-loop entry **(1)** | Fatal/nonfatal split, payload checks, decrypt/accumulation/progress order | [Exchange suite](../../src/backend/flash/ecu/uds_client_exchange_common_test.cpp) plus consuming family traces | 184 / 233 | Consumer-family pending and cancellation evidence |
-| BEEF CAN kernel | CAN, inherited | ChannelRequest, buffer-write, B6 upload and ROM-read entries **(4)** | Accepted-CRC stale drain, compare before validation/logs, commit before logs/CRC, post-upload raw discard, outer block before voltage/logs | [Kernel suite](../../src/backend/flash/ecu/beef_can_kernel_test.cpp) plus ECU/TCU traces | 548 / 907 | Consumer upload/drain/commit/recovery evidence |
-| Denso BEEF ECU execution | CAN, inherited | ChannelRequestOptional entry **(1)** | Post-probe checkpoint, cancellation/disconnection/parse tolerance ordering | Petrol/diesel executor suites below; no separate suite | 706 / 0 | Both ECU families' cold/hot paths |
-| Denso SH7058 BEEF petrol | CAN | Shared BEEF/ECU entries above | Startup reset/configure/Open, kernel-probe and family security/abort policy | [Petrol suite](../../src/backend/flash/ecu/subaru_denso_sh7058_can_executor_test.cpp) | 58 / 1,631 | B6 discard, security variants and post-erase recovery |
-| Denso SH7058 BEEF diesel | CAN | Shared BEEF/ECU entries above | Exact accepted timeout prefix, pending policy, CRC stale drain and family traces | [Diesel suite](../../src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor_test.cpp) | 44 / 1,820 | Both geometries, upload/pending and recovery |
-| Denso SH705x BEEF TCU | CAN | NonfatalQuery, trailing-fragment drain and kernel-ID probe entries **(3)** | Bounded ID coalescing, exact session validation, restart and wait, preflight; unused polling helper deleted | [Denso TCU suite](../../src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor_test.cpp) plus restart integration | 442 / 2,128 | Kernel-ID, restart and supported variants on TCU |
+| BEEF CAN kernel | CAN, inherited | ChannelRequest, buffer-write, B6 upload and ROM-read entries **(4)** | Accepted-CRC stale drain, compare before validation/logs, commit before logs/CRC, post-upload raw discard, outer block before voltage/logs | [Kernel suite](../../src/backend/flash/ecu/beef_can_kernel_test.cpp) plus ECU/TCU traces | 548 / 905 | Consumer upload/drain/commit/recovery evidence |
+| Denso BEEF ECU execution | CAN, inherited | ChannelRequestOptional entry **(1)** | Post-probe checkpoint, cancellation/disconnection/parse tolerance ordering | Petrol/diesel executor suites below; no separate suite | 708 / 0 | Both ECU families' cold/hot paths |
+| Denso SH7058 BEEF petrol | CAN | Shared BEEF/ECU entries above | Startup reset/configure/Open, kernel-probe and family security/abort policy | [Petrol suite](../../src/backend/flash/ecu/subaru_denso_sh7058_can_executor_test.cpp) | 59 / 1,629 | B6 discard, security variants and post-erase recovery |
+| Denso SH7058 BEEF diesel | CAN | Shared BEEF/ECU entries above | Exact accepted timeout prefix, pending policy, CRC stale drain and family traces | [Diesel suite](../../src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor_test.cpp) | 45 / 1,820 | Both geometries, upload/pending and recovery |
+| Denso SH705x BEEF TCU | CAN | NonfatalQuery, trailing-fragment drain and kernel-ID probe entries **(3)** | Bounded ID coalescing, exact session validation, restart and wait, preflight; unused polling helper deleted | [Denso TCU suite](../../src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor_test.cpp) plus restart integration | 442 / 2,126 | Kernel-ID, restart and supported variants on TCU |
 | Hitachi SH7058 | CAN | Session Exchange and erase-continuation Read entries **(2)** | Successful Write/delay and Read checks, delegated Read-error precedence, 20-read continuation bound, retries and reply interpretation | [SH7058 suite](../../src/backend/flash/ecu/subaru_hitachi_sh7058_can_executor_test.cpp) | 333 / 310 | Exchange/erase/program/finalization on ECU |
-| Hitachi SH72543R | CAN | Session Send entry **(1)**; earlier separate Receive-entry deletion | Both Sleep checks, successful-Write check, unconditional post-Read cancellation precedence, completion/finalization, accepted erase/retry and encryption admission | [SH72543R suite](../../src/backend/flash/ecu/subaru_hitachi_sh72543r_can_executor_test.cpp) | 455 / 888 | Erase/retry/close/checksum and cancellation on ECU |
-| Denso SH705x CAN EEPROM | CAN | Raw exchange Write, kernel chunk and ReadPageData entries **(3)** | Post-Write/delay/Read, post-upload settle, request/header ACK, page post-Read before accumulation, connect-log suppression, admission before empty-kernel validation, outer page computation | [EEPROM suite](../../src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor_test.cpp) | 649 / 985 | SH7058 upload address and all EEPROM modes on hardware |
-| Subaru Denso SH705x DensoCAN | mixed | Four raw/ISO helper entries; wake, upload, ROM-read and buffer-write loops **(8)** | All four post-I/O checks, transport-error precedence, padding/overflow/log and compare boundaries, reset/configure/Open, mode/buffer lifecycle, post-erase recovery warning | [DensoCAN suite](../../src/backend/flash/ecu/subaru_denso_sh705x_densocan_executor_test.cpp) and binding | 919 / 1,701 | Raw/ISO cancellation, restart and recovery on hardware |
+| Hitachi SH72543R | CAN | Session Send entry **(1)**; earlier separate Receive-entry deletion | Both Sleep checks, successful-Write check, unconditional post-Read cancellation precedence, completion/finalization, accepted erase/retry and encryption admission | [SH72543R suite](../../src/backend/flash/ecu/subaru_hitachi_sh72543r_can_executor_test.cpp) | 455 / 886 | Erase/retry/close/checksum and cancellation on ECU |
+| Denso SH705x CAN EEPROM | CAN | Raw exchange Write, kernel chunk and ReadPageData entries **(3)** | Post-Write/delay/Read, post-upload settle, request/header ACK, page post-Read before accumulation, connect-log suppression, admission before empty-kernel validation, outer page computation | [EEPROM suite](../../src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor_test.cpp) | 649 / 983 | SH7058 upload address and all EEPROM modes on hardware |
+| Subaru Denso SH705x DensoCAN | mixed | Four raw/ISO helper entries; wake, upload, ROM-read and buffer-write loops **(8)** | All four post-I/O checks, transport-error precedence, padding/overflow/log and compare boundaries, reset/configure/Open, mode/buffer lifecycle, post-erase recovery warning | [DensoCAN suite](../../src/backend/flash/ecu/subaru_denso_sh705x_densocan_executor_test.cpp) and binding | 920 / 1,701 | Raw/ISO cancellation, restart and recovery on hardware |
 
 The 33 removals span 14 production files. Only admitted request/frame/address
 preparation intervenes before the next guarded or UdsClient-owned I/O. No wait,
@@ -106,22 +106,23 @@ execution retain polling helpers used by their remaining non-I/O checks.
 
 ## Measurements and accepted budget
 
-All rows use the same pinned trunk and Lizard 1.24.1 exclusions through
+All rows below use refreshed current-master trunk and Lizard 1.24.1 exclusions through
 `python3 scripts/dedup_loop.py measure --json`. Historical rollout measurements
 from other trunk revisions are not subtracted from this baseline.
 
 | Layer / source | Production NLOC | Test NLOC | Total |
 | --- | ---: | ---: | ---: |
-| Pinned trunk `e62684af59f1bd3c98b20596ee0503327eea8a94` | 66,405 | 88,783 | 155,188 |
-| Conservative reconstructed rollout `1ba17a1c` | 66,562 | 90,423 | 156,985 |
-| Interface binding + shared-test compression `e72f49e2` | 66,526 | 89,699 | 156,225 |
-| Typed exposure/reporting `0f9466ef` | 66,542 | 89,885 | 156,427 |
-| Final poll ownership `05d51398` | **66,409** | **89,879** | **156,288** |
-| Final minus pinned trunk | **+4** | **+1,096** | **+1,100** |
+| Current-master trunk `44c33ab52b0efc1827f01c333c998e1bae58c67d` | 66,211 | 88,889 | 155,100 |
+| Conservative reconstructed rollout `b952b92b` | 66,368 | 90,529 | 156,897 |
+| Interface binding + shared-test compression `edfb6cbd` | 66,332 | 89,805 | 156,137 |
+| Typed exposure/reporting `99451e87` | 66,348 | 89,991 | 156,339 |
+| Final poll ownership `bcb7cd51` | **66,215** | **89,985** | **156,200** |
+| Final minus current-master trunk | **+4** | **+1,096** | **+1,100** |
 
-Production equals its approved hard maximum; tests remain five NLOC below
-their 89,884 maximum (`+1,101`). This work did not achieve net-negative test
-NLOC; the approved bounded-growth budget replaced that goal.
+Production equals its approved 66,215 hard maximum (`+4`); tests remain five
+NLOC below their 89,990 maximum (`+1,101`). Total maximum is 156,205; actual
+156,200 leaves five total NLOC of slack, all in tests. This work did not achieve
+net-negative test NLOC; the approved bounded-growth budget replaced that goal.
 Compression and poll deletion reduce the transitional rollout, while the final
 stack still grows against trunk. The independently green exposure layer also
 corrected the Hitachi TCU's stale next-unsent-window warning expectation, making
@@ -130,8 +131,19 @@ repair removes five more test NLOC without changing the asserted kind, detail or
 exposure, leaving the repaired layer six below that forecast. From that actual
 base the poll layer removes 133 production and six test NLOC, including the
 separately reviewed SH72543R Receive removal; the disposable spike's different deltas are not claimed.
-A newer-trunk rebase requires a new baseline with maximum deltas `+4` / `+1,101`
-unless a separately approved ADR amendment changes them.
+The current-master rebase preserves the same relative maxima and actual deltas.
+The previous pinned baseline `e62684af` (66,405 / 88,783) and repaired final
+66,409 / 89,879 are historical measurements, not the current baseline.
+
+The refreshed local stack is linear: decision `c01938a0`, reconstructed #908
+`b952b92b`, binding `58afcaf1`, shared-test compression `edfb6cbd`, exposure
+`99451e87`, poll ownership `bcb7cd51`, then closeout. Closeout retained its four
+patch-equivalent commits through `674ab4f8`; the separate documentation refresh
+containing this record is its new head on
+`docs/can-cancellation-migration-closeout`. The full final head is available from
+that commit in Git history without a self-referential SHA in its own contents.
+The local metadata base is `stack/can-cancellation-current-trunk`, exactly the
+measured master SHA above; this synthetic name is not a remote PR base.
 
 ## Software evidence and delivery limits
 
@@ -156,9 +168,9 @@ changed lines; this is not mutation coverage of removed instructions. The
 characterizations, retained-boundary audit and exact accepted-I/O traces provide
 the deletion evidence.
 
-The repaired exposure head `0f9466ef` passes all five affected owner targets. The
-repair run reported focused clang-tidy (36 files, zero findings). The restacked
-poll head `05d51398` retains the original poll layer byte-for-byte above that
+Historically, repaired exposure head `0f9466ef` passed all five affected owner targets. The
+repair run reported focused clang-tidy (36 files, zero findings). The then-restacked
+poll head `05d51398` retained the original poll layer byte-for-byte above that
 test-only repair.
 Whole-error matchers replace direct error-field assertions and preserve refusal,
 promotion and warning evidence; no production or analysis policy changed. Full
@@ -166,6 +178,20 @@ clang-tidy on the restacked source was reported by the repair run as 552 files
 and zero findings. These clang-tidy results are prior reported evidence: raw
 logs and exact timings did not survive into recovery, which did not rerun
 clang-tidy.
+
+The current-master refresh ran 90 focused flash, UDS and result-owner test
+targets on closeout `674ab4f8`: all passed, with 70 re-executed and 20 cached.
+Gazelle generation and convergence checks produced no tracked BUILD changes,
+and all applicable Prek hooks passed. The documentation refresh preserves that
+source tree. Conflicts were limited to generated BUILD entries: current-master
+family targets/dependencies survive alongside the guard ownership changes.
+Stable patch IDs match for 35 of 38 original commits. The remaining three
+range-diff differences reflect current-master includes and BUILD target placement;
+their added and removed lines retain the original changes.
+No production/test conflict required a behavioral change. These are fresh
+post-rebase focused checks; earlier full tests, clang-tidy, coverage and mutation
+evidence retain their historical heads. Full post-rebase gates and independent
+whole-stack review remain outstanding.
 
 These observations do not claim the remaining top-of-stack application build,
 coverage, platform CI or packaging gates. Those remain required by
