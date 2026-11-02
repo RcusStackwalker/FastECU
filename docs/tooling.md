@@ -367,8 +367,7 @@ For executor-level profiling, see the
 
 ## Sonar dedup loop
 
-The decision is [ADR 0029](adr/0029-lower-nloc-with-sonar-nominated-right-sized-abstractions.md);
-the design is the [spec](superpowers/specs/2026-10-25-sonar-dedup-loop-design.md).
+The decision is [ADR 0029](adr/0029-lower-nloc-with-sonar-nominated-right-sized-abstractions.md).
 SonarCloud's duplication groups nominate where to look, and first-party NLOC
 measures each step.
 

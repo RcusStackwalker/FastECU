@@ -2,10 +2,9 @@
 
 ## Status
 
-Accepted. Design: the
-[flash family locality spec](../superpowers/specs/2026-10-31-flash-family-locality-design.md).
-Supersedes Decision 6 of the
-[flash route registry design](../superpowers/specs/2026-10-31-flash-route-registry-design.md).
+Accepted. Replaces the earlier two-header family layout, which kept the
+closed variant. Current registration ownership is documented in the
+[flash contracts](../reference/flash-contracts.md#family-registration-and-routing).
 
 ## Context
 

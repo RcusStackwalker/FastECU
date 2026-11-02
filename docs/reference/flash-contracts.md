@@ -10,6 +10,28 @@ tracked in
 [technical debt](../tech-debt.md#p3-flash-protocol-behaviors-awaiting-external-evidence).
 Nothing here establishes hardware qualification.
 
+## Family registration and routing
+
+Each family keeps its plan type, `FamilyTraits`, validator, builder and any
+family-specific preparation in its `<family>_plan.h` and source. Traits state
+family, transport and the required kernel decision; the type-erased
+`FamilyPlan` records them ([ADR 0030](../adr/0030-erase-the-family-plan-type.md)).
+`flash_types.h` includes no family header. The `FlashFamily` enum and its name
+row remain central in `flash_family.h`.
+
+The workflow registry owns one row and creation policy per workflow, matching
+protocol ids exactly. Family modules own the accepted protocol lists, projected
+from their per-protocol tables where present; builders and registry rows use
+those lists. The catalog remains an independent source
+([ADR 0019](../adr/0019-compile-the-protocol-catalog-into-the-backend.md)).
+The EEPROM builder retains its own name rules for direct callers.
+
+The catalog routing test checks that every flash-capable protocol has exactly
+one route and every registered protocol exists in the catalog. The catalog
+capability agreement test owns operation acceptance. Preparation preserves
+identity validation, kernel reads and prompt order; family transcripts and plan
+goldens remain the evidence for wire behavior.
+
 ## CAN cancellation ownership
 
 [GuardedCanFlashTransport](../../src/backend/flash/guarded_can_flash_transport.h)
