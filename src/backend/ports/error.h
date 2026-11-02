@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <utility>
 
 namespace fastecu
 {
@@ -31,6 +32,11 @@ struct Error
 
     bool operator==(const Error&) const = default;
 };
+
+inline Error CancelledBeforeDelegation(std::string detail)
+{
+    return Error{ErrorKind::kCancelled, std::move(detail), CancellationIoExposure::kRefusedBeforeDelegation};
+}
 
 // A later refusal cannot establish that an earlier accepted request never ran.
 inline Error AfterIoMayHaveStarted(Error error)

@@ -62,3 +62,11 @@ TEST(Error, CancellationExposureIsTypedAndConservative)
     const Error other{ErrorKind::kDisconnected, "closed", fastecu::CancellationIoExposure::kRefusedBeforeDelegation};
     EXPECT_EQ(fastecu::AfterIoMayHaveStarted(other), other);
 }
+
+TEST(Error, BuildsTypedPreDelegationCancellation)
+{
+    const Error error = fastecu::CancelledBeforeDelegation("request refused");
+    EXPECT_EQ(error.kind, ErrorKind::kCancelled);
+    EXPECT_EQ(error.detail, "request refused");
+    EXPECT_EQ(error.cancellation_io_exposure, fastecu::CancellationIoExposure::kRefusedBeforeDelegation);
+}
