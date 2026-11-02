@@ -86,12 +86,6 @@ struct Ctx
     uds::IUdsChannel& channel;
 };
 
-Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
-                            std::string_view operation)
-{
-    return ::fastecu::flash::ReportExchangeFailure(ctx.events, failure, rejection_prefix, operation);
-}
-
 // Sends `pdu` and waits up to `timeout` for a reply. A hard
 // transport-level failure (disconnect/cancel/malformed envelope) is always
 // propagated as a Result failure. A read that reaches its deadline with
@@ -130,7 +124,8 @@ Result<bytes::Bytes> SingleShot(Ctx& ctx, bytes::ByteView pdu, std::chrono::mill
     Result<std::optional<bytes::Bytes>> reply = Exchange(ctx, pdu, timeout);
     if (!reply.has_value())
     {
-        return std::unexpected(ReportExchangeFailure(ctx, reply.error(), "Wrong response from TCU: ", label));
+        return std::unexpected(
+            ::fastecu::flash::ReportExchangeFailure(ctx.events, reply.error(), "Wrong response from TCU: ", label));
     }
     if (!reply->has_value())
     {

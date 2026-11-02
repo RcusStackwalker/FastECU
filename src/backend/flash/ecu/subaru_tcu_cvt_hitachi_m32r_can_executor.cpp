@@ -129,17 +129,6 @@ struct Ctx
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from TCU: ";
 
-// Thin wrapper over the shared ReportExchangeFailure
-// (uds_client_exchange_common.h) for the two exchanges below that read a
-// raw uds::IUdsChannel reply directly instead of going through
-// FatalRequest -- their expected reply does not follow the standard
-// SID+0x40 convention UdsClient itself enforces.
-Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
-                            std::string_view operation)
-{
-    return ::fastecu::flash::ReportExchangeFailure(ctx.events, failure, rejection_prefix, operation);
-}
-
 // Sends `pdu` through `client` and, on failure, logs and returns the error.
 // Used for every exchange whose response follows the standard SID+0x40
 // positive-response convention. The no-explicit-client overload uses this
@@ -383,8 +372,8 @@ Status EraseMemory(Ctx& ctx)
     Result<std::optional<bytes::Bytes>> received = ctx.channel.Receive(2000ms, ctx.cancellation);
     if (!received.has_value())
     {
-        return std::unexpected(ReportExchangeFailure(ctx, AfterIoMayHaveStarted(received.error()),
-                                                     "Wrong response from TCU: ", "the erase command"));
+        return std::unexpected(::fastecu::flash::ReportExchangeFailure(
+            ctx.events, AfterIoMayHaveStarted(received.error()), "Wrong response from TCU: ", "the erase command"));
     }
     if (!received->has_value() || received->value().size() < 3 || (**received)[0] != uds::kSidRoutineControl ||
         (**received)[1] != uds::kRoutineControlStop || (**received)[2] != 0x01)

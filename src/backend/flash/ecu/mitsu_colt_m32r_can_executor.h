@@ -6,7 +6,7 @@ namespace fastecu::flash
 {
 
 // Portable Mitsubishi Colt M32R CAN executor.
-// Direct callers supply a GuardedCanFlashTransport; BoundAttempt installs it.
+// BoundAttempt installs the production GuardedCanFlashTransport.
 class MitsuColtM32rCanExecutor final : public FamilyExecutor<MitsuColtM32rCanPlan, ICanFlashExecutor>
 {
   private:

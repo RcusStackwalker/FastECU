@@ -64,16 +64,6 @@ UdsExchangeContext ExchangeContext(Ctx& ctx)
     return UdsExchangeContext{ctx.uds, kExchangePolicy, ctx.cancellation, ctx.events};
 }
 
-// Thin wrapper over the shared ReportExchangeFailure (uds_client_exchange_
-// common.h) for erase_memory's own hand-rolled retry loop below, which
-// cannot go through FatalRequest -- it only propagates on Cancelled, not
-// on every failure.
-Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
-                            std::string_view operation)
-{
-    return ::fastecu::flash::ReportExchangeFailure(ctx.events, failure, rejection_prefix, operation);
-}
-
 // Legacy's two non-fatal identity queries (TCU ID/CAL ID) and the non-fatal
 // session request: logged on mismatch or absence but never halt
 // connect_bootloader -- even a genuine exchange failure is logged and
@@ -259,6 +249,8 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
 // evident intent instead -- disclosed here as this family's one deliberate
 // divergence from the literal legacy source, alongside Tasks 1 and 3's own
 // disclosed findings.
+// This retry loop uses the shared ReportExchangeFailure directly instead of
+// FatalRequest because it only propagates cancellation, not every failure.
 Status EraseMemory(Ctx& ctx)
 {
     LogInfo(ctx, "Erasing TCU ROM...");
@@ -279,8 +271,8 @@ Status EraseMemory(Ctx& ctx)
         }
         else if (reply.error().kind == ErrorKind::kCancelled)
         {
-            return std::unexpected(
-                ReportExchangeFailure(ctx, reply.error(), "Wrong response from TCU: ", "the erase command"));
+            return std::unexpected(::fastecu::flash::ReportExchangeFailure(
+                ctx.events, reply.error(), "Wrong response from TCU: ", "the erase command"));
         }
         else
         {
