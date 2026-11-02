@@ -1,7 +1,7 @@
 # CAN cancellation migration results
 
 Status (2026-11-01): CAN and mixed-CAN software ownership is implemented at
-`e9798090bcdf9d0751b9eae55962ae6c9acc27b3`. Interface-selected guarding replaces
+`6aa8f63744681adbbaee5909a4e4da4f82856d67`. Interface-selected guarding replaces
 executor opt-ins; generic test ownership, typed exposure/reporting and all 33
 audited redundant pre-I/O poll removals are complete. The
 [flash contract](flash-contracts.md#can-cancellation-ownership) owns runtime
@@ -113,10 +113,10 @@ from other trunk revisions are not subtracted from this baseline.
 | Layer / source | Production NLOC | Test NLOC | Total |
 | --- | ---: | ---: | ---: |
 | Current-master trunk `44c33ab52b0efc1827f01c333c998e1bae58c67d` | 66,211 | 88,889 | 155,100 |
-| Conservative reconstructed rollout `b952b92b` | 66,368 | 90,529 | 156,897 |
-| Interface binding + shared-test compression `97ad050a` | 66,332 | 89,780 | 156,112 |
-| Typed exposure/reporting `6967fa36` | 66,347 | 89,966 | 156,313 |
-| Final poll ownership `e9798090` | **66,214** | **89,960** | **156,174** |
+| Conservative reconstructed rollout `242599aa` | 66,368 | 90,528 | 156,896 |
+| Interface binding + shared-test compression `433216fa` | 66,332 | 89,780 | 156,112 |
+| Typed exposure/reporting `8083655e` | 66,347 | 89,966 | 156,313 |
+| Final poll ownership `6aa8f637` | **66,214** | **89,960** | **156,174** |
 | Final minus current-master trunk | **+3** | **+1,071** | **+1,074** |
 
 Production is one NLOC below its approved 66,215 hard maximum (`+4`); tests remain 30
@@ -137,14 +137,18 @@ The previous pinned baseline `e62684af` (66,405 / 88,783) and repaired final
 66,409 / 89,879 are historical measurements, not the current baseline.
 
 The refreshed local stack is linear: decision `c01938a0`, reconstructed #908
-`b952b92b`, binding `58afcaf1`, shared-test compression `97ad050a`, exposure
-`6967fa36`, poll ownership `e9798090`, then closeout. Closeout retained its eight
-patch-equivalent commits through `3e15bbff`; the separate documentation refresh
+`242599aa`, binding `eeb00c6c`, shared-test compression `433216fa`, exposure
+`8083655e`, poll ownership `6aa8f637`, then closeout. Closeout retained its eight
+patch-equivalent commits through `8b7514c0`; the separate documentation refresh
 containing this record is its new head on
 `docs/can-cancellation-migration-closeout`. The full final head is available from
 that commit in Git history without a self-referential SHA in its own contents.
 The local metadata base is `stack/can-cancellation-current-trunk`, exactly the
 measured master SHA above; this synthetic name is not a remote PR base.
+The reconstructed rollout's guarded-attempt test was repaired for the current
+typed family plan and its direct Bazel dependency. Its local release build and
+tests pass; remote CI for the rewritten stack remains pending. Binding removes
+that transitional test, so the final source, test and build trees are unchanged.
 
 ## Software evidence and delivery limits
 
