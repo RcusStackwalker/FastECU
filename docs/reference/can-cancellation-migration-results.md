@@ -1,7 +1,7 @@
 # CAN cancellation migration results
 
 Status (2026-11-01): CAN and mixed-CAN software ownership is implemented at
-`bcb7cd519ea2fe8a776300357471a8e5cbb71cfa`. Interface-selected guarding replaces
+`6e5deff2e3a81b40966867e81e88f6fd70b92e74`. Interface-selected guarding replaces
 executor opt-ins; generic test ownership, typed exposure/reporting and all 33
 audited redundant pre-I/O poll removals are complete. The
 [flash contract](flash-contracts.md#can-cancellation-ownership) owns runtime
@@ -90,7 +90,7 @@ or a claim that all other bench work is complete.
 | BEEF CAN kernel | CAN, inherited | ChannelRequest, buffer-write, B6 upload and ROM-read entries **(4)** | Accepted-CRC stale drain, compare before validation/logs, commit before logs/CRC, post-upload raw discard, outer block before voltage/logs | [Kernel suite](../../src/backend/flash/ecu/beef_can_kernel_test.cpp) plus ECU/TCU traces | 548 / 905 | Consumer upload/drain/commit/recovery evidence |
 | Denso BEEF ECU execution | CAN, inherited | ChannelRequestOptional entry **(1)** | Post-probe checkpoint, cancellation/disconnection/parse tolerance ordering | Petrol/diesel executor suites below; no separate suite | 708 / 0 | Both ECU families' cold/hot paths |
 | Denso SH7058 BEEF petrol | CAN | Shared BEEF/ECU entries above | Startup reset/configure/Open, kernel-probe and family security/abort policy | [Petrol suite](../../src/backend/flash/ecu/subaru_denso_sh7058_can_executor_test.cpp) | 59 / 1,629 | B6 discard, security variants and post-erase recovery |
-| Denso SH7058 BEEF diesel | CAN | Shared BEEF/ECU entries above | Exact accepted timeout prefix, pending policy, CRC stale drain and family traces | [Diesel suite](../../src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor_test.cpp) | 45 / 1,820 | Both geometries, upload/pending and recovery |
+| Denso SH7058 BEEF diesel | CAN | Shared BEEF/ECU entries above | Exact accepted timeout prefix, pending policy, CRC stale drain and family traces | [Diesel suite](../../src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor_test.cpp) | 45 / 1,795 | Both geometries, upload/pending and recovery |
 | Denso SH705x BEEF TCU | CAN | NonfatalQuery, trailing-fragment drain and kernel-ID probe entries **(3)** | Bounded ID coalescing, exact session validation, restart and wait, preflight; unused polling helper deleted | [Denso TCU suite](../../src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor_test.cpp) plus restart integration | 442 / 2,126 | Kernel-ID, restart and supported variants on TCU |
 | Hitachi SH7058 | CAN | Session Exchange and erase-continuation Read entries **(2)** | Successful Write/delay and Read checks, delegated Read-error precedence, 20-read continuation bound, retries and reply interpretation | [SH7058 suite](../../src/backend/flash/ecu/subaru_hitachi_sh7058_can_executor_test.cpp) | 333 / 310 | Exchange/erase/program/finalization on ECU |
 | Hitachi SH72543R | CAN | Session Send entry **(1)**; earlier separate Receive-entry deletion | Both Sleep checks, successful-Write check, unconditional post-Read cancellation precedence, completion/finalization, accepted erase/retry and encryption admission | [SH72543R suite](../../src/backend/flash/ecu/subaru_hitachi_sh72543r_can_executor_test.cpp) | 455 / 886 | Erase/retry/close/checksum and cancellation on ECU |
@@ -114,14 +114,14 @@ from other trunk revisions are not subtracted from this baseline.
 | --- | ---: | ---: | ---: |
 | Current-master trunk `44c33ab52b0efc1827f01c333c998e1bae58c67d` | 66,211 | 88,889 | 155,100 |
 | Conservative reconstructed rollout `b952b92b` | 66,368 | 90,529 | 156,897 |
-| Interface binding + shared-test compression `edfb6cbd` | 66,332 | 89,805 | 156,137 |
-| Typed exposure/reporting `99451e87` | 66,348 | 89,991 | 156,339 |
-| Final poll ownership `bcb7cd51` | **66,215** | **89,985** | **156,200** |
-| Final minus current-master trunk | **+4** | **+1,096** | **+1,100** |
+| Interface binding + shared-test compression `97ad050a` | 66,332 | 89,780 | 156,112 |
+| Typed exposure/reporting `063922f8` | 66,348 | 89,966 | 156,314 |
+| Final poll ownership `6e5deff2` | **66,215** | **89,960** | **156,175** |
+| Final minus current-master trunk | **+4** | **+1,071** | **+1,075** |
 
-Production equals its approved 66,215 hard maximum (`+4`); tests remain five
+Production equals its approved 66,215 hard maximum (`+4`); tests remain 30
 NLOC below their 89,990 maximum (`+1,101`). Total maximum is 156,205; actual
-156,200 leaves five total NLOC of slack, all in tests. This work did not achieve
+156,175 leaves 30 total NLOC of slack, all in tests. This work did not achieve
 net-negative test NLOC; the approved bounded-growth budget replaced that goal.
 Compression and poll deletion reduce the transitional rollout, while the final
 stack still grows against trunk. The independently green exposure layer also
@@ -131,14 +131,15 @@ repair removes five more test NLOC without changing the asserted kind, detail or
 exposure, leaving the repaired layer six below that forecast. From that actual
 base the poll layer removes 133 production and six test NLOC, including the
 separately reviewed SH72543R Receive removal; the disposable spike's different deltas are not claimed.
-The current-master rebase preserves the same relative maxima and actual deltas.
+The final-review cleanup removes 25 duplicate test NLOC from each affected
+layer; it preserves the approved relative maxima.
 The previous pinned baseline `e62684af` (66,405 / 88,783) and repaired final
 66,409 / 89,879 are historical measurements, not the current baseline.
 
 The refreshed local stack is linear: decision `c01938a0`, reconstructed #908
-`b952b92b`, binding `58afcaf1`, shared-test compression `edfb6cbd`, exposure
-`99451e87`, poll ownership `bcb7cd51`, then closeout. Closeout retained its four
-patch-equivalent commits through `674ab4f8`; the separate documentation refresh
+`b952b92b`, binding `58afcaf1`, shared-test compression `97ad050a`, exposure
+`063922f8`, poll ownership `6e5deff2`, then closeout. Closeout retained its four
+patch-equivalent commits through `bd73afe5`; the separate documentation refresh
 containing this record is its new head on
 `docs/can-cancellation-migration-closeout`. The full final head is available from
 that commit in Git history without a self-referential SHA in its own contents.
@@ -212,10 +213,14 @@ labels, changed-line scope and test cases remain intact, without increasing
 timeouts or changing filters. The successful verdict uses only the fresh run's
 reports, not a merge with the failed partial attempt.
 
-Exact NLOC (66,215 production / 89,985 test), exact-base diff, linear topology,
+The earlier exact NLOC (66,215 production / 89,985 test), exact-base diff, linear topology,
 local ref and remote identity checks passed at source head `3299167b` before
 this documentation-only closeout. Its final documentation-only commit leaves
-source, tests and the build graph identical to that verified head.
+source, tests and the build graph identical to that verified head. Final review
+subsequently removed a standalone diesel short-security-key reply test whose
+setup, execution and assertions are identical to the short-reply row retained
+in the two-case test. The production source and graph remain unchanged. The
+mutation results above are historical, not a fresh run after this cleanup.
 
 Independent final whole-stack review, platform CI and packaging, hardware
 qualification, and explicit authorization for remote submission, opening or

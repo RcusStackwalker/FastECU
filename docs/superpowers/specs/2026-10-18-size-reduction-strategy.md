@@ -182,7 +182,7 @@ records retained family checkpoints, surviving tests and qualification gaps.
 
 Current-master trunk `44c33ab52b0efc1827f01c333c998e1bae58c67d` measured
 66,211 production / 88,889 test NLOC. The final software stack measures
-66,215 / 89,985: `+4` production / `+1,096` test, within the approved hard
+66,215 / 89,960: `+4` production / `+1,071` test, within the approved hard
 maximums (five test NLOC below the cap). This work did not achieve net-negative
 test NLOC. The bounded-growth budget replaced that goal; neither production nor test growth is savings.
 The current-master refresh preserves the approved maximum deltas of `+4` /

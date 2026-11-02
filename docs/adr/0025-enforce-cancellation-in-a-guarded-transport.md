@@ -126,8 +126,8 @@ cancellation mutation checks, exact NLOC measurement and scoped review.
 Hardware evidence remains a separate recorded qualification requirement; this
 software migration makes no hardware-qualification claim. The
 [migration measurements](../reference/can-cancellation-migration-results.md#measurements-and-accepted-budget)
-record the final 66,215 production / 89,985 test NLOC: `+4` / `+1,096` against
-the pinned trunk, within the hard maximums above. This work did not achieve
+record the final 66,215 production / 89,960 test NLOC: `+4` / `+1,071` against
+the current-master trunk, within the hard maximums above. This work did not achieve
 net-negative test NLOC; the approved bounded-growth budget replaced that goal. Completed designs and
 plans are preserved in lower stack history before their later closeout deletion.
 
