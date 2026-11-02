@@ -38,10 +38,34 @@ guard selection at this execution boundary. The
 [migration results](can-cancellation-migration-results.md#shared-test-support)
 preserve the earlier opt-in and synthetic selection evidence.
 
+### Cancellation exposure and reporting
+
+The `Error::cancellation_io_exposure` field uses
+`CancellationIoExposure::kMayHaveStarted` by default, preserving conservative
+reporting and existing two-field aggregate construction.
+`kRefusedBeforeDelegation` is positive typed evidence that the represented
+operation was not delegated. `kCancelled` remains the outcome kind; exposure is
+never inferred from error-detail strings.
+
+CAN and mixed-CAN guards mark entry refusals, and `UdsClient` marks pre-request
+refusal while preserving failed-Send provenance. The shared
+CAN reporter returns typed pre-delegation refusal quietly, without an event;
+may-have-started cancellation, including unknown exposure, retains the existing
+ECU safety warning. Non-cancellation rejection logging stays unchanged.
+After a successful Send, `AfterIoMayHaveStarted(Error)` promotes cancellation
+from delays, Receive and pending rereads to may-have-started, even when a later
+call is refused. CVT Hitachi raw erase and MH8104 raw exchange apply the same
+promotion so earlier request exposure is retained.
+
+Family-owned post-operation and non-I/O checkpoints remain in place. Generic
+refusal, exposure and binding tests stay with shared owners; direct executor
+tests require a cancellation-aware transport when entry refusal is under test.
+
 ### Colt cancellation ownership
 
-Colt's read and comparison loops report cancellation through the next exchange,
-including its address in the warning. A precancelled direct Execute call is
+Colt's read and comparison loops return cancellation through the next exchange;
+a refused unsent request is quiet, while may-have-started cancellation retains
+its warning with the request address. A precancelled direct Execute call is
 refused in plan admission with `cancelled before setup`, before any events or
 I/O; an invalid plan still reports its validation error first. An accepted
 erase reply can produce its completion event before the next request is refused.
@@ -77,31 +101,6 @@ bounds/polls, exact session validation, UI preflight and the executor-owned
 inner restart keep their existing owners. The
 [TCU migration evidence](can-cancellation-migration-results.md#denso-sh705x-beef-tcu)
 records the real boundary proof and retained restart integration.
-
-The proposed `Error::cancellation_io_exposure` field uses
-`CancellationIoExposure::kMayHaveStarted` by default, preserving conservative
-reporting and existing two-field aggregate construction.
-`kRefusedBeforeDelegation` is positive typed evidence that the represented
-operation was not delegated. `kCancelled` remains the outcome kind; exposure is
-never inferred from error-detail strings.
-
-In the proposal, CAN and mixed-CAN guards mark entry refusals, and `UdsClient`
-marks pre-request refusal while preserving failed-Send provenance. The shared
-CAN reporter returns typed pre-delegation refusal quietly, without an event;
-may-have-started cancellation, including unknown exposure, retains the existing
-ECU safety warning. Non-cancellation rejection logging stays unchanged.
-After a successful Send, `AfterIoMayHaveStarted(Error)` promotes cancellation
-from delays, Receive and pending rereads to may-have-started, even when a later
-call is refused. CVT Hitachi raw erase and MH8104 raw exchange apply the same
-promotion so earlier request exposure is retained.
-
-This proposed contract enables removal of all 33 spike-proven redundant
-pre-I/O polls while preserving family-owned post-operation and non-I/O
-checkpoints. Generic refusal, exposure and binding tests stay with shared
-owners; direct executor tests require a cancellation-aware transport when entry
-refusal is under test. The ADR owns the exact pinned baseline, hard `+4`
-production/`+1,101` test NLOC budget and seven-layer atomic delivery gates.
-These exposure and reporting changes are not implemented in this layer.
 
 The Denso ISO-15765 bootloader template uses the binding's CAN guard through its
 executor interface. Earlier per-family migration evidence is recorded in the
@@ -143,9 +142,9 @@ separates these preserved family behaviors from the raw and ISO selection proofs
 
 [ADR 0025's durable completion contract](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
 owns the durable completion gates, including test ownership and family poll
-removal. Interface-selected execution guarding is implemented by the binding
-above; the remaining broader contract does not establish rollout completion or
-hardware qualification.
+removal. Interface-selected execution guarding and typed exposure/reporting are
+implemented above; the remaining broader contract does not establish rollout
+completion or hardware qualification.
 
 ## Plan admission
 

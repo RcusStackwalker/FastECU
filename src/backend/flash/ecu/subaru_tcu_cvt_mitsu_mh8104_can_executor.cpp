@@ -89,17 +89,7 @@ struct Ctx
 Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
                             std::string_view operation)
 {
-    if (failure.kind == ErrorKind::kCancelled)
-    {
-        ctx.events.Log(LogLevel::kWarning, std::format("Cancelled by operator during {} -- this is not an ECU "
-                                                       "rejection. The request may already have reached the ECU "
-                                                       "and still be running there; check the unit before "
-                                                       "power-cycling it.",
-                                                       operation));
-        return failure;
-    }
-    LogError(ctx, std::format("{}{}", rejection_prefix, failure.detail));
-    return failure;
+    return ::fastecu::flash::ReportExchangeFailure(ctx.events, failure, rejection_prefix, operation);
 }
 
 // Sends `pdu` and waits up to `timeout` for a reply. A hard
@@ -111,7 +101,16 @@ Error ReportExchangeFailure(Ctx& ctx, const Error& failure, std::string_view rej
 Result<std::optional<bytes::Bytes>> Exchange(Ctx& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout)
 {
     return ctx.channel.Send(pdu, ctx.cancellation)
-        .and_then([&] { return ctx.channel.Receive(timeout, ctx.cancellation); });
+        .and_then(
+            [&]() -> Result<std::optional<bytes::Bytes>>
+            {
+                auto received = ctx.channel.Receive(timeout, ctx.cancellation);
+                if (!received.has_value())
+                {
+                    return std::unexpected(AfterIoMayHaveStarted(received.error()));
+                }
+                return received;
+            });
 }
 
 // A single send + read whose reply CONTENT is never checked for fatality --
@@ -155,11 +154,7 @@ Result<std::optional<bytes::Bytes>> RetryUntilAnyReply(Ctx& ctx, bytes::ByteView
     for (int attempt = 0; attempt < attempts; ++attempt)
     {
         Result<std::optional<bytes::Bytes>> reply = Exchange(ctx, pdu, timeout);
-        if (!reply.has_value())
-        {
-            return std::unexpected(reply.error());
-        }
-        if (reply->has_value())
+        if (!reply.has_value() || reply->has_value())
         {
             return reply;
         }
@@ -194,12 +189,7 @@ Result<bool> KernelAlreadyRunning(Ctx& ctx)
         return false;
     }
     const bytes::ByteView reply = **alive_probe;
-    if (reply.empty() || reply[0] != 0x71)
-    {
-        return false;
-    }
-    const bytes::ByteView rest = uds::Payload(reply);
-    return rest.size() >= 3 && rest[0] == uds::kRoutineControlStop && rest[1] == 0x02 && rest[2] == 0x03;
+    return !reply.empty() && reply[0] == 0x71 && Matches(uds::Payload(reply), {uds::kRoutineControlStop, 0x02, 0x03});
 }
 
 // Shared shape of the TCU ID / CAL ID init retries: retried up to `attempts`

@@ -2397,12 +2397,11 @@ TEST(SubaruTcuHitachiM32rCanExecutor, AcceptedEraseCancellationStopsBeforeData)
     ASSERT_GT(accepted_erase_logs, 0U);
     const auto tail = std::ranges::subrange(events.logs.begin() + static_cast<std::ptrdiff_t>(accepted_erase_logs),
                                             events.logs.end());
-    EXPECT_THAT(tail, testing::ElementsAre(
-                          Pair(fastecu::LogLevel::kInfo, "--- start writing ROM file to ECU flash memory ---"),
-                          Pair(fastecu::LogLevel::kInfo, "Flash block addr: 0x00008000 len: 0x00008000"),
-                          Pair(fastecu::LogLevel::kInfo, "Setting flash start & length..."),
-                          Pair(fastecu::LogLevel::kWarning, HasSubstr("Cancelled by operator during the block window")),
-                          Pair(fastecu::LogLevel::kError, "Block 3 reflash failed.")));
+    EXPECT_THAT(
+        tail, testing::ElementsAre(Pair(fastecu::LogLevel::kInfo, "--- start writing ROM file to ECU flash memory ---"),
+                                   Pair(fastecu::LogLevel::kInfo, "Flash block addr: 0x00008000 len: 0x00008000"),
+                                   Pair(fastecu::LogLevel::kInfo, "Setting flash start & length..."),
+                                   Pair(fastecu::LogLevel::kError, "Block 3 reflash failed.")));
 }
 
 // The connect frames, then the read window or the erase: the span the

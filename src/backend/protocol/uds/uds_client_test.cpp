@@ -213,8 +213,10 @@ TEST(UdsClientTest, RefusesToSendWhenAlreadyCancelled)
     f.cancellation.SetCancelled(true);
 
     uds::UdsClient client = f.Client();
-    ASSERT_THAT(client.Request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation),
-                fastecu::testing::IsErr(ErrorKind::kCancelled));
+    const auto result = client.Request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation);
+    ASSERT_THAT(result,
+                fastecu::testing::IsErrThat(fastecu::Error{ErrorKind::kCancelled, "cancelled before request",
+                                                           fastecu::CancellationIoExposure::kRefusedBeforeDelegation}));
     EXPECT_EQ(f.channel.SendsConsumed(), 0U);
 }
 
@@ -241,6 +243,52 @@ TEST(UdsClientTest, LogsOnceForEachAbsorbedPending)
     const auto pending_lines = std::ranges::count_if(
         f.events.logs, [](const auto& entry) { return entry.second.find("responsePending") != std::string::npos; });
     EXPECT_EQ(pending_lines, 1);
+}
+
+TEST(UdsClientTest, PreservesSendRefusalButPromotesCancellationAfterSuccessfulSend)
+{
+    const fastecu::Error refused{ErrorKind::kCancelled, "refused",
+                                 fastecu::CancellationIoExposure::kRefusedBeforeDelegation};
+    for (const int stage : {0, 1, 2})
+    {
+        SCOPED_TRACE(stage);
+        Fixture f;
+        f.channel.ExpectSend(bytes::Bytes{0x10, 0x03},
+                             stage == 0 ? fastecu::Status(std::unexpected(refused)) : fastecu::Status{});
+        if (stage == 2)
+        {
+            f.channel.QueueReceive(bytes::Bytes{0x7F, 0x10, 0x78});
+        }
+        if (stage != 0)
+        {
+            f.channel.QueueOutcome(std::unexpected(refused));
+        }
+        auto client = f.Client();
+        const auto result = client.Request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation);
+        ASSERT_THAT(result, fastecu::testing::IsErrThat(stage == 0 ? refused
+                                                                   : fastecu::Error{ErrorKind::kCancelled, "refused"}));
+        EXPECT_TRUE(f.channel.ScriptConsumed());
+    }
+}
+
+TEST(UdsClientTest, PromotesPreReadDelayCancellationAfterSuccessfulSend)
+{
+    class CancelledClock final : public FakeClock
+    {
+      public:
+        fastecu::Status Sleep(std::chrono::milliseconds, const fastecu::ICancellationToken&) override
+        {
+            return std::unexpected(fastecu::Error{ErrorKind::kCancelled, "delay refused",
+                                                  fastecu::CancellationIoExposure::kRefusedBeforeDelegation});
+        }
+    } clock;
+    Fixture f;
+    f.channel.ExpectSend(bytes::Bytes{0x10, 0x03});
+    uds::UdsClient client(f.channel, clock, f.events);
+    const auto result = client.Request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation);
+    ASSERT_THAT(result, fastecu::testing::IsErrThat(fastecu::Error{ErrorKind::kCancelled, "delay refused"}));
+    EXPECT_TRUE(f.channel.ScriptConsumed());
+    EXPECT_THAT(f.channel.timeouts, ::testing::IsEmpty());
 }
 
 } // namespace

@@ -383,8 +383,8 @@ Status EraseMemory(Ctx& ctx)
     Result<std::optional<bytes::Bytes>> received = ctx.channel.Receive(2000ms, ctx.cancellation);
     if (!received.has_value())
     {
-        return std::unexpected(
-            ReportExchangeFailure(ctx, received.error(), "Wrong response from TCU: ", "the erase command"));
+        return std::unexpected(ReportExchangeFailure(ctx, AfterIoMayHaveStarted(received.error()),
+                                                     "Wrong response from TCU: ", "the erase command"));
     }
     if (!received->has_value() || received->value().size() < 3 || (**received)[0] != uds::kSidRoutineControl ||
         (**received)[1] != uds::kRoutineControlStop || (**received)[2] != 0x01)

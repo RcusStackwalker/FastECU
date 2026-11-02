@@ -62,6 +62,14 @@ TEST(ReportExchangeFailureTest, LogsCancellationAsAnOperatorLineNotARejection)
     EXPECT_THAT(events.logs[0].second, HasSubstr("Cancelled by operator during the erase trigger"));
 }
 
+TEST(ReportExchangeFailureTest, KnownPredelegationCancellationReturnsWithoutLogging)
+{
+    RecordingEventSink events;
+    const Error refused{ErrorKind::kCancelled, "refused", CancellationIoExposure::kRefusedBeforeDelegation};
+    EXPECT_EQ(ReportExchangeFailure(events, refused, "Wrong response: ", "the request"), refused);
+    EXPECT_THAT(events.logs, IsEmpty());
+}
+
 TEST(UdsClientExchangeCommonTest, DebugLogsAtDebugLevelThroughTheEventSink)
 {
     RecordingEventSink events;

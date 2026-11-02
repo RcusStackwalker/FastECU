@@ -51,3 +51,14 @@ TEST(Error, DefaultsToInternalKind)
     EXPECT_EQ(error.kind, ErrorKind::kInternal);
     EXPECT_THAT(error.detail, IsEmpty());
 }
+
+TEST(Error, CancellationExposureIsTypedAndConservative)
+{
+    const Error unknown{ErrorKind::kCancelled, "refused"};
+    EXPECT_EQ(unknown.cancellation_io_exposure, fastecu::CancellationIoExposure::kMayHaveStarted);
+    const Error refused{ErrorKind::kCancelled, "refused", fastecu::CancellationIoExposure::kRefusedBeforeDelegation};
+    EXPECT_NE(unknown.cancellation_io_exposure, refused.cancellation_io_exposure);
+    EXPECT_EQ(fastecu::AfterIoMayHaveStarted(refused), unknown);
+    const Error other{ErrorKind::kDisconnected, "closed", fastecu::CancellationIoExposure::kRefusedBeforeDelegation};
+    EXPECT_EQ(fastecu::AfterIoMayHaveStarted(other), other);
+}

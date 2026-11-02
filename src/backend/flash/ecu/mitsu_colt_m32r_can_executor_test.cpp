@@ -664,7 +664,7 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
     EXPECT_TRUE(cancellation.Cancelled());
     EXPECT_EQ(transport.write_attempts, 4U);
     EXPECT_EQ(transport.read_attempts, 4U);
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kWarning, HasSubstr("the flash read at 0xc0"))));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kWarning, _))));
     EXPECT_TRUE(transport.ScriptConsumed());
     const fastecu::RecordedPhaseProgress *last = nullptr;
     for (const auto& event : events.phase_progress_calls)
@@ -1997,7 +1997,7 @@ TEST(MitsuColtM32rCanExecutor, TopComparisonCancellationIsReportedByTheNextExcha
     EXPECT_TRUE(transport.Triggered());
     EXPECT_EQ(transport.write_attempts, 4U);
     EXPECT_EQ(transport.read_attempts, 4U);
-    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::kWarning, HasSubstr("the flash read at 0x600c0"))));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kWarning, _))));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::kInfo, "Erase page uploaded"))));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
