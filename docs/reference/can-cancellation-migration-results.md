@@ -241,6 +241,37 @@ The [qualification matrix](../flash-qualification-matrix.md) and applicable
 bench checklists remain unchanged, including Colt's recorded bench gate and
 the blocking Hitachi TCU erase-scope question.
 
+## Post-merge delivery addendum (2026-11-02)
+
+The delivered stack merged as [PR #974](https://github.com/RcusStackwalker/FastECU/pull/974),
+[PR #908](https://github.com/RcusStackwalker/FastECU/pull/908),
+[PR #975](https://github.com/RcusStackwalker/FastECU/pull/975),
+[PR #976](https://github.com/RcusStackwalker/FastECU/pull/976),
+[PR #977](https://github.com/RcusStackwalker/FastECU/pull/977),
+[PR #978](https://github.com/RcusStackwalker/FastECU/pull/978) and
+[PR #979](https://github.com/RcusStackwalker/FastECU/pull/979).
+Their replacement delivery checks passed on macOS, Ubuntu and Windows together
+with the configured analysis gates. Successful workflow evidence is recorded in
+[runs 41442185997](https://github.com/RcusStackwalker/FastECU/actions/runs/41442185997),
+[41452289210](https://github.com/RcusStackwalker/FastECU/actions/runs/41452289210),
+[41452289587](https://github.com/RcusStackwalker/FastECU/actions/runs/41452289587),
+[41452291404](https://github.com/RcusStackwalker/FastECU/actions/runs/41452291404),
+[41452288353](https://github.com/RcusStackwalker/FastECU/actions/runs/41452288353),
+[41452292234](https://github.com/RcusStackwalker/FastECU/actions/runs/41452292234) and
+[41452290990](https://github.com/RcusStackwalker/FastECU/actions/runs/41452290990).
+These later results supply the delivery disposition of the pre-merge evidence
+above.
+
+[Run 41452290045](https://github.com/RcusStackwalker/FastECU/actions/runs/41452290045)
+on PR #976 was automatically cancelled because a higher-priority replacement
+was waiting; [replacement run 41452291404](https://github.com/RcusStackwalker/FastECU/actions/runs/41452291404)
+passed.
+
+Software delivery does not close the Colt bench gate, the Hitachi TCU erase-scope
+question or any other hardware qualification gap. The
+[qualification matrix](../flash-qualification-matrix.md) and applicable bench
+checklists continue to own those outstanding requirements.
+
 ## Historical evidence
 
 The former migration diary is recoverable at

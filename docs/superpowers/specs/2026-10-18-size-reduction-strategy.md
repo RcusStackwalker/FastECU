@@ -186,7 +186,9 @@ Current-master trunk `44c33ab52b0efc1827f01c333c998e1bae58c67d` measured
 maximums (30 test NLOC below the cap). This work did not achieve net-negative
 test NLOC. The bounded-growth budget replaced that goal; neither production nor test growth is savings.
 The current-master refresh preserves the approved maximum deltas of `+4` /
-`+1,101`; final post-rebase delivery gates remain outstanding.
+`+1,101`. The software stack merged successfully after its replacement delivery
+checks passed; the [post-merge addendum](../../reference/can-cancellation-migration-results.md#post-merge-delivery-addendum-2026-11-02)
+records the delivery evidence.
 
 Family abort/continue decisions and wire behavior remain under the
 [sharing decision](../../design-notes.md#share-only-proven-protocol-equivalence).
@@ -194,8 +196,7 @@ K-Line, lifecycle and post-operation/non-I/O checks keep their existing owners.
 The original Colt pilot alone did not authorize this wider change. Hardware
 status and recorded bench gates remain with the
 [qualification matrix](../../flash-qualification-matrix.md); this software
-migration does not satisfy them. Top-of-stack delivery verification remains a
-separate gate before submission and atomic delivery.
+migration does not satisfy them. Hardware qualification remains outstanding.
 
 ### 5. Thin main-window tests
 
