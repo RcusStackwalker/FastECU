@@ -1,8 +1,10 @@
 # Size-reduction strategy
 
 Status: accepted direction. Phase 1 is done (−1,437 NLOC); phase 3's Colt
-cancellation ownership change is merged. Its separate compression assessment
-and bench exit gate remain outstanding; later per-family rollout is unapproved.
+cancellation ownership change is merged. CAN and mixed-CAN interface ownership,
+shared test compression and normalized cancellation logging are implemented.
+The approved bounded-growth budget replaces the earlier net-negative goal;
+hardware exit gates remain outstanding.
 Baseline: `136ad0fa` (master, 2026-10-18), 150,494 NLOC (70,746 production,
 79,748 test) by `python3 scripts/nloc_loop.py measure`.
 
@@ -65,8 +67,8 @@ rolling out.
 | --- | ---: | --- |
 | 1. Delete remote mode | ~1.1k + remote branches in callers | Done: −1,437 (1,248 production, 189 test) |
 | 2. QHexEdit to first-party standards, and tooling | 2.1k | Measured per PR; may grow tests |
-| 3. Colt cancellation ownership, then separate test compression | 1.9k Colt executor + tests | Report initial support cost; assess compression separately |
-| 4. Roll out per family | ~35k remaining executor code and tests | Extrapolated only after phase 3 |
+| 3. Colt cancellation ownership, then separate test compression | 1.9k Colt executor + tests | Ownership merged; shared-test compression completed in the CAN stack |
+| 4. Roll out per family | ~35k remaining executor code and tests | CAN/mixed-CAN ownership implemented within the separately approved growth budget; hardware unchanged |
 | 5. Thin main-window tests | 4.7k | Measured per coordinator |
 | 6. Android | Adds code | Kept small by reusing the Qt UI and portable drivers |
 
@@ -160,23 +162,40 @@ record the failed size goals, lost abort protection, and harness costs.
 
 The [Colt implementation results](../../reference/colt-cancellation-centralization-results.md)
 record the merged ownership change, retained tests, measurements and delivery CI.
-Assess test compression in a separate change. Cancellation
-ownership may initially add measured support cost; it must not be reported as a
-size reduction. The flash contract owns the guard boundaries and exit criteria;
-the results retain the boundary inventory, preservation evidence and measurements.
+Shared cancellation tests were subsequently compressed at their owners in the
+[CAN migration](../../reference/can-cancellation-migration-results.md). The
+complete migration still adds measured support cost against pinned trunk; it
+must not be reported as a size reduction. The flash contract owns the guard
+boundaries and exit criteria; the results retain preservation evidence and
+measurements.
 The ownership change requires no transcript
 framework, error normalization, or cancellation-deferral mechanism.
 
-### 4. Review before per-family rollout
+### 4. CAN rollout and accepted cost
 
-Rollout is a later decision, after the Colt compression and hardware
-exit gates are satisfied. Review the recorded net/cumulative cost before
-extrapolating savings. Each future migration must inventory cancellation
-boundaries and retain family abort/continue decisions and wire behavior under the
+The later [ADR 0025 completion decision](../../adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
+authorized interface-selected CAN and mixed-CAN guarding, generic test ownership,
+typed exposure/reporting and all 33 audited redundant pre-I/O poll removals.
+These are implemented; the
+[durable migration matrix](../../reference/can-cancellation-migration-results.md)
+records retained family checkpoints, surviving tests and qualification gaps.
+
+Current-master trunk `44c33ab52b0efc1827f01c333c998e1bae58c67d` measured
+66,211 production / 88,889 test NLOC. The final software stack measures
+66,214 / 89,960: `+3` production / `+1,071` test, within the approved hard
+maximums (30 test NLOC below the cap). This work did not achieve net-negative
+test NLOC. The bounded-growth budget replaced that goal; neither production nor test growth is savings.
+The current-master refresh preserves the approved maximum deltas of `+4` /
+`+1,101`; final post-rebase delivery gates remain outstanding.
+
+Family abort/continue decisions and wire behavior remain under the
 [sharing decision](../../design-notes.md#share-only-proven-protocol-equivalence).
-No additional family, K-Line decorator, or removal of UdsClient's checks is
-authorized by the Colt pilot. Hardware status stays with the
-[qualification matrix](../../flash-qualification-matrix.md).
+K-Line, lifecycle and post-operation/non-I/O checks keep their existing owners.
+The original Colt pilot alone did not authorize this wider change. Hardware
+status and recorded bench gates remain with the
+[qualification matrix](../../flash-qualification-matrix.md); this software
+migration does not satisfy them. Top-of-stack delivery verification remains a
+separate gate before submission and atomic delivery.
 
 ### 5. Thin main-window tests
 

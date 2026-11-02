@@ -40,8 +40,8 @@ than copying its inventory.
 
 The [size-reduction strategy](superpowers/specs/2026-10-18-size-reduction-strategy.md)
 phases the reduction toward 100k NLOC: remote-mode deletion, tooling audit,
-transport-level cancellation, separately assessed test compression, and a later
-decision on per-family rollout.
+transport-level cancellation and shared test ownership, with the completed
+CAN rollout measured against its separately approved growth budget.
 
 Colt cancellation ownership is implemented. The
 [pilot lessons](reference/guarded-transport-pilot-lessons.md) preserve evidence
@@ -49,26 +49,20 @@ from the two unsuccessful size-reduction attempts.
 [pilot results](reference/colt-cancellation-centralization-results.md) own measured
 costs, preservation evidence and delivery CI; the
 [flash contract](reference/flash-contracts.md#colt-cancellation-ownership) owns
-the implemented boundaries and prerequisites for expansion. Separate compression
-assessment and a recorded Colt bench run remain outstanding.
+the implemented boundaries. The CAN migration records the completed shared-test
+ownership assessment; a recorded Colt bench run remains outstanding.
 
 [ADR 0025's durable completion contract](adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
-owns the proposed CAN cancellation end state and completion gates; the
-[flash contract](reference/flash-contracts.md#proposed-durable-can-cancellation-ownership)
-distinguishes that proposal from the implemented pilot. The
-[conservative audited rollout](reference/can-cancellation-migration-results.md)
-retains polls and predecessor tests; stacked cleanup layers own alias removal,
-test compression and poll deletion. Its growth is not completed ownership
-transfer or savings, and no hardware qualification is claimed.
-
-The active [normalized-logging design](superpowers/specs/2026-11-01-can-cancellation-normalized-logging-design.md)
-and [implementation plan](superpowers/plans/2026-11-01-can-cancellation-normalized-logging.md)
-define typed quiet refusal, retained may-have-started warnings, all 33 redundant
-poll removals and a seven-layer atomic stack within the ADR's hard growth caps.
-The older [cleanup plan](superpowers/plans/2026-10-31-can-cancellation-stack-cleanup.md)
-stopped at its size gate; its
-[superseded design](superpowers/specs/2026-10-31-can-cancellation-stack-cleanup-design.md)
-remains historical evidence rather than the active completion contract.
+and the [flash contract](reference/flash-contracts.md#can-cancellation-ownership)
+own implemented interface-selected CAN and mixed-CAN guarding, typed exposure
+and normalized reporting. The
+[completed migration results](reference/can-cancellation-migration-results.md)
+own the compact executor/shared-dialect matrix, all 33 poll removals and
+retained checkpoints, test ownership, and accepted NLOC budget. Final totals
+are 66,214 production / 89,960 test (`+3` / `+1,071` against current-master trunk).
+This is completed software ownership transfer with bounded growth; hardware
+qualification and top-of-stack delivery gates remain separate. Completed
+migration designs and plans are preserved in lower stack history.
 
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 The [Sonar aspect qualification record](reference/sonar-aspect-qualification.md)

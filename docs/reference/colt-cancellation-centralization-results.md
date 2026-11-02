@@ -261,7 +261,8 @@ implemented boundaries.
 
 At pilot delivery, the independent compression proposal and recorded applicable
 Colt bench run were prerequisites for expansion; no additional family was
-enabled. Both Colt tasks remain outstanding. The subsequent conservative
+enabled. The subsequent CAN stack addressed shared-test compression; a recorded
+applicable Colt bench run remains outstanding. The subsequent conservative
 software rollout is recorded in the
 [CAN migration results](can-cancellation-migration-results.md), under
 [ADR 0025's durable completion contract](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract).
