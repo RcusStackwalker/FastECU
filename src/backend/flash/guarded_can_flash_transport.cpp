@@ -41,8 +41,7 @@ Status GuardedCanFlashTransport::Write(bytes::ByteView data, const ICancellation
 {
     if (cancellation.Cancelled())
     {
-        return std::unexpected(Error{ErrorKind::kCancelled, "CAN write cancelled before delegation",
-                                     CancellationIoExposure::kRefusedBeforeDelegation});
+        return std::unexpected(CancelledBeforeDelegation("CAN write cancelled before delegation"));
     }
     return inner_.Write(data, cancellation);
 }
@@ -52,8 +51,7 @@ Result<std::optional<bytes::Bytes>> GuardedCanFlashTransport::Read(std::chrono::
 {
     if (cancellation.Cancelled())
     {
-        return std::unexpected(Error{ErrorKind::kCancelled, "CAN read cancelled before delegation",
-                                     CancellationIoExposure::kRefusedBeforeDelegation});
+        return std::unexpected(CancelledBeforeDelegation("CAN read cancelled before delegation"));
     }
     return inner_.Read(timeout, cancellation);
 }

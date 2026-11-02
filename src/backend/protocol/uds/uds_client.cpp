@@ -31,8 +31,7 @@ fastecu::Result<bytes::Bytes> UdsClient::Request(bytes::ByteView pdu, const Exch
     }
     if (cancellation.Cancelled())
     {
-        return std::unexpected(fastecu::Error{ErrorKind::kCancelled, "cancelled before request",
-                                              fastecu::CancellationIoExposure::kRefusedBeforeDelegation});
+        return std::unexpected(fastecu::CancelledBeforeDelegation("cancelled before request"));
     }
 
     const bytes::Byte expected_service = pdu[0];
