@@ -73,10 +73,6 @@ bytes::Bytes KernelIdRequest()
 Status IsoWrite(IMixedCanFlashTransport& transport, bytes::ByteView request, const ICancellationToken& cancellation,
                 std::string_view subject)
 {
-    if (Status cancelled = CheckCancelled(cancellation, std::format("cancelled before {} write", subject)); !cancelled)
-    {
-        return cancelled;
-    }
     if (Status written = transport.WriteIso15765(request, cancellation); !written)
     {
         return written;
@@ -87,10 +83,6 @@ Status IsoWrite(IMixedCanFlashTransport& transport, bytes::ByteView request, con
 Result<std::optional<bytes::Bytes>> IsoRead(IMixedCanFlashTransport& transport, std::chrono::milliseconds timeout,
                                             const ICancellationToken& cancellation, std::string_view subject)
 {
-    if (Status cancelled = CheckCancelled(cancellation, std::format("cancelled before {} read", subject)); !cancelled)
-    {
-        return std::unexpected(cancelled.error());
-    }
     Result<std::optional<bytes::Bytes>> received = transport.ReadIso15765(timeout, cancellation);
     if (!received)
     {
@@ -106,10 +98,6 @@ Result<std::optional<bytes::Bytes>> IsoRead(IMixedCanFlashTransport& transport, 
 Status RawWrite(IMixedCanFlashTransport& transport, cdbg::CanFrame frame, const ICancellationToken& cancellation,
                 std::string_view subject)
 {
-    if (Status cancelled = CheckCancelled(cancellation, std::format("cancelled before {} write", subject)); !cancelled)
-    {
-        return cancelled;
-    }
     if (Status written = transport.WriteRaw(frame, cancellation); !written)
     {
         return written;
@@ -120,10 +108,6 @@ Status RawWrite(IMixedCanFlashTransport& transport, cdbg::CanFrame frame, const 
 Result<std::optional<cdbg::CanFrame>> RawRead(IMixedCanFlashTransport& transport, std::chrono::milliseconds timeout,
                                               const ICancellationToken& cancellation, std::string_view subject)
 {
-    if (Status cancelled = CheckCancelled(cancellation, std::format("cancelled before {} read", subject)); !cancelled)
-    {
-        return std::unexpected(cancelled.error());
-    }
     Result<std::optional<cdbg::CanFrame>> received = transport.ReadRaw(timeout, cancellation);
     if (!received)
     {
@@ -317,17 +301,12 @@ Status RequireKernelId(IMixedCanFlashTransport& transport, IClock& clock, const 
 Status WakeBootloader(IMixedCanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                       IEventSink& events)
 {
-    // The portable executor retains the exact 1,000 raw wake frames, adding a
-    // cooperative check at every iteration so this bounded loop cannot become
-    // an uncancellable UI stall.
+    // The portable executor retains the exact 1,000 raw wake frames; the guard
+    // refuses a cancelled write at every iteration.
     const cdbg::CanFrame wake{.id = kRawTransmitId, .payload = {0xFF, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
     events.Log(LogLevel::kInfo, "Initializing bootloader");
     for (int count = 0; count < 1000; ++count)
     {
-        if (Status cancelled = CheckCancelled(cancellation, "cancelled during DensoCAN wake"); !cancelled)
-        {
-            return cancelled;
-        }
         if (Status written = RawWrite(transport, wake, cancellation, "DensoCAN wake"); !written)
         {
             return written;
@@ -397,10 +376,6 @@ Status SendKernelBlocks(IMixedCanFlashTransport& transport, bytes::ByteView padd
     events.Log(LogLevel::kDebug, std::format("Sending {} blocks", padded.size() / 6));
     for (std::size_t offset = 0; offset < padded.size(); offset += 6)
     {
-        if (Status cancelled = CheckCancelled(cancellation, "cancelled during kernel upload"); !cancelled)
-        {
-            return cancelled;
-        }
         cdbg::CanFrame block{.id = kRawTransmitId, .payload = {0x7A, 0xAE}};
         block.payload.append_range(padded.subspan(offset, 6));
         if (Status written = RawWrite(transport, std::move(block), cancellation, "kernel upload block"); !written)
@@ -539,10 +514,6 @@ Result<bytes::Bytes> ReadMem(IMixedCanFlashTransport& transport, const MemoryReg
     for (std::uint32_t offset = 0; offset < region.length; offset += kReadPageSize)
     {
         const auto loop_started = clock.Now();
-        if (Status cancelled = CheckCancelled(cancellation, "cancelled during ROM read"); !cancelled)
-        {
-            return std::unexpected(cancelled.error());
-        }
         const std::uint32_t address = region.start + offset;
         const bytes::Bytes request = IsoRequest(0x03, ComposeBe(0x00_b, U24{address}, std::uint16_t{kReadPageSize}));
         Result<bytes::Bytes> received = IsoExchange(transport, request, kPageTimeout, cancellation,
@@ -714,10 +685,6 @@ Status FlashBlock(IMixedCanFlashTransport& transport, bytes::ByteView image, con
     for (std::uint32_t offset = 0; offset < block.length; offset += kWriteChunkSize)
     {
         const auto loop_started = clock.Now();
-        if (Status cancelled = CheckCancelled(cancellation, "cancelled during flash buffer transfer"); !cancelled)
-        {
-            return cancelled;
-        }
         const std::uint32_t address = block.start + offset;
         if (Result<bytes::Bytes> written =
                 IsoExchange(transport, IsoRequest(0x22, ComposeBe(address, image.subspan(address, kWriteChunkSize))),

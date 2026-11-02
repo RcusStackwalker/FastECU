@@ -810,8 +810,9 @@ class Sh72543rCancelSweep : public Sh72543rWrite, public ::testing::WithParamInt
                 }
                 return seen >= static_cast<std::size_t>(GetParam());
             });
-        EXPECT_THAT(executor_.Execute(*plan, transport_, clock_, cancellation, events_),
-                    fastecu::testing::IsErr(ErrorKind::kCancelled));
+        EXPECT_THAT(
+            fastecu::flash::ExecuteWithTransportGuard(executor_, *plan, transport_, clock_, cancellation, events_),
+            fastecu::testing::IsErr(ErrorKind::kCancelled));
         EXPECT_EQ(writes_at_cancel, std::optional<std::size_t>{transport_.writes});
     }
     Result<FlashPlan> read_plan_ = Plan();
@@ -861,15 +862,16 @@ INSTANTIATE_TEST_SUITE_P(StopChecks, Sh72543rReadStopCancel, ::testing::Range(1,
 class Sh72543rWritePrefixCancel : public Sh72543rCancelSweep
 {
 };
-// From the pre-encryption checkpoint through the erase command (52 checks);
-// the read sweep covers admission and connect.
+// From the pre-encryption checkpoint through the erase command (58 checks),
+// including production guard read-entry polls. The read sweep covers admission
+// and connect.
 TEST_P(Sh72543rWritePrefixCancel, StopsAtTheCheck)
 {
     ScriptSetup();
     Erase();
     ExpectCancelledAt(FlashOperation::kWrite, "OBK is active");
 }
-INSTANTIATE_TEST_SUITE_P(EraseChecks, Sh72543rWritePrefixCancel, ::testing::Range(1, 53), CheckName);
+INSTANTIATE_TEST_SUITE_P(EraseChecks, Sh72543rWritePrefixCancel, ::testing::Range(1, 59), CheckName);
 
 class Sh72543rWriteFinishCancel : public Sh72543rCancelSweep
 {

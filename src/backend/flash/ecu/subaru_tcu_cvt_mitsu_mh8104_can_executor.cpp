@@ -384,12 +384,6 @@ Result<bytes::Bytes> DumpFlashRange(Ctx& ctx, PhaseReporter& progress)
     rom.reserve(kReadRegion.length);
     for (std::uint32_t addr = kReadRegion.start; addr < kReadRegion.start + kReadRegion.length; addr += kPageSize)
     {
-        // Legacy stopRequested(), top of loop.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "read cancelled");
-        }
-
         // 0xB7 dump request: single-shot per chunk, NO retry, content-blind
         // (its `// return STATUS_ERROR;` for "Page data request failed!" is
         // commented out).
@@ -504,15 +498,6 @@ Status UnlockAndReflashBlock(Ctx& ctx, bytes::ByteView image, PhaseReporter& pro
 
     for (std::uint32_t offset = 0; offset < kWriteRegion.length; offset += kChunkSize)
     {
-        // Legacy's stopRequested() check returns 0 (success) to the caller on
-        // cancellation -- the same bug Tasks 1 and 3 already disclosed and
-        // diverged from. Not reproduced here: a cancellation mid-write is
-        // reported as Cancelled, never success.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "write cancelled");
-        }
-
         const std::uint32_t addr = kWriteRegion.start + offset;
         const bytes::ByteView chunk_data = bytes::ByteView(encrypted).subspan(offset, kChunkSize);
         // Legacy reads but never inspects the per-chunk reply at all

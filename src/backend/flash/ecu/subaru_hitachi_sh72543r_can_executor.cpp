@@ -46,10 +46,6 @@ class Session
     }
     Result<std::optional<Bytes>> Receive(std::chrono::milliseconds timeout)
     {
-        if (auto s = Checkpoint(); !s.has_value())
-        {
-            return std::unexpected(s.error());
-        }
         auto r = transport_.Read(timeout, cancel_);
         if (auto s = Checkpoint(); !s.has_value())
         {
@@ -72,16 +68,10 @@ class Session
     }
     Status Send(bytes::ByteView payload)
     {
-        return Checkpoint()
-            .and_then(
-                [&]
-                {
-                    Bytes frame;
-                    bytes::AppendU32Be(frame, 0x7e0);
-                    frame.insert(frame.end(), payload.begin(), payload.end());
-                    return transport_.Write(frame, cancel_);
-                })
-            .and_then([&] { return Checkpoint(); });
+        Bytes frame;
+        bytes::AppendU32Be(frame, 0x7e0);
+        frame.insert(frame.end(), payload.begin(), payload.end());
+        return transport_.Write(frame, cancel_).and_then([&] { return Checkpoint(); });
     }
     Result<std::optional<Bytes>> Optional(bytes::ByteView payload, std::chrono::milliseconds delay,
                                           std::chrono::milliseconds timeout = 2000ms)

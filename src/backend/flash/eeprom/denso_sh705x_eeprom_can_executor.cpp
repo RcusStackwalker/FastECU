@@ -243,19 +243,18 @@ bytes::Bytes EncryptCanKernelPayload(bytes::ByteView buf)
 // ---------------------------------------------------------------------
 
 // The common write -> [delay] -> read shape shared by every exchange in this
-// class. Cancellation is checked before the write, after the write, after
-// the delay (if any), and after the read, per the portable seam's
-// cancellation contract. A genuine transport-level failure (Status/Result
-// carrying an error) always propagates; an absent response ("no frame", the
-// nullopt case) is returned as-is for the caller to interpret -- see the two
-// call-site wrappers below, since legacy's own tolerance for "no frame" vs.
-// "must have gotten something" differs per call site.
+// class. The transport guard owns entry refusal; family checks remain after
+// the write, delay, and read, per the portable seam's cancellation contract.
+// A genuine transport-level failure (Status/Result carrying an error) always
+// propagates; an absent response ("no frame", the nullopt case) is returned
+// as-is for the caller to interpret -- see the two call-site wrappers below,
+// since legacy's tolerance for "no frame" vs. "must have gotten something"
+// differs per call site.
 Result<std::optional<bytes::Bytes>> CanRawExchange(ICanFlashTransport& transport, IClock& clock,
                                                    const ICancellationToken& cancellation, bytes::ByteView request,
                                                    int delay_ms, std::chrono::milliseconds timeout)
 {
-    return CheckCancelled(cancellation, "cancelled before write")
-        .and_then([&] { return transport.Write(request, cancellation); })
+    return transport.Write(request, cancellation)
         .and_then([&] { return CheckCancelled(cancellation, "cancelled after write"); })
         // Every caller passes a positive delay.
         .and_then([&] { return clock.Sleep(std::chrono::milliseconds{delay_ms}, cancellation); })
@@ -430,10 +429,6 @@ Status SendKernelBlocks(ICanFlashTransport& transport, const ICancellationToken&
     const auto max_blocks = static_cast<std::uint32_t>(encrypted.size() / kUploadChunkBytes);
     for (std::uint32_t blockno = 0; blockno <= max_blocks; ++blockno)
     {
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled between kernel transfer chunks");
-        }
         const std::uint32_t block_addr = start_address + blockno * kUploadChunkBytes;
         const bytes::ByteView chunk =
             blockno < max_blocks
@@ -509,10 +504,6 @@ Result<bytes::Bytes> ReadPageData(ICanFlashTransport& transport, const ICancella
     bytes::Bytes pagedata;
     for (int attempts = 0; pagedata.size() < pagesize && attempts < kMaxPagedataAttempts; ++attempts)
     {
-        if (cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
-        }
         auto chunk = transport.Read(kPagedataPollTimeout, cancellation);
         if (!chunk.has_value())
         {

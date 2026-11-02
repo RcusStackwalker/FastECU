@@ -297,15 +297,6 @@ Status SendChunks(Ctx& ctx, bytes::ByteView encrypted, PhaseReporter& progress)
 
     for (std::uint32_t offset = 0; offset < kWriteRegion.length; offset += kChunkSize)
     {
-        // Legacy's stopRequested() check returns 0 -- success -- to the caller
-        // on cancellation; the same bug Tasks 1 and 3 already disclosed and
-        // diverged from. Not reproduced here either: a cancellation mid-write
-        // is reported as Cancelled, never success.
-        if (ctx.cancellation.Cancelled())
-        {
-            return Fail(ErrorKind::kCancelled, "write cancelled");
-        }
-
         const std::uint32_t addr = kWriteRegion.start + offset;
         const bytes::ByteView chunk_data = encrypted.subspan(offset, kChunkSize);
         // Legacy reads but never inspects the per-chunk reply at all -- only a

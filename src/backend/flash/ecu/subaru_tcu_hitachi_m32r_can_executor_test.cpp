@@ -2096,31 +2096,16 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WithNoScriptToStopItTheWriteStillNeverTouc
 
 // --- cancellation and failure paths -----------------------------------------
 //
-// Every cancellation test below returns ErrorKind::kCancelled, which by itself
-// discriminates nothing: read_rom and reflash_block each poll
-// cancellation.cancelled() at several points (top of loop, before a write,
-// after a write, after a read, and inside clock.sleep), and every one of
-// those checkpoints -- plus the top-level "cancelled before setup" check in
-// execute() -- returns the same error kind. What pins a specific checkpoint
-// is the exact write/sleep/read trace up to the moment cancellation fires,
-// asserted at its full length via expectTraceEquals, together with the
-// checkpoint's own message (which does distinguish "cancelled during ROM
-// read" / "cancelled during block write" from the generic
-// "cancelled before/after write/read" checks inside exchange_optional).
+// The full write/sleep/read traces pin the cancellation boundaries independently
+// of the normalized entry-refusal detail. Accepted operations and progress keep
+// their existing order before the next UdsClient request is refused.
 //
-// Both trip counts below are derived from kConnectFrames (this family's own
-// eight-exchange connect sequence), not copied from any other family: each
-// cancellation test lets exactly kConnectFrames iterations of its loop
-// complete, then expects the loop's own top-of-iteration check to catch the
-// (kConnectFrames+1)-th.
-
 // Flips a shared ManualCancellationToken the instant the shared trace reaches
 // a chosen length, always AFTER delegating to the real FakeClock::sleep --
 // so the sleep call that reaches the target length always succeeds normally,
 // and the flag only becomes visible to the next cancellation.cancelled()
-// poll in production code (read_rom's top-of-loop check, for the tests that
-// use this). Flipping before delegating would make that same sleep call
-// observe its own trip and fail one iteration too early, with the bare,
+// poll in production code. Flipping before delegating would make that same
+// sleep call observe its own trip and fail one iteration too early, with the bare,
 // unlabeled Cancelled error FakeClock::sleep produces instead of the
 // checkpoint's real message.
 void TraceSleepsThenTrip(MockClock& clock, std::vector<Call>& trace, std::size_t trip_at,
@@ -2232,11 +2217,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheReadLoopStopsAtTheNex
     ASSERT_THAT(built_plan_43, fastecu::testing::IsOk());
     const auto result = executor.Execute(std::move(*built_plan_43), transport, clock, cancellation, events);
 
-    // "cancelled during ROM read" is read_rom's top-of-loop checkpoint --
-    // distinct from the generic "cancelled before/after write/read" messages
-    // exchange_optional's own checks would produce if this checkpoint were
-    // missing and one of those caught it instead.
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, HasSubstr("cancelled during ROM read")));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + kCancelAfterPages);
     ExpectTraceEquals(trace, expected_prefix);
@@ -2267,7 +2248,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheWriteLoopStopsAtTheNe
     ASSERT_THAT(built_plan_44, fastecu::testing::IsOk());
     const auto result = executor.Execute(std::move(*built_plan_44), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, HasSubstr("cancelled during block write")));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(transport.ScriptConsumed());
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1 + 1 + kCancelAfterFrames);
     ExpectTraceEquals(trace, WriteTracePrefixThroughFrames(kCancelAfterFrames));

@@ -57,9 +57,19 @@ from delays, Receive and pending rereads to may-have-started, even when a later
 call is refused. CVT Hitachi raw erase and MH8104 raw exchange apply the same
 promotion so earlier request exposure is retained.
 
-Family-owned post-operation and non-I/O checkpoints remain in place. Generic
-refusal, exposure and binding tests stay with shared owners; direct executor
-tests require a cancellation-aware transport when entry refusal is under test.
+Redundant pre-I/O CAN and mixed-CAN entry and transfer-loop polls defer to
+those owners. Only request/frame/address preparation with admitted valid inputs
+lies before the next guarded or UdsClient operation. Family-specific entry detail
+is normalized to the owner's `kCancelled` refusal. Raw exchanges without the
+shared reporter retain their existing error policy.
+
+Family-owned post-operation and non-I/O checkpoints remain in place, including
+waits, validation/error precedence, progress and log boundaries, confirmations,
+retry bounds and lifecycle checks. Generic refusal, exposure and binding tests
+stay with shared owners. Direct undecorated family execution requires a
+cancellation-aware transport for entry refusal formerly supplied by those polls;
+production binding supplies the guard. This ownership transfer establishes no
+hardware qualification.
 
 ### Colt cancellation ownership
 
@@ -76,16 +86,16 @@ The [pilot results](colt-cancellation-centralization-results.md) own measurement
 preserved cases and mutation evidence. Additional explicit opt-ins and their
 retained checkpoints are recorded in the
 [CAN migration results](can-cancellation-migration-results.md). [ADR 0025](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
-owns the durable completion contract. This conservative audited rollout retains
-polls and predecessor behavior tests. Guard selection now belongs to the binding
-above; later cleanup layers own test compression and poll deletion. Hardware
-status remains unchanged.
+owns the durable completion contract. The earlier conservative rollout retained
+polls and predecessor behavior tests; redundant pre-I/O polls now defer to the
+shared owners above. Guard selection belongs to the binding. Hardware status
+remains unchanged.
 
 ### Other CAN family boundaries
 
 Denso SH7058 BEEF petrol uses the binding's CAN guard. Its raw upload
 reply discard newly refuses a Read after cancellation from an accepted B6 Write;
-all shared polls and family error/tolerance policy remain. The
+post-operation and non-I/O polls and family error/tolerance policy remain. The
 [petrol migration evidence](can-cancellation-migration-results.md#denso-sh7058-beef-petrol)
 records the boundary, measurements and outstanding bench work.
 
@@ -97,7 +107,7 @@ records the exact delegated timeout prefix and unchanged pending timeout policy.
 
 Denso SH705x BEEF TCU uses the binding's CAN guard. Its B6 raw discard
 refuses delegation after cancellation from an accepted Write. Kernel-ID drain
-bounds/polls, exact session validation, UI preflight and the executor-owned
+bounds, exact session validation, UI preflight and the executor-owned
 inner restart keep their existing owners. The
 [TCU migration evidence](can-cancellation-migration-results.md#denso-sh705x-beef-tcu)
 records the real boundary proof and retained restart integration.
@@ -105,25 +115,27 @@ records the real boundary proof and retained restart integration.
 The Denso ISO-15765 bootloader template uses the binding's CAN guard through its
 executor interface. Earlier per-family migration evidence is recorded in the
 [Denso migration results](can-cancellation-migration-results.md#denso-iso-15765-n83m-15m).
-Shared polls, profile values, best-effort stop/close policy and SH page pacing
+Profile values, best-effort stop/close policy, clock waits and SH page pacing
 remain with their current owners. A completed N83M dump can succeed after
 cancellation at its best-effort stop; an SH final-page pacing cancellation
 still returns its clock failure.
 
-Hitachi SH7058 CAN uses the binding's guard while retaining all Session
-checkpoints. Delegated Read errors still precede its after-read cancellation
-check; successful reads retain `SH7058 write cancelled`. The
+Hitachi SH7058 CAN uses the binding's guard for Exchange and erase-continuation
+entry refusal, retaining Session post-operation checkpoints. Delegated Read
+errors still precede its after-read cancellation check; successful reads retain
+`SH7058 write cancelled`. The
 [SH7058 evidence](can-cancellation-migration-results.md#hitachi-sh7058-can)
 distinguishes preserved family behavior from the synthetic selection proof.
 
-Hitachi SH72543R CAN uses the binding's guard and retains Send, Receive,
-Sleep and finalization checks. Receive still gives cancellation precedence over
-a concurrently failed delegated Read. Its
+Hitachi SH72543R CAN uses the binding's guard for Send/Receive entry refusal
+and retains their post-operation checks, Sleep and finalization checks. Receive
+still gives cancellation precedence over a concurrently failed delegated Read. Its
 [SH72543R evidence](can-cancellation-migration-results.md#hitachi-sh72543r-can)
 records the preserved policy and independent selection proof.
 
-Denso SH705x CAN EEPROM uses the binding's guard while retaining raw
-exchange, kernel chunk and EEPROM page checkpoints. Cancellation after an
+Denso SH705x CAN EEPROM uses the binding's guard for raw exchange, kernel
+chunk and page-Read entry refusal, retaining their post-operation checkpoints
+and the outer page-loop checkpoint. Cancellation after an
 accepted B6 Write still stops at `cancelled after kernel chunk write` before
 its acknowledgment Read. The
 [EEPROM evidence](can-cancellation-migration-results.md#denso-sh705x-can-eeprom)
@@ -133,8 +145,8 @@ Subaru Denso SH705x DensoCAN uses the binding's mixed-CAN guard.
 Its four raw/ISO-15765 I/O methods refuse cancellation at entry and preserve
 accepted delegate outcomes. Reset, configuration, Open/Close, buffer control,
 mode transitions and unblock forward without a new gate. The executor retains
-all pre/post I/O, startup and loop checks, including after-write diagnostics,
-transport-error precedence and post-erase recovery warnings. The
+post-I/O, startup, validation and log-boundary checks, including after-write
+diagnostics, transport-error precedence and post-erase recovery warnings. The
 [DensoCAN evidence](can-cancellation-migration-results.md#subaru-denso-sh705x-densocan)
 separates these preserved family behaviors from the raw and ISO selection proofs.
 
@@ -143,8 +155,8 @@ separates these preserved family behaviors from the raw and ISO selection proofs
 [ADR 0025's durable completion contract](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
 owns the durable completion gates, including test ownership and family poll
 removal. Interface-selected execution guarding and typed exposure/reporting are
-implemented above; the remaining broader contract does not establish rollout
-completion or hardware qualification.
+implemented above, including redundant pre-I/O poll removal; the remaining
+broader contract does not establish rollout completion or hardware qualification.
 
 ## Plan admission
 
@@ -392,7 +404,7 @@ entry and kernel alive check.
 The Subaru Hitachi M32R CAN ECU, Hitachi M32R CVT and MH8111 share the encrypted
 B7 page loop (`ReadEncryptedB7Pages` in the
 [UDS exchange module](../../src/backend/flash/ecu/uds_client_exchange_common.h):
-0x100-byte pages, a cancellation check before each, fatal reads); each keeps its
+0x100-byte pages, UdsClient-owned entry cancellation, fatal reads); each keeps its
 exchange policy, rejection wording, region, decrypt table, dump setup, stop
 command and padding.
 

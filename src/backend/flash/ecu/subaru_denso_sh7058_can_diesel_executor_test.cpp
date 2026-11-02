@@ -756,7 +756,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadsLiteralKernelAtEachGenerationAdd
         EXPECT_CALL(clock, Sleep(100ms, _)).Times(1);
         EXPECT_CALL(clock, Sleep(200ms, _)).Times(2);
 
-        const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+        const auto result =
+            fastecu::flash::ExecuteWithTransportGuard(executor, *plan, transport, clock, cancellation, events);
 
         EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
         EXPECT_TRUE(transport.scripted.ScriptConsumed());
@@ -1739,7 +1740,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadedKernelReachesFirstReadPageBefor
     FakeClock clock;
     RecordingEventSink events;
 
-    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
+    const auto result =
+        fastecu::flash::ExecuteWithTransportGuard(executor, *plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(transport.scripted.ScriptConsumed());

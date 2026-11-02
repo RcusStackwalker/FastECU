@@ -95,8 +95,7 @@ Result<std::optional<bytes::Bytes>>
 ChannelRequestOptional(Context& ctx, bytes::ByteView pdu, std::chrono::milliseconds timeout,
                        std::chrono::milliseconds delay = std::chrono::milliseconds{0})
 {
-    return CancelledIfRequested(ctx, "cancelled before CAN request")
-        .and_then([&] { return ctx.channel.Send(pdu, ctx.cancellation); })
+    return ctx.channel.Send(pdu, ctx.cancellation)
         .and_then(
             [&] { return delay > std::chrono::milliseconds{0} ? ctx.clock.Sleep(delay, ctx.cancellation) : Status{}; })
         .and_then([&] { return ctx.channel.Receive(timeout, ctx.cancellation); });
