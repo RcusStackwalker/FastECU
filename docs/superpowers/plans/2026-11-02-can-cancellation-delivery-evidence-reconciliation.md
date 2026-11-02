@@ -180,4 +180,3 @@ Expected: no whitespace errors; only the four owner documents contain implementa
 git add docs/reference/can-cancellation-migration-results.md docs/superpowers/specs/2026-10-18-size-reduction-strategy.md
 git commit -m "docs: record CAN cancellation stack delivery"
 ```
-

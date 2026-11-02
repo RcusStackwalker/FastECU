@@ -270,4 +270,3 @@ git diff HEAD~3 -- src/backend/ports/error.h src/backend/ports/result_test.cpp s
 ```
 
 Expected: no whitespace errors; only the named helper, seven call sites, three wrapper deletions, their comments, and the Colt ownership comment changed. No family test, guard interface, or BUILD target changed.
-
