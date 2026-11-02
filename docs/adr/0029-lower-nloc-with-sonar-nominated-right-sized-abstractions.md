@@ -5,8 +5,8 @@
 Accepted. Amends the consequence of
 [ADR 0024](0024-wire-transcripts-and-goldens-are-the-test-contract.md) that
 retired the size-reduction loop; ADR 0024's evidence rules stand and govern
-this loop. Design: the
-[Sonar dedup loop spec](../superpowers/specs/2026-10-25-sonar-dedup-loop-design.md).
+this loop. Operation and enforcement are documented in
+[tooling](../tooling.md#sonar-dedup-loop).
 
 ## Context
 

@@ -10,9 +10,9 @@ labelled `sonar-dedup`), or produce the next one. Each loop PR adds or widens
 one **right-sized abstraction** (see `GLOSSARY.md`) and lowers first-party
 NLOC by at least 10. SonarCloud nominates; NLOC measures; the
 `sonar-dedup verdict` check enforces. The decision is
-[ADR 0029](../../../docs/adr/0029-lower-nloc-with-sonar-nominated-right-sized-abstractions.md),
-the design is the
-[spec](../../../docs/superpowers/specs/2026-10-25-sonar-dedup-loop-design.md).
+[ADR 0029](../../../docs/adr/0029-lower-nloc-with-sonar-nominated-right-sized-abstractions.md);
+operation and enforcement are documented in
+[tooling](../../../docs/tooling.md#sonar-dedup-loop).
 `dl` below means `python3 scripts/dedup_loop.py`.
 
 Launch: `/goal run /sonar-dedup-loop iterations until it prints DONE`
