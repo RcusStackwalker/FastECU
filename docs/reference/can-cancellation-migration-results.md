@@ -188,14 +188,39 @@ family targets/dependencies survive alongside the guard ownership changes.
 Stable patch IDs match for 35 of 38 original commits. The remaining three
 range-diff differences reflect current-master includes and BUILD target placement;
 their added and removed lines retain the original changes.
-No production/test conflict required a behavioral change. These are fresh
-post-rebase focused checks; earlier full tests, clang-tidy, coverage and mutation
-evidence retain their historical heads. Full post-rebase gates and independent
-whole-stack review remain outstanding.
+No production/test conflict required a behavioral change.
 
-These observations do not claim the remaining top-of-stack application build,
-coverage, platform CI or packaging gates. Those remain required by
-ADR 0025 before delivery. Local skips do not establish Windows qualification.
+Full post-rebase verification at source head
+`3299167bd041db5714716c0a7ca5f35bb2beda07` passed the release application build,
+release tests (306 pass / 20 configured skips), all 17 Prek hooks, convergent
+Gazelle generation and clang-tidy (553 files / zero findings). Coverage also
+passed 306 targets with 20 configured skips; the combined LCOV artifact is
+preserved in the verification evidence. These counts do not assert a line
+coverage percentage. The skips are thirteen fuzz and seven Windows-only targets
+on the macOS verification host.
+
+The exact unscheduled changed-line mutation command against base
+`44c33ab52b0efc1827f01c333c998e1bae58c67d` failed when the original instrumented
+SH72543R suite exceeded its 60-second warmup limit, before that binary executed
+mutants. That failed attempt remains evidence. Systematic diagnosis showed that
+the four checked-in GoogleTest shards cover all 189 cases exactly once, each
+passing in roughly 17–18 seconds. A fresh invocation with the checked-in
+schedule selected the same 161 labels as 176 work items; all completed, with
+2 killed / 0 survived / 0 uncovered / 0 timed-out changed-line mutants. Loading
+the schedule is a disclosed, coverage-preserving execution correction: selected
+labels, changed-line scope and test cases remain intact, without increasing
+timeouts or changing filters. The successful verdict uses only the fresh run's
+reports, not a merge with the failed partial attempt.
+
+Exact NLOC (66,215 production / 89,985 test), exact-base diff, linear topology,
+local ref and remote identity checks passed at source head `3299167b` before
+this documentation-only closeout. Its final documentation-only commit leaves
+source, tests and the build graph identical to that verified head.
+
+Independent final whole-stack review, platform CI and packaging, hardware
+qualification, and explicit authorization for remote submission, opening or
+readiness, and merge remain outstanding. No Linux/Windows CI result is claimed;
+local skips do not establish Windows qualification.
 The [qualification matrix](../flash-qualification-matrix.md) and applicable
 bench checklists remain unchanged, including Colt's recorded bench gate and
 the blocking Hitachi TCU erase-scope question.
