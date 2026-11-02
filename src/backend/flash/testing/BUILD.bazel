@@ -98,6 +98,7 @@ fastecu_portable_gtest(
         ":guarded_attempt_expectations",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash:guarded_can_flash_transport",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",

@@ -4,6 +4,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/guarded_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
@@ -20,8 +21,6 @@ Result<FlashPlan> ProbePlan()
 {
     FlashPlanFields fields;
     fields.operation = FlashOperation::kRead;
-    fields.family = FlashFamily::kDensoSh705xEepromCan;
-    fields.transport = TransportKind::kCanIso15765;
     fields.target_id = "sub_ecu_denso_sh705x_eeprom_can";
     fields.mcu_name = "SH7058";
     fields.transfer_region = MemoryRegion{.start = 0, .length = 0x100};
