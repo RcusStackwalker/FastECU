@@ -159,8 +159,9 @@ normalized reporting, and all 33 audited pre-I/O poll removals are implemented.
 [ADR 0025](../adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
 owns the durable completion and delivery gates. The
 [results](can-cancellation-migration-results.md#measurements-and-accepted-budget)
-record 66,215 production / 89,960 test NLOC against current-master trunk's
-66,211 / 88,889: accepted growth of `+4` / `+1,071`. The approved budget
+record 66,214 production / 89,960 test NLOC against current-master trunk's
+66,211 / 88,889: accepted growth of `+3` / `+1,071`. This remains within the
+approved `+4` / `+1,101` hard maximums. The approved budget
 replaced net-negative NLOC as a completion condition; test NLOC did not shrink
 against trunk. Software ownership completion does not establish hardware
 qualification or completion of the separate top-of-stack delivery gates.
