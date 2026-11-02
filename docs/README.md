@@ -55,7 +55,11 @@ assessment and a recorded Colt bench run remain outstanding.
 [ADR 0025's durable completion contract](adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
 owns the proposed CAN cancellation end state and completion gates; the
 [flash contract](reference/flash-contracts.md#proposed-durable-can-cancellation-ownership)
-distinguishes that proposal from the implemented pilot.
+distinguishes that proposal from the implemented pilot. The
+[conservative audited rollout](reference/can-cancellation-migration-results.md)
+retains polls and predecessor tests; stacked cleanup layers own alias removal,
+test compression and poll deletion. Its growth is not completed ownership
+transfer or savings, and no hardware qualification is claimed.
 
 The active [normalized-logging design](superpowers/specs/2026-11-01-can-cancellation-normalized-logging-design.md)
 and [implementation plan](superpowers/plans/2026-11-01-can-cancellation-normalized-logging.md)
