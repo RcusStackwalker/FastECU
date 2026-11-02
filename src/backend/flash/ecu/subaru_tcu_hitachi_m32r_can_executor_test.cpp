@@ -26,9 +26,7 @@
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/testing/guarded_attempt_expectations.h"
 #include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
-#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -425,8 +423,7 @@ fastecu::Result<fastecu::flash::FlashExecutionResult> Execute(SubaruTcuHitachiM3
                                                               fastecu::IClock& clock, RecordingEventSink& events)
 {
     ManualCancellationToken cancellation;
-    return fastecu::flash::testing::ExecuteWithCancellationGuard(executor, plan, transport, clock, cancellation,
-                                                                 events);
+    return executor.Execute(plan, transport, clock, cancellation, events);
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, TransportSetupMatchesLegacyCanConfiguration)
@@ -1656,8 +1653,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseCancellationDoesNotLogTheDoNotPanicWa
 
     auto built_plan_31 = WritePlan();
     ASSERT_THAT(built_plan_31, fastecu::testing::IsOk());
-    const auto result = fastecu::flash::testing::ExecuteWithCancellationGuard(executor, std::move(*built_plan_31),
-                                                                              transport, clock, cancellation, events);
+    const auto result = executor.Execute(std::move(*built_plan_31), transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), kConnectFrames + 1);
@@ -2234,8 +2230,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheReadLoopStopsAtTheNex
 
     auto built_plan_43 = ReadPlan();
     ASSERT_THAT(built_plan_43, fastecu::testing::IsOk());
-    const auto result = fastecu::flash::testing::ExecuteWithCancellationGuard(executor, std::move(*built_plan_43),
-                                                                              transport, clock, cancellation, events);
+    const auto result = executor.Execute(std::move(*built_plan_43), transport, clock, cancellation, events);
 
     // "cancelled during ROM read" is read_rom's top-of-loop checkpoint --
     // distinct from the generic "cancelled before/after write/read" messages
@@ -2270,8 +2265,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheWriteLoopStopsAtTheNe
 
     auto built_plan_44 = WritePlan();
     ASSERT_THAT(built_plan_44, fastecu::testing::IsOk());
-    const auto result = fastecu::flash::testing::ExecuteWithCancellationGuard(executor, std::move(*built_plan_44),
-                                                                              transport, clock, cancellation, events);
+    const auto result = executor.Execute(std::move(*built_plan_44), transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kCancelled, HasSubstr("cancelled during block write")));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -2330,8 +2324,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, ExecuteRejectsTestWriteEvenWhenDirectlyCon
     FakeClock clock;
     RecordingEventSink events;
 
-    const auto execute_result =
-        fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *built, transport, clock, cancellation, events);
+    const auto execute_result = executor.Execute(*built, transport, clock, cancellation, events);
 
     EXPECT_THAT(execute_result, fastecu::testing::IsErr(ErrorKind::kUnsupported));
     // No transport activity at all: the validator rejects before connect_bootloader.
@@ -2429,13 +2422,6 @@ TEST(SubaruTcuHitachiM32rCanExecutor, KernelProbeCancellationDoesNotDelegateRepl
     EXPECT_EQ(inner->write_attempts, 1);
     EXPECT_EQ(inner->read_attempts, 0);
     EXPECT_FALSE(inner->ScriptConsumed());
-}
-
-TEST(SubaruTcuHitachiM32rCanExecutor, SelectedGuardIsUsedByBoundAttempt)
-{
-    auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruTcuHitachiM32rCanExecutor>(*plan);
 }
 
 // The connect frames, then the read window or the erase: the span the
@@ -2542,8 +2528,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellingAtEveryConnectAndEraseCheckWrite
             SubaruTcuHitachiM32rCanExecutor executor;
             FakeClock clock;
             RecordingEventSink events;
-            const auto result = fastecu::flash::testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock,
-                                                                                      cancellation, events);
+            const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
             if (!writes_at_cancel.has_value())
             {
                 break;

@@ -27,9 +27,7 @@
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/testing/guarded_attempt_expectations.h"
 #include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
-#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -374,7 +372,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, SecurityUsesLiteralStockVectorsOnFamily
         transport.Exchange(Request({0x10, 0x02}));
         transport.QueueError(ErrorKind::kDisconnected, "stop after security");
 
-        EXPECT_THAT(ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+        EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                     fastecu::testing::IsErr(ErrorKind::kDisconnected));
         EXPECT_TRUE(transport.ScriptConsumed());
     }
@@ -399,8 +397,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteAcceptsSilentChunkReplies)
         ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(start, 0x10000), start, 0x10000, ChunkReply::kSilent);
     }
 
-    EXPECT_THAT(ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
-                fastecu::testing::IsOk());
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
@@ -424,8 +421,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteAcceptsUninspectedChunkReplies)
                          ChunkReply::kUnexpected);
     }
 
-    EXPECT_THAT(ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
-                fastecu::testing::IsOk());
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
 }
 
@@ -445,7 +441,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WritePropagatesChunkTransportError)
     ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(0x8000, 0x8000), 0x8000, 0x8000,
                      ChunkReply::kDisconnected);
 
-    EXPECT_THAT(ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -465,7 +461,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteCloseExhaustionIsFatal)
     ScriptEraseMemory(transport);
     ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(0x8000, 0x8000), 0x8000, 0x8000, ChunkReply::kPositive, 1);
 
-    EXPECT_THAT(ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.ScriptConsumed());
 }
@@ -487,7 +483,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRun
     ScriptFlashDump(transport, 0x8000, 0x78000, 0x100, 0x5A);
     ScriptStopCommand(transport);
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     // Only the scripted sequence above was consumed -- if the executor had
@@ -513,7 +509,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ConnectFullSequenceWhenKernelNotRunning
     ScriptFlashDump(transport, 0x8000, 0x78000, 0x100, 0x00);
     ScriptStopCommand(transport);
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -534,7 +530,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadReturnsTheFloorClampedWindowPaddedW
     ScriptFlashDump(transport, 0x8000, 0x78000, 0x100, 0x5A);
     ScriptStopCommand(transport);
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_THAT(result->read_bytes, Optional(_));
@@ -555,7 +551,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsWhenCancelled)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     cancellation.Cancel();
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
@@ -586,7 +582,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadDisconnectMidDumpLoopPropagates)
     transport.Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB7), bytes::U24{0x8000})));
     transport.QueueError(ErrorKind::kDisconnected, "adapter gone");
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -627,7 +623,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteErasesThenFlashesEightBlocksOfSixt
         ScriptWriteBlock(transport, bytes::ByteView(rom).subspan(start, length), start, length);
     }
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.ScriptConsumed());
@@ -651,7 +647,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
     auto plan = HandBuiltPlan(FlashOperation::kWrite, 0x7ffff);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const auto result = ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events);
+    const auto result = executor.Execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("0x80000")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
@@ -709,13 +705,6 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, AcceptedB6WriteCancellationDoesNotDeleg
     const int chunk_reply_read_attempts = inner->read_attempts;
     EXPECT_EQ(chunk_reply_read_attempts, 0);
     EXPECT_FALSE(inner->ScriptConsumed());
-}
-
-TEST(SubaruTcuCvtHitachiM32rCanExecutor, SelectedGuardIsUsedByBoundAttempt)
-{
-    auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruTcuCvtHitachiM32rCanExecutor>(*plan);
 }
 
 } // namespace

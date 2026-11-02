@@ -19,7 +19,6 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
 #include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/testing/denso_can_frames.h"
@@ -109,7 +108,7 @@ template <typename Executor, typename Clock = FakeClock> struct ExecutorRun
               [&]
               {
                   Executor executor;
-                  return ExecuteWithCancellationGuard(executor, plan, transport, clock, cancellation, events);
+                  return executor.Execute(plan, transport, clock, cancellation, events);
               }())
     {
     }

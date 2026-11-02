@@ -17,9 +17,6 @@
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_can_executor.h"
 
 #include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
-#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
-
-#include "src/backend/flash/testing/guarded_attempt_expectations.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -544,7 +541,7 @@ Result<FlashExecutionResult> RunExecutor(const FlashPlan& plan, ScriptedCanFlash
     FakeClock clock;
     RecordingEventSink events;
     DensoSh705xEepromCanExecutor executor;
-    return testing::ExecuteWithCancellationGuard(executor, plan, transport, clock, cancellation, events);
+    return executor.Execute(plan, transport, clock, cancellation, events);
 }
 
 // The builder refuses this plan, so it reaches ValidateAndBuild as raw fields.
@@ -599,7 +596,7 @@ TEST(DensoSh705xEepromCanExecutorTest, InvalidPlanIsRefusedBeforeAnyIo)
         fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                     ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
     EXPECT_THAT(
-        testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+        executor.Execute(*plan, transport, clock, cancellation, events),
         fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                     ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
@@ -615,7 +612,7 @@ TEST(DensoSh705xEepromCanExecutorTest, InvalidPlanWinsOverPrecancel)
     RecordingEventSink events;
     FakeCancellationToken cancellation{true};
     EXPECT_THAT(
-        testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+        executor.Execute(*plan, transport, clock, cancellation, events),
         fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                     ::testing::Eq("eeprom_region does not match the resolved MCU table entry")));
 }
@@ -629,7 +626,7 @@ TEST(DensoSh705xEepromCanExecutorTest, PrecancelledRunIsRefusedInAdmission)
     FakeClock clock;
     RecordingEventSink events;
     FakeCancellationToken cancellation{true};
-    EXPECT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+    EXPECT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, ::testing::Eq("cancelled before setup")));
     EXPECT_EQ(transport.WritesConsumed(), 0U);
     EXPECT_THAT(events.logs, IsEmpty());
@@ -803,7 +800,7 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
     DensoSh705xEepromCanExecutor executor;
     FakeClock clock;
     RecordingEventSink events;
-    ASSERT_THAT(testing::ExecuteWithCancellationGuard(executor, *plan, transport, clock, cancellation, events),
+    ASSERT_THAT(executor.Execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErrWith(ErrorKind::kCancelled, "cancelled after write"));
     EXPECT_TRUE(triggered);
     EXPECT_TRUE(cancellation.Cancelled());
@@ -879,13 +876,6 @@ TEST(DensoSh705xEepromCanExecutorTest, AcceptedB6WriteCancellationKeepsAfterChun
     EXPECT_EQ(inner->close_call_count, 1);
 }
 
-TEST(DensoSh705xEepromCanExecutorTest, SelectedGuardIsUsedByBoundAttempt)
-{
-    const auto plan = ValidCanPlan(EepromReadMode::kMode2);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::flash::testing::ExpectCanGuardedAttempt<DensoSh705xEepromCanExecutor>(*plan);
-}
-
 namespace
 {
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
@@ -947,7 +937,7 @@ Result<FlashExecutionResult> RunWith(const FlashPlan& plan, ScriptedCanFlashTran
 {
     RecordingEventSink events;
     DensoSh705xEepromCanExecutor executor;
-    return testing::ExecuteWithCancellationGuard(executor, plan, transport, clock, cancellation, events);
+    return executor.Execute(plan, transport, clock, cancellation, events);
 }
 } // namespace
 

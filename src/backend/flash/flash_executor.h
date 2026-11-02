@@ -352,6 +352,16 @@ class IMixedCanFlashExecutor
                                                  const ICancellationToken&, IEventSink&) = 0;
 };
 
+Result<FlashExecutionResult> ExecuteWithTransportGuard(ICanFlashExecutor& executor, const FlashPlan& plan,
+                                                       ICanFlashTransport& transport, IClock& clock,
+                                                       const ICancellationToken& cancellation, IEventSink& events);
+Result<FlashExecutionResult> ExecuteWithTransportGuard(IMixedCanFlashExecutor& executor, const FlashPlan& plan,
+                                                       IMixedCanFlashTransport& transport, IClock& clock,
+                                                       const ICancellationToken& cancellation, IEventSink& events);
+Result<FlashExecutionResult> ExecuteWithTransportGuard(IKlineFlashExecutor& executor, const FlashPlan& plan,
+                                                       IKlineFlashTransport& transport, IClock& clock,
+                                                       const ICancellationToken& cancellation, IEventSink& events);
+
 // Plan admission for one family's executor: the checks every executor makes
 // before any family code runs. TransportSetup checks the plan's family, then
 // runs the family validator, then hands the family plan to Setup. Execute
@@ -470,21 +480,8 @@ template <typename Executor, typename Transport> class BoundAttempt final : publ
             return std::unexpected(opened.error());
         }
 
-        Result<FlashExecutionResult> outcome = [&]() -> Result<FlashExecutionResult>
-        {
-            if constexpr (requires { typename Executor::CancellationGuard; })
-            {
-                using Guard = typename Executor::CancellationGuard;
-                static_assert(std::derived_from<Guard, typename Executor::TransportType>);
-                static_assert(std::constructible_from<Guard, Transport&>);
-                Guard guard(*transport_);
-                return executor_->Execute(plan_, guard, clock, cancellation, events);
-            }
-            else
-            {
-                return executor_->Execute(plan_, *transport_, clock, cancellation, events);
-            }
-        }();
+        Result<FlashExecutionResult> outcome =
+            ExecuteWithTransportGuard(*executor_, plan_, *transport_, clock, cancellation, events);
 
         // Exactly once on every exit path past open(). Main error wins over a
         // close error; a close-only error is returned. This was step 5c's

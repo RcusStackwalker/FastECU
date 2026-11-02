@@ -9,9 +9,6 @@
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
-#include "src/backend/flash/testing/execute_with_cancellation_guard.h"
-
-#include "src/backend/flash/testing/guarded_attempt_expectations.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -104,8 +101,7 @@ class Sh72543rExecutor : public ::testing::Test
         {
             return std::unexpected(built_plan_1.error());
         }
-        return fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, std::move(*built_plan_1), transport_,
-                                                                     clock_, cancel_, events_);
+        return executor_.Execute(std::move(*built_plan_1), transport_, clock_, cancel_, events_);
     }
     void X(Bytes request, Bytes response)
     {
@@ -190,9 +186,8 @@ TEST_F(Sh72543rExecutor, CancellationStillWinsOverConcurrentReadFailure)
     transport.ExpectWrite(Req(Bytes{0xb7}));
     transport.QueueError(ErrorKind::kDisconnected, "read failed");
     transport.on_failed_read = [&] { cancel_.Cancel(); };
-    EXPECT_THAT(
-        fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, *plan, transport, clock_, cancel_, events_),
-        fastecu::testing::IsErrWith(ErrorKind::kCancelled, "flash cancelled"));
+    EXPECT_THAT(executor_.Execute(*plan, transport, clock_, cancel_, events_),
+                fastecu::testing::IsErrWith(ErrorKind::kCancelled, "flash cancelled"));
     EXPECT_TRUE(cancel_.Cancelled());
     EXPECT_EQ(transport.write_attempts, 1);
     EXPECT_EQ(transport.read_attempts, 1);
@@ -217,12 +212,6 @@ TEST_F(Sh72543rExecutor, AcceptedWriteCancellationKeepsPostWriteCheckpoint)
     EXPECT_EQ(inner->close_call_count, 1);
 }
 
-TEST_F(Sh72543rExecutor, SelectedGuardIsUsedByBoundAttempt)
-{
-    const auto plan = Plan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::flash::testing::ExpectCanGuardedAttempt<SubaruHitachiSh72543rCanExecutor>(*plan);
-}
 TEST_F(Sh72543rExecutor, SetupProjectsTheWireConfig)
 {
     auto built_plan_2 = Plan();
@@ -275,8 +264,7 @@ TEST_F(Sh72543rExecutor, FullInitializationReturnsIdentityAndRecoveryAlias)
     Stop();
     auto built_plan_3 = Plan(FlashOperation::kRead, "sub_ecu_hitachi_sh72543r_can_recovery");
     ASSERT_THAT(built_plan_3, fastecu::testing::IsOk());
-    auto result = fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, std::move(*built_plan_3), transport_,
-                                                                        clock_, cancel_, events_);
+    auto result = executor_.Execute(std::move(*built_plan_3), transport_, clock_, cancel_, events_);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->rom_id, "CAL_1122334455_");
     EXPECT_EQ(result->read_bytes, expected);
@@ -323,8 +311,7 @@ TEST_F(Sh72543rExecutor, ShortSeedStopsBeforeKey)
         t.Exchange(Req(Bytes{0x27, 1}), Reply(s));
         auto built_plan_4 = Plan();
         ASSERT_THAT(built_plan_4, fastecu::testing::IsOk());
-        EXPECT_THAT(fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, std::move(*built_plan_4), t,
-                                                                          clock_, cancel_, events_),
+        EXPECT_THAT(executor_.Execute(std::move(*built_plan_4), t, clock_, cancel_, events_),
                     fastecu::testing::IsErr(ErrorKind::kBadResponse));
         EXPECT_TRUE(t.ScriptConsumed());
         EXPECT_EQ(t.writes, 3U);
@@ -353,8 +340,7 @@ TEST_F(Sh72543rExecutor, RejectsMalformedPagesWithoutPartialSuccess)
         t.Exchange(Req(PageRequest(0)), Reply(p));
         auto built_plan_5 = Plan();
         ASSERT_THAT(built_plan_5, fastecu::testing::IsOk());
-        EXPECT_THAT(fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, std::move(*built_plan_5), t,
-                                                                          clock_, cancel_, events_),
+        EXPECT_THAT(executor_.Execute(std::move(*built_plan_5), t, clock_, cancel_, events_),
                     fastecu::testing::IsErr(ErrorKind::kBadResponse));
         EXPECT_EQ(t.writes, 5U);
         EXPECT_TRUE(t.ScriptConsumed());
@@ -461,9 +447,7 @@ TEST_F(Sh72543rExecutor, ForgedDryRunAndWireChangesAreRejectedBeforeIo)
         ASSERT_THAT(built, fastecu::testing::IsOk());
         auto error = mutation ? ErrorKind::kInvalidConfig : ErrorKind::kUnsupported;
         EXPECT_THAT(executor_.TransportSetup(*built), fastecu::testing::IsErr(error));
-        EXPECT_THAT(fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, *built, transport_, clock_,
-                                                                          cancel_, events_),
-                    fastecu::testing::IsErr(error));
+        EXPECT_THAT(executor_.Execute(*built, transport_, clock_, cancel_, events_), fastecu::testing::IsErr(error));
         EXPECT_EQ(transport_.writes, 0U);
     }
 }
@@ -521,8 +505,7 @@ class Sh72543rWrite : public Sh72543rExecutor
         {
             return std::unexpected(p.error());
         }
-        return fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, *p, transport_, clock_, cancel_,
-                                                                     events_);
+        return executor_.Execute(*p, transport_, clock_, cancel_, events_);
     }
     void ScriptSetup()
     {
@@ -827,8 +810,7 @@ class Sh72543rCancelSweep : public Sh72543rWrite, public ::testing::WithParamInt
                 }
                 return seen >= static_cast<std::size_t>(GetParam());
             });
-        EXPECT_THAT(fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, *plan, transport_, clock_,
-                                                                          cancellation, events_),
+        EXPECT_THAT(executor_.Execute(*plan, transport_, clock_, cancellation, events_),
                     fastecu::testing::IsErr(ErrorKind::kCancelled));
         EXPECT_EQ(writes_at_cancel, std::optional<std::size_t>{transport_.writes});
     }
@@ -923,8 +905,7 @@ TEST_P(Sh72543rReadPrefixFault, PropagatesTheTransportError)
         (on_write ? transport.fail_write : transport.fail_read) = static_cast<std::size_t>(GetParam());
         auto plan = Plan();
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        const auto result = fastecu::flash::testing::ExecuteWithCancellationGuard(executor_, *plan, transport, clock_,
-                                                                                  cancel_, events_);
+        const auto result = executor_.Execute(*plan, transport, clock_, cancel_, events_);
         EXPECT_THAT(result,
                     fastecu::testing::IsErrWith(ErrorKind::kDisconnected,
                                                 Eq(on_write ? "injected write failure" : "injected read failure")));
