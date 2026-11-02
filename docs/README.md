@@ -52,6 +52,20 @@ costs, preservation evidence and delivery CI; the
 the implemented boundaries and prerequisites for expansion. Separate compression
 assessment and a recorded Colt bench run remain outstanding.
 
+[ADR 0025's durable completion contract](adr/0025-enforce-cancellation-in-a-guarded-transport.md#durable-completion-contract)
+owns the proposed CAN cancellation end state and completion gates; the
+[flash contract](reference/flash-contracts.md#proposed-durable-can-cancellation-ownership)
+distinguishes that proposal from the implemented pilot.
+
+The active [normalized-logging design](superpowers/specs/2026-11-01-can-cancellation-normalized-logging-design.md)
+and [implementation plan](superpowers/plans/2026-11-01-can-cancellation-normalized-logging.md)
+define typed quiet refusal, retained may-have-started warnings, all 33 redundant
+poll removals and a seven-layer atomic stack within the ADR's hard growth caps.
+The older [cleanup plan](superpowers/plans/2026-10-31-can-cancellation-stack-cleanup.md)
+stopped at its size gate; its
+[superseded design](superpowers/specs/2026-10-31-can-cancellation-stack-cleanup-design.md)
+remains historical evidence rather than the active completion contract.
+
 Task-specific specs and plans exist only while their work is proposed or unfinished.
 The [Sonar aspect qualification record](reference/sonar-aspect-qualification.md)
 holds the evidence behind the Bazel-aspect scanner inputs;
