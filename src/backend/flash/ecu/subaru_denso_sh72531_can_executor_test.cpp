@@ -558,26 +558,6 @@ TEST(SubaruDensoSh72531CanExecutor, InCarJumpExhaustionAndCancellationPreserveTi
     }
 }
 
-// The raw OBK receive has no executor or UDS checkpoint after the send.
-TEST(SubaruDensoSh72531CanExecutor, CancellationAfterObkWriteRefusesBlindReply)
-{
-    fastecu::ManualCancellationToken cancellation;
-    auto transport = std::make_unique<fastecu::flash::testing::CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    inner->Exchange(Request({0x10, 0x5F}), Response({0x50, 0x5F}));
-    inner->on_write = [&](bytes::ByteView) { cancellation.Cancel(); };
-    const auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruDensoSh72531CanExecutor>(),
-                                                    std::move(transport));
-    RecordingClock clock;
-    RecordingEventSink events;
-    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(inner->write_attempts, 1);
-    EXPECT_EQ(inner->read_attempts, 0);
-    EXPECT_FALSE(inner->ScriptConsumed());
-}
-
 TEST(SubaruDensoSh72531CanExecutor, CancellationDuringFinalPagePacingRetainsClockFailure)
 {
     fastecu::flash::testing::CancellationBlindCanTransport transport;

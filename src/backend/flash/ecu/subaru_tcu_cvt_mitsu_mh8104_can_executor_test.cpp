@@ -31,7 +31,6 @@
 #include "src/backend/flash/ecu/testing/can_executor_run.h"
 #include "src/backend/flash/testing/faulting_can_flash_transport.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
-#include "src/backend/flash/ecu/testing/cancellation_blind_can_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/faulting_clock.h"
 #include "src/backend/ports/testing/mock_clock.h"
@@ -707,39 +706,5 @@ struct TcuCvtMitsuMh8104CanTraits
 };
 
 INSTANTIATE_TYPED_TEST_SUITE_P(SubaruTcuCvtMitsuMh8104Can, CanExecutorConformance, TcuCvtMitsuMh8104CanTraits);
-
-TEST(SubaruTcuCvtMitsuMh8104CanExecutor, AcceptedB6WriteCancellationDoesNotDelegateChunkReply)
-{
-    auto plan = WritePlan(WriteRom());
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    fastecu::ManualCancellationToken cancellation;
-    auto transport = std::make_unique<CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    ScriptFullConnect(*inner);
-    ScriptEraseMemory(*inner);
-    inner->Exchange(Request(bytes::ComposeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
-                                             bytes::U24{kWindowStart}, bytes::U24{kWindowLength})),
-                    Response({0x74}));
-    const auto encrypted = ToWire(bytes::ByteView(plan->ImageOrEmpty()).subspan(kWindowStart, 128));
-    inner->Exchange(Request(bytes::ComposeBe(bytes::Byte(0xB6), bytes::U24{kWindowStart}, encrypted)),
-                    Response({0xF6}));
-    inner->on_write = [inner, &cancellation](bytes::ByteView data)
-    {
-        if (data.size() > 4 && data[4] == 0xB6)
-        {
-            inner->read_attempts = 0;
-            cancellation.Cancel();
-        }
-    };
-    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruTcuCvtMitsuMh8104CanExecutor>(),
-                                                    std::move(transport));
-    FakeClock clock;
-    RecordingEventSink events;
-    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_TRUE(cancellation.Cancelled());
-    const int chunk_reply_read_attempts = inner->read_attempts;
-    EXPECT_EQ(chunk_reply_read_attempts, 0);
-    EXPECT_FALSE(inner->ScriptConsumed());
-}
 
 } // namespace

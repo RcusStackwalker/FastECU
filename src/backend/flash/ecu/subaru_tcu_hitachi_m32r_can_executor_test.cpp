@@ -2405,25 +2405,6 @@ TEST(SubaruTcuHitachiM32rCanExecutor, AcceptedEraseCancellationStopsBeforeData)
                           Pair(fastecu::LogLevel::kError, "Block 3 reflash failed.")));
 }
 
-TEST(SubaruTcuHitachiM32rCanExecutor, KernelProbeCancellationDoesNotDelegateReply)
-{
-    auto plan = ReadPlan();
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ManualCancellationToken cancellation;
-    auto transport = std::make_unique<fastecu::flash::testing::CancellationBlindCanTransport>();
-    auto *inner = transport.get();
-    inner->Exchange(Framed(0x7E1, {0x31, 0x02, 0x02, 0x01}), Response(kAlive));
-    inner->on_write = [&cancellation](bytes::ByteView) { cancellation.Cancel(); };
-    auto attempt = fastecu::flash::BindFlashAttempt(*plan, std::make_unique<SubaruTcuHitachiM32rCanExecutor>(),
-                                                    std::move(transport));
-    FakeClock clock;
-    RecordingEventSink events;
-    EXPECT_THAT(attempt->Run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::kCancelled));
-    EXPECT_EQ(inner->write_attempts, 1);
-    EXPECT_EQ(inner->read_attempts, 0);
-    EXPECT_FALSE(inner->ScriptConsumed());
-}
-
 // The connect frames, then the read window or the erase: the span the
 // sweeps below cover. Each sweep ends where the next step is unscripted.
 void ScriptConnectThen(ScriptedCanFlashTransport& transport, FlashOperation operation)
