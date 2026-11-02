@@ -51,8 +51,7 @@ Status GuardedMixedCanFlashTransport::WriteIso15765(bytes::ByteView data, const 
 {
     if (cancellation.Cancelled())
     {
-        return std::unexpected(Error{ErrorKind::kCancelled, "mixed CAN ISO-15765 write cancelled before delegation",
-                                     CancellationIoExposure::kRefusedBeforeDelegation});
+        return std::unexpected(CancelledBeforeDelegation("mixed CAN ISO-15765 write cancelled before delegation"));
     }
     return inner_.WriteIso15765(data, cancellation);
 }
@@ -62,8 +61,7 @@ Result<std::optional<bytes::Bytes>> GuardedMixedCanFlashTransport::ReadIso15765(
 {
     if (cancellation.Cancelled())
     {
-        return std::unexpected(Error{ErrorKind::kCancelled, "mixed CAN ISO-15765 read cancelled before delegation",
-                                     CancellationIoExposure::kRefusedBeforeDelegation});
+        return std::unexpected(CancelledBeforeDelegation("mixed CAN ISO-15765 read cancelled before delegation"));
     }
     return inner_.ReadIso15765(timeout, cancellation);
 }
@@ -72,8 +70,7 @@ Status GuardedMixedCanFlashTransport::WriteRaw(const cdbg::CanFrame& frame, cons
 {
     if (cancellation.Cancelled())
     {
-        return std::unexpected(Error{ErrorKind::kCancelled, "mixed CAN raw write cancelled before delegation",
-                                     CancellationIoExposure::kRefusedBeforeDelegation});
+        return std::unexpected(CancelledBeforeDelegation("mixed CAN raw write cancelled before delegation"));
     }
     return inner_.WriteRaw(frame, cancellation);
 }
@@ -83,8 +80,7 @@ Result<std::optional<cdbg::CanFrame>> GuardedMixedCanFlashTransport::ReadRaw(std
 {
     if (cancellation.Cancelled())
     {
-        return std::unexpected(Error{ErrorKind::kCancelled, "mixed CAN raw read cancelled before delegation",
-                                     CancellationIoExposure::kRefusedBeforeDelegation});
+        return std::unexpected(CancelledBeforeDelegation("mixed CAN raw read cancelled before delegation"));
     }
     return inner_.ReadRaw(timeout, cancellation);
 }
