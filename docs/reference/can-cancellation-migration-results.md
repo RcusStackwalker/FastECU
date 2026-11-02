@@ -1,7 +1,7 @@
 # CAN cancellation migration results
 
 Status (2026-11-01): CAN and mixed-CAN software ownership is implemented at
-`6e5deff2e3a81b40966867e81e88f6fd70b92e74`. Interface-selected guarding replaces
+`e9798090bcdf9d0751b9eae55962ae6c9acc27b3`. Interface-selected guarding replaces
 executor opt-ins; generic test ownership, typed exposure/reporting and all 33
 audited redundant pre-I/O poll removals are complete. The
 [flash contract](flash-contracts.md#can-cancellation-ownership) owns runtime
@@ -115,13 +115,13 @@ from other trunk revisions are not subtracted from this baseline.
 | Current-master trunk `44c33ab52b0efc1827f01c333c998e1bae58c67d` | 66,211 | 88,889 | 155,100 |
 | Conservative reconstructed rollout `b952b92b` | 66,368 | 90,529 | 156,897 |
 | Interface binding + shared-test compression `97ad050a` | 66,332 | 89,780 | 156,112 |
-| Typed exposure/reporting `063922f8` | 66,348 | 89,966 | 156,314 |
-| Final poll ownership `6e5deff2` | **66,215** | **89,960** | **156,175** |
-| Final minus current-master trunk | **+4** | **+1,071** | **+1,075** |
+| Typed exposure/reporting `6967fa36` | 66,347 | 89,966 | 156,313 |
+| Final poll ownership `e9798090` | **66,214** | **89,960** | **156,174** |
+| Final minus current-master trunk | **+3** | **+1,071** | **+1,074** |
 
-Production equals its approved 66,215 hard maximum (`+4`); tests remain 30
+Production is one NLOC below its approved 66,215 hard maximum (`+4`); tests remain 30
 NLOC below their 89,990 maximum (`+1,101`). Total maximum is 156,205; actual
-156,175 leaves 30 total NLOC of slack, all in tests. This work did not achieve
+156,174 leaves 31 total NLOC of slack. This work did not achieve
 net-negative test NLOC; the approved bounded-growth budget replaced that goal.
 Compression and poll deletion reduce the transitional rollout, while the final
 stack still grows against trunk. The independently green exposure layer also
@@ -138,8 +138,8 @@ The previous pinned baseline `e62684af` (66,405 / 88,783) and repaired final
 
 The refreshed local stack is linear: decision `c01938a0`, reconstructed #908
 `b952b92b`, binding `58afcaf1`, shared-test compression `97ad050a`, exposure
-`063922f8`, poll ownership `6e5deff2`, then closeout. Closeout retained its four
-patch-equivalent commits through `bd73afe5`; the separate documentation refresh
+`6967fa36`, poll ownership `e9798090`, then closeout. Closeout retained its eight
+patch-equivalent commits through `3e15bbff`; the separate documentation refresh
 containing this record is its new head on
 `docs/can-cancellation-migration-closeout`. The full final head is available from
 that commit in Git history without a self-referential SHA in its own contents.
@@ -147,6 +147,13 @@ The local metadata base is `stack/can-cancellation-current-trunk`, exactly the
 measured master SHA above; this synthetic name is not a remote PR base.
 
 ## Software evidence and delivery limits
+
+Linux LLVM 23.1.4 clang-tidy reported one uninitialized assignment in the MH8104
+Receive `transform_error` path at exposure `063922f8` (run 41442210965, job
+125266750336). The repair uses an explicit checked Result and preserves the
+Send and Receive exposure boundaries. A retry exit and kernel-alive prefix check
+were simplified equivalently to remain within the production budget. The Linux
+CI rerun remains outstanding; local verification does not establish its result.
 
 The reconstructed rollout preserves its predecessor protocol tests. Binding
 selection and shared-owner compression then remove redundant generic evidence;
